@@ -1,0 +1,41 @@
+import { describe, expect, it } from 'vitest';
+import { renderEmail } from '../render';
+import { parseQuery } from '../search';
+import { dueReminders } from '../reminders';
+
+const base = { allowRemote: false, blockTrackers: true, dark: false, inlineImages: {}, font: 'Rubik' };
+
+describe('render', () => {
+  it('removes scripts and holds back remote images', () => {
+    const r = renderEmail('<p>Hi</p><script>alert(1)</script><img src="https://x.com/a.png" width="300">', undefined, base);
+    expect(r.html).not.toContain('<script');
+    expect(r.html).not.toMatch(/\ssrc="https:\/\/x\.com\/a\.png"/);
+    expect(r.remoteBlocked).toBe(1);
+  });
+  it('blocks tracking pixels even when images are allowed', () => {
+    const r = renderEmail('<img src="https://x.com/o.gif" width="1" height="1"><img src="https://x.com/photo.jpg">', undefined, { ...base, allowRemote: true });
+    expect(r.trackersBlocked).toBe(1);
+    expect(r.html).toContain('photo.jpg');
+  });
+  it('flags links that pretend to go somewhere else', () => {
+    const r = renderEmail('<a href="https://evil.example/login">https://www.paypal.com</a>', undefined, base);
+    expect(r.html).toContain('data-wgm-mismatch="evil.example"');
+  });
+});
+
+describe('search query', () => {
+  it('understands operators', () => {
+    expect(parseQuery('from:isla has:attachment invoice')).toMatchObject({ from: 'isla', hasAttachment: true, text: 'invoice' });
+  });
+});
+
+describe('reminders', () => {
+  it('collects due items until dismissed', () => {
+    const now = Date.now();
+    const ev = { id: 'e', accountId: 'a', calendarName: 'Cal', title: 'Call', start: now - 60000, end: now + 3600000, allDay: false, reminderMinutes: [10] };
+    expect(dueReminders([ev], [], new Set(), now)).toHaveLength(1);
+    expect(dueReminders([ev], [], new Set([`ev|e|${ev.start}`]), now)).toHaveLength(0);
+    const future = { ...ev, id: 'f', start: now + 7200000 };
+    expect(dueReminders([future], [], new Set(), now)).toHaveLength(0);
+  });
+});
