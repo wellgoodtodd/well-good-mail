@@ -17,7 +17,7 @@ A calm, simple mail app for Windows: all your Gmail accounts in one combined inb
 
 ## Install
 
-1. Download the latest `Well.Good.Mail_x.y.z_x64-setup.exe` from the [Releases page](https://github.com/wellgoodtodd/wellgood-mail/releases) and run it. Windows SmartScreen may say it does not recognise the app. Choose More info, then Run anyway.
+1. Download the latest `Well.Good.Mail_x.y.z_x64-setup.exe` from the [Releases page](https://github.com/wellgoodtodd/well-good-mail/releases) and run it. Windows SmartScreen may say it does not recognise the app. Choose More info, then Run anyway.
 2. The first time it opens, a short guide walks you through making your own free Google key (about 10 minutes) and checks that it works. This is needed because Google asks every app to identify itself, and this one has no shared key. Your key is stored in Windows Credential Manager on your own computer.
 3. After that the app updates itself.
 
