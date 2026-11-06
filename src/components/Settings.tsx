@@ -5,7 +5,7 @@ import { Icon } from './Icon';
 import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
-import { PALETTES } from '../lib/palettes';
+import { PALETTES, paletteById } from '../lib/palettes';
 import { useMail, openScreen, refreshAccountPhotos, applyPalette, addGoogleAccount, addMicrosoftAccount, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
 import { useSettings, type Settings as S } from '../lib/settings';
 import { allAliases } from '../lib/compose';
@@ -330,6 +330,31 @@ function GroupsTab() {
 
 // ---------- appearance ----------
 
+/** Shows how the account colours look in the sidebar and as the stripe on emails. Uses your own accounts when you have them. */
+function AccountPreview() {
+  const accounts = useMail((st) => st.accounts);
+  const stripe = useSettings((st) => st.showAccountStripe);
+  const palette = useSettings((st) => st.palette);
+  const real = [...accounts].sort((a, b) => a.order - b.order).slice(0, 5).map((a) => ({ name: a.label, colour: a.colour }));
+  const fake = ['Work', 'Personal', 'Studio', 'Club', 'Old mail'].map((name, i) => ({ name, colour: paletteById(palette).colours[i % 8] }));
+  const rows = real.length ? real : fake;
+  const mails = [['Isla Grant', 'Brand film: rough cut thoughts'], ['Ledger and Co', 'Q3 VAT return ready to review'], ['Frame.io', '3 new comments on Anthem_v4']];
+  return (
+    <div className="acct-preview" aria-label="Preview of your account colours">
+      <div className="ap-side">
+        {rows.map((r) => <div className="ap-row" key={r.name}><i style={{ background: r.colour }} /><span>{r.name}</span></div>)}
+      </div>
+      <div className="ap-list">
+        {mails.map(([from, subject], i) => (
+          <div className="ap-msg" key={from} style={{ borderLeftColor: stripe ? rows[i % rows.length].colour : 'transparent' }}>
+            <b>{from}</b><span>{subject}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AppearanceTab() {
   const s = useSettings();
   const accounts = useMail((st) => st.accounts);
@@ -364,6 +389,7 @@ function AppearanceTab() {
       <section className="set-section">
         <h2>Account colours</h2>
         <p className="hint">Each account's colour shows in the sidebar and as a thin stripe on its emails in combined inboxes. Pick a palette to colour them all at once, or click any account's dot to choose one colour.</p>
+        <AccountPreview />
         <div className="palette-list">
           {PALETTES.map((p) => (
             <button key={p.id} className={`palette-row ${palette === p.id ? 'on' : ''}`} onClick={() => applyPalette(p.id)}>
@@ -375,6 +401,7 @@ function AppearanceTab() {
         <Check checked={stripe} onChange={(v) => useSettings.getState().set({ showAccountStripe: v })}>Show the account colour stripe on each email</Check>
       </section>
       <section className="set-section">
+        <h2>Display</h2>
         <Row label="Theme">
           <Radio name="theme" value={s.theme} onChange={(v) => s.set({ theme: v })} options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'Follow Windows' }]} />
         </Row>
@@ -841,7 +868,7 @@ function DiagnosticsTab() {
         <Row label="Emails stored"><span>{Object.keys(messages).length.toLocaleString('en-GB')}</span></Row>
       </section>
       {rows.map((r) => (
-        <section className="set-section" key={r.a.id}>
+        <section className="set-section diag-section" key={r.a.id}>
           <h2>{r.a.label} <span className="hint" style={{ fontWeight: 400 }}>{r.a.email}</span></h2>
           <Row label="Status"><span>{r.a.status === 'needs-signin' ? <span className="status-bad">Needs signing in again</span> : r.a.status === 'error' ? <span className="status-bad">{r.a.error || 'Problem syncing'}</span> : r.a.status === 'syncing' ? `Syncing${r.a.syncDone ? `: ${r.a.syncDone.toLocaleString('en-GB')} emails so far` : '...'}` : <span className="status-ok">Connected</span>}</span></Row>
           <Row label="Emails stored"><span>{r.n.toLocaleString('en-GB')}</span></Row>

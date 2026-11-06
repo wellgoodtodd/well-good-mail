@@ -346,7 +346,7 @@ a { color: var(--accent); }
 .set-section h2 { margin: 0 0 4px; font-size: 1.05em; }
 .set-section .hint { color: var(--text-muted); font-size: 0.92em; margin: 0 0 12px; }
 .set-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; flex-wrap: wrap; }
-.set-row > label:first-child, .set-row > .label { width: 200px; flex: none; color: var(--text-muted); }
+.set-row > label:first-child, .set-row > .label { width: 200px; flex: none; color: var(--text); }
 .set-row select, .set-row input[type=text], .set-row input[type=email], .set-row input[type=time], .set-row input[type=number] {
   height: 30px; border: 1px solid var(--border); border-radius: 7px; padding: 0 8px; background: var(--bg-input); min-width: 160px;
 }
@@ -571,3 +571,17 @@ button.badge:hover { color: var(--text); border-color: var(--text-muted); }
 .set-card .tx strong { font-weight: 600; }
 .set-card .tx span { color: var(--text-muted); font-size: 0.92em; line-height: 1.5; }
 .set-card .btn { flex: none; }
+
+/* Account colours preview and compact diagnostics */
+.acct-preview { display: grid; grid-template-columns: 170px 1fr; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 8px 0 14px; background: var(--bg-list); }
+.ap-side { background: var(--bg-sidebar); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.ap-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; font-size: 0.92em; }
+.ap-row i { width: 8px; height: 8px; border-radius: 50%; flex: none; display: block; }
+.ap-list { padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ap-msg { border-left: 3px solid transparent; padding: 5px 8px; display: flex; flex-direction: column; font-size: 0.92em; min-width: 0; }
+.ap-msg b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-msg span { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.set-section.diag-section { padding: 10px 16px; margin-bottom: 10px; }
+.diag-section h2 { margin: 0 0 2px; }
+.diag-section .set-row { padding: 2px 0; }
+@media (max-width: 700px) { .acct-preview { grid-template-columns: 1fr; } }
