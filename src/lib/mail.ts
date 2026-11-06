@@ -11,7 +11,7 @@ import { signInWithGoogle, signOutGoogle } from './auth/google';
 import { signInWithMicrosoft, signOutMicrosoft } from './auth/microsoft';
 import { indexMessages, rebuildIndex, removeFromIndex, searchMessages, toGmailQuery } from './search';
 import { inSystemFolder, threadKey } from './mailbox';
-import { notify, setUnreadCount, openExternal, httpFetch, isPopout, openPopout } from './platform';
+import { notify, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout } from './platform';
 import { myAddresses } from './compose';
 import { bytesToBase64 } from './mime';
 import { paletteById } from './palettes';
@@ -224,7 +224,9 @@ export async function initMail(opts: { popout?: boolean } = {}) {
 
   if (opts.popout) return;
 
-  if (!accounts.length && settings().demoMode) await startDemo();
+  // The browser preview can open straight into demo mode with ?demo=1 (used for the README screenshots).
+  const demoLink = !isTauri() && typeof location !== 'undefined' && new URLSearchParams(location.search).get('demo') === '1';
+  if (!accounts.length && (settings().demoMode || demoLink)) await startDemo();
 
   window.addEventListener('online', () => { set({ online: true }); refreshAll(); });
   window.addEventListener('offline', () => set({ online: false }));

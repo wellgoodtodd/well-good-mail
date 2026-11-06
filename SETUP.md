@@ -18,7 +18,7 @@ npm run typecheck
 npm run tauri dev  # the desktop app
 ```
 
-The browser preview only works in demo mode. Real accounts need the desktop app.
+The browser preview only works in demo mode. Real accounts need the desktop app. Add `?demo=1` to the address (http://localhost:1420/?demo=1) to open straight into the demo mailbox.
 
 ## Google sign in
 

@@ -4,6 +4,16 @@ A calm, simple mail app for Windows: all your Gmail accounts in one combined inb
 
 **Status: alpha.** It is a personal project that works for its maker and is shared in case it is useful to someone else. It comes as it is, with no support promised. Please keep your own backups of anything important.
 
+## Screenshots
+
+These use the built in demo mailbox, so there is no real mail in them.
+
+![The inbox in dark mode, with a message open](docs/images/inbox-dark.png)
+
+![The inbox in light mode](docs/images/inbox-light.png)
+
+![The first-run guide that helps you make your own Google key](docs/images/setup-guide.png)
+
 ## What it does
 
 - Combined inboxes, custom groups and your own sidebar folders
