@@ -11,6 +11,7 @@ import { SetupGuide, useGuide, openGuide } from './components/SetupGuide';
 import { SettingsScreen } from './components/Settings';
 import { Splitter } from './components/ui';
 import { useSettings } from './lib/settings';
+import { skinById, SKIN_VARS } from './lib/skins';
 import {
   useMail, initMail, refreshAll, runSearch, dismissToast, archive, trash, toggleFlag, markRead, selectedMessageIds, selectThread, startDemo,
   markSpam, snooze, markViewRead, openScreen,
@@ -50,6 +51,8 @@ function useTheme() {
   const scale = useSettings((s) => s.textScale);
   const font = useSettings((s) => s.interfaceFont);
   const unreadColour = useSettings((s) => s.unreadColour);
+  const darkSkin = useSettings((s) => s.darkSkin);
+  const lightSkin = useSettings((s) => s.lightSkin);
   const [systemDark, setSystemDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
     const mq = matchMedia('(prefers-color-scheme: dark)');
@@ -59,13 +62,20 @@ function useTheme() {
   }, []);
   useEffect(() => {
     const root = document.documentElement;
-    root.dataset.theme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme;
+    const mode = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme;
+    root.dataset.theme = mode;
+    // The colour theme for this mode: clear the last one's overrides, then apply the new one.
+    const skin = skinById(mode === 'dark' ? darkSkin : lightSkin);
+    root.dataset.skin = skin.id;
+    SKIN_VARS.forEach((v) => root.style.removeProperty(v));
+    Object.entries(skin.vars).forEach(([k, v]) => root.style.setProperty(k, v));
+    root.style.setProperty('--on-accent', skin.onAccent);
     root.style.setProperty('--accent', accent);
     root.style.setProperty('--scale', String(scale));
     root.style.setProperty('--ui-font', `'${font}'`);
     if (unreadColour) root.style.setProperty('--unread', unreadColour);
     else root.style.removeProperty('--unread');
-  }, [theme, accent, scale, font, systemDark, unreadColour]);
+  }, [theme, accent, scale, font, systemDark, unreadColour, darkSkin, lightSkin]);
 }
 
 function Toasts() {

@@ -10,6 +10,7 @@ import { useMail, refreshAccountPhotos, applyPalette, addGoogleAccount, addMicro
 import { useSettings, type Settings as S } from '../lib/settings';
 import { allAliases } from '../lib/compose';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
+import { SKINS, type Skin } from '../lib/skins';
 import { openGuide } from './SetupGuide';
 import { microsoftConfigured } from '../lib/auth/microsoft';
 import { exportCache, importCache } from '../lib/cacheTransfer';
@@ -339,9 +340,32 @@ function GroupsTab() {
 
 function AppearanceTab() {
   const s = useSettings();
+  const systemDark = typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches;
+  const mode = s.theme === 'system' ? (systemDark ? 'dark' : 'light') : s.theme;
+  const activeId = mode === 'dark' ? s.darkSkin : s.lightSkin;
+  const choose = (k: Skin) => {
+    s.set({ ...(k.mode === 'dark' ? { darkSkin: k.id } : { lightSkin: k.id }), ...(s.theme !== 'system' ? { theme: k.mode } : {}), accent: k.accent });
+    applyPalette(s.colourBlindAccounts ? 'accessible' : `skin-${k.id}`);
+  };
   return (
     <>
       <h1>Appearance</h1>
+      <section className="set-section">
+        <h2>Colour theme</h2>
+        <p className="hint">Each theme changes the whole look and brings its own account colours. Pick one, then change any colour you like.</p>
+        <div className="skin-grid">
+          {SKINS.map((k) => (
+            <button key={k.id} className={`skin-tile ${k.id === activeId ? 'on' : ''}`} aria-pressed={k.id === activeId} onClick={() => choose(k)}>
+              <span className="skin-sw" style={{ background: k.vars['--bg'] || (k.mode === 'dark' ? '#1c1c1e' : '#ffffff') }}>
+                {k.colours.slice(0, 5).map((c) => <i key={c} style={{ background: c }} />)}
+              </span>
+              <b>{k.name}</b>
+              <small>{k.blurb}</small>
+            </button>
+          ))}
+        </div>
+        <Check checked={s.colourBlindAccounts} onChange={(v) => { s.set({ colourBlindAccounts: v }); applyPalette(v ? 'accessible' : `skin-${activeId}`); }}>Colour blind friendly account colours (works with any theme)</Check>
+      </section>
       <section className="set-section">
         <Row label="Theme">
           <Radio name="theme" value={s.theme} onChange={(v) => s.set({ theme: v })} options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'Follow Windows' }]} />

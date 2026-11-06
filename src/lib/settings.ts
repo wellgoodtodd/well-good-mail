@@ -32,6 +32,11 @@ export interface Settings {
   customFolders: { id: string; name: string; items: string[] }[];
   /** The Google project has been published, so Google no longer signs you out every 7 days. Hides the reminder card. */
   googlePublished: boolean;
+  /** Colour themes (see skins.ts): one for dark mode and one for light mode. */
+  darkSkin: string;
+  lightSkin: string;
+  /** Use the colour blind friendly account colours, whatever the theme. */
+  colourBlindAccounts: boolean;
 
   interfaceFont: string;
   writingFont: string;
@@ -124,6 +129,9 @@ export const defaultSettings: Settings = {
   sidebarNames: {},
   customFolders: [MORE_FOLDER],
   googlePublished: false,
+  darkSkin: 'graphite',
+  lightSkin: 'paper',
+  colourBlindAccounts: false,
   toolbarOrder: ['archive', 'bin', 'junk', 'read', 'flag', 'snooze', 'popout', 'more'],
 
   interfaceFont: 'Inter',

@@ -1,5 +1,7 @@
 // Account colour palettes: each set reads well in light and dark, and its
 // colours differ enough in lightness and hue to tell accounts apart.
+import { SKINS } from './skins';
+
 export interface Palette {
   id: string;
   name: string;
@@ -17,4 +19,8 @@ export const PALETTES: Palette[] = [
   { id: 'earth', name: 'Earth', colours: ['#8C6A4F', '#C9A227', '#6A8E4E', '#A0522D', '#5F7A8A', '#B3876B', '#7D6B91', '#9C9A5E'] },
 ];
 
-export const paletteById = (id: string) => PALETTES.find((p) => p.id === id) || PALETTES[0];
+// Each colour theme also has its own account colours, found as skin-<id> (not listed with the others).
+export const paletteById = (id: string): Palette => {
+  const skin = id.startsWith('skin-') ? SKINS.find((k) => `skin-${k.id}` === id) : undefined;
+  return skin ? { id, name: skin.name, colours: skin.colours } : PALETTES.find((p) => p.id === id) || PALETTES[0];
+};

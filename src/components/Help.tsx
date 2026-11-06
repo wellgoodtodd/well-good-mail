@@ -30,7 +30,7 @@ const TOPICS: { title: string; items: { q: string; a: string }[] }[] = [
   {
     title: 'Make it yours',
     items: [
-      { q: 'Light and dark', a: 'The sun and moon button at the top switches between them. Settings, then Appearance, has fonts, density, colours and the layout of the panes.' },
+      { q: 'Light and dark', a: 'The sun and moon button at the top switches between them. Settings, then Appearance, has eight colour themes (Graphite, Chocolate, Teal and more), each with its own account colours, plus fonts, density and the layout of the panes.' },
       { q: 'Account colours', a: 'Click an account\'s dot in the sidebar to choose its colour, or pick a whole palette in Settings, then Accounts.' },
       { q: 'Keyboard shortcuts', a: 'Settings, then Keyboard shortcuts, lists them all and lets you change any of them.' },
     ],
