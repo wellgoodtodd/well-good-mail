@@ -5,10 +5,11 @@ import { create } from 'zustand';
 import { Icon } from './Icon';
 import { openExternal } from '../lib/platform';
 import { saveGoogleKeys } from '../lib/auth/google';
-import { addGoogleAccountStrict, reconnectAccount, useMail } from '../lib/mail';
+import { saveMicrosoftKey } from '../lib/auth/microsoft';
+import { addGoogleAccountStrict, addMicrosoftAccountStrict, reconnectAccount, useMail } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 
-type Mode = 'setup' | 'publish';
+type Mode = 'setup' | 'publish' | 'microsoft';
 export const useGuide = create<{ mode: Mode | null }>(() => ({ mode: null }));
 export const openGuide = (mode: Mode = 'setup') => useGuide.setState({ mode });
 export const closeGuide = () => useGuide.setState({ mode: null });
@@ -51,7 +52,7 @@ const SETUP_STEPS = ['Welcome', 'Project', 'Services', 'Sign-in screen', 'Your k
 
 export function SetupGuide() {
   const mode = useGuide((s) => s.mode) || 'setup';
-  return mode === 'publish' ? <PublishGuide /> : <FirstRun />;
+  return mode === 'publish' ? <PublishGuide /> : mode === 'microsoft' ? <MicrosoftGuide /> : <FirstRun />;
 }
 
 function Frame({ step, total, children, onBack, onNext, nextLabel, hideNext, onClose }: {
@@ -350,6 +351,83 @@ function PublishGuide() {
         <h2>All done</h2>
         <p className="glead">Your project is published and your branding is verified. Sign in to each account once more when the app asks, and Google should stop signing you out every week.</p>
         <button className="btn primary" onClick={closeGuide}>Back to the app</button>
+      </div>
+    </Frame>
+  );
+}
+
+
+const AZURE = 'https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade';
+
+function MicrosoftGuide() {
+  const [step, setStep] = useState(0);
+  const [id, setId] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [email, setEmail] = useState('');
+  const total = 4;
+
+  const test = async () => {
+    setError('');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim())) return setError('That does not look like an application ID. It is made of letters and numbers in groups, like 12345678-abcd-1234-abcd-1234567890ab.');
+    setBusy(true);
+    try {
+      await saveMicrosoftKey(id);
+      setEmail(await addMicrosoftAccountStrict());
+      setStep(3);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (step === 0) return (
+    <Frame step={0} total={total} onNext={() => setStep(1)} nextLabel="Start" onClose={closeGuide}>
+      <p className="gstep">About 10 minutes</p>
+      <h2>Connect a Microsoft 365 or Outlook account</h2>
+      <p className="glead">Like Google, Microsoft wants you to register the app once, for free, so it knows what is asking for your mail. You then paste one ID into Well Good Mail.</p>
+      <div className="gsafe"><Icon name="alert" size={16} /><span>Microsoft 365 support is new and has only had light testing. If something goes wrong, the message shown is worth keeping. A work or school account may also need your administrator to allow the app.</span></div>
+    </Frame>
+  );
+  if (step === 1) return (
+    <Frame step={1} total={total} onBack={() => setStep(0)} onNext={() => setStep(2)}>
+      <p className="gstep">Step 1 of 2</p>
+      <h2>Register the app</h2>
+      <Link url={AZURE}>Open Microsoft Entra, App registrations</Link>
+      <ol className="gol">
+        <li>Sign in with your Microsoft account. If it asks you to set up Azure first, follow the free sign up. No card should be needed for this.</li>
+        <li>Click New registration.</li>
+        <li>Name: the one below.</li>
+        <li>Supported account types: choose "Accounts in any organizational directory and personal Microsoft accounts".</li>
+        <li>Redirect URI: choose "Public client/native (mobile and desktop)" and type http://localhost</li>
+        <li>Click Register. On the page that opens, copy the Application (client) ID.</li>
+      </ol>
+      <Copy label="Name" value="Well Good Mail" />
+      <Copy label="Redirect address" value="http://localhost" />
+    </Frame>
+  );
+  if (step === 2) return (
+    <Frame step={2} total={total} onBack={() => setStep(1)} hideNext>
+      <p className="gstep">Step 2 of 2</p>
+      <h2>Paste the ID and test it</h2>
+      <label className="glabel" htmlFor="m-id">Application (client) ID</label>
+      <input id="m-id" className="gin" value={id} placeholder="12345678-abcd-1234-abcd-1234567890ab" onChange={(e) => { setId(e.target.value); setError(''); }} />
+      {error && <p className="gerr" role="alert">{error}</p>}
+      <div style={{ marginTop: 12 }}>
+        <button className="btn primary" onClick={test} disabled={busy}>{busy ? 'Waiting for Microsoft...' : 'Test sign-in'}</button>
+        {busy && <span className="glead" style={{ marginLeft: 10 }}>Finish signing in in your browser.</span>}
+      </div>
+      <p className="ghint">Your browser opens Microsoft and asks you to allow access. Click Accept.</p>
+    </Frame>
+  );
+  return (
+    <Frame step={3} total={total} hideNext>
+      <div style={{ textAlign: 'center', padding: '14px 0 4px' }}>
+        <div className="gtick"><Icon name="check" size={26} /></div>
+        <h2>Well done, it works</h2>
+        <p className="glead">Microsoft accepted the ID and {email || 'your account'} is connected. Your mail is downloading now.</p>
+        <button className="btn primary" onClick={closeGuide}>Open my mail</button>
       </div>
     </Frame>
   );

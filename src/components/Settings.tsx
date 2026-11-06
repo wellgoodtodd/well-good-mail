@@ -12,7 +12,7 @@ import { allAliases } from '../lib/compose';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
 import { SKINS, type Skin } from '../lib/skins';
 import { openGuide } from './SetupGuide';
-import { microsoftConfigured } from '../lib/auth/microsoft';
+import { useMicrosoftConfigured } from '../lib/auth/microsoft';
 import { exportCache, importCache } from '../lib/cacheTransfer';
 import { paceInfo } from '../lib/providers/gmail';
 import { enableSettingsSync } from '../lib/settingsSync';
@@ -41,6 +41,7 @@ const TABS = [
 const TAB_ALIAS: Record<string, string> = { reminders: 'notifications', templates: 'writing', people: 'privacy' };
 
 export function SettingsScreen() {
+  const version = useUpdates((u) => u.currentVersion);
   const rawTab = useMail((s) => s.settingsTab);
   const tab = TAB_ALIAS[rawTab] || rawTab;
   const alerts = useSettingsAlerts();
@@ -83,6 +84,7 @@ export function SettingsScreen() {
             <span className="name" style={id === 'updates' ? { textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 600 } : undefined}>{label}</span>{alerts.tabs[id] ? <span className="attn-dot" title={alerts.tabs[id]} aria-label={alerts.tabs[id]} /> : null}
           </button>
         ))}
+        <div className="settings-version">Version {version || '...'}</div>
       </nav>
       <div className="settings-body">
         {tab === 'accounts' && <AccountsTab />}
@@ -134,6 +136,7 @@ function AccountsTab() {
   const demo = useSettings((s) => s.demoMode);
   const s = useSettings();
   const googleOn = useGoogleConfigured();
+  const msOn = useMicrosoftConfigured();
   const keys = useGoogleKeys();
   const [confirm, setConfirm] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
@@ -188,7 +191,7 @@ function AccountsTab() {
         ))}
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button className="btn primary" onClick={() => (googleOn ? addGoogleAccount() : openGuide('setup'))} disabled={!isTauri() && !googleOn}><Icon name="plus" /> {googleOn ? 'Add Google account' : 'Set up Gmail'}</button>
-          <button className="btn" onClick={addMicrosoftAccount} disabled={!isTauri() || !microsoftConfigured()} title={microsoftConfigured() ? '' : 'Needs a Microsoft app registration first (see setup guide)'}><Icon name="plus" /> Add Microsoft 365 account</button>
+          <button className="btn" onClick={() => (msOn ? addMicrosoftAccount() : openGuide('microsoft'))} disabled={!isTauri()}><Icon name="plus" /> {msOn ? 'Add Microsoft 365 account' : 'Set up Microsoft 365'}</button>
         </div>
         {!isTauri() && <p className="hint" style={{ marginTop: 10 }}>Signing in to real accounts works in the desktop app. This browser preview runs in demo mode.</p>}
         {isTauri() && !googleOn && <p className="hint" style={{ marginTop: 10 }}>Gmail isn't set up yet. The setup guide takes about 10 minutes.</p>}
@@ -874,7 +877,7 @@ function DiagnosticsTab() {
           <Row label="Emails stored"><span>{r.n.toLocaleString('en-GB')}</span></Row>
           <Row label="Last checked"><span>{r.last}</span></Row>
           <Row label="Request spacing"><span>{r.pace ? `${r.pace.gapMs} ms${r.pace.gapMs > 200 ? ' (slowed down)' : ''}` : 'not used yet'}{r.waitS ? `. Paused by Google for ${r.waitS} s` : ''}</span></Row>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
             <button className="btn" onClick={() => syncAccount(r.a.id)}>Check this account now</button>
             {wantsSignIn(r.a) && <button className="btn primary" onClick={() => reconnectAccount(r.a.id)}>Sign in again</button>}
           </div>

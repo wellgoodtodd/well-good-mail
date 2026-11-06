@@ -315,6 +315,13 @@ export async function addGoogleAccountStrict(): Promise<string> {
   return email;
 }
 
+/** Like addMicrosoftAccount, but throws on failure so the setup guide can show what went wrong. Returns the email. */
+export async function addMicrosoftAccountStrict(): Promise<string> {
+  const { email, name } = await signInWithMicrosoft();
+  await addAccount('microsoft', email, name);
+  return email;
+}
+
 export async function addMicrosoftAccount() {
   try {
     const { email, name } = await signInWithMicrosoft();

@@ -28,6 +28,7 @@ import { restoreOpenDrafts } from './lib/openDrafts';
 import { CommandPalette } from './components/CommandPalette';
 import { isPopout, isTauri, onTauriEvent, rememberPopoutSize, setAutostart, setCloseQuits } from './lib/platform';
 import { loadGoogleKeys, useGoogleConfigured } from './lib/auth/google';
+import { loadMicrosoftKeys } from './lib/auth/microsoft';
 import { startUpdateChecks, useUpdates, restartToUpdate } from './lib/updater';
 import './lib/sender';
 import { DialogHost } from './components/DialogHost';
@@ -272,6 +273,7 @@ function MainWindow() {
       if (ev.data?.type === 'toast' && typeof ev.data.text === 'string') toast({ text: ev.data.text });
     };
     loadGoogleKeys();
+    loadMicrosoftKeys();
     setAutostart(useSettings.getState().startWithWindows).catch(() => {});
     setCloseQuits(useSettings.getState().closeQuits);
     startSettingsSync();

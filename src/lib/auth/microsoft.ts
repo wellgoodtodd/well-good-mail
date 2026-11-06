@@ -1,12 +1,28 @@
 // Microsoft 365 / Outlook.com sign in (public client, PKCE, loopback).
 // Built ahead of time; not yet tested against a real account.
+import { create } from 'zustand';
 import { httpFetch, invoke, isTauri, onTauriEvent, openExternal, secrets } from '../platform';
 import { AuthError } from './google';
 
 export const MS_SCOPES = ['offline_access', 'openid', 'email', 'profile', 'User.Read', 'Mail.ReadWrite', 'Mail.Send', 'Calendars.Read', 'Contacts.Read', 'MailboxSettings.Read'];
 const AUTHORITY = 'https://login.microsoftonline.com/common/oauth2/v2.0';
-const clientId = () => import.meta.env.VITE_MICROSOFT_CLIENT_ID as string | undefined;
+/** The app registration (client) ID. People enter their own in the Microsoft setup guide; it is kept in Windows Credential Manager. */
+export const useMicrosoftKeys = create<{ id?: string }>(() => ({ id: import.meta.env.VITE_MICROSOFT_CLIENT_ID as string | undefined }));
+const clientId = () => useMicrosoftKeys.getState().id;
 export const microsoftConfigured = () => Boolean(clientId());
+export const useMicrosoftConfigured = () => useMicrosoftKeys((s) => Boolean(s.id));
+
+export async function loadMicrosoftKeys(): Promise<void> {
+  try {
+    const id = await secrets.get('microsoft-client-id');
+    if (id) useMicrosoftKeys.setState({ id });
+  } catch { /* nothing saved */ }
+}
+
+export async function saveMicrosoftKey(id: string): Promise<void> {
+  await secrets.set('microsoft-client-id', id.trim());
+  useMicrosoftKeys.setState({ id: id.trim() });
+}
 
 const cache = new Map<string, { token: string; exp: number }>();
 const key = (email: string) => `microsoft:${email.toLowerCase()}`;
@@ -24,7 +40,7 @@ async function challenge(v: string) {
 export async function signInWithMicrosoft(): Promise<{ email: string; name: string }> {
   if (!isTauri()) throw new Error('Microsoft sign in works in the desktop app.');
   const id = clientId();
-  if (!id) throw new Error('Microsoft client ID missing (VITE_MICROSOFT_CLIENT_ID). See the setup guide.');
+  if (!id) throw new Error('Microsoft sign in has not been set up yet. Open the Microsoft setup guide first.');
   const port = await invoke<number>('start_oauth_listener');
   const redirect = `http://localhost:${port}`;
   const verifier = rand();

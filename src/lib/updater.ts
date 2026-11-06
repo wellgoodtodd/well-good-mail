@@ -85,6 +85,8 @@ export async function restartToUpdate() {
 }
 
 export function startUpdateChecks() {
+  // Show the version straight away (Settings displays it), without waiting for the first update check.
+  if (isTauri()) import('@tauri-apps/api/app').then(({ getVersion }) => getVersion()).then((v) => useUpdates.setState({ currentVersion: v })).catch(() => {});
   setTimeout(() => checkForUpdates({ atStart: true }), 8000);
   // A tiny look at the update file every 30 minutes, and when you come back to the window after a while away.
   let last = Date.now();
