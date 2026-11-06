@@ -137,8 +137,6 @@ function AccountsTab() {
   const keys = useGoogleKeys();
   const [confirm, setConfirm] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
-  const palette = useSettings((st) => st.palette);
-  const stripe = useSettings((st) => st.showAccountStripe);
   const sorted = [...accounts].sort((a, b) => a.order - b.order);
   // If an account says Syncing but nothing is really syncing, check it again every few seconds until it settles.
   useEffect(() => {
@@ -160,7 +158,7 @@ function AccountsTab() {
       <h1>Accounts</h1>
       <section className="set-section">
         <h2>Your accounts</h2>
-        <p className="hint">All of these feed into All Inboxes. Rename them, pick a colour, and change the order they appear in.</p>
+        <p className="hint">All of these feed into All Inboxes. Rename them, pick a colour by clicking the dot, and change the order they appear in. Colour palettes are in Settings, then Appearance.</p>
         {sorted.map((a, i) => (
           <div className="acct-row" key={a.id}>
             <button className="icon-btn" aria-label={`Colour for ${a.email}`} title="Change colour" onClick={(e) => setPicker({ accountId: a.id, anchor: { x: e.clientX, y: e.clientY + 12 } })}><span className="dot" style={{ background: a.colour, width: 16, height: 16 }} /></button>
@@ -209,19 +207,6 @@ function AccountsTab() {
           </div>
         </section>
       )}
-      <section className="set-section">
-        <h2>Account colours</h2>
-        <p className="hint">Each account's colour shows in the sidebar and as a thin stripe on its emails in combined inboxes. Pick a palette to colour them all at once, or click any account's dot to choose one colour.</p>
-        <div className="palette-list">
-          {PALETTES.map((p) => (
-            <button key={p.id} className={`palette-row ${palette === p.id ? 'on' : ''}`} onClick={() => applyPalette(p.id)}>
-              <span className="chips-preview">{p.colours.slice(0, Math.max(5, accounts.length)).map((c) => <span key={c} style={{ background: c }} />)}</span>
-              <span>{p.name}</span>
-            </button>
-          ))}
-        </div>
-        <Check checked={stripe} onChange={(v) => useSettings.getState().set({ showAccountStripe: v })}>Show the account colour stripe on each email</Check>
-      </section>
       <section className="set-section">
         <h2>Demo mode</h2>
         <p className="hint">Pretend accounts and emails for trying things out. Nothing is sent anywhere.</p>
@@ -341,6 +326,9 @@ function GroupsTab() {
 
 function AppearanceTab() {
   const s = useSettings();
+  const accounts = useMail((st) => st.accounts);
+  const palette = useSettings((st) => st.palette);
+  const stripe = useSettings((st) => st.showAccountStripe);
   const systemDark = typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches;
   const mode = s.theme === 'system' ? (systemDark ? 'dark' : 'light') : s.theme;
   const activeId = mode === 'dark' ? s.darkSkin : s.lightSkin;
@@ -366,6 +354,19 @@ function AppearanceTab() {
           ))}
         </div>
         <Check checked={s.colourBlindAccounts} onChange={(v) => { s.set({ colourBlindAccounts: v }); applyPalette(v ? 'accessible' : `skin-${activeId}`); }}>Colour blind friendly account colours (works with any theme)</Check>
+      </section>
+      <section className="set-section">
+        <h2>Account colours</h2>
+        <p className="hint">Each account's colour shows in the sidebar and as a thin stripe on its emails in combined inboxes. Pick a palette to colour them all at once, or click any account's dot to choose one colour.</p>
+        <div className="palette-list">
+          {PALETTES.map((p) => (
+            <button key={p.id} className={`palette-row ${palette === p.id ? 'on' : ''}`} onClick={() => applyPalette(p.id)}>
+              <span className="chips-preview">{p.colours.slice(0, Math.min(8, Math.max(5, accounts.length))).map((c) => <span key={c} style={{ background: c }} />)}</span>
+              <span>{p.name}</span>
+            </button>
+          ))}
+        </div>
+        <Check checked={stripe} onChange={(v) => useSettings.getState().set({ showAccountStripe: v })}>Show the account colour stripe on each email</Check>
       </section>
       <section className="set-section">
         <Row label="Theme">
@@ -527,7 +528,7 @@ function RemindersTab() {
         {(s.reminderMode === 'daily' || s.reminderMode === 'important') && (
           <Row label="Summary time" htmlFor="sumtime"><input id="sumtime" type="time" value={s.summaryTime} onChange={(e) => s.set({ summaryTime: e.target.value })} /></Row>
         )}
-        <Check checked={s.flashTaskbar} onChange={(v) => s.set({ flashTaskbar: v })}>Flash the taskbar icon for reminders</Check>
+        <Check checked={s.flashTaskbar} onChange={(v) => s.set({ flashTaskbar: v })}>Flash the taskbar icon for reminders and new mail when the app is in the background</Check>
         <p className="hint">Windows notifications from Well Good Mail never cover your work and never need dismissing one by one.</p>
       </section>
     </>

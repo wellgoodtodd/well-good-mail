@@ -175,6 +175,15 @@ export async function openPopout(route: string, title: string, given?: { width: 
   }
 }
 
+/** Makes the taskbar icon flash until the window is brought to the front. */
+export async function flashTaskbar(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const { getCurrentWindow, UserAttentionType } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().requestUserAttention(UserAttentionType.Informational);
+  } catch { /* not allowed or not supported */ }
+}
+
 export async function closeThisWindow(): Promise<void> {
   if (isTauri()) {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');

@@ -1,13 +1,7 @@
 // Calendar reminders that collect quietly in a list until you clear them,
 // with alerts only as often as you choose.
 import { store } from './db';
-import { notify, isTauri } from './platform';
-
-async function flashTaskbar() {
-  if (!isTauri()) return;
-  const { getCurrentWindow, UserAttentionType } = await import('@tauri-apps/api/window');
-  await getCurrentWindow().requestUserAttention(UserAttentionType.Informational).catch(() => {});
-}
+import { notify, flashTaskbar } from './platform';
 import { isQuietNow, settings } from './settings';
 import type { CalendarEvent, FollowUp, ReminderItem } from './types';
 

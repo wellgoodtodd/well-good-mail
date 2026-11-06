@@ -12,10 +12,10 @@ import { signInWithMicrosoft, signOutMicrosoft } from './auth/microsoft';
 import { indexMessages, rebuildIndex, removeFromIndex, searchMessages, toGmailQuery } from './search';
 import { inSystemFolder, threadKey } from './mailbox';
 import { showBanner } from './banners';
-import { notify, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout } from './platform';
+import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout } from './platform';
 import { myAddresses } from './compose';
 import { bytesToBase64 } from './mime';
-import { paletteById } from './palettes';
+import { paletteById, colourFor } from './palettes';
 import type { Account, Address, CalendarEvent, Draft, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
 
 const providers = new Map<string, MailProvider>();
@@ -262,7 +262,7 @@ const paletteColours = () => paletteById(settings().palette).colours;
 export function applyPalette(id: string) {
   useSettings.getState().set({ palette: id });
   const colours = paletteById(id).colours;
-  [...get().accounts].sort((a, b) => a.order - b.order).forEach((a, i) => updateAccount(a.id, { colour: colours[i % colours.length] }));
+  [...get().accounts].sort((a, b) => a.order - b.order).forEach((a, i) => updateAccount(a.id, { colour: colourFor(colours, i) }));
 }
 
 async function addAccount(kind: Account['kind'], email: string, displayName: string, extra: Partial<Account> = {}) {
@@ -280,7 +280,7 @@ async function addAccount(kind: Account['kind'], email: string, displayName: str
     email,
     label: email.split('@')[0],
     displayName,
-    colour: paletteColours()[order % paletteColours().length],
+    colour: colourFor(paletteColours(), order),
     aliases: [],
     order,
     status: 'syncing',
@@ -505,6 +505,7 @@ function notifyNewMail(msgs: Message[]) {
     else candidates.forEach((m) => showBanner({ title: m.from.name || m.from.email, body: m.subject, run: () => open(m) }));
     return;
   }
+  if (s.flashTaskbar) flashTaskbar();
   if (candidates.length > 3) {
     notify('Well Good Mail', `${candidates.length} new emails`);
   } else {
