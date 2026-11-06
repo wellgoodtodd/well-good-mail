@@ -516,8 +516,8 @@ button.badge:hover { color: var(--text); border-color: var(--text-muted); }
 .gcopy { display: flex; align-items: center; gap: 8px; background: var(--bg-subtle); border-radius: 8px; padding: 6px 6px 6px 12px; margin: 6px 0; }
 .gcopy span { flex: 1; min-width: 0; }
 .gcopy small { display: block; color: var(--text-muted); font-size: 0.82em; }
-.grow { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
-.grow span { flex: 1; }
+.gline { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.gline span { flex: 1; }
 .gshot { display: block; width: 100%; margin: 10px 0 0; border-radius: 8px; border: 1px solid var(--border); }
 .gsafe { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; padding: 9px 11px; border-radius: 8px; background: var(--bg-subtle); font-size: 0.9em; line-height: 1.5; color: var(--text-muted); }
 .glabel { display: block; margin: 10px 0 3px; font-size: 0.86em; color: var(--text-muted); }

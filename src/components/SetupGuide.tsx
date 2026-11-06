@@ -136,7 +136,7 @@ function FirstRun() {
       <h2>Turn on four services</h2>
       <p className="glead">Each button opens that service's page. Click the blue Enable button, come back, and tick it off. If the page already says Manage and "API Enabled", it's on already, so just tick it.</p>
       {SERVICES.map(([name, url], i) => (
-        <div className="grow" key={name}>
+        <div className="gline" key={name}>
           <input type="checkbox" checked={ticks[i]} onChange={(e) => setTicks(ticks.map((t, j) => (j === i ? e.target.checked : t)))} aria-label={`${name} done`} />
           <span>{name}</span>
           <Link url={url}>Open</Link>
@@ -220,7 +220,7 @@ function FirstRun() {
         <div className="gsafe" style={{ display: 'block' }}>
           <p style={{ margin: '0 0 8px' }}>You changed your Google key, so your other accounts need signing in again. You can do it now, or later from Settings.</p>
           {accounts.filter((a) => a.email !== email && a.kind === 'gmail').map((a) => (
-            <div className="grow" key={a.id}>
+            <div className="gline" key={a.id}>
               <span>{a.email}</span>
               <button className="btn" onClick={() => reconnectAccount(a.id)}>Sign in</button>
             </div>
