@@ -9,7 +9,7 @@ export function addAccountItems(): MenuItem[] {
   return [
     { heading: 'Add an account' },
     { label: 'Google (Gmail)', icon: 'mail', onClick: () => (googleConfigured() ? addGoogleAccount() : openGuide('setup')) },
-    { label: 'Microsoft 365 or Outlook', icon: 'mail', onClick: () => (microsoftConfigured() ? addMicrosoftAccount() : openGuide('microsoft')) },
+    { label: 'Microsoft 365 or Outlook (early)', icon: 'mail', onClick: () => (microsoftConfigured() ? addMicrosoftAccount() : openGuide('microsoft')) },
     { label: 'Other email (IMAP), coming later', icon: 'mail', disabled: true },
   ];
 }

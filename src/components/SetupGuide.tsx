@@ -60,8 +60,8 @@ function Frame({ step, total, children, onBack, onNext, nextLabel, hideNext, onC
 }) {
   return (
     <div className="guide" role="region" aria-label="Setup guide">
+      <button className="btn guide-x" title="Close this guide" aria-label="Close this guide" onClick={closeGuide}><Icon name="close" size={14} /> Close</button>
       <div className="guide-card">
-        <button className="icon-btn guide-x" title="Close this guide" aria-label="Close this guide" onClick={closeGuide}><Icon name="close" size={16} /></button>
         <div className="guide-dots" aria-hidden>{Array.from({ length: total }, (_, i) => <b key={i} className={i < step ? 'done' : i === step ? 'on' : ''} />)}</div>
         {children}
         <div className="guide-foot">
