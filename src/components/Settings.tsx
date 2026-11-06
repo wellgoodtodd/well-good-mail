@@ -122,6 +122,11 @@ function Check({ checked, onChange, children }: { checked: boolean; onChange: (v
 
 // ---------- accounts ----------
 
+/** True when signing in again is the likely fix: a sign in problem, including a sign in saved under a different Google key. */
+function wantsSignIn(a: { status: string; error?: string }): boolean {
+  return a.status === 'needs-signin' || (a.status === 'error' && /sign in|unauthori[sz]ed|invalid_grant|invalid_client/i.test(a.error || ''));
+}
+
 function AccountsTab() {
   const accounts = useMail((s) => s.accounts);
   const demo = useSettings((s) => s.demoMode);
@@ -162,7 +167,7 @@ function AccountsTab() {
             </div>
             <button className="icon-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(a.id, -1)}><Icon name="chevronDown" className="rot180" /></button>
             <button className="icon-btn" aria-label="Move down" disabled={i === sorted.length - 1} onClick={() => move(a.id, 1)}><Icon name="chevronDown" /></button>
-            {a.status === 'needs-signin' && <button className="btn primary" onClick={() => reconnectAccount(a.id)}>Sign in</button>}
+            {wantsSignIn(a) && <button className="btn primary" onClick={() => reconnectAccount(a.id)}>Sign in</button>}
             <button className="btn ghost" onClick={() => syncAccount(a.id, { full: true })}>Resync</button>
             <button className="btn ghost danger" onClick={() => setConfirm(a.id)}>Remove</button>
           </div>
@@ -784,7 +789,10 @@ function DiagnosticsTab() {
           <Row label="Emails stored"><span>{r.n.toLocaleString('en-GB')}</span></Row>
           <Row label="Last checked"><span>{r.last}</span></Row>
           <Row label="Request spacing"><span>{r.pace ? `${r.pace.gapMs} ms${r.pace.gapMs > 200 ? ' (slowed down)' : ''}` : 'not used yet'}{r.waitS ? `. Paused by Google for ${r.waitS} s` : ''}</span></Row>
-          <div><button className="btn" onClick={() => syncAccount(r.a.id)}>Check this account now</button></div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn" onClick={() => syncAccount(r.a.id)}>Check this account now</button>
+            {wantsSignIn(r.a) && <button className="btn primary" onClick={() => reconnectAccount(r.a.id)}>Sign in again</button>}
+          </div>
         </section>
       ))}
       <section className="set-section">
