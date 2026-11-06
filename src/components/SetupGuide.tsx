@@ -385,9 +385,9 @@ function MicrosoftGuide() {
   if (step === 0) return (
     <Frame step={0} total={total} onNext={() => setStep(1)} nextLabel="Start" onClose={closeGuide}>
       <p className="gstep">About 10 minutes</p>
-      <h2>Connect a Microsoft 365 or Outlook account</h2>
-      <p className="glead">Like Google, Microsoft wants you to register the app once, for free, so it knows what is asking for your mail. You then paste one ID into Well Good Mail.</p>
-      <div className="gsafe"><Icon name="alert" size={16} /><span>Microsoft 365 support is new and has only had light testing. If something goes wrong, the message shown is worth keeping. A work or school account may also need your administrator to allow the app.</span></div>
+      <h2>Use your own Microsoft app ID</h2>
+      <p className="glead">Well Good Mail already has a shared app ID for Microsoft, so a personal Outlook, Hotmail or Live account can sign in without any of this. You only need your own if a work or school account is blocked because your administrator has to approve apps, and you can register one that your organisation controls.</p>
+      <div className="gsafe"><Icon name="alert" size={16} /><span>Microsoft 365 support is new and has only had light testing. If something goes wrong, the message shown is worth keeping.</span></div>
     </Frame>
   );
   if (step === 1) return (

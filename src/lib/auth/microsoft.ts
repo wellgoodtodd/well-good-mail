@@ -6,8 +6,15 @@ import { AuthError } from './google';
 
 export const MS_SCOPES = ['offline_access', 'openid', 'email', 'profile', 'User.Read', 'Mail.ReadWrite', 'Mail.Send', 'Calendars.Read', 'Contacts.Read', 'MailboxSettings.Read'];
 const AUTHORITY = 'https://login.microsoftonline.com/common/oauth2/v2.0';
-/** The app registration (client) ID. People enter their own in the Microsoft setup guide; it is kept in Windows Credential Manager. */
-export const useMicrosoftKeys = create<{ id?: string }>(() => ({ id: import.meta.env.VITE_MICROSOFT_CLIENT_ID as string | undefined }));
+/**
+ * The shared "Well Good Mail" app registration. A client ID is public by design (it only says which app is asking),
+ * so it is safe to ship. Personal Outlook, Hotmail and Live accounts can sign in with it straight away.
+ * Work and school accounts may need their administrator to allow it, and can use their own ID instead.
+ */
+export const MICROSOFT_DEFAULT_ID = '054e814c-eff5-49be-b81f-3b221c1b8fa4';
+
+/** The ID in use: one entered in the Microsoft setup guide (kept in Windows Credential Manager), or the shared one. */
+export const useMicrosoftKeys = create<{ id?: string; own: boolean }>(() => ({ id: (import.meta.env.VITE_MICROSOFT_CLIENT_ID as string | undefined) || MICROSOFT_DEFAULT_ID, own: false }));
 const clientId = () => useMicrosoftKeys.getState().id;
 export const microsoftConfigured = () => Boolean(clientId());
 export const useMicrosoftConfigured = () => useMicrosoftKeys((s) => Boolean(s.id));
@@ -15,13 +22,13 @@ export const useMicrosoftConfigured = () => useMicrosoftKeys((s) => Boolean(s.id
 export async function loadMicrosoftKeys(): Promise<void> {
   try {
     const id = await secrets.get('microsoft-client-id');
-    if (id) useMicrosoftKeys.setState({ id });
+    if (id) useMicrosoftKeys.setState({ id, own: true });
   } catch { /* nothing saved */ }
 }
 
 export async function saveMicrosoftKey(id: string): Promise<void> {
   await secrets.set('microsoft-client-id', id.trim());
-  useMicrosoftKeys.setState({ id: id.trim() });
+  useMicrosoftKeys.setState({ id: id.trim(), own: true });
 }
 
 const cache = new Map<string, { token: string; exp: number }>();

@@ -194,6 +194,12 @@ function AccountsTab() {
         </div>
         {!isTauri() && <p className="hint" style={{ marginTop: 10 }}>Signing in to real accounts works in the desktop app. This browser preview runs in demo mode.</p>}
         {isTauri() && !googleOn && <p className="hint" style={{ marginTop: 10 }}>Gmail isn't set up yet. The setup guide takes about 10 minutes.</p>}
+        {isTauri() && (
+          <div className="set-card">
+            <div className="tx"><strong>Microsoft app ID</strong><span>Microsoft accounts sign in through a shared app that comes with Well Good Mail. Only change it if your organisation blocks it and you have registered your own.</span></div>
+            <button className="btn" onClick={() => openGuide('microsoft')}>Use my own ID...</button>
+          </div>
+        )}
         {isTauri() && googleOn && (
           <div className="set-card">
             <div className="tx"><strong>Google key</strong><span>Only needed if you have changed your Google Cloud project, or want to run the setup guide again. A new key means signing in to each account again.</span></div>
