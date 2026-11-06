@@ -223,11 +223,11 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
         </div>
         <div className="quick" onClick={(e) => e.stopPropagation()}>
           <div className="qb">
-          <button className="icon-btn" title="Archive" aria-label="Archive" onClick={() => archive(idsForKeys([key]))}><Icon name="archive" /></button>
-          <button className="icon-btn" title={item.flagged ? 'Remove flag' : 'Flag'} aria-label="Flag" onClick={() => toggleFlag(idsForKeys([key]))}><Icon name="flag" /></button>
-          <button className="icon-btn" title="Snooze" aria-label="Snooze" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), snoozeOptions().map((o) => ({ label: o.label, icon: 'clock', onClick: () => snooze(idsForKeys([key]), o.at) })), 'right')}><Icon name="clock" /></button>
-          <button className="icon-btn" title={item.unread ? 'Mark as read' : 'Mark as unread'} aria-label="Toggle read" onClick={() => markRead(idsForKeys([key]), item.unread)}><Icon name={item.unread ? 'mailOpen' : 'mail'} /></button>
-          <button className="icon-btn" title="Move to Bin" aria-label="Move to Bin" onClick={() => trash(idsForKeys([key]))}><Icon name="trash" /></button>
+          <button className="icon-btn" title="Archive" aria-label="Archive" onClick={() => archive(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="archive" /></button>
+          <button className="icon-btn" title={item.flagged ? 'Remove flag' : 'Flag'} aria-label="Flag" onClick={() => toggleFlag(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="flag" /></button>
+          <button className="icon-btn" title="Snooze" aria-label="Snooze" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), snoozeOptions().map((o) => ({ label: o.label, icon: 'clock', onClick: () => snooze(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]), o.at) })), 'right')}><Icon name="clock" /></button>
+          <button className="icon-btn" title={item.unread ? 'Mark as read' : 'Mark as unread'} aria-label="Toggle read" onClick={() => markRead(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]), item.unread)}><Icon name={item.unread ? 'mailOpen' : 'mail'} /></button>
+          <button className="icon-btn" title="Move to Bin" aria-label="Move to Bin" onClick={() => trash(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="trash" /></button>
           </div>
           <button
             className="qh"
