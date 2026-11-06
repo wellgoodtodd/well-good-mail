@@ -6,7 +6,7 @@ import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
 import { PALETTES } from '../lib/palettes';
-import { useMail, refreshAccountPhotos, applyPalette, addGoogleAccount, addMicrosoftAccount, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
+import { useMail, openScreen, refreshAccountPhotos, applyPalette, addGoogleAccount, addMicrosoftAccount, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
 import { useSettings, type Settings as S } from '../lib/settings';
 import { allAliases } from '../lib/compose';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
@@ -156,6 +156,13 @@ function AccountsTab() {
   return (
     <>
       <h1>Accounts</h1>
+      {!accounts.some((a) => a.kind !== 'demo') && (
+        <section className="set-section">
+          <h2>Demo mode</h2>
+          <p className="hint">Pretend accounts and emails for trying things out. Nothing is sent anywhere. This goes away once you connect a real account.</p>
+          {demo ? <button className="btn" onClick={leaveDemo}>Leave demo mode and clear demo data</button> : <button className="btn" onClick={() => startDemo()}>Try demo mode</button>}
+        </section>
+      )}
       <section className="set-section">
         <h2>Your accounts</h2>
         <p className="hint">All of these feed into All Inboxes. Rename them, pick a colour by clicking the dot, and change the order they appear in. Colour palettes are in Settings, then Appearance.</p>
@@ -186,12 +193,16 @@ function AccountsTab() {
         {!isTauri() && <p className="hint" style={{ marginTop: 10 }}>Signing in to real accounts works in the desktop app. This browser preview runs in demo mode.</p>}
         {isTauri() && !googleOn && <p className="hint" style={{ marginTop: 10 }}>Gmail isn't set up yet. The setup guide takes about 10 minutes.</p>}
         {isTauri() && googleOn && (
-          <div style={{ marginTop: 14 }}>
-            <button className="btn" onClick={() => openGuide('setup')}>Set up with a different Google key...</button>
-            <p className="hint" style={{ margin: '6px 0 0' }}>Only needed if you have changed your Google Cloud project, or want to run the setup guide again. A new key means signing in to each account again.</p>
+          <div className="set-card">
+            <div className="tx"><strong>Google key</strong><span>Only needed if you have changed your Google Cloud project, or want to run the setup guide again. A new key means signing in to each account again.</span></div>
+            <button className="btn" onClick={() => openGuide('setup')}>Set up with a different key...</button>
           </div>
         )}
       </section>
+      <div className="set-card" style={{ marginTop: 0, marginBottom: 18, maxWidth: 760 }}>
+        <div className="tx"><strong>Colours and appearance</strong><span>Pick a colour theme, the account colour palettes, fonts and layout.</span></div>
+        <button className="btn" onClick={() => openScreen('settings', 'appearance')}>Open Appearance</button>
+      </div>
       {isTauri() && googleOn && keys.own && !s.googlePublished && (
         <section className="set-section">
           <div className="weekly-card">
@@ -207,11 +218,6 @@ function AccountsTab() {
           </div>
         </section>
       )}
-      <section className="set-section">
-        <h2>Demo mode</h2>
-        <p className="hint">Pretend accounts and emails for trying things out. Nothing is sent anywhere.</p>
-        {demo ? <button className="btn" onClick={leaveDemo}>Leave demo mode and clear demo data</button> : <button className="btn" onClick={() => startDemo()} disabled={accounts.some((a) => a.kind !== 'demo')}>Try demo mode</button>}
-      </section>
       {picker && <ColourPicker anchor={picker.anchor} value={accounts.find((x) => x.id === picker.accountId)?.colour || '#888888'} onPick={(c) => updateAccount(picker.accountId, { colour: c })} onClose={() => setPicker(null)} />}
       {confirm && (
         <Dialog title="Remove account?" onClose={() => setConfirm(null)} actions={<>
