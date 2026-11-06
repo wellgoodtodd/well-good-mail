@@ -226,7 +226,7 @@ export const useSettings = create<SettingsStore>()(
         set({ favourites: list, hiddenItems: get().hiddenItems.filter((r) => r !== ref) });
       },
       unpin: (ref) => set({ favourites: get().favourites.filter((r) => r !== ref) }),
-      hide: (ref) => set({ hiddenItems: [...new Set([...get().hiddenItems, ref])], favourites: get().favourites.filter((r) => r !== ref) }),
+      hide: (ref) => set({ hiddenItems: [...new Set([...get().hiddenItems, ref])], favourites: get().favourites.filter((r) => r !== ref), customFolders: get().customFolders.map((f) => ({ ...f, items: f.items.filter((r) => r !== ref) })) }),
       unhide: (ref) => set({ hiddenItems: get().hiddenItems.filter((r) => r !== ref) }),
     }),
     {

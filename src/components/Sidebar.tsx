@@ -303,6 +303,15 @@ function Item({ d, level = 0, twisty, onTwisty, inFavourites = false, favIndex, 
     );
   }
 
+/** Puts a row in a folder, taking it out of any other folder (and out of Hidden). It lives in one place at a time. */
+function moveIntoFolder(ref: string, folderId: string) {
+  const st = useSettings.getState();
+  st.set({
+    customFolders: st.customFolders.map((f) => (f.id === folderId ? { ...f, items: f.items.includes(ref) ? f.items : [...f.items, ref] } : { ...f, items: f.items.filter((r) => r !== ref) })),
+    hiddenItems: st.hiddenItems.filter((r) => r !== ref),
+  });
+}
+
 function setFolderItems(id: string, items: string[]) {
   const st = useSettings.getState();
   st.set({ customFolders: st.customFolders.map((f) => (f.id === id ? { ...f, items } : f)) });
@@ -340,7 +349,7 @@ function CustomFolder({ folder, rows, onNew, forceOpen }: { folder: { id: string
         const ref = e.dataTransfer.getData('text/wgm-side');
         if (!ref) return;
         e.preventDefault(); e.stopPropagation();
-        if (!folder.items.includes(ref)) setFolderItems(folder.id, [...folder.items, ref]);
+        moveIntoFolder(ref, folder.id);
         toggle(true);
       }}
     >
@@ -441,7 +450,7 @@ export function Sidebar({ width }: { width: number }) {
     else items.push({ label: 'Add to Favourites', icon: 'pin', onClick: () => { s.pin(d.ref); toast({ text: `${d.context ? `${d.context}: ` : ''}${d.name} added to Favourites`, ttl: 2500 }); } });
     for (const f of s.customFolders) {
       if (f.items.includes(d.ref)) items.push({ label: `Take out of ${f.name}`, icon: 'folder', onClick: () => setFolderItems(f.id, f.items.filter((r) => r !== d.ref)) });
-      else items.push({ label: `Put in ${f.name}`, icon: 'folder', onClick: () => setFolderItems(f.id, [...f.items, d.ref]) });
+      else items.push({ label: `Move to ${f.name}`, icon: 'folder', onClick: () => moveIntoFolder(d.ref, f.id) });
     }
     const countOff = s.badgeHidden.includes(d.ref);
     items.push({ label: countOff ? 'Show unread count' : 'Hide unread count', icon: 'bell', onClick: () => s.set({ badgeHidden: countOff ? s.badgeHidden.filter((r) => r !== d.ref) : [...s.badgeHidden, d.ref] }) });
@@ -473,6 +482,9 @@ export function Sidebar({ width }: { width: number }) {
     }
   };
   const visible = (ref: string) => !hidden.has(ref);
+  // Something put in one of your folders lives there and no longer shows in its old place.
+  const inFolders = new Set(s.customFolders.flatMap((f) => f.items));
+  const onShelf = (ref: string) => !hidden.has(ref) && !inFolders.has(ref);
 
   const newFolder = async () => {
     const name = (await askText('New folder', '', 'Create'))?.trim();
@@ -523,21 +535,21 @@ export function Sidebar({ width }: { width: number }) {
       </Section>
 
       <Section id="sec:mailboxes" title="Mailboxes">
-        {visible('all|inbox') && (
+        {onShelf('all|inbox') && (
           <Item
             d={d('all|inbox')!}
             twisty={accounts.length > 1 ? (allInboxOpen ? 'open' : 'closed') : undefined}
             onTwisty={() => setCollapsed('all-inboxes', allInboxOpen)}
           />
         )}
-        {visible('all|inbox') && allInboxOpen && accounts.length > 1 && sorted.map((a) => {
+        {onShelf('all|inbox') && allInboxOpen && accounts.length > 1 && sorted.map((a) => {
           const ref = `acc|${a.id}|inbox`;
           const desc = d(ref);
           return desc && <Item key={ref} d={{ ...desc, name: a.label, dot: a.colour, icon: undefined, account: a }} level={1} accountRow="inbox" chip={width >= CHIP_BESIDE ? 'beside' : width >= CHIP_WIDTH ? 'under' : false} />;
         })}
-        {s.vips.length > 0 && visible('all|vip') && <Item d={d('all|vip')!} />}
-        {visible('all|flagged') && <Item d={d('all|flagged')!} />}
-        {snoozes.length > 0 && visible('all|snoozed') && <Item d={{ ...d('all|snoozed')!, count: snoozes.length }} />}
+        {s.vips.length > 0 && onShelf('all|vip') && <Item d={d('all|vip')!} />}
+        {onShelf('all|flagged') && <Item d={d('all|flagged')!} />}
+        {snoozes.length > 0 && onShelf('all|snoozed') && <Item d={{ ...d('all|snoozed')!, count: snoozes.length }} />}
         {s.customFolders.map((f) => {
           const rows = f.items.filter(visible).map(d).filter(Boolean) as Desc[];
           const inside = screen === 'mail' && rows.some((r) => r.view && sameView(view, r.view));
@@ -547,13 +559,13 @@ export function Sidebar({ width }: { width: number }) {
 
       {s.groups.length > 0 && (
         <Section id="sec:groups" title="Groups">
-          {s.groups.filter((g) => visible(`grp|${g.id}`)).map((g) => {
+          {s.groups.filter((g) => onShelf(`grp|${g.id}`)).map((g) => {
             const gOpen = !(collapsed[`grp:${g.id}`] ?? false);
             const head = d(`grp|${g.id}`)!;
             return (
               <div key={g.id}>
                 <Item d={{ ...head, count: gOpen ? undefined : head.count }} twisty={gOpen ? 'open' : 'closed'} onTwisty={() => setCollapsed(`grp:${g.id}`, gOpen)} />
-                {gOpen && FOLDERS.map((f) => `grp|${g.id}|${f.folder}`).filter(visible).map((ref) => <Item key={ref} d={d(ref)!} level={1} />)}
+                {gOpen && FOLDERS.map((f) => `grp|${g.id}|${f.folder}`).filter(onShelf).map((ref) => <Item key={ref} d={d(ref)!} level={1} />)}
               </div>
             );
           })}
@@ -561,7 +573,7 @@ export function Sidebar({ width }: { width: number }) {
       )}
 
       <Section id="sec:accounts" title="Accounts">
-        {sorted.filter((a) => visible(accountRef(a))).map((a) => {
+        {sorted.filter((a) => onShelf(accountRef(a))).map((a) => {
           // Accounts start collapsed; All Inboxes covers day to day.
           const aOpen = collapsed[`acc:${a.id}`] === false;
           const head = d(accountRef(a))!;
@@ -571,8 +583,8 @@ export function Sidebar({ width }: { width: number }) {
               <Item d={{ ...head, count: aOpen ? undefined : head.count }} accountRow="head" twisty={aOpen ? 'open' : 'closed'} onTwisty={() => setCollapsed(`acc:${a.id}`, aOpen)} />
               {aOpen && (
                 <>
-                  {FOLDERS.map((f) => `acc|${a.id}|${f.folder}`).filter(visible).map((ref) => <Item key={ref} d={d(ref)!} level={1} />)}
-                  {labels.map((l) => `acc|${a.id}|label|${l.id}`).filter(visible).map((ref) => {
+                  {FOLDERS.map((f) => `acc|${a.id}|${f.folder}`).filter(onShelf).map((ref) => <Item key={ref} d={d(ref)!} level={1} />)}
+                  {labels.map((l) => `acc|${a.id}|label|${l.id}`).filter(onShelf).map((ref) => {
                     const desc = d(ref);
                     const depth = labels.find((l) => ref.endsWith(`|${l.id}`))?.depth || 0;
                     return desc && <Item key={ref} d={desc} level={1 + Math.min(depth, 1)} />;
