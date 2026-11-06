@@ -173,7 +173,8 @@ export async function getGoogleAccessToken(email: string): Promise<string> {
     });
     const json = await res.json();
     if (!res.ok) {
-      if (json.error === 'invalid_grant') throw new AuthError(`Please sign in to ${email} again.`);
+      // invalid_client and unauthorized_client mean the saved sign in belongs to a different Google key than the one now in use.
+      if (['invalid_grant', 'invalid_client', 'unauthorized_client'].includes(json.error)) throw new AuthError(`Please sign in to ${email} again.`);
       throw new Error(`Couldn't refresh sign in: ${json.error_description || json.error || res.status}`);
     }
     tokenCache.set(key, { accessToken: json.access_token, expiresAt: Date.now() + (json.expires_in - 60) * 1000 });
