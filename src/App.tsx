@@ -12,6 +12,7 @@ import { SettingsScreen } from './components/Settings';
 import { Splitter } from './components/ui';
 import { useSettings } from './lib/settings';
 import { skinById, SKIN_VARS } from './lib/skins';
+import { useBanners, dismissBanner } from './lib/banners';
 import {
   useMail, initMail, refreshAll, runSearch, dismissToast, archive, trash, toggleFlag, markRead, selectedMessageIds, selectThread, startDemo,
   markSpam, snooze, markViewRead, openScreen,
@@ -76,6 +77,22 @@ function useTheme() {
     if (unreadColour) root.style.setProperty('--unread', unreadColour);
     else root.style.removeProperty('--unread');
   }, [theme, accent, scale, font, systemDark, unreadColour, darkSkin, lightSkin]);
+}
+
+function Banners() {
+  const list = useBanners((s) => s.list);
+  if (!list.length) return null;
+  return (
+    <div className="alert-banners" role="status" aria-live="polite">
+      {list.map((b) => (
+        <div className="alert-card" key={b.id}>
+          <div className="bt"><strong>{b.title}</strong><span>{b.body}</span></div>
+          {b.run && <button className="btn" onClick={() => { b.run!(); dismissBanner(b.id); }}>{b.actionLabel || 'Open'}</button>}
+          <button className="icon-btn" aria-label="Dismiss" onClick={() => dismissBanner(b.id)}><Icon name="close" size={13} /></button>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Toasts() {
@@ -359,6 +376,7 @@ function MainWindow() {
       <DialogHost />
       <CommandPalette />
       <Toasts />
+      <Banners />
     </div>
   );
 }

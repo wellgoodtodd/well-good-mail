@@ -16,6 +16,7 @@
     "core:event:default",
     "opener:default",
     "opener:allow-open-url",
+    { "identifier": "opener:allow-open-url", "allow": [{ "url": "ms-settings:*" }] },
     "notification:default",
     "autostart:allow-enable",
     "autostart:allow-disable",

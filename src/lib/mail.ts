@@ -11,6 +11,7 @@ import { signInWithGoogle, signOutGoogle } from './auth/google';
 import { signInWithMicrosoft, signOutMicrosoft } from './auth/microsoft';
 import { indexMessages, rebuildIndex, removeFromIndex, searchMessages, toGmailQuery } from './search';
 import { inSystemFolder, threadKey } from './mailbox';
+import { showBanner } from './banners';
 import { notify, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout } from './platform';
 import { myAddresses } from './compose';
 import { bytesToBase64 } from './mime';
@@ -492,6 +493,18 @@ function notifyNewMail(msgs: Message[]) {
     return true;
   });
   if (!candidates.length) return;
+  // With the app open and in front of you, a small banner inside the app is gentler than a Windows pop-up.
+  const inFront = typeof document !== 'undefined' && document.hasFocus() && !document.hidden;
+  if (inFront && s.appOpenAlerts !== 'windows') {
+    if (s.appOpenAlerts === 'off') return;
+    const open = (m?: Message) => {
+      setView({ scope: { type: 'all' }, mailbox: { kind: 'system', folder: 'inbox' } });
+      if (m) selectThread(threadKey(m));
+    };
+    if (candidates.length > 3) showBanner({ title: 'Well Good Mail', body: `${candidates.length} new emails`, run: () => open() });
+    else candidates.forEach((m) => showBanner({ title: m.from.name || m.from.email, body: m.subject, run: () => open(m) }));
+    return;
+  }
   if (candidates.length > 3) {
     notify('Well Good Mail', `${candidates.length} new emails`);
   } else {

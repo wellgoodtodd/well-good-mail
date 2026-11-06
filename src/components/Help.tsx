@@ -32,6 +32,7 @@ const TOPICS: { title: string; items: { q: string; a: string }[] }[] = [
     items: [
       { q: 'Light and dark', a: 'The sun and moon button at the top switches between them. Settings, then Appearance, has eight colour themes (Graphite, Chocolate, Teal and more), each with its own account colours, plus fonts, density and the layout of the panes.' },
       { q: 'Account colours', a: 'Click an account\'s dot in the sidebar to choose its colour, or pick a whole palette in Settings, then Accounts.' },
+      { q: 'New mail alerts', a: 'Settings, then Notifications, chooses what is announced (all new mail, only important senders, or nothing). While the app is open you get a small banner inside it, otherwise a Windows notification. The sound and Do not disturb are controlled by Windows, and there are buttons to test both kinds and to open the Windows settings.' },
       { q: 'Keyboard shortcuts', a: 'Settings, then Keyboard shortcuts, lists them all and lets you change any of them.' },
     ],
   },

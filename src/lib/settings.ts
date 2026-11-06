@@ -62,6 +62,8 @@ export interface Settings {
 
   newMailAlerts: 'all' | 'important' | 'off';
   alertSound: boolean;
+  /** What a new mail alert does while the app is open and in front of you. */
+  appOpenAlerts: 'banner' | 'windows' | 'off';
   quietHours: { enabled: boolean; from: string; to: string };
 
   imagePolicy: ImagePolicy;
@@ -156,6 +158,7 @@ export const defaultSettings: Settings = {
 
   newMailAlerts: 'important',
   alertSound: false,
+  appOpenAlerts: 'banner',
   quietHours: { enabled: false, from: '22:00', to: '07:00' },
 
   imagePolicy: 'block',

@@ -16,7 +16,8 @@ import { microsoftConfigured } from '../lib/auth/microsoft';
 import { exportCache, importCache } from '../lib/cacheTransfer';
 import { paceInfo } from '../lib/providers/gmail';
 import { enableSettingsSync } from '../lib/settingsSync';
-import { isTauri, setAutostart, setCloseQuits } from '../lib/platform';
+import { isTauri, setAutostart, setCloseQuits, notify, openExternal } from '../lib/platform';
+import { showBanner } from '../lib/banners';
 import { useSettingsAlerts } from '../lib/alerts';
 import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate } from '../lib/updater';
 import { Dialog } from './ui';
@@ -548,7 +549,21 @@ function NotificationsTab() {
           { value: 'all', label: 'All new mail' },
           { value: 'off', label: 'Off' },
         ]} />
-        <Check checked={s.alertSound} onChange={(v) => s.set({ alertSound: v })}>Play a sound (uses your Windows notification sound)</Check>
+      </section>
+      <section className="set-section">
+        <h2>How alerts appear</h2>
+        <p className="hint">While the app is open and in front of you:</p>
+        <Radio name="appopen" value={s.appOpenAlerts} onChange={(v) => s.set({ appOpenAlerts: v })} options={[
+          { value: 'banner', label: 'A small banner inside the app' },
+          { value: 'windows', label: 'A Windows notification' },
+          { value: 'off', label: 'Nothing' },
+        ]} />
+        <p className="hint" style={{ marginTop: 10 }}>When the app is minimised or in the background, new mail always uses a Windows notification. Its sound, and whether it appears at all, are set in Windows. The app plays no sounds of its own.</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+          <button className="btn" onClick={() => notify('Isla Grant', 'This is how a new email will look. You can ignore this one.')}>Test Windows notification</button>
+          <button className="btn" onClick={() => showBanner({ title: 'Isla Grant', body: 'This is how a new email will look in the app.', run: () => {} , actionLabel: 'Open' })}>Test in-app banner</button>
+          {isTauri() && <button className="btn" onClick={() => openExternal('ms-settings:notifications')}>Open Windows notification settings</button>}
+        </div>
       </section>
       <section className="set-section">
         <h2>Per account</h2>
