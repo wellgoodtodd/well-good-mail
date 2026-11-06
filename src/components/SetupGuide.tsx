@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { Icon } from './Icon';
 import { openExternal } from '../lib/platform';
 import { saveGoogleKeys } from '../lib/auth/google';
-import { addGoogleAccountStrict, useMail } from '../lib/mail';
+import { addGoogleAccountStrict, reconnectAccount, useMail } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 
 type Mode = 'setup' | 'publish';
@@ -216,6 +216,17 @@ function FirstRun() {
         <p className="glead">Google accepted your key and {email || 'your account'} is connected. Your mail is downloading now.</p>
         <button className="btn primary" onClick={closeGuide}>Open my mail</button>
       </div>
+      {accounts.filter((a) => a.email !== email && a.kind === 'gmail').length > 0 && (
+        <div className="gsafe" style={{ display: 'block' }}>
+          <p style={{ margin: '0 0 8px' }}>You changed your Google key, so your other accounts need signing in again. You can do it now, or later from Settings.</p>
+          {accounts.filter((a) => a.email !== email && a.kind === 'gmail').map((a) => (
+            <div className="grow" key={a.id}>
+              <span>{a.email}</span>
+              <button className="btn" onClick={() => reconnectAccount(a.id)}>Sign in</button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="gsafe"><Icon name="alert" size={16} /><span>Until you publish your Google project, Google will ask you to sign in again about once a week. Settings, then Accounts, has a short guide for that when you want it.</span></div>
     </Frame>
   );

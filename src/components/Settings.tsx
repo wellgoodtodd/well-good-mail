@@ -178,7 +178,7 @@ function AccountsTab() {
         </div>
         {!isTauri() && <p className="hint" style={{ marginTop: 10 }}>Signing in to real accounts works in the desktop app. This browser preview runs in demo mode.</p>}
         {isTauri() && !googleOn && <p className="hint" style={{ marginTop: 10 }}>Gmail isn't set up yet. The setup guide takes about 10 minutes.</p>}
-        {isTauri() && googleOn && <p className="hint" style={{ marginTop: 10 }}><button className="btn ghost" onClick={() => openGuide('setup')}>Set up with a different Google key...</button> Changing the key means signing in to each account again.</p>}
+        {isTauri() && googleOn && <p className="hint" style={{ marginTop: 10 }}><button className="btn ghost" onClick={() => openGuide('setup')}>Set up with a different Google key...</button> Only needed if you have changed your Google Cloud project, or want to run the setup guide again. A new key means signing in to each account again.</p>}
       </section>
       {isTauri() && googleOn && keys.own && !s.googlePublished && (
         <section className="set-section">
