@@ -1,6 +1,6 @@
 # Well Good Mail
 
-A calm, simple mail app for Windows: all your Gmail accounts in one combined inbox, in the style of Apple Mail. It runs entirely on your own computer. There is no server of its own, and nothing is sent anywhere except between your PC and Google.
+A calm, simple Gmail app for Windows, inspired by Apple Mail: all your accounts in one combined inbox, with a clean three column layout and none of the clutter. It is not a copy of Apple Mail, just the same feel, for people on Windows. It runs entirely on your own computer. There is no server of its own, and nothing is sent anywhere except between your PC and Google.
 
 **Status: alpha.** It is a personal project that works for its maker and is shared in case it is useful to someone else. It comes as it is, with no support promised. Please keep your own backups of anything important.
 
@@ -44,3 +44,7 @@ See [SETUP.md](SETUP.md).
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
+
+## Notes
+
+Apple and Apple Mail are trademarks of Apple Inc. Well Good Mail is an independent project. It is not made by, affiliated with or endorsed by Apple.
