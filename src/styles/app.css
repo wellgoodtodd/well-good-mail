@@ -436,7 +436,7 @@ textarea.plain { width: 100%; border: 1px solid var(--border); border-radius: 8p
 .palette-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: transparent; width: 100%; text-align: left; }
 .palette-row.on { border-color: var(--accent); background: var(--bg-selected); }
 .palette-row .chips-preview { display: flex; gap: 4px; }
-.palette-row .chips-preview span { width: 16px; height: 16px; border-radius: 50%; }
+.palette-row .chips-preview span { width: 16px; height: 16px; flex: none; border-radius: 50%; }
 .palette-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
 .colour-pop { position: fixed; z-index: 100; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; }
 .colour-pop .pal-name { font-size: 0.8em; color: var(--text-faint); font-weight: 600; padding: 4px 8px 0; }
