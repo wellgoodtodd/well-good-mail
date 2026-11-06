@@ -47,11 +47,7 @@ const addr = (r?: { emailAddress: { name?: string; address: string } }): Address
  * so the From line is left out and Microsoft fills in the right one.
  */
 function withoutFrom(raw: string): string {
-  return raw.replace(/^From:[^
-]*(?
-[ 	][^
-]*)*?
-/m, '');
+  return raw.replace(/^From:[^\r\n]*(\r?\n[ \t][^\r\n]*)*\r?\n/m, '');
 }
 
 export class MicrosoftProvider implements MailProvider {
