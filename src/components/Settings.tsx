@@ -6,13 +6,13 @@ import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
 import { PALETTES, paletteById } from '../lib/palettes';
-import { useMail, openScreen, refreshAccountPhotos, applyPalette, addGoogleAccount, addMicrosoftAccount, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
+import { useMail, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
 import { useSettings, type Settings as S } from '../lib/settings';
 import { allAliases } from '../lib/compose';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
 import { SKINS, type Skin } from '../lib/skins';
 import { openGuide } from './SetupGuide';
-import { useMicrosoftConfigured } from '../lib/auth/microsoft';
+import { addAccountItems } from '../lib/accountMenu';
 import { exportCache, importCache } from '../lib/cacheTransfer';
 import { paceInfo } from '../lib/providers/gmail';
 import { enableSettingsSync } from '../lib/settingsSync';
@@ -20,7 +20,7 @@ import { isTauri, setAutostart, setCloseQuits, notify, openExternal } from '../l
 import { showBanner } from '../lib/banners';
 import { useSettingsAlerts } from '../lib/alerts';
 import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate } from '../lib/updater';
-import { Dialog } from './ui';
+import { useMenu, Dialog } from './ui';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../lib/shortcuts';
 
 const TABS = [
@@ -136,7 +136,7 @@ function AccountsTab() {
   const demo = useSettings((s) => s.demoMode);
   const s = useSettings();
   const googleOn = useGoogleConfigured();
-  const msOn = useMicrosoftConfigured();
+  const addMenu = useMenu();
   const keys = useGoogleKeys();
   const [confirm, setConfirm] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
@@ -190,8 +190,7 @@ function AccountsTab() {
           </div>
         ))}
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn primary" onClick={() => (googleOn ? addGoogleAccount() : openGuide('setup'))} disabled={!isTauri() && !googleOn}><Icon name="plus" /> {googleOn ? 'Add Google account' : 'Set up Gmail'}</button>
-          <button className="btn" onClick={() => (msOn ? addMicrosoftAccount() : openGuide('microsoft'))} disabled={!isTauri()}><Icon name="plus" /> {msOn ? 'Add Microsoft 365 account' : 'Set up Microsoft 365'}</button>
+          <button className="btn primary" onClick={(e) => addMenu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), addAccountItems())}><Icon name="plus" /> Add account <Icon name="chevronDown" size={14} /></button>
         </div>
         {!isTauri() && <p className="hint" style={{ marginTop: 10 }}>Signing in to real accounts works in the desktop app. This browser preview runs in demo mode.</p>}
         {isTauri() && !googleOn && <p className="hint" style={{ marginTop: 10 }}>Gmail isn't set up yet. The setup guide takes about 10 minutes.</p>}
@@ -221,6 +220,7 @@ function AccountsTab() {
           </div>
         </section>
       )}
+      {addMenu.node}
       {picker && <ColourPicker anchor={picker.anchor} value={accounts.find((x) => x.id === picker.accountId)?.colour || '#888888'} onPick={(c) => updateAccount(picker.accountId, { colour: c })} onClose={() => setPicker(null)} />}
       {confirm && (
         <Dialog title="Remove account?" onClose={() => setConfirm(null)} actions={<>

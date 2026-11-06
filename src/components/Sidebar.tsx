@@ -10,6 +10,7 @@ import { useSettings, type Settings } from '../lib/settings';
 import { useSettingsAlerts } from '../lib/alerts';
 import { useMail, setView, openScreen, providerFor, archive, trash, markSpam, moveToInbox, moveToLabel, idsForKeys, reconnectAccount, markViewRead, toast, syncAccount, updateAccount } from '../lib/mail';
 import { ColourPicker } from './ColourPicker';
+import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
 import { inSystemFolder } from '../lib/mailbox';
 import { dueReminders } from '../lib/reminders';
@@ -581,6 +582,11 @@ export function Sidebar({ width }: { width: number }) {
             </div>
           );
         })}
+        <div className="side-row">
+          <button className="side-item add-account" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), addAccountItems())}>
+            <Icon name="plus" /><span className="name">Add account</span>
+          </button>
+        </div>
       </Section>
 
       {s.hiddenItems.length > 0 && (

@@ -586,3 +586,6 @@ button.badge:hover { color: var(--text); border-color: var(--text-muted); }
 .diag-section h2 { margin: 0 0 8px; }
 .diag-section .set-row { padding: 2px 0; }
 @media (max-width: 700px) { .acct-preview { grid-template-columns: 1fr; } }
+
+.side-item.add-account { color: var(--text-muted); }
+.side-item.add-account:hover { color: var(--text); }

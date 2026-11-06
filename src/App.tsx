@@ -9,14 +9,15 @@ import { Reminders } from './components/Reminders';
 import { Help } from './components/Help';
 import { SetupGuide, useGuide, openGuide } from './components/SetupGuide';
 import { SettingsScreen } from './components/Settings';
-import { Splitter } from './components/ui';
+import { Splitter, useMenu, type MenuItem } from './components/ui';
+import { addAccountItems } from './lib/accountMenu';
 import { useSettings } from './lib/settings';
 import { skinById, SKIN_VARS } from './lib/skins';
 import { useBanners, dismissBanner } from './lib/banners';
 import {
   useMail, initMail, refreshAll, runSearch, dismissToast, archive, trash, toggleFlag, markRead, selectedMessageIds, selectThread, startDemo,
   markSpam, snooze, markViewRead, openScreen,
-  addGoogleAccount, adoptOutboxItem, messagesInThread, reloadMessagesFromDb, toast, reconnectAccount,
+  adoptOutboxItem, messagesInThread, reloadMessagesFromDb, toast, reconnectAccount,
 } from './lib/mail';
 import { startCompose, popoutMessage } from './lib/composeActions';
 import { useViewList } from './lib/useList';
@@ -114,6 +115,7 @@ function Toasts() {
 
 function Welcome() {
   const configured = useGoogleConfigured();
+  const menu = useMenu();
   return (
     <div className="welcome">
       <div className="welcome-card">
@@ -121,10 +123,11 @@ function Welcome() {
         <h1>Well Good Mail</h1>
         <p>All your inboxes in one calm place. Add your Gmail accounts to get started, or try it first with pretend emails.</p>
         <div className="actions">
-          <button className="btn primary" onClick={() => (configured ? addGoogleAccount() : openGuide('setup'))} style={{ height: 36, padding: '0 16px' }}><Icon name="plus" /> {configured ? 'Add Google account' : 'Set up Gmail'}</button>
+          <button className="btn primary" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), addAccountItems())} style={{ height: 36, padding: '0 16px' }}><Icon name="plus" /> Add account <Icon name="chevronDown" size={14} /></button>
           <button className="btn" onClick={() => startDemo()} style={{ height: 36, padding: '0 16px' }}>Try demo mode</button>
         </div>
         {!configured && <p className="note">Gmail needs a free key from Google first. The guide takes about 10 minutes and walks you through it.</p>}
+        {menu.node}
       </div>
     </div>
   );
@@ -282,6 +285,25 @@ function MainWindow() {
     return () => { clearTimeout(restore); offs.forEach((p) => p.then((f) => f())); bc.close(); };
   }, []);
 
+  // The menu at the top left: the basics, so nothing is lost when the sidebar is hidden.
+  const appMenu = useMenu();
+  const appMenuItems = (): MenuItem[] => {
+    const hasAccounts = accounts.length > 0;
+    const tab = (label: string, id: string): MenuItem => ({ label, onClick: () => openScreen('settings', id) });
+    return [
+      { label: 'New email', icon: 'compose', kbd: 'Ctrl+N', disabled: !hasAccounts, onClick: () => startCompose('new') },
+      { label: 'Check for new mail', icon: 'refresh', kbd: 'F5', disabled: !hasAccounts, onClick: () => refreshAll() },
+      { divider: true },
+      { label: 'Add account', icon: 'plus', submenu: addAccountItems() },
+      { divider: true },
+      { label: 'Reminders', icon: 'bell', onClick: () => openScreen('reminders') },
+      { label: 'Settings', icon: 'settings', submenu: [tab('Accounts', 'accounts'), tab('Appearance', 'appearance'), tab('Notifications and reminders', 'notifications'), tab('Keyboard shortcuts', 'shortcuts'), tab('Updates', 'updates'), tab('Diagnostics', 'diagnostics')] },
+      { label: 'Help', icon: 'help', onClick: () => openScreen('help') },
+      { divider: true },
+      { label: s.sidebarVisible ? 'Hide sidebar' : 'Show sidebar', icon: 'sidebar', kbd: 'Ctrl+Shift+S', onClick: () => s.set({ sidebarVisible: !s.sidebarVisible }) },
+    ];
+  };
+
   // First run in the desktop app: nothing is set up yet, so start the guide.
   const guide = useGuide((g) => g.mode);
   const configured = useGoogleConfigured();
@@ -314,6 +336,7 @@ function MainWindow() {
   return (
     <div className={`app density-${s.density}`}>
       <header className="toolbar">
+        <button className="icon-btn" title="Menu" aria-label="Menu" onClick={(e) => appMenu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), appMenuItems())}><Icon name="menu" /></button>
         <button className={`icon-btn ${s.sidebarVisible ? '' : 'active'}`} title="Show or hide sidebar (Ctrl+Shift+S)" aria-label="Toggle sidebar" onClick={() => (narrow ? setMobileNav(!mobileNav) : s.set({ sidebarVisible: !s.sidebarVisible }))}><Icon name="sidebar" /></button>
         <button className="icon-btn" title="Check for new mail (F5)" aria-label="Check for new mail" onClick={() => refreshAll()} disabled={!accounts.length}>
           <span style={{ display: 'inline-flex', animation: syncing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span>
@@ -375,6 +398,7 @@ function MainWindow() {
           )}
         </div>
       )}
+      {appMenu.node}
       <DialogHost />
       <CommandPalette />
       <Toasts />
