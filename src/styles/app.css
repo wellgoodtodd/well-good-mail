@@ -589,3 +589,11 @@ button.badge:hover { color: var(--text); border-color: var(--text-muted); }
 
 .side-item.add-account { color: var(--text-muted); }
 .side-item.add-account:hover { color: var(--text); }
+
+.own-keys { margin-top: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-subtle); padding: 0 14px; }
+.own-keys summary { cursor: pointer; padding: 11px 0; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; }
+.own-keys summary::-webkit-details-marker { display: none; }
+.own-keys summary::before { content: ''; width: 7px; height: 7px; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); transform: rotate(-45deg); transition: transform 0.15s; flex: none; }
+.own-keys[open] summary::before { transform: rotate(45deg); }
+.own-keys .hint { margin: 0 0 10px; }
+.own-keys .set-card { margin: 0 0 12px; background: var(--bg-elev); }
