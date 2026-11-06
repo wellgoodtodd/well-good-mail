@@ -213,6 +213,8 @@ export async function initMail(opts: { popout?: boolean } = {}) {
     store.accounts(), store.folders(), store.messages(), store.outbox(), store.snoozes(), store.followups(), store.events(), store.dismissed(), store.contacts(),
   ]);
   accounts.sort((a, b) => a.order - b.order);
+  // A sync that was running when the app last closed is not running now, so don't show it as syncing.
+  accounts.forEach((a) => { if (a.status === 'syncing') { a.status = 'ok'; a.syncDone = undefined; store.putAccount(a); } });
   accounts.forEach((a) => providers.set(a.id, makeProvider(a)));
   const byAcc: Record<string, Folder[]> = {};
   folders.forEach((f) => (byAcc[f.accountId] ||= []).push(f));
@@ -393,6 +395,9 @@ export async function leaveDemo() {
 // ---------- syncing ----------
 
 const syncingNow = new Set<string>();
+
+/** True while this account is really being synced right now. */
+export const isSyncing = (id: string) => syncingNow.has(id);
 
 export async function syncAccount(id: string, opts: { full?: boolean; quiet?: boolean } = {}) {
   if (syncingNow.has(id)) return;

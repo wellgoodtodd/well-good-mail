@@ -6,7 +6,7 @@ import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
 import { PALETTES } from '../lib/palettes';
-import { useMail, refreshAccountPhotos, applyPalette, addGoogleAccount, addMicrosoftAccount, removeAccount, updateAccount, reconnectAccount, syncAccount, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
+import { useMail, refreshAccountPhotos, applyPalette, addGoogleAccount, addMicrosoftAccount, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
 import { useSettings, type Settings as S } from '../lib/settings';
 import { allAliases } from '../lib/compose';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
@@ -138,6 +138,13 @@ function AccountsTab() {
   const palette = useSettings((st) => st.palette);
   const stripe = useSettings((st) => st.showAccountStripe);
   const sorted = [...accounts].sort((a, b) => a.order - b.order);
+  // If an account says Syncing but nothing is really syncing, check it again every few seconds until it settles.
+  useEffect(() => {
+    const t = setInterval(() => {
+      for (const a of useMail.getState().accounts) if (a.status === 'syncing' && !isSyncing(a.id)) syncAccount(a.id, { quiet: true });
+    }, 4000);
+    return () => clearInterval(t);
+  }, []);
   const move = (id: string, d: -1 | 1) => {
     const ids = sorted.map((a) => a.id);
     const i = ids.indexOf(id);
@@ -178,7 +185,12 @@ function AccountsTab() {
         </div>
         {!isTauri() && <p className="hint" style={{ marginTop: 10 }}>Signing in to real accounts works in the desktop app. This browser preview runs in demo mode.</p>}
         {isTauri() && !googleOn && <p className="hint" style={{ marginTop: 10 }}>Gmail isn't set up yet. The setup guide takes about 10 minutes.</p>}
-        {isTauri() && googleOn && <p className="hint" style={{ marginTop: 10 }}><button className="btn ghost" onClick={() => openGuide('setup')}>Set up with a different Google key...</button> Only needed if you have changed your Google Cloud project, or want to run the setup guide again. A new key means signing in to each account again.</p>}
+        {isTauri() && googleOn && (
+          <div style={{ marginTop: 14 }}>
+            <button className="btn" onClick={() => openGuide('setup')}>Set up with a different Google key...</button>
+            <p className="hint" style={{ margin: '6px 0 0' }}>Only needed if you have changed your Google Cloud project, or want to run the setup guide again. A new key means signing in to each account again.</p>
+          </div>
+        )}
       </section>
       {isTauri() && googleOn && keys.own && !s.googlePublished && (
         <section className="set-section">
