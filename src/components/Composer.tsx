@@ -10,7 +10,7 @@ import { Dialog, fileSize, useMenu } from './ui';
 import { store } from '../lib/db';
 import { useMail, queueSend, providerFor, toast, broadcast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
-import { allAliases, switchMode, signatureFor, draftToOutgoing, draftIsEmpty, pickFromForMessage, ATTACHMENT_LIMIT_BYTES, encodedSize } from '../lib/compose';
+import { allAliases, findAlias, switchMode, signatureFor, draftToOutgoing, draftIsEmpty, pickFromForMessage, ATTACHMENT_LIMIT_BYTES, encodedSize } from '../lib/compose';
 import { composeContext, writingStyle } from '../lib/composeActions';
 import { closeThisWindow, isPopout, isTauri, openPopout } from '../lib/platform';
 import { trackOpen, trackClosed } from '../lib/openDrafts';
@@ -310,7 +310,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
     const files = bigFiles;
     const d = draftRef.current;
     if (!files || !d) return;
-    const hit = aliases.find((a) => a.alias.email === d.fromEmail);
+    const hit = findAlias(accounts, d.fromEmail, d.fromAccountId);
     const p = hit && providerFor(hit.account.id);
     if (!p?.uploadLargeFile) { toast({ text: 'Large file links need a Google account' }); setBigFiles(null); return; }
     setUploading(true);
@@ -331,7 +331,8 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   if (!draft) return <div className="composer"><div className="empty">Loading draft...</div></div>;
 
   const signature = signatureFor(draft.fromEmail, { ...composeContext() });
-  const fromAccount = aliases.find((a) => a.alias.email === draft.fromEmail)?.account;
+  const fromHit = findAlias(accounts, draft.fromEmail, draft.fromAccountId);
+  const fromAccount = fromHit?.account;
   const totalSize = draft.attachments.reduce((n, a) => n + a.size, 0);
   const writingCss = writingStyle();
   const laterOptions = (() => {
@@ -379,11 +380,11 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
       <div className="comp-field">
         <label htmlFor={`from-${draft.id}`}>From</label>
         <span className="dot" style={{ background: fromAccount?.colour, marginTop: 10 }} />
-        <select id={`from-${draft.id}`} value={draft.fromEmail} onChange={(e) => update({ fromEmail: e.target.value })}>
+        <select id={`from-${draft.id}`} value={fromHit ? `${fromHit.account.id}|${fromHit.alias.email}` : ''} onChange={(e) => { const [accountId, ...rest] = e.target.value.split('|'); update({ fromAccountId: accountId, fromEmail: rest.join('|') }); }}>
           {accounts.map((acc) => (
             <optgroup key={acc.id} label={acc.label}>
               {aliases.filter((a) => a.account.id === acc.id).map(({ alias }) => (
-                <option key={alias.email} value={alias.email}>{alias.name} &lt;{alias.email}&gt;</option>
+                <option key={alias.email} value={`${acc.id}|${alias.email}`}>{alias.name} &lt;{alias.email}&gt;</option>
               ))}
             </optgroup>
           ))}

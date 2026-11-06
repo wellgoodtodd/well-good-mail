@@ -196,6 +196,8 @@ export interface Draft {
   mode: ComposeMode;
   sourceMessageId?: string;
   fromEmail: string;
+  /** Which account sends it. Needed because two accounts (say Gmail and Microsoft) can share one address. */
+  fromAccountId?: string;
   to: Address[];
   cc: Address[];
   bcc: Address[];

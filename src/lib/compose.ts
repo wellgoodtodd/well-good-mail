@@ -24,8 +24,10 @@ export function myAddresses(accounts: Account[]): Set<string> {
   return new Set(allAliases(accounts).map((a) => lc(a.alias.email)));
 }
 
-export function findAlias(accounts: Account[], email: string) {
-  return allAliases(accounts).find((a) => lc(a.alias.email) === lc(email));
+/** Finds who can send as this address. Pass the account when known, since two accounts can share an address. */
+export function findAlias(accounts: Account[], email: string, accountId?: string) {
+  const all = allAliases(accounts).filter((a) => lc(a.alias.email) === lc(email));
+  return (accountId && all.find((a) => a.account.id === accountId)) || all[0];
 }
 
 /** Which of my addresses should a reply to this message come from? */
@@ -106,6 +108,7 @@ export function createDraft(mode: ComposeMode, source: Message | undefined, ctx:
     mode,
     sourceMessageId: source?.id,
     fromEmail: source ? pickFromForMessage(source, ctx) : defaultFrom(ctx),
+    fromAccountId: source ? source.accountId : findAlias(ctx.accounts, defaultFrom(ctx))?.account.id,
     to,
     cc,
     bcc: [],
@@ -158,7 +161,7 @@ export interface SourceAttachment {
 
 /** Turns a draft into the message that gets sent. */
 export function draftToOutgoing(draft: Draft, source: Message | undefined, ctx: ComposeContext, sourceAttachments: SourceAttachment[] = []): { accountId: string; message: OutgoingMessage } {
-  const hit = findAlias(ctx.accounts, draft.fromEmail);
+  const hit = findAlias(ctx.accounts, draft.fromEmail, draft.fromAccountId);
   if (!hit) throw new Error(`No account can send as ${draft.fromEmail}`);
   const signature = signatureFor(draft.fromEmail, ctx);
   const sigBlock = signature ? `<div class="wgm-signature">${signature}</div>` : '';

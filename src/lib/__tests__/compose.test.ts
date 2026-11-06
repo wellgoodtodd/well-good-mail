@@ -90,3 +90,18 @@ describe('mime', () => {
     expect(raw).toContain('filename="a.txt"');
   });
 });
+
+describe('two accounts that share an address', () => {
+  const ms: Account = { ...account, id: 'm1', kind: 'microsoft', label: 'Studio Microsoft', order: 1, aliases: [{ email: 'alex@studio.example', name: 'Alex Morgan', isDefault: true }] };
+  const both = { ...ctx, accounts: [account, ms] };
+  it('sends through the account that was chosen, not the first with that address', () => {
+    const base = createDraft('new', undefined, both);
+    const viaMicrosoft = { ...base, fromEmail: 'alex@studio.example', fromAccountId: 'm1', to: [{ email: 'x@y.example' }], html: '<p>Hi</p>' };
+    expect(draftToOutgoing(viaMicrosoft, undefined, both).accountId).toBe('m1');
+    expect(draftToOutgoing({ ...viaMicrosoft, fromAccountId: 'a1' }, undefined, both).accountId).toBe('a1');
+  });
+  it('replies through the account the email arrived in', () => {
+    const d = createDraft('reply', msg({ id: 'm1|x', accountId: 'm1', to: [{ email: 'alex@studio.example' }] }), both);
+    expect(d.fromAccountId).toBe('m1');
+  });
+});

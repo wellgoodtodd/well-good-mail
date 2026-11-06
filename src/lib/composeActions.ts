@@ -36,7 +36,7 @@ export async function startCompose(mode: ComposeMode, source?: Message, opts: { 
   if (mode === 'new' && view.scope.type === 'account' && !extra.fromEmail) {
     const acc = ctx.accounts.find((a) => a.id === (view.scope as { accountId: string }).accountId);
     const def = acc?.aliases.find((a) => a.isDefault)?.email || acc?.email;
-    if (def) extra = { ...extra, fromEmail: def };
+    if (def && acc) extra = { ...extra, fromEmail: def, fromAccountId: acc.id };
   }
   const draft = createDraft(mode, full, ctx, extra);
   await store.putDraft(draft);
@@ -57,6 +57,7 @@ export async function editServerDraft(m: Message) {
   const full = (await loadBody(m.id)) || m;
   const draft = createDraft('new', undefined, composeContext(), {
     fromEmail: full.from.email,
+    fromAccountId: full.accountId,
     to: full.to,
     cc: full.cc,
     bcc: full.bcc,

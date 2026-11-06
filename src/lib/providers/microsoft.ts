@@ -41,6 +41,19 @@ interface GraphMessage {
 
 const addr = (r?: { emailAddress: { name?: string; address: string } }): Address => ({ name: r?.emailAddress.name, email: (r?.emailAddress.address || '').toLowerCase() });
 
+/**
+ * Microsoft sends mail as the signed in mailbox and rejects a From header that is not exactly that mailbox's address.
+ * A personal account's sign in name (say a work address linked to an Outlook mailbox) is often not the mailbox address,
+ * so the From line is left out and Microsoft fills in the right one.
+ */
+function withoutFrom(raw: string): string {
+  return raw.replace(/^From:[^
+]*(?
+[ 	][^
+]*)*?
+/m, '');
+}
+
 export class MicrosoftProvider implements MailProvider {
   private folderIds: Partial<Record<SystemFolder, string>> = {};
   constructor(public readonly account: Account) {}
@@ -173,14 +186,14 @@ export class MicrosoftProvider implements MailProvider {
   }
 
   async send(msg: OutgoingMessage) {
-    const mime = bytesToBase64(new TextEncoder().encode(buildRawMessage(msg)));
+    const mime = bytesToBase64(new TextEncoder().encode(withoutFrom(buildRawMessage(msg))));
     await this.call('/sendMail', { method: 'POST', body: mime, headers: { 'Content-Type': 'text/plain' } });
     return { providerId: '', threadId: msg.threadId || '' };
   }
 
   async saveDraft(msg: OutgoingMessage, serverDraftId?: string) {
     if (serverDraftId) await this.deleteDraft(serverDraftId);
-    const mime = bytesToBase64(new TextEncoder().encode(buildRawMessage(msg)));
+    const mime = bytesToBase64(new TextEncoder().encode(withoutFrom(buildRawMessage(msg))));
     const r = await this.call<{ id: string }>('/messages', { method: 'POST', body: mime, headers: { 'Content-Type': 'text/plain' } });
     return { draftId: r.id };
   }
