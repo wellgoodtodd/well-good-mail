@@ -184,11 +184,16 @@ a { color: var(--accent); }
 .row .badge { font-size: 0.75em; padding: 0 5px; border-radius: 9px; background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border); }
 .row .flag { color: #f0a020; }
 /* Hover actions: a small pill in the corner. Moving to it slides the coloured buttons out; scrolling hides it all. */
-.row .quick { position: absolute; right: 8px; bottom: 6px; display: flex; align-items: center; padding: 2px; border-radius: 14px; background: color-mix(in srgb, var(--bg-elev) 88%, var(--text) 7%); border: 1px solid color-mix(in srgb, var(--border) 60%, var(--text) 24%); box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity 0.18s cubic-bezier(.25,.1,.25,1); }
+.row .quick { position: absolute; right: 8px; bottom: 6px; display: flex; align-items: center; padding: 1px; border-radius: 14px; background: color-mix(in srgb, var(--bg-elev) 88%, var(--text) 7%); border: 1px solid color-mix(in srgb, var(--border) 60%, var(--text) 24%); box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity 0.18s cubic-bezier(.25,.1,.25,1), padding 0.22s cubic-bezier(.32,.72,0,1); }
+.row .quick:hover, .row .quick:focus-within { padding: 2px; }
 .row .quick::before { content: ''; position: absolute; left: -14px; top: -6px; bottom: -6px; width: 14px; }
 .row:hover .quick { opacity: 1; pointer-events: auto; }
 .rows.scrolling .row .quick { opacity: 0 !important; pointer-events: none !important; }
-.row .quick .qh { width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: none; color: var(--text-muted); background: transparent; border: 0; }
+/* On its own the handle is a small dot pill (16 px); it grows to full size (24 px) as the buttons slide out. */
+.row .quick .qh { width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex: none; color: var(--text-muted); background: transparent; border: 0; padding: 0; transition: width 0.22s cubic-bezier(.32,.72,0,1), height 0.22s cubic-bezier(.32,.72,0,1), border-radius 0.22s cubic-bezier(.32,.72,0,1), background 0.15s; }
+.row .quick .qh svg { width: 12px; height: 12px; transition: width 0.22s cubic-bezier(.32,.72,0,1), height 0.22s cubic-bezier(.32,.72,0,1); }
+.row .quick:hover .qh, .row .quick:focus-within .qh { width: 24px; height: 24px; border-radius: 12px; }
+.row .quick:hover .qh svg, .row .quick:focus-within .qh svg { width: 14px; height: 14px; }
 .row .quick .qh:hover { background: color-mix(in srgb, var(--text) 14%, transparent); color: var(--text); }
 .row .quick .qb { display: flex; gap: 2px; max-width: 0; overflow: hidden; opacity: 0; padding: 0; margin-right: 0; transition: max-width 0.24s cubic-bezier(.32,.72,0,1), opacity 0.2s cubic-bezier(.25,.1,.25,1), margin 0.24s cubic-bezier(.32,.72,0,1); }
 .row .quick:hover .qb, .row .quick:focus-within .qb { max-width: 170px; opacity: 1; margin-right: 2px; }
@@ -205,7 +210,7 @@ a { color: var(--accent); }
 .row .quick .qb .icon-btn:nth-child(3) { --q: #d9a441; }
 .row .quick .qb .icon-btn:nth-child(4) { --q: #6f9ae8; }
 .row .quick .qb .icon-btn:nth-child(5) { --q: #e2676b; }
-@media (prefers-reduced-motion: reduce) { .row .quick, .row .quick .qb, .row .quick .qb .icon-btn { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .row .quick, .row .quick .qb, .row .quick .qb .icon-btn, .row .quick .qh, .row .quick .qh svg { transition: none; } }
 .empty { padding: 40px 20px; text-align: center; color: var(--text-muted); }
 .list-foot { padding: 6px 14px; font-size: 0.82em; color: var(--text-muted); border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
 .section-label { padding: 10px 14px 4px; font-size: 0.8em; font-weight: 600; color: var(--text-faint); text-transform: none; }
