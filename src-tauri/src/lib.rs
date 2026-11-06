@@ -111,6 +111,26 @@ fn set_close_quits(on: bool) {
     CLOSE_QUITS.store(on, Ordering::Relaxed);
 }
 
+/// Sends a form POST to Microsoft's token address from the Rust side. The web view's own fetch adds an Origin header,
+/// which makes Microsoft treat the call as coming from a web page and refuse it for a desktop app.
+#[tauri::command]
+async fn token_post(url: String, body: String) -> Result<(u16, String), String> {
+    if !url.starts_with("https://login.microsoftonline.com/") {
+        return Err("Only Microsoft's sign in address is allowed".into());
+    }
+    let client = tauri_plugin_http::reqwest::Client::new();
+    let res = client
+        .post(&url)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let status = res.status().as_u16();
+    let text = res.text().await.map_err(|e| e.to_string())?;
+    Ok((status, text))
+}
+
 fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
@@ -140,6 +160,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             start_oauth_listener,
             set_close_quits,
+            token_post,
             secret_set,
             secret_get,
             secret_delete,

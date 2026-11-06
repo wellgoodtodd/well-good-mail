@@ -44,6 +44,14 @@ async function challenge(v: string) {
   return btoa(String.fromCharCode(...new Uint8Array(d))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/** The token request goes through the Rust side so it carries no Origin header (see token_post in lib.rs). */
+async function tokenPost(body: string): Promise<{ ok: boolean; json: Record<string, any> }> {
+  const [status, text] = await invoke<[number, string]>('token_post', { url: `${AUTHORITY}/token`, body });
+  let json: Record<string, any> = {};
+  try { json = JSON.parse(text); } catch { /* not JSON */ }
+  return { ok: status >= 200 && status < 300, json };
+}
+
 export async function signInWithMicrosoft(): Promise<{ email: string; name: string }> {
   if (!isTauri()) throw new Error('Microsoft sign in works in the desktop app.');
   const id = clientId();
@@ -67,13 +75,8 @@ export async function signInWithMicrosoft(): Promise<{ email: string; name: stri
   });
   const r = new URLSearchParams(query);
   if (r.get('state') !== state || !r.get('code')) throw new Error('Microsoft sign in was cancelled.');
-  const res = await httpFetch(`${AUTHORITY}/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: id, grant_type: 'authorization_code', code: r.get('code')!, redirect_uri: redirect, code_verifier: verifier }).toString(),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error_description || 'Microsoft sign in failed');
+  const { ok, json } = await tokenPost(new URLSearchParams({ client_id: id, grant_type: 'authorization_code', code: r.get('code')!, redirect_uri: redirect, code_verifier: verifier }).toString());
+  if (!ok) throw new Error(json.error_description || 'Microsoft sign in failed');
   const me = await (await httpFetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${json.access_token}` } })).json();
   const email = String(me.mail || me.userPrincipalName).toLowerCase();
   await secrets.set(key(email), json.refresh_token);
@@ -87,13 +90,8 @@ export async function getMicrosoftAccessToken(email: string): Promise<string> {
   if (c && c.exp > Date.now()) return c.token;
   const refresh = await secrets.get(key(e));
   if (!refresh) throw new AuthError(`Please sign in to ${email} again.`);
-  const res = await httpFetch(`${AUTHORITY}/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: clientId() || '', grant_type: 'refresh_token', refresh_token: refresh, scope: MS_SCOPES.join(' ') }).toString(),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new AuthError(`Please sign in to ${email} again.`);
+  const { ok, json } = await tokenPost(new URLSearchParams({ client_id: clientId() || '', grant_type: 'refresh_token', refresh_token: refresh, scope: MS_SCOPES.join(' ') }).toString());
+  if (!ok) throw new AuthError(`Please sign in to ${email} again.`);
   if (json.refresh_token) await secrets.set(key(e), json.refresh_token);
   cache.set(e, { token: json.access_token, exp: Date.now() + (json.expires_in - 60) * 1000 });
   return json.access_token;
