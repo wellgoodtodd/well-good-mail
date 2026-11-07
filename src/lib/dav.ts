@@ -90,8 +90,8 @@ async function collections(auth: DavAuth, home: string, kind: 'addressbook' | 'c
 
 // ---------- contacts ----------
 
-const unfold = (text: string) => text.replace(/\r?\n[ \t]/g, '');
-const unescapeText = (s: string) => s.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');
+export const unfold = (text: string) => text.replace(/\r?\n[ \t]/g, '');
+export const unescapeText = (s: string) => s.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');
 
 /** Names and email addresses from vCards. Someone with two addresses gives two entries. */
 export function parseVCards(text: string): Address[] {
@@ -137,7 +137,7 @@ function zoneOffset(ms: number, zone: string): number {
   return Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute'), n('second')) - Math.floor(ms / 1000) * 1000;
 }
 
-function parseTime(value: string, params: Record<string, string>): { ms: number; allDay: boolean } {
+export function parseTime(value: string, params: Record<string, string>): { ms: number; allDay: boolean } {
   const m = value.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);
   if (!m) return { ms: NaN, allDay: false };
   const [y, mo, d] = [Number(m[1]), Number(m[2]) - 1, Number(m[3])];
@@ -162,7 +162,7 @@ export function triggerMinutes(value: string): number | undefined {
   return m[1] === '-' || mins === 0 ? mins : undefined;
 }
 
-const parseProp = (line: string) => {
+export const parseProp = (line: string) => {
   const i = line.indexOf(':');
   const [name, ...rest] = line.slice(0, i).split(';');
   const params: Record<string, string> = {};

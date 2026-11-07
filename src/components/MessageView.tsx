@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { EmailFrame } from './EmailFrame';
+import { InviteCard } from './InviteCard';
 import { AttachmentPeek, AttachmentPreview, previewKind } from './AttachmentPreview';
 import { avatarColour, fileSize, fullDate, initials, useMenu } from './ui';
 import { renderEmail, plainTextOf } from '../lib/render';
@@ -215,6 +216,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
           <button className="btn" onClick={() => editServerDraft(message)}>Edit draft</button>
         </div>
       )}
+      {message.attachments.some((a) => /calendar|ics/i.test(a.mimeType) || /.ics$/i.test(a.filename)) && <InviteCard message={message} />}
       <div className="frame-wrap">
         {rendered ? <EmailFrame html={rendered.html} onLinkHover={onLinkHover} onContext={onFrameContext} /> : <div className="empty">Loading...</div>}
       </div>

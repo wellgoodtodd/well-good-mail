@@ -70,7 +70,7 @@ export function EmailFrame({ html, onLinkHover, onContext }: { html: string; onL
       // No scripts can run. Same origin only so we can measure height and catch link clicks.
       sandbox="allow-same-origin allow-popups"
       srcDoc={html}
-      style={{ height }}
+      style={{ height, colorScheme: 'light' }}
     />
   );
 }

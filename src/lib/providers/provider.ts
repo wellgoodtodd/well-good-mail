@@ -1,5 +1,6 @@
 // The contract every mail service (Gmail, Microsoft 365, IMAP, demo) fulfils.
 import type { Account, Address, Alias, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Invite, Rsvp } from '../invites';
 
 export interface SyncResult {
   upserted: Message[];
@@ -41,8 +42,21 @@ export interface MailProvider {
   searchRemote(query: string): Promise<Message[]>;
   listContacts(): Promise<Address[]>;
   listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]>;
+  /** Is this invitation in the person's calendar, and what did they answer? */
+  inviteStatus?(uid: string): Promise<{ inCalendar: boolean; response?: Rsvp }>;
+  /** Answers an invitation in the calendar itself, telling the organiser. False when it isn't in the calendar. */
+  respondToInvite?(uid: string, status: Rsvp): Promise<boolean>;
+  /** Puts an invitation in the calendar. */
+  addInviteToCalendar?(invite: Invite): Promise<void>;
   /** Upload a large file and return a share link (Google Drive). */
   uploadLargeFile?(name: string, mimeType: string, data: Uint8Array): Promise<string>;
+}
+
+/** The account hasn't allowed the app to change its calendar yet; signing in again does that. */
+export class CalendarPermissionError extends Error {
+  constructor() {
+    super("This account hasn't allowed Well Good Mail to change its calendar yet");
+  }
 }
 
 export class NotSupportedError extends Error {

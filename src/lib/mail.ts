@@ -11,6 +11,7 @@ import { record, undoEntry } from './history';
 import { removeImapPassword, saveImapPassword, testImap, type ImapSettings } from './auth/imap';
 import { DemoProvider, DEMO_ACCOUNTS, resetDemo } from './providers/demo';
 import type { MailProvider } from './providers/provider';
+import { buildReply, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from './invites';
 import { signInWithGoogle, signOutGoogle } from './auth/google';
 import { signInWithMicrosoft, signOutMicrosoft } from './auth/microsoft';
 import { indexMessages, rebuildIndex, removeFromIndex, searchMessages, toGmailQuery } from './search';
@@ -627,6 +628,58 @@ export async function refetchBody(id: string): Promise<void> {
     const body = await p.getBody(m);
     putMessages([{ ...(get().messages[id] || m), bodyHtml: body.html, bodyText: body.text, attachments: body.attachments, hasAttachments: body.attachments.some((a) => !a.inline), bodyLoaded: true }]);
   } catch { /* keep the saved copy */ }
+}
+
+// ---------- calendar invitations ----------
+
+function inviteAddresses(accountId: string, m: Message): string[] {
+  const a = get().accounts.find((x) => x.id === accountId);
+  return [a?.email, ...(a?.aliases || []).map((x) => x.email), m.deliveredTo, ...m.to.map((x) => x.email)].filter(Boolean) as string[];
+}
+
+/** Whether the invitation is in the person's calendar yet, and what they answered. Undefined when this account can't tell. */
+export async function inviteStatus(messageId: string, invite: Invite): Promise<{ inCalendar: boolean; response?: Rsvp } | undefined> {
+  const m = get().messages[messageId];
+  const p = m && providers.get(m.accountId);
+  if (!p?.inviteStatus) return undefined;
+  try { return await p.inviteStatus(invite.uid); } catch { return undefined; }
+}
+
+export function canAddToCalendar(messageId: string): boolean {
+  const m = get().messages[messageId];
+  return Boolean(m && providers.get(m.accountId)?.addInviteToCalendar);
+}
+
+export async function addInviteToCalendar(messageId: string, invite: Invite): Promise<void> {
+  const m = get().messages[messageId];
+  const p = m && providers.get(m.accountId);
+  if (!p?.addInviteToCalendar) throw new Error("This account type can't add to a calendar from here yet");
+  await p.addInviteToCalendar(invite);
+  refreshEvents();
+}
+
+/** Answers an invitation. In the calendar itself where the account allows it, otherwise by emailing the organiser. */
+export async function answerInvite(messageId: string, invite: Invite, status: Rsvp, opts: { byEmail?: boolean } = {}): Promise<'calendar' | 'email'> {
+  const m = get().messages[messageId];
+  const p = m && providers.get(m.accountId);
+  const account = m && get().accounts.find((a) => a.id === m.accountId);
+  if (!m || !p || !account) throw new Error('Email not found');
+  if (!opts.byEmail && p.respondToInvite && (await p.respondToInvite(invite.uid, status))) { refreshEvents(); return 'calendar'; }
+  if (!invite.organizer) throw new Error("This invitation doesn't say who to reply to");
+  const senderName = account.aliases.find((a) => a.isDefault)?.name || account.aliases[0]?.name || account.label;
+  const me = whichIsMe(invite, inviteAddresses(m.accountId, m)) || { email: account.email.toLowerCase(), name: senderName };
+  const words = RSVP_WORDS[status];
+  const text = `${me.name || me.email} has replied ${words.label} to "${invite.title}".`;
+  await p.send({
+    from: { email: account.email, name: senderName },
+    to: [{ email: invite.organizer.email, name: invite.organizer.name }],
+    cc: [], bcc: [],
+    subject: `${words.subject}: ${invite.title}`,
+    html: `<p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`,
+    text,
+    attachments: [{ filename: 'invite.ics', mimeType: 'text/calendar; method=REPLY; charset=UTF-8', data: new TextEncoder().encode(buildReply(invite, me, status)) }],
+  });
+  return 'email';
 }
 
 export async function getAttachmentData(messageId: string, attachmentId: string): Promise<Uint8Array> {

@@ -4,7 +4,8 @@ import { getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
 import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
-import type { MailProvider, MessageBody, SyncResult } from './provider';
+import { CalendarPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
+import type { Invite, Rsvp } from '../invites';
 import { findMeetingUrl } from '../meetings';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
@@ -491,6 +492,61 @@ export class GmailProvider implements MailProvider {
       }
     }
     return events;
+  }
+
+  /** The invitation as it sits in the primary calendar, found by its calendar id. */
+  private async findInvite(uid: string) {
+    const CAL = 'https://www.googleapis.com/calendar/v3';
+    type Att = { email?: string; self?: boolean; responseStatus?: string };
+    const r = await this.call<{ items?: { id: string; attendees?: Att[] }[] }>(`${CAL}/calendars/primary/events?iCalUID=${encodeURIComponent(uid)}&maxResults=5`);
+    const ev = r.items?.[0];
+    return ev ? { id: ev.id, attendees: ev.attendees || [] } : undefined;
+  }
+
+  private permissionOr(e: unknown): never {
+    const err = e as Error & { status?: number };
+    if (err.status === 403 && /scope|insufficient|permission/i.test(err.message) && !/quota|rateLimit/i.test(err.message)) throw new CalendarPermissionError();
+    throw e;
+  }
+
+  async inviteStatus(uid: string): Promise<{ inCalendar: boolean; response?: Rsvp }> {
+    const ev = await this.findInvite(uid);
+    if (!ev) return { inCalendar: false };
+    const me = ev.attendees.find((a) => a.self);
+    const response = me?.responseStatus === 'accepted' || me?.responseStatus === 'declined' || me?.responseStatus === 'tentative' ? me.responseStatus : undefined;
+    return { inCalendar: true, response };
+  }
+
+  async respondToInvite(uid: string, status: Rsvp): Promise<boolean> {
+    const ev = await this.findInvite(uid);
+    if (!ev || !ev.attendees.some((a) => a.self)) return false;
+    try {
+      await this.call(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(ev.id)}?sendUpdates=all`, {
+        method: 'PATCH',
+        body: JSON.stringify({ attendees: ev.attendees.map((a) => (a.self ? { ...a, responseStatus: status } : a)) }),
+      });
+    } catch (e) { this.permissionOr(e); }
+    return true;
+  }
+
+  async addInviteToCalendar(invite: Invite): Promise<void> {
+    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const when = (ms: number) => (invite.allDay ? { date: day(ms) } : { dateTime: new Date(ms).toISOString() });
+    try {
+      await this.call('https://www.googleapis.com/calendar/v3/calendars/primary/events/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          iCalUID: invite.uid,
+          summary: invite.title,
+          location: invite.location,
+          description: invite.description,
+          start: when(invite.start),
+          end: when(invite.allDay ? Math.max(invite.end, invite.start + 86400000) : invite.end),
+          organizer: invite.organizer ? { email: invite.organizer.email, displayName: invite.organizer.name } : undefined,
+          attendees: invite.attendees.map((a) => ({ email: a.email, displayName: a.name, responseStatus: a.email === this.account.email.toLowerCase() ? 'needsAction' : undefined })),
+        }),
+      });
+    } catch (e) { this.permissionOr(e); }
   }
 
   async uploadLargeFile(name: string, mimeType: string, data: Uint8Array): Promise<string> {

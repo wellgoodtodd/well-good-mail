@@ -9,6 +9,8 @@ export const GOOGLE_SCOPES = [
   'profile',
   'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/calendar.readonly',
+  // Lets the app answer invitations (Yes, No, Maybe) and add them to your calendar.
+  'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/contacts.readonly',
   'https://www.googleapis.com/auth/contacts.other.readonly',
   'https://www.googleapis.com/auth/drive.file',
@@ -64,6 +66,17 @@ function randomString(len = 64): string {
 async function sha256Base64Url(input: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
   return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+const grantKey = (email: string) => `wgm.calwrite.${email.toLowerCase()}`;
+/** Remembers whether Google said this sign in may edit calendar events (it comes back with every token). */
+function noteScopes(email: string, scope: unknown) {
+  if (typeof scope !== 'string') return;
+  try { localStorage.setItem(grantKey(email), scope.split(' ').includes('https://www.googleapis.com/auth/calendar.events') ? '1' : '0'); } catch { /* storage unavailable */ }
+}
+/** true: allowed. false: this account signed in before the permission existed. undefined: not known yet. */
+export function calendarEditAllowed(email: string): boolean | undefined {
+  try { const v = localStorage.getItem(grantKey(email)); return v === '1' ? true : v === '0' ? false : undefined; } catch { return undefined; }
 }
 
 export class AuthError extends Error {
@@ -144,6 +157,7 @@ export async function signInWithGoogle(loginHint?: string): Promise<{ email: str
   const email = String(info.email).toLowerCase();
 
   if (json.refresh_token) await secrets.set(secretKey(email), json.refresh_token);
+  noteScopes(email, json.scope);
   tokenCache.set(email, { accessToken: json.access_token, expiresAt: Date.now() + (json.expires_in - 60) * 1000 });
   return { email, name: info.name || email };
 }
@@ -177,6 +191,7 @@ export async function getGoogleAccessToken(email: string): Promise<string> {
       if (['invalid_grant', 'invalid_client', 'unauthorized_client'].includes(json.error)) throw new AuthError(`Please sign in to ${email} again.`);
       throw new Error(`Couldn't refresh sign in: ${json.error_description || json.error || res.status}`);
     }
+    noteScopes(key, json.scope);
     tokenCache.set(key, { accessToken: json.access_token, expiresAt: Date.now() + (json.expires_in - 60) * 1000 });
     return json.access_token as string;
   })();

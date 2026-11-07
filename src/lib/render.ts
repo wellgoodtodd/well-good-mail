@@ -151,6 +151,7 @@ export function renderEmail(bodyHtml: string | undefined, bodyText: string | und
 
   const style = `
     <style>
+      html { color-scheme: only light; }
       html, body { margin: 0; padding: 0; }
       body { font-family: ${opts.font}, 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.55; color: #1d1d1f; background: #ffffff; padding: 14px 16px 24px; overflow-wrap: anywhere; }
       img { max-width: 100%; height: auto; }
@@ -166,6 +167,6 @@ export function renderEmail(bodyHtml: string | undefined, bodyText: string | und
       ` : ''}
     </style>`;
   const head = doc.head.innerHTML;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer">${style}${head}</head><body>${doc.body.innerHTML}</body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="color-scheme" content="only light">${style}${head}</head><body>${doc.body.innerHTML}</body></html>`;
   return { html, remoteBlocked, trackersBlocked, hasRemote };
 }

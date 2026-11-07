@@ -259,7 +259,8 @@ export const useSettings = create<SettingsStore>()(
     }),
     {
       name: 'wgm-settings',
-      version: 3,
+      version: 4,
+      // Version 4: the video meeting notifications and the bar over the mail are on for everyone (they can still be switched off after this).
       // Version 2: emails follow the app's dark mode by default (it used to be off).
       // Version 3: "Drafts, Sent, Bin and more" is an ordinary folder you can change (it keeps a name you gave it).
       migrate: (persisted, from) => {
@@ -272,6 +273,7 @@ export const useSettings = create<SettingsStore>()(
           const folders = p.customFolders || [];
           p = { ...p, sidebarNames: names, customFolders: folders.some((f) => f.id === MORE_FOLDER.id) ? folders : [{ ...MORE_FOLDER, name: custom || MORE_FOLDER.name }, ...folders] };
         }
+        if (from < 4) p = { ...p, meetingAlert1On: true, meetingAlert2On: true, meetingBanner: true };
         return p as SettingsStore;
       },
       merge: (persisted, current) => {
