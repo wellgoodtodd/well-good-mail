@@ -3,7 +3,7 @@
 import { store } from './db';
 import { notify, flashTaskbar } from './platform';
 import { isQuietNow, settings } from './settings';
-import { meetingService } from './meetings';
+import { meetingService, dedupeEvents } from './meetings';
 import type { CalendarEvent, FollowUp, ReminderItem } from './types';
 
 export function eventReminderTime(e: CalendarEvent): number {
@@ -34,7 +34,7 @@ export function dueReminders(events: CalendarEvent[], followups: FollowUp[], dis
 
 /** Everything that hasn't finished yet and starts within the next few days, including a meeting whose reminder time has passed. */
 export function upcoming(events: CalendarEvent[], now = Date.now(), days = 7): CalendarEvent[] {
-  return events
+  return dedupeEvents(events)
     .filter((e) => e.end > now && e.start < now + days * 86400000)
     .sort((a, b) => a.start - b.start);
 }
@@ -75,7 +75,7 @@ export async function checkReminderAlerts(events: CalendarEvent[], followups: Fo
 export function meetingAlertsDue(events: CalendarEvent[], now: number, times: number[] = [15, 5]): { key: string; event: CalendarEvent; minutes: number }[] {
   const out: { key: string; event: CalendarEvent; minutes: number }[] = [];
   const mins = [...new Set(times.filter((m) => Number.isInteger(m) && m > 0))].sort((a, b) => b - a);
-  for (const e of events) {
+  for (const e of dedupeEvents(events)) {
     if (!e.meetingUrl || e.allDay) continue;
     const until = e.start - now;
     if (until <= 0) continue;

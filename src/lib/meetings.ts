@@ -24,9 +24,20 @@ export function meetingService(url: string): string {
   return PATTERNS.find((p) => p.re.test(url))?.service || 'video call';
 }
 
+/** The same event on two of your calendars (you are invited on both addresses, or a shared holiday calendar) counts once. */
+export function dedupeEvents(events: CalendarEvent[]): CalendarEvent[] {
+  const seen = new Set<string>();
+  return events.filter((e) => {
+    const k = `${e.title.trim().toLowerCase()}|${e.start}|${e.end}|${e.allDay}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 /** Meetings with a video link that start within the next few minutes (or have started and not ended). */
 export function meetingsSoon(events: CalendarEvent[], now = Date.now(), leadMinutes = 5): CalendarEvent[] {
-  return events
+  return dedupeEvents(events)
     .filter((e) => e.meetingUrl && !e.allDay && e.start - leadMinutes * 60000 <= now && e.end > now)
     .sort((a, b) => a.start - b.start);
 }
