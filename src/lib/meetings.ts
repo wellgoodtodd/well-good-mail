@@ -26,13 +26,15 @@ export function meetingService(url: string): string {
 
 /** The same event on two of your calendars (you are invited on both addresses, or a shared holiday calendar) counts once. */
 export function dedupeEvents(events: CalendarEvent[]): CalendarEvent[] {
-  const seen = new Set<string>();
-  return events.filter((e) => {
+  const byKey = new Map<string, CalendarEvent>();
+  for (const e of events) {
     const k = `${e.title.trim().toLowerCase()}|${e.start}|${e.end}|${e.allDay}`;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+    const have = byKey.get(k);
+    if (!have) { byKey.set(k, { ...e, accountIds: [e.accountId] }); continue; }
+    if (!have.accountIds!.includes(e.accountId)) have.accountIds!.push(e.accountId);
+    if (!have.meetingUrl && e.meetingUrl) have.meetingUrl = e.meetingUrl;
+  }
+  return [...byKey.values()];
 }
 
 /** Meetings with a video link that start within the next few minutes (or have started and not ended). */

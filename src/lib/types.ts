@@ -148,6 +148,8 @@ export interface CalendarEvent {
   /** Minutes before start that the calendar wants a reminder. */
   reminderMinutes: number[];
   htmlLink?: string;
+  /** When the same event is on several of your calendars it is shown once; these are all the accounts it is on. */
+  accountIds?: string[];
 }
 
 export type ReminderKind = 'event' | 'followup' | 'snooze';

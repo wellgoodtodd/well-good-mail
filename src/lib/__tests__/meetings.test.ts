@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../platform', () => ({ notify: async () => {}, flashTaskbar: () => {}, invoke: async () => {}, isTauri: () => false }));
 vi.mock('../db', () => ({ store: { kvGet: async () => undefined, kvSet: async () => {} } }));
 
-const { findMeetingUrl, meetingService, meetingsSoon } = await import('../meetings');
+const { findMeetingUrl, meetingService, meetingsSoon, dedupeEvents } = await import('../meetings');
 const { meetingAlertsDue } = await import('../reminders');
 const { parseEvents } = await import('../dav');
 import type { CalendarEvent } from '../types';
@@ -48,5 +48,18 @@ describe('meetings that are about to start', () => {
     expect(meetingAlertsDue([e], now).map((a) => a.minutes)).toEqual([15]);
     expect(meetingAlertsDue([{ ...e, start: now + 4 * min }], now).map((a) => a.minutes)).toEqual([5]);
     expect(meetingAlertsDue([{ ...e, start: now + 30 * min }], now)).toEqual([]);
+  });
+});
+
+describe('the same event on several calendars', () => {
+  it('shows once and remembers every account it is on', () => {
+    const a = ev({ id: '1', accountId: 'wgm', title: 'Test meeting', start: 1000, end: 2000 });
+    const b = ev({ id: '2', accountId: 'tb', title: 'test meeting ', start: 1000, end: 2000, meetingUrl: 'https://meet.google.com/abc-defg-hij' });
+    const other = ev({ id: '3', accountId: 'tb', title: 'Something else', start: 1000, end: 2000 });
+    const out = dedupeEvents([a, b, other]);
+    expect(out).toHaveLength(2);
+    expect(out[0].accountIds).toEqual(['wgm', 'tb']);
+    expect(out[0].meetingUrl).toBe('https://meet.google.com/abc-defg-hij');
+    expect(out[1].accountIds).toEqual(['tb']);
   });
 });

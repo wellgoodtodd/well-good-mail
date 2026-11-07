@@ -5,7 +5,7 @@ import { Icon } from './Icon';
 import { useMail } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { upcoming } from '../lib/reminders';
-import { meetingService, meetingsSoon } from '../lib/meetings';
+import { meetingService, meetingsSoon, dedupeEvents } from '../lib/meetings';
 import { openExternal } from '../lib/platform';
 import type { CalendarEvent } from '../lib/types';
 
@@ -28,6 +28,26 @@ function useColour() {
   return (id: string) => accounts.find((a) => a.id === id)?.colour || '#888';
 }
 
+/** Which accounts an event is on: one dot each, in the account's colour. */
+function AccountDots({ event }: { event: CalendarEvent }) {
+  const colour = useColour();
+  const accounts = useMail((s) => s.accounts);
+  const ids = event.accountIds?.length ? event.accountIds : [event.accountId];
+  const names = ids.map((id) => accounts.find((a) => a.id === id)?.label || accounts.find((a) => a.id === id)?.email || '').filter(Boolean).join(', ');
+  return (
+    <span className="acc-dots" title={names ? `On: ${names}` : undefined} aria-label={names ? `On: ${names}` : undefined}>
+      {ids.map((id) => <span key={id} className="dot" style={{ background: colour(id) }} />)}
+    </span>
+  );
+}
+
+/** A chip background: one colour, or bands of each account's colour when the event is on several. */
+function chipBackground(ids: string[], colour: (id: string) => string): string {
+  if (ids.length < 2) return colour(ids[0]);
+  const step = 100 / ids.length;
+  return `linear-gradient(90deg, ${ids.map((id, i) => `${colour(id)} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
+}
+
 export function JoinButton({ event, small }: { event: CalendarEvent; small?: boolean }) {
   if (!event.meetingUrl) return null;
   return (
@@ -40,7 +60,9 @@ export function JoinButton({ event, small }: { event: CalendarEvent; small?: boo
 /** A small window with the details of one event. */
 export function EventPreview({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
   const colour = useColour();
-  const label = useMail((s) => s.accounts.find((a) => a.id === event.accountId)?.label || '');
+  const accounts = useMail((s) => s.accounts);
+  const ids = event.accountIds?.length ? event.accountIds : [event.accountId];
+  const labels = ids.map((id) => accounts.find((a) => a.id === id)?.label || accounts.find((a) => a.id === id)?.email || '').filter(Boolean);
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', k);
@@ -51,12 +73,13 @@ export function EventPreview({ event, onClose }: { event: CalendarEvent; onClose
     <div className="ev-scrim" onClick={onClose}>
       <div className="ev-pop" role="dialog" aria-modal="true" aria-label={event.title} onClick={(e) => e.stopPropagation()}>
         <div className="ev-head">
-          <span className="ev-bar" style={{ background: colour(event.accountId) }} />
+          <span className="ev-bar" style={{ background: chipBackground(ids, colour) }} />
           <h2>{event.title}</h2>
           <button className="icon-btn" aria-label="Close" onClick={onClose}><Icon name="close" size={14} /></button>
         </div>
         <div className="ev-line"><Icon name="clock" size={15} /> {event.allDay ? `${dayText(event.start)}, all day` : `${dayText(event.start)}, ${timeText(event.start)} to ${sameDay ? '' : `${dayText(event.end)}, `}${timeText(event.end)}`}</div>
-        <div className="ev-line"><Icon name="calendar" size={15} /> {event.calendarName}{label ? ` · ${label}` : ''}</div>
+        <div className="ev-line"><Icon name="calendar" size={15} /> {event.calendarName}{labels.length ? ` · ${labels.join(', ')}` : ''}</div>
+        {ids.length > 1 && <div className="ev-line"><AccountDots event={event} /> On {ids.length} of your calendars</div>}
         {event.location && !event.location.startsWith('http') && <div className="ev-line"><Icon name="folder" size={15} /> {event.location}</div>}
         {event.meetingUrl && <div className="ev-line"><Icon name="link" size={15} /> {meetingService(event.meetingUrl)} call</div>}
         {event.description && <p className="ev-notes">{event.description}</p>}
@@ -74,14 +97,13 @@ export function EventPreview({ event, onClose }: { event: CalendarEvent; onClose
 export function ComingUpList({ limit = 8, onPick }: { limit?: number; onPick: (e: CalendarEvent) => void }) {
   const events = useMail((s) => s.events);
   const tick = useMinute();
-  const colour = useColour();
   const next = useMemo(() => upcoming(events).slice(0, limit), [events, tick, limit]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!next.length) return <div style={{ color: 'var(--text-muted)' }}>Nothing in the next week</div>;
   return (
     <>
       {next.map((e) => (
         <div key={e.id} className="coming-row" role="button" tabIndex={0} onClick={() => onPick(e)} onKeyDown={(k) => { if (k.key === 'Enter' || k.key === ' ') { k.preventDefault(); onPick(e); } }}>
-          <span className="dot" style={{ background: colour(e.accountId), marginTop: 6 }} />
+          <span className="acc-dots col" style={{ marginTop: 6 }}><AccountDots event={e} /></span>
           <div className="grow">
             <div style={{ fontWeight: 500 }}>{e.title}</div>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>{dayText(e.start)}{!e.allDay && `, ${timeText(e.start)}`} · {e.calendarName}</div>
@@ -120,7 +142,7 @@ export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
   const days = Array.from({ length: 42 }, (_, i) => { const d = new Date(gridStart); d.setDate(gridStart.getDate() + i); return d; });
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
-    for (const e of events) {
+    for (const e of dedupeEvents(events)) {
       // An event that runs over several days shows on each of them.
       const last = Math.max(e.start, e.end - (e.allDay ? 1 : 0));
       for (let t = new Date(e.start).setHours(0, 0, 0, 0); t <= last && t < e.start + 14 * 86400000; t += 86400000) {
@@ -149,7 +171,7 @@ export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
             <div key={d.toISOString()} className={`month-day ${d.getMonth() === month.getMonth() ? '' : 'other'} ${d.toDateString() === today ? 'today' : ''}`}>
               <span className="n">{d.getDate()}</span>
               {list.slice(0, 3).map((e) => (
-                <button key={e.id} className="chip" style={{ background: colour(e.accountId) }} title={e.title} onClick={() => onPick(e)}>
+                <button key={e.id} className="chip" style={{ background: chipBackground(e.accountIds?.length ? e.accountIds : [e.accountId], colour) }} title={e.title} onClick={() => onPick(e)}>
                   {!e.allDay && <span>{timeText(e.start)} </span>}{e.title}
                 </button>
               ))}

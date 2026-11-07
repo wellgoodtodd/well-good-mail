@@ -733,3 +733,8 @@ button.help-head:hover { background: var(--bg-hover); }
 .rem-scroll:has(.month) { display: flex; flex-direction: column; }
 .rem-scroll .month { flex: 1 1 auto; display: flex; flex-direction: column; }
 .rem-scroll .month .month-grid { flex: 1 1 auto; grid-template-rows: auto repeat(6, minmax(86px, 1fr)); }
+
+/* One event on several calendars: a dot for each account */
+.acc-dots { display: inline-flex; gap: 3px; align-items: center; flex: none; }
+.acc-dots.col { flex-direction: column; align-items: center; }
+.ev-line .acc-dots { margin: 0 2px; }
