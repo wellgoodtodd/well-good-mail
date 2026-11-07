@@ -724,3 +724,7 @@ button.help-head:hover { background: var(--bg-hover); }
 .mins-list li.sel { font-weight: 600; }
 .mins-list li.none { cursor: default; color: var(--text-muted); font-size: 0.85em; }
 .mins-list li.none:hover { background: transparent; }
+
+/* Coming up stays available on every screen; on a narrow window it slides over the content */
+.main.narrow { position: relative; }
+.main.narrow .coming-panel { position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; box-shadow: var(--shadow); }

@@ -413,6 +413,7 @@ function MainWindow() {
               {selectedKey || inlineDraftId ? <ReadingPane onBack={() => useMail.setState({ selectedKey: undefined, selectedKeys: [], inlineDraftId: undefined })} /> : <MessageList style={{ flex: 1, width: '100%', borderRight: 0 }} />}
             </div>
           ) : screen === 'reminders' ? <Reminders /> : screen === 'help' ? <Help /> : <SettingsScreen />}
+          {s.comingUpOpen && <ComingUpPanel />}
         </div>
       ) : (
         <div className={`main ${bottom ? 'bottom' : ''}`}>
@@ -431,7 +432,6 @@ function MainWindow() {
                   <ReadingPane />
                 </>
               )}
-              {s.comingUpOpen && <ComingUpPanel />}
             </div>
           ) : screen === 'reminders' ? (
             <Reminders />
@@ -440,6 +440,7 @@ function MainWindow() {
           ) : (
             <SettingsScreen />
           )}
+          {s.comingUpOpen && <ComingUpPanel />}
         </div>
       )}
       {appMenu.node}
