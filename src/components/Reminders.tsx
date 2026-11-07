@@ -1,7 +1,7 @@
 // Reminders: calendar items and follow ups that wait quietly until you clear them.
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectThread } from '../lib/mail';
+import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectThread, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { dueReminders, eventKey } from '../lib/reminders';
 import { ComingUpList, EventPreview, JoinButton, MonthView } from './ComingUp';
@@ -24,6 +24,14 @@ export function Reminders() {
 
   const items = useMemo(() => dueReminders(events, followups, dismissed), [events, followups, dismissed, tick]); // eslint-disable-line react-hooks/exhaustive-deps
   const [preview, setPreview] = useState<CalendarEvent | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      const failed = await refreshEvents();
+      toast({ text: failed.length ? `Couldn't reach the calendar for ${failed.join(', ')}` : 'Calendars updated', ttl: failed.length ? 8000 : 2500 });
+    } finally { setRefreshing(false); }
+  };
   const eventFor = (r: ReminderItem) => (r.kind === 'event' ? events.find((e) => eventKey(e) === r.id) : undefined);
   const colour = (id: string) => accounts.find((a) => a.id === id)?.colour || '#888';
   const label = (id: string) => accounts.find((a) => a.id === id)?.label || '';
@@ -48,7 +56,7 @@ export function Reminders() {
               <button className={s.remindersView === 'list' ? 'on' : ''} aria-pressed={s.remindersView === 'list'} onClick={() => s.set({ remindersView: 'list' })}><Icon name="list" size={14} /> List</button>
               <button className={s.remindersView === 'calendar' ? 'on' : ''} aria-pressed={s.remindersView === 'calendar'} onClick={() => s.set({ remindersView: 'calendar' })}><Icon name="calendar" size={14} /> Calendar</button>
             </div>
-            <button className="btn ghost" onClick={() => refreshEvents()}><Icon name="refresh" /> Refresh</button>
+            <button className="btn ghost" disabled={refreshing} onClick={refresh}><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span> {refreshing ? 'Refreshing' : 'Refresh'}</button>
             <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>
           </div>
           <p className="lead">Everything from your calendars and follow ups collects here quietly until you clear it. Nothing pops up unless you ask it to.</p>

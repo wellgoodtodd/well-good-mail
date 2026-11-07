@@ -32,9 +32,10 @@ export function dueReminders(events: CalendarEvent[], followups: FollowUp[], dis
   return items.sort((a, b) => b.dueAt - a.dueAt);
 }
 
+/** Everything that hasn't finished yet and starts within the next few days, including a meeting whose reminder time has passed. */
 export function upcoming(events: CalendarEvent[], now = Date.now(), days = 7): CalendarEvent[] {
   return events
-    .filter((e) => (e.allDay ? e.start : eventReminderTime(e)) > now && e.start < now + days * 86400000)
+    .filter((e) => e.end > now && e.start < now + days * 86400000)
     .sort((a, b) => a.start - b.start);
 }
 

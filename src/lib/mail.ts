@@ -978,10 +978,12 @@ export async function refreshAccountPhotos() {
   }
 }
 
-export async function refreshEvents() {
+/** Fetches every account's calendar again. Returns the accounts it couldn't reach. */
+export async function refreshEvents(): Promise<string[]> {
   const from = Date.now() - 3 * 86400000;
   const to = Date.now() + 8 * 86400000;
   const all: CalendarEvent[] = [];
+  const failed: string[] = [];
   await Promise.all(get().accounts.map(async (a) => {
     try {
       const events = await providers.get(a.id)!.listEvents(from, to);
@@ -990,9 +992,11 @@ export async function refreshEvents() {
     } catch (e) {
       all.push(...get().events.filter((x) => x.accountId === a.id));
       console.warn('Events failed', a.email, e);
+      failed.push(a.label || a.email);
     }
   }));
   set({ events: all });
+  return failed;
 }
 
 export async function dismissReminders(ids: string[]) {
