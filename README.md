@@ -41,9 +41,13 @@ Settings, then Search and storage, can export your downloaded mail to one file a
 
 See [SETUP.md](SETUP.md).
 
+## Privacy
+
+Your mail stays on your own computer. Well Good Mail talks only to your mail provider (Google, Microsoft, Apple or the mail server you set up) and to GitHub, to check for updates. It has no server of its own, collects nothing about you and has no tracking. Passwords and sign-in keys are kept in Windows Credential Manager. You can delete everything the app stores by uninstalling it and removing its folder in your user profile.
+
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). The software is provided as it is, without warranty of any kind. The installer shows this licence and asks you to accept it.
 
 ## Notes
 

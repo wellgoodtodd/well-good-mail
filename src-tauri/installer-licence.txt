@@ -1,0 +1,33 @@
+Well Good Mail
+
+Before you install
+
+Well Good Mail is a free, early app from Well Good Media Ltd, shared as it is. It works with your email, so please keep your own backups of anything important. We can't promise it will be free of mistakes, or promise support, though we do read everything we are sent.
+
+Your mail stays on your own computer. The app talks only to your mail provider (Google, Microsoft, Apple or your own mail server) and to GitHub to look for updates. Nothing is sent to us, and there is no tracking.
+
+By installing, you agree to the licence below.
+
+----------------------------------------
+
+MIT License
+
+Copyright (c) 2026 Well Good Media Ltd
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
