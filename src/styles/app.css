@@ -693,3 +693,8 @@ button.help-head:hover { background: var(--bg-hover); }
 .min-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .min-row > span { color: var(--text-muted); }
 .mins-input { width: 56px; text-align: center; }
+
+.print-preview { display: flex; flex-direction: column; height: 100%; background: var(--bg); }
+.pp-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--toolbar, var(--bg-elev)); }
+.pp-note { color: var(--text-muted); font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-frame { flex: 1; width: 100%; border: 0; background: #fff; }

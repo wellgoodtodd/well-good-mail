@@ -7,6 +7,7 @@ import { ReadingPane } from './components/ReadingPane';
 import { Composer } from './components/Composer';
 import { Reminders } from './components/Reminders';
 import { ComingUpPanel, MeetingBanner } from './components/ComingUp';
+import { PrintPreview } from './components/PrintPreview';
 import { Help } from './components/Help';
 import { SetupGuide, useGuide, openGuide } from './components/SetupGuide';
 import { UndoRedo } from './components/UndoRedo';
@@ -462,7 +463,7 @@ function PopoutWindow() {
   if (!ready) return null;
   return (
     <div className="app">
-      {kind === 'compose' ? <Composer draftId={id} variant="full" /> : <ReadingPane threadKeyOverride={id} standalone />}
+      {kind === 'print' ? <PrintPreview threadKey={id} /> : kind === 'compose' ? <Composer draftId={id} variant="full" /> : <ReadingPane threadKeyOverride={id} standalone />}
       <DialogHost />
       <Toasts />
     </div>

@@ -4,7 +4,7 @@ import { renderEmail } from './render';
 import { bytesToBase64 } from './mime';
 import { getAttachmentData, loadBody, messagesInThread, toast } from './mail';
 import { settings } from './settings';
-import { invoke, isTauri } from './platform';
+import { invoke, isTauri, openPopout } from './platform';
 import type { Address, Message } from './types';
 
 export interface PrintPart {
@@ -80,7 +80,7 @@ async function partFor(m: Message): Promise<PrintPart> {
 }
 
 /** The page for a conversation (oldest message first), and its subject. */
-async function threadPage(key: string): Promise<{ html: string; subject: string } | undefined> {
+export async function threadPage(key: string): Promise<{ html: string; subject: string } | undefined> {
   const thread = messagesInThread(key);
   if (!thread.length) return undefined;
   const parts = await Promise.all(thread.map(partFor));
@@ -91,8 +91,9 @@ async function threadPage(key: string): Promise<{ html: string; subject: string 
 /** Tells the app a print window is open, so its corner X can't quit the app by accident. */
 const setPrinting = (on: boolean) => { if (isTauri()) invoke('set_printing', { on }).catch(() => {}); };
 
-/** Opens the Windows print window for a conversation. */
+/** Opens the print preview, in a window of its own in the app. */
 export async function printThread(key: string, opts: { pdf?: boolean } = {}): Promise<void> {
+  if (isTauri() && !opts.pdf && (await openPopout(`print/${encodeURIComponent(key)}`, 'Print preview', { width: 900, height: 820 }))) return;
   const page = await threadPage(key);
   if (!page) return;
   const frame = document.createElement('iframe');
@@ -127,15 +128,22 @@ export async function savePdfThread(key: string): Promise<void> {
   if (!isTauri()) return printThread(key, { pdf: true });
   const page = await threadPage(key);
   if (!page) return;
+  const result = await savePdfPage(page);
+  if (result.startsWith("Couldn't")) await printThread(key);
+}
+
+/** Asks where to save, then writes a page as a PDF. Says what happened, in words. */
+export async function savePdfPage(page: { html: string; subject: string }): Promise<string> {
   const { save } = await import('@tauri-apps/plugin-dialog');
   const path = await save({ defaultPath: pdfName(page.subject), filters: [{ name: 'PDF', extensions: ['pdf'] }] });
-  if (!path) return;
+  if (!path) return '';
   try {
     await invoke('save_pdf', { html: page.html, path });
     toast({ text: `PDF saved to ${path}`, ttl: 7000 });
+    return `Saved to ${path}`;
   } catch (e) {
     console.warn('PDF save failed', e);
     toast({ text: "Couldn't save the PDF directly, so here is the print window. Choose Save as PDF.", ttl: 6000 });
-    await printThread(key, { pdf: true });
+    return "Couldn't save the PDF directly.";
   }
 }
