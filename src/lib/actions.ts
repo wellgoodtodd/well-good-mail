@@ -70,6 +70,8 @@ export function messageMenu(keys: string[]): MenuItem[] {
   }
   if (!inBin) items.push({ label: 'Move to Bin', icon: 'trash', kbd: kbd('delete'), onClick: () => trash(ids) });
   items.push(inJunk ? { label: 'Not junk', icon: 'inbox', onClick: () => markSpam(ids, false) } : { label: 'Mark as junk', icon: 'junk', kbd: kbd('junk'), onClick: () => markSpam(ids) });
+  // Junk moves this email. Block stops everything from this sender, so it sits right beside it.
+  if (single) items.push(blocked ? { label: `Unblock ${senderName}`, icon: 'userBlock', onClick: () => unblockSender(sender) } : { label: `Block ${senderName}`, icon: 'userBlock', onClick: () => blockSender(sender, ids) });
   // The longer lists sit behind a flyout so the menu stays short.
   items.push({ divider: true }, { label: 'Snooze', icon: 'clock', submenu: snoozeOptions().slice(0, 4).map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => snooze(ids, o.at) })) });
   if (labels.length) {
@@ -89,9 +91,6 @@ export function messageMenu(keys: string[]): MenuItem[] {
     const more: MenuItem[] = [
       { label: muted ? 'Unmute conversation' : 'Mute conversation', icon: 'mute', onClick: () => toggleMute(keys[0]) },
       { label: vip ? `Remove ${senderName} from important senders` : `Mark ${senderName} as important`, icon: 'star', onClick: () => toggleVip(sender) },
-      blocked
-        ? { label: `Unblock ${senderName}`, icon: 'junk' as const, onClick: () => unblockSender(sender) }
-        : { label: `Block ${senderName}`, icon: 'junk' as const, onClick: () => blockSender(sender, ids) },
       { label: `Find emails from ${senderName}`, icon: 'search', onClick: () => runSearch(`from:${sender}`, { everywhere: true }) },
       { label: 'Copy sender address', icon: 'user', onClick: () => copy(sender, 'Address') },
       { label: 'Copy subject', icon: 'file', onClick: () => copy(latest.subject, 'Subject') },
