@@ -7,7 +7,13 @@ import { dueReminders, eventKey } from '../lib/reminders';
 import { ComingUpList, EventPreview, JoinButton, MonthView } from './ComingUp';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
 
-const MODE_TEXT = { never: 'Off', daily: 'Daily summary only', important: 'Important only', all: 'Every reminder' } as const;
+/** One readable sentence about how reminders reach you. */
+function alertSummary(s: ReturnType<typeof useSettings.getState>): string {
+  const pop = s.reminderMode === 'never' ? 'No pop ups.' : s.reminderMode === 'daily' ? `A daily summary at ${s.summaryTime}.` : s.reminderMode === 'important' ? `Pop ups for important events only, plus a daily summary at ${s.summaryTime}.` : 'Pop ups for every reminder.';
+  const times = [s.meetingAlert1On && s.meetingAlert1Mins, s.meetingAlert2On && s.meetingAlert2Mins].filter(Boolean).sort((x, y) => Number(y) - Number(x));
+  const video = times.length ? `Video meetings: notified ${times.join(' and ')} minutes before.` : 'Video meeting notifications are off.';
+  return `${pop} ${video}${s.flashTaskbar ? ' The taskbar icon flashes.' : ''}`;
+}
 
 export function Reminders() {
   const events = useMail((s) => s.events);
@@ -29,7 +35,7 @@ export function Reminders() {
     setRefreshing(true);
     try {
       const failed = await refreshEvents();
-      toast({ text: failed.length ? `Couldn't reach the calendar for ${failed.join(', ')}` : 'Calendars updated', ttl: failed.length ? 8000 : 2500 });
+      toast({ text: failed.length ? `Couldn't reach the calendar for ${failed.join('; ')}` : 'Calendars updated', ttl: failed.length ? 15000 : 2500 });
     } finally { setRefreshing(false); }
   };
   const eventFor = (r: ReminderItem) => (r.kind === 'event' ? events.find((e) => eventKey(e) === r.id) : undefined);
@@ -105,11 +111,11 @@ export function Reminders() {
       </div>
       <footer className="rem-footer">
         <div className="alerts-card">
-          <div className="al-item"><span className="k">Pop ups</span><span>{MODE_TEXT[s.reminderMode]}</span></div>
-          {(s.reminderMode === 'daily' || s.reminderMode === 'important') && <div className="al-item"><span className="k">Daily summary</span><span>{s.summaryTime}</span></div>}
-          <div className="al-item"><span className="k">Taskbar flashing</span><span>{s.flashTaskbar ? 'On' : 'Never'}</span></div>
-          <div className="al-item"><span className="k">Video meetings</span><span>{[s.meetingAlert1On && s.meetingAlert1Mins, s.meetingAlert2On && s.meetingAlert2Mins].filter(Boolean).sort((a, b) => Number(b) - Number(a)).join(' and ') ? `${[s.meetingAlert1On && s.meetingAlert1Mins, s.meetingAlert2On && s.meetingAlert2Mins].filter(Boolean).sort((a, b) => Number(b) - Number(a)).join(' and ')} minutes before` : 'Off'}</span></div>
-          <button className="btn" style={{ marginLeft: 'auto' }} onClick={() => openScreen('settings', 'reminders')}>Change in Settings</button>
+          <div className="al-text">
+            <strong>How you get alerted</strong>
+            <span>{alertSummary(s)}</span>
+          </div>
+          <button className="btn" onClick={() => openScreen('settings', 'reminders')}>Change in Settings</button>
         </div>
       </footer>
       {preview && <EventPreview event={preview} onClose={() => setPreview(null)} />}

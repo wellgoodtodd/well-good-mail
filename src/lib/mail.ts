@@ -992,7 +992,7 @@ export async function refreshEvents(): Promise<string[]> {
     } catch (e) {
       all.push(...get().events.filter((x) => x.accountId === a.id));
       console.warn('Events failed', a.email, e);
-      failed.push(a.label || a.email);
+      failed.push(`${a.label || a.email}${e instanceof Error ? ` (${e.message.replace(/\s+/g, ' ').slice(0, 90)})` : ''}`);
     }
   }));
   set({ events: all });
