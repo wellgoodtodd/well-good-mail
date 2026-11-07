@@ -252,7 +252,8 @@ export async function initMail(opts: { popout?: boolean } = {}) {
   refreshAll();
   setTimeout(refreshEvents, 3000);
   setTimeout(refreshAccountPhotos, 4000);
-  setInterval(refreshEvents, 15 * 60 * 1000);
+  // Every few minutes, so a meeting added at the last minute still gets its notification and banner.
+  setInterval(refreshEvents, 3 * 60 * 1000);
   setInterval(refreshContacts, 12 * 60 * 60 * 1000);
 }
 

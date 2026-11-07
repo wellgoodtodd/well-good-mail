@@ -94,7 +94,8 @@ async function meetingAlerts(events: CalendarEvent[], now: number) {
     if (notified.has(a.key)) continue;
     notified.add(a.key);
     const when = new Date(a.event.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    await notify(`${a.event.title} in ${a.minutes} ${a.minutes === 1 ? 'minute' : 'minutes'}`, `${when} · ${meetingService(a.event.meetingUrl!)} link in Well Good Mail`);
+    const left = Math.max(1, Math.min(a.minutes, Math.ceil((a.event.start - now) / 60000)));
+    await notify(`${a.event.title} in ${left} ${left === 1 ? 'minute' : 'minutes'}`, `${when} · ${meetingService(a.event.meetingUrl!)} link in Well Good Mail`);
   }
 }
 
