@@ -597,3 +597,6 @@ button.badge:hover { color: var(--text); border-color: var(--text-muted); }
 .own-keys[open] summary::before { transform: rotate(45deg); }
 .own-keys .hint { margin: 0 0 10px; }
 .own-keys .set-card { margin: 0 0 12px; background: var(--bg-elev); }
+
+.gpick { display: grid; gap: 8px; margin: 10px 0; }
+.gpick .btn { justify-content: flex-start; height: 38px; padding: 0 14px; }

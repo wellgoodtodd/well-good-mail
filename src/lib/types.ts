@@ -103,6 +103,8 @@ export interface Message {
   listUnsubscribePost?: boolean;
   /** Gmail draft id when this message is a draft. */
   draftId?: string;
+  /** IMAP only: which folders hold a copy of this email, and its number (UID) in each. */
+  locations?: Record<string, number>;
 }
 
 export interface OutgoingAttachment {

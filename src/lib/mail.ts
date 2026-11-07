@@ -5,6 +5,9 @@ import { store } from './db';
 import { settings, useSettings, isQuietNow } from './settings';
 import { GmailProvider } from './providers/gmail';
 import { MicrosoftProvider } from './providers/microsoft';
+import { ImapProvider } from './providers/imap';
+import { openImapGuide } from './guide';
+import { removeImapPassword, saveImapPassword, testImap, type ImapSettings } from './auth/imap';
 import { DemoProvider, DEMO_ACCOUNTS, resetDemo } from './providers/demo';
 import type { MailProvider } from './providers/provider';
 import { signInWithGoogle, signOutGoogle } from './auth/google';
@@ -25,6 +28,12 @@ function makeProvider(a: Account): MailProvider {
   switch (a.kind) {
     case 'gmail': return new GmailProvider(a);
     case 'microsoft': return new MicrosoftProvider(a);
+    case 'imap': {
+      // After a move, the list is brought up to date with the server straight away, because moved emails get new numbers there.
+      const p = new ImapProvider(a, () => Object.values(get().messages));
+      p.onChanged = () => { syncAccount(a.id, { quiet: true }); };
+      return p;
+    }
     case 'demo': return new DemoProvider(a);
     default: throw new Error(`${a.kind} accounts aren't supported yet`);
   }
@@ -322,6 +331,18 @@ export async function addMicrosoftAccountStrict(): Promise<string> {
   return email;
 }
 
+/**
+ * Adds (or, with a new password, reconnects) an account that uses IMAP, such as iCloud. The password is checked
+ * against the server first, so a wrong one is reported here rather than after the account is added.
+ */
+export async function addImapAccountStrict(settings: ImapSettings, email: string, password: string, name: string): Promise<void> {
+  await testImap(settings, password);
+  await saveImapPassword(email, password);
+  const existing = get().accounts.find((a) => a.kind === 'imap' && a.email === email);
+  if (existing) providers.set(existing.id, makeProvider({ ...existing, imap: settings }));
+  await addAccount('imap', email, name, { imap: settings });
+}
+
 export async function addMicrosoftAccount() {
   try {
     const { email, name } = await signInWithMicrosoft();
@@ -337,6 +358,11 @@ export async function reconnectAccount(id: string) {
   try {
     if (a.kind === 'gmail') await signInWithGoogle(a.email);
     if (a.kind === 'microsoft') await signInWithMicrosoft();
+    if (a.kind === 'imap') {
+      // No web sign in here: the person enters a new app password in the guide, which reconnects the account itself.
+      openImapGuide(a.email);
+      return;
+    }
     saveAccount({ ...a, status: 'ok', error: undefined });
     syncAccount(id);
   } catch (e) {
@@ -349,6 +375,7 @@ export async function removeAccount(id: string) {
   if (!a) return;
   if (a.kind === 'gmail') await signOutGoogle(a.email);
   if (a.kind === 'microsoft') await signOutMicrosoft(a.email);
+  if (a.kind === 'imap') await removeImapPassword(a.email).catch(() => {});
   providers.delete(id);
   await store.deleteAccount(id);
   const messages = Object.fromEntries(Object.entries(get().messages).filter(([, m]) => m.accountId !== id));

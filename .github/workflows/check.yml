@@ -1,8 +1,9 @@
 name: Check
 on:
   push:
-    branches: [main]
+    branches: [main, imap]
   pull_request:
+  workflow_dispatch:
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,3 +16,14 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+  # Makes sure the Rust side still compiles, without building the whole installer.
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: mkdir dist
+      - run: cargo check --manifest-path src-tauri/Cargo.toml

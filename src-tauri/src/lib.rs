@@ -4,6 +4,8 @@
 //! web page can't: signing in through the system browser, keeping sign ins in
 //! Windows Credential Manager, the tray icon, start with Windows and updates.
 
+mod imapmail;
+
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -164,7 +166,19 @@ pub fn run() {
             secret_set,
             secret_get,
             secret_delete,
-            set_unread_count
+            set_unread_count,
+            imapmail::imap_folders,
+            imapmail::imap_flags,
+            imapmail::imap_uids,
+            imapmail::imap_headers,
+            imapmail::imap_message,
+            imapmail::imap_search,
+            imapmail::imap_store,
+            imapmail::imap_move,
+            imapmail::imap_delete,
+            imapmail::imap_delete_by_id,
+            imapmail::imap_append,
+            imapmail::smtp_send
         ])
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;

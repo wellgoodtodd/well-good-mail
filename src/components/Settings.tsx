@@ -12,6 +12,7 @@ import { allAliases } from '../lib/compose';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
 import { SKINS, type Skin } from '../lib/skins';
 import { openGuide } from './SetupGuide';
+import { IMAP_PRESETS } from '../lib/imapUtil';
 import { addAccountItems } from '../lib/accountMenu';
 import { exportCache, importCache } from '../lib/cacheTransfer';
 import { paceInfo } from '../lib/providers/gmail';
@@ -176,7 +177,7 @@ function AccountsTab() {
             <div className="grow">
               <div>{a.email}</div>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>
-                {a.kind === 'gmail' ? 'Google' : a.kind === 'microsoft' ? 'Microsoft 365' : a.kind === 'demo' ? 'Demo' : 'IMAP'}
+                {a.kind === 'gmail' ? 'Google' : a.kind === 'microsoft' ? 'Microsoft 365' : a.kind === 'demo' ? 'Demo' : IMAP_PRESETS.find((p) => p.host === a.imap?.host)?.name || 'IMAP'}
                 {' · '}
                 {a.status === 'needs-signin' ? <span className="status-bad">Needs signing in again</span> : a.status === 'error' ? <span className="status-bad" title={a.error}>Problem syncing</span> : a.status === 'syncing' ? (a.syncDone ? `Syncing... ${a.syncDone.toLocaleString()} ${a.syncDone === 1 ? 'message' : 'messages'}` : 'Syncing...') : <span className="status-ok">Connected</span>}
                 {a.lastSync ? ` · checked ${new Date(a.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}

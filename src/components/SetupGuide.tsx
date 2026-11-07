@@ -1,18 +1,16 @@
 // First-run guide: walks someone through making their own Google key, then proves it works with a real sign in.
 // The same screen also has a short "stop signing in every week" guide (publishing the Google project).
 import { useState } from 'react';
-import { create } from 'zustand';
 import { Icon } from './Icon';
 import { openExternal } from '../lib/platform';
 import { saveGoogleKeys } from '../lib/auth/google';
 import { saveMicrosoftKey } from '../lib/auth/microsoft';
-import { addGoogleAccountStrict, addMicrosoftAccountStrict, reconnectAccount, useMail } from '../lib/mail';
+import { addGoogleAccountStrict, addImapAccountStrict, addMicrosoftAccountStrict, reconnectAccount, useMail } from '../lib/mail';
 import { useSettings } from '../lib/settings';
+import { IMAP_PRESETS, presetById, presetForEmail } from '../lib/imapUtil';
+import { closeGuide, openGuide, useGuide } from '../lib/guide';
 
-type Mode = 'setup' | 'publish' | 'microsoft';
-export const useGuide = create<{ mode: Mode | null }>(() => ({ mode: null }));
-export const openGuide = (mode: Mode = 'setup') => useGuide.setState({ mode });
-export const closeGuide = () => useGuide.setState({ mode: null });
+export { closeGuide, openGuide, useGuide };
 
 const CONSOLE = 'https://console.cloud.google.com';
 const SERVICES: [string, string][] = [
@@ -52,7 +50,7 @@ const SETUP_STEPS = ['Welcome', 'Project', 'Services', 'Sign-in screen', 'Your k
 
 export function SetupGuide() {
   const mode = useGuide((s) => s.mode) || 'setup';
-  return mode === 'publish' ? <PublishGuide /> : mode === 'microsoft' ? <MicrosoftGuide /> : <FirstRun />;
+  return mode === 'publish' ? <PublishGuide /> : mode === 'microsoft' ? <MicrosoftGuide /> : mode === 'imap' ? <ImapGuide /> : <FirstRun />;
 }
 
 function Frame({ step, total, children, onBack, onNext, nextLabel, hideNext, onClose }: {
@@ -427,6 +425,140 @@ function MicrosoftGuide() {
         <div className="gtick"><Icon name="check" size={26} /></div>
         <h2>Well done, it works</h2>
         <p className="glead">Microsoft accepted the ID and {email || 'your account'} is connected. Your mail is downloading now.</p>
+        <button className="btn primary" onClick={closeGuide}>Open my mail</button>
+      </div>
+    </Frame>
+  );
+}
+
+/** Steps for making an app password, for the services where that is how Well Good Mail signs in. */
+const APP_PASSWORD_STEPS: Record<string, string[]> = {
+  icloud: [
+    'Sign in at account.apple.com with your Apple Account. Two-factor sign in must be switched on, which it is for most accounts.',
+    'Choose Sign-In and Security, then App-Specific Passwords.',
+    'Click the plus button, give it the name below, and click Create.',
+    'Apple shows a password made of four groups of letters, such as abcd-efgh-ijkl-mnop. Copy it. Apple only shows it once.',
+  ],
+  yahoo: [
+    'Sign in to your Yahoo account and open Account security.',
+    'Choose Generate app password (or Manage app passwords).',
+    'Give it the name below, and click Generate.',
+    'Copy the password it shows.',
+  ],
+  fastmail: [
+    'Sign in to Fastmail and open Settings, then Privacy and Security, then Integrations.',
+    'Choose New app password, and give it the name below.',
+    'For access, choose Mail (IMAP/POP/SMTP), then click Generate.',
+    'Copy the password it shows.',
+  ],
+  aol: [
+    'Sign in to your AOL account and open Account security.',
+    'Choose Generate app password, and give it the name below.',
+    'Copy the password it shows.',
+  ],
+};
+
+function ImapGuide() {
+  const startPreset = useGuide((s) => s.preset);
+  const startEmail = useGuide((s) => s.email);
+  const accounts = useMail((s) => s.accounts);
+  const existing = startEmail ? accounts.find((a) => a.kind === 'imap' && a.email === startEmail) : undefined;
+  const [presetId, setPresetId] = useState(startPreset || (existing ? presetForEmail(existing.email)?.id : undefined) || '');
+  const [step, setStep] = useState(existing ? 2 : startPreset ? 1 : 0);
+  const [email, setEmail] = useState(existing?.email || '');
+  const [password, setPassword] = useState('');
+  const [host, setHost] = useState(existing?.imap?.host || '');
+  const [port, setPort] = useState(String(existing?.imap?.port || 993));
+  const [smtpHost, setSmtpHost] = useState(existing?.imap?.smtpHost || '');
+  const [smtpPort, setSmtpPort] = useState(String(existing?.imap?.smtpPort || 465));
+  const [username, setUsername] = useState(existing?.imap?.username || '');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const preset = presetById(presetId);
+  const custom = !preset;
+  const total = 4;
+
+  const choose = (id: string) => { setPresetId(id); setStep(id && presetById(id) ? 1 : 2); };
+
+  const connect = async () => {
+    setError('');
+    const address = email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address)) return setError('That email address does not look right.');
+    if (!password.trim()) return setError('Paste the app password first.');
+    const matched = preset || presetForEmail(address);
+    const settings = matched
+      ? { host: matched.host, port: matched.port, smtpHost: matched.smtpHost, smtpPort: matched.smtpPort, username: address }
+      : { host: host.trim(), port: Number(port) || 993, smtpHost: smtpHost.trim(), smtpPort: Number(smtpPort) || 465, username: (username || address).trim() };
+    if (!settings.host || !settings.smtpHost) return setError('Enter the incoming and outgoing server names.');
+    setBusy(true);
+    try {
+      await addImapAccountStrict(settings, address, password.trim(), existing?.displayName || address.split('@')[0]);
+      setStep(3);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (step === 0) return (
+    <Frame step={0} total={total} onNext={() => setStep(1)} hideNext>
+      <p className="gstep">About 3 minutes</p>
+      <h2>Add an email account</h2>
+      <p className="glead">Choose where your email is.</p>
+      <div className="gpick">
+        {IMAP_PRESETS.map((p) => <button key={p.id} className="btn" onClick={() => choose(p.id)}>{p.name}</button>)}
+        <button className="btn" onClick={() => choose('other')}>Another email service (IMAP)</button>
+      </div>
+      <div className="gsafe"><Icon name="shield" size={16} /><span>Your password stays on this computer, in Windows Credential Manager. Well Good Mail talks straight to your email service and nothing goes through anyone else.</span></div>
+    </Frame>
+  );
+
+  if (step === 1 && preset) return (
+    <Frame step={1} total={total} onBack={() => setStep(0)} onNext={() => setStep(2)}>
+      <p className="gstep">Step 1 of 2</p>
+      <h2>Make an app password for {preset.name}</h2>
+      <p className="glead">{preset.name} does not let apps sign in with your normal password. Instead you make a separate {preset.passwordName} for Well Good Mail. You can cancel it at any time, and it does not change your own password.</p>
+      <Link url={preset.passwordUrl}>Open {preset.name} account settings</Link>
+      <ol className="gol">
+        {(APP_PASSWORD_STEPS[preset.id] || []).map((t) => <li key={t}>{t}</li>)}
+      </ol>
+      <Copy label="Name for the password" value="Well Good Mail" />
+    </Frame>
+  );
+
+  if (step === 2) return (
+    <Frame step={2} total={total} onBack={() => setStep(preset ? 1 : 0)} hideNext>
+      <p className="gstep">{existing ? 'New password' : preset ? 'Step 2 of 2' : 'Your account'}</p>
+      <h2>{existing ? `Enter a new password for ${existing.email}` : preset ? 'Enter your address and password' : 'Enter your account details'}</h2>
+      <label className="glabel" htmlFor="i-email">Email address</label>
+      <input id="i-email" className="gin" value={email} disabled={Boolean(existing)} placeholder={preset?.id === 'icloud' ? 'you@icloud.com' : 'you@example.com'} onChange={(e) => { setEmail(e.target.value); setError(''); }} />
+      <label className="glabel" htmlFor="i-pass">{preset ? `The ${preset.passwordName}` : 'Password (an app password, if your service has them)'}</label>
+      <input id="i-pass" className="gin" type="password" autoComplete="off" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} />
+      {custom && !existing && (
+        <>
+          <label className="glabel" htmlFor="i-host">Incoming mail server (IMAP) and port</label>
+          <div className="gline"><input id="i-host" className="gin" value={host} placeholder="imap.example.com" onChange={(e) => setHost(e.target.value)} /><input className="gin" style={{ width: 90 }} aria-label="IMAP port" value={port} onChange={(e) => setPort(e.target.value)} /></div>
+          <label className="glabel" htmlFor="i-smtp">Outgoing mail server (SMTP) and port</label>
+          <div className="gline"><input id="i-smtp" className="gin" value={smtpHost} placeholder="smtp.example.com" onChange={(e) => setSmtpHost(e.target.value)} /><input className="gin" style={{ width: 90 }} aria-label="SMTP port" value={smtpPort} onChange={(e) => setSmtpPort(e.target.value)} /></div>
+          <label className="glabel" htmlFor="i-user">Username (leave empty if it is your email address)</label>
+          <input id="i-user" className="gin" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <p className="ghint">Incoming is normally port 993. Outgoing is port 465, or 587 for some services. Your email service's help pages list them.</p>
+        </>
+      )}
+      {error && <p className="gerr" role="alert">{error}</p>}
+      <div style={{ marginTop: 12 }}>
+        <button className="btn primary" onClick={connect} disabled={busy}>{busy ? 'Connecting...' : existing ? 'Save and reconnect' : 'Connect'}</button>
+      </div>
+    </Frame>
+  );
+
+  return (
+    <Frame step={3} total={total} hideNext>
+      <div style={{ textAlign: 'center', padding: '14px 0 4px' }}>
+        <div className="gtick"><Icon name="check" size={26} /></div>
+        <h2>Well done, it works</h2>
+        <p className="glead">{email.trim().toLowerCase() || 'Your account'} is connected. Your mail is downloading now.</p>
         <button className="btn primary" onClick={closeGuide}>Open my mail</button>
       </div>
     </Frame>

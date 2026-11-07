@@ -3,13 +3,14 @@ import type { MenuItem } from '../components/ui';
 import { addGoogleAccount, addMicrosoftAccount } from './mail';
 import { googleConfigured } from './auth/google';
 import { microsoftConfigured } from './auth/microsoft';
-import { openGuide } from '../components/SetupGuide';
+import { openGuide } from './guide';
 
 export function addAccountItems(): MenuItem[] {
   return [
     { heading: 'Add an account' },
     { label: 'Google (Gmail)', icon: 'mail', onClick: () => (googleConfigured() ? addGoogleAccount() : openGuide('setup')) },
     { label: 'Microsoft 365 or Outlook (early)', icon: 'mail', onClick: () => (microsoftConfigured() ? addMicrosoftAccount() : openGuide('microsoft')) },
-    { label: 'Other email (IMAP), coming later', icon: 'mail', disabled: true },
+    { label: 'iCloud Mail (early)', icon: 'mail', onClick: () => openGuide('imap', { preset: 'icloud' }) },
+    { label: 'Yahoo, Fastmail or other email (early)', icon: 'mail', onClick: () => openGuide('imap') },
   ];
 }
