@@ -689,3 +689,7 @@ button.help-head:hover { background: var(--bg-hover); }
   .rem-main, .rem-side { flex: none; width: auto; min-height: auto; }
   .rem-scroll { overflow: visible; }
 }
+
+.min-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.min-row > span { color: var(--text-muted); }
+.mins-input { width: 56px; text-align: center; }

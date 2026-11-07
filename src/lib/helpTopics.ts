@@ -56,8 +56,8 @@ export const TOPICS: HelpTopic[] = [
     id: 'accounts', title: 'Accounts and your mail', icon: 'user', blurb: 'Signing in, backups and moving.',
     items: [
       { q: 'An account needs signing in again', a: 'A coral dot appears on Settings and on the account. Click Sign in beside it. For iCloud and other app password accounts, you enter a new app password. Your saved mail stays where it is meanwhile.', keywords: 'password sign in error unauthorised' },
-      { q: 'Back up your app keys', a: 'Settings, then Search and storage, has Back up my keys. It saves the Google key from the setup guide to a file you choose, so a reinstall or a new computer doesn\'t mean another ten minute setup. The file holds your Google secret, so keep it somewhere private.', keywords: 'google key backup restore reinstall client secret' },
-      { q: 'Move your mail to another computer', a: 'Settings, then Search and storage, has Export and Import under Moving to another computer. The file holds your emails, so keep it somewhere private. You sign in to your accounts again on the new computer.', keywords: 'transfer new pc export import' },
+      { q: 'Back up your app keys', a: 'Settings, then Search & Storage, has Back up my keys. It saves the Google key from the setup guide to a file you choose, so a reinstall or a new computer doesn\'t mean another ten minute setup. The file holds your Google secret, so keep it somewhere private.', keywords: 'google key backup restore reinstall client secret' },
+      { q: 'Move your mail to another computer', a: 'Settings, then Search & Storage, has Export and Import under Moving to another computer. The file holds your emails, so keep it somewhere private. You sign in to your accounts again on the new computer.', keywords: 'transfer new pc export import' },
     ],
   },
   {

@@ -27,14 +27,14 @@ import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutActio
 
 const TABS = [
   ['accounts', 'Accounts'],
-  ['signatures', 'Signatures & addresses'],
-  ['groups', 'Inbox groups'],
+  ['signatures', 'Signatures & Addresses'],
+  ['groups', 'Inbox Groups'],
   ['appearance', 'Appearance'],
   ['writing', 'Composing'],
-  ['notifications', 'Notifications & reminders'],
+  ['notifications', 'Notifications & Reminders'],
   ['privacy', 'Privacy'],
-  ['offline', 'Search & storage'],
-  ['shortcuts', 'Keyboard shortcuts'],
+  ['offline', 'Search & Storage'],
+  ['shortcuts', 'Keyboard Shortcuts'],
   ['updates', 'Updates'],
   ['diagnostics', 'Diagnostics'],
 ] as const;
@@ -566,6 +566,25 @@ function WritingTab() {
 
 // ---------- reminders ----------
 
+/** A number of minutes: pick from the list or type one. Only whole numbers are kept. */
+function WholeMinutes({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const commit = (raw: string) => {
+    const n = Math.round(Number(raw));
+    if (raw.trim() !== '' && Number.isFinite(n) && n >= 1 && n <= 180) onChange(n);
+    else setText(String(value));
+  };
+  return (
+    <>
+      <input className="mins-input" type="text" inputMode="numeric" list="wgm-mins" aria-label={`${label}: minutes before`} value={text}
+        onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); setText(v); const n = Number(v); if (v && n >= 1 && n <= 180) onChange(n); }}
+        onBlur={(e) => commit(e.target.value)} />
+      <datalist id="wgm-mins">{[1, 2, 3, 5, 10, 15, 20, 30, 45, 60].map((n) => <option key={n} value={n} />)}</datalist>
+    </>
+  );
+}
+
 function RemindersTab() {
   const s = useSettings();
   return (
@@ -583,8 +602,11 @@ function RemindersTab() {
           <Row label="Summary time" htmlFor="sumtime"><input id="sumtime" type="time" value={s.summaryTime} onChange={(e) => s.set({ summaryTime: e.target.value })} /></Row>
         )}
         <Check checked={s.flashTaskbar} onChange={(v) => s.set({ flashTaskbar: v })}>Flash the taskbar icon for reminders and new mail when the app is in the background</Check>
-        <Check checked={s.meetingAlerts} onChange={(v) => s.set({ meetingAlerts: v })}>Notify me 15 and 5 minutes before a meeting that has a video link</Check>
-        <Check checked={s.meetingBanner} onChange={(v) => s.set({ meetingBanner: v })}>Show a bar over my mail 5 minutes before a video meeting, with a Join button</Check>
+        <h3 className="sub-head">Video meetings</h3>
+        <p className="hint">For meetings that have a Teams, Zoom or Google Meet link. Choose the times in whole minutes, from the list or typed in.</p>
+        <div className="min-row"><Check checked={s.meetingAlert1On} onChange={(v) => s.set({ meetingAlert1On: v })}>First notification</Check><WholeMinutes label="First notification" value={s.meetingAlert1Mins} onChange={(n) => s.set({ meetingAlert1Mins: n })} /><span>minutes before</span></div>
+        <div className="min-row"><Check checked={s.meetingAlert2On} onChange={(v) => s.set({ meetingAlert2On: v })}>Second notification</Check><WholeMinutes label="Second notification" value={s.meetingAlert2Mins} onChange={(n) => s.set({ meetingAlert2Mins: n })} /><span>minutes before</span></div>
+        <div className="min-row"><Check checked={s.meetingBanner} onChange={(v) => s.set({ meetingBanner: v })}>Bar over my mail, with a Join button</Check><WholeMinutes label="Bar over my mail" value={s.meetingBannerMins} onChange={(n) => s.set({ meetingBannerMins: n })} /><span>minutes before</span></div>
         <p className="hint">Windows notifications from Well Good Mail never cover your work and never need dismissing one by one.</p>
       </section>
     </>

@@ -65,30 +65,35 @@ export async function checkReminderAlerts(events: CalendarEvent[], followups: Fo
       }
     }
     await maybeDailySummary(events, now);
-    if (s.meetingAlerts) await meetingAlerts(events, now);
+    await meetingAlerts(events, now);
   }
   await store.kvSet('notifiedReminders', [...notified].slice(-500));
 }
 
 /** A notification 15 minutes and again 5 minutes before any meeting that has a video link. */
-export function meetingAlertsDue(events: CalendarEvent[], now: number): { key: string; event: CalendarEvent; minutes: number }[] {
+export function meetingAlertsDue(events: CalendarEvent[], now: number, times: number[] = [15, 5]): { key: string; event: CalendarEvent; minutes: number }[] {
   const out: { key: string; event: CalendarEvent; minutes: number }[] = [];
+  const mins = [...new Set(times.filter((m) => Number.isInteger(m) && m > 0))].sort((a, b) => b - a);
   for (const e of events) {
     if (!e.meetingUrl || e.allDay) continue;
     const until = e.start - now;
     if (until <= 0) continue;
-    if (until <= 5 * 60000) out.push({ key: `mt|${e.id}|${e.start}|5`, event: e, minutes: 5 });
-    else if (until <= 15 * 60000) out.push({ key: `mt|${e.id}|${e.start}|15`, event: e, minutes: 15 });
+    // Each time covers the stretch back to the next smaller one, so an app opened late doesn't fire stale alerts.
+    mins.forEach((m, i) => {
+      if (until <= m * 60000 && (i === mins.length - 1 || until > mins[i + 1] * 60000)) out.push({ key: `mt|${e.id}|${e.start}|${m}`, event: e, minutes: m });
+    });
   }
   return out;
 }
 
 async function meetingAlerts(events: CalendarEvent[], now: number) {
-  for (const a of meetingAlertsDue(events, now)) {
+  const s = settings();
+  const times = [s.meetingAlert1On ? s.meetingAlert1Mins : 0, s.meetingAlert2On ? s.meetingAlert2Mins : 0];
+  for (const a of meetingAlertsDue(events, now, times)) {
     if (notified.has(a.key)) continue;
     notified.add(a.key);
     const when = new Date(a.event.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    await notify(`${a.event.title} in ${a.minutes} minutes`, `${when} · ${meetingService(a.event.meetingUrl!)} link in Well Good Mail`);
+    await notify(`${a.event.title} in ${a.minutes} ${a.minutes === 1 ? 'minute' : 'minutes'}`, `${when} · ${meetingService(a.event.meetingUrl!)} link in Well Good Mail`);
   }
 }
 

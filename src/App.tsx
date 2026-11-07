@@ -320,7 +320,7 @@ function MainWindow() {
       { label: 'Add account', icon: 'plus', submenu: addAccountItems() },
       { divider: true },
       { label: 'Reminders', icon: 'bell', onClick: () => openScreen('reminders') },
-      { label: 'Settings', icon: 'settings', submenu: [tab('Accounts', 'accounts'), tab('Appearance', 'appearance'), tab('Notifications and reminders', 'notifications'), tab('Keyboard shortcuts', 'shortcuts'), tab('Updates', 'updates'), tab('Diagnostics', 'diagnostics')] },
+      { label: 'Settings', icon: 'settings', submenu: [tab('Accounts', 'accounts'), tab('Appearance', 'appearance'), tab('Notifications and Reminders', 'notifications'), tab('Keyboard Shortcuts', 'shortcuts'), tab('Updates', 'updates'), tab('Diagnostics', 'diagnostics')] },
       { label: 'Help', icon: 'help', onClick: () => openScreen('help') },
       { divider: true },
       { label: s.sidebarVisible ? 'Hide sidebar' : 'Show sidebar', icon: 'sidebar', kbd: 'Ctrl+Shift+S', onClick: () => s.set({ sidebarVisible: !s.sidebarVisible }) },

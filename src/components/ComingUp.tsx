@@ -166,10 +166,11 @@ export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
 export function MeetingBanner() {
   const events = useMail((s) => s.events);
   const enabled = useSettings((s) => s.meetingBanner);
+  const lead = useSettings((s) => s.meetingBannerMins);
   const tick = useMinute();
   const [gone, setGone] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<CalendarEvent | null>(null);
-  const soon = useMemo(() => (enabled ? meetingsSoon(events).filter((e) => !gone.has(`${e.id}|${e.start}`)) : []), [events, enabled, gone, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const soon = useMemo(() => (enabled ? meetingsSoon(events, Date.now(), lead).filter((e) => !gone.has(`${e.id}|${e.start}`)) : []), [events, enabled, lead, gone, tick]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!soon.length) return null;
   return (
     <>

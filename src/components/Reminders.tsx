@@ -100,7 +100,7 @@ export function Reminders() {
           <div className="al-item"><span className="k">Pop ups</span><span>{MODE_TEXT[s.reminderMode]}</span></div>
           {(s.reminderMode === 'daily' || s.reminderMode === 'important') && <div className="al-item"><span className="k">Daily summary</span><span>{s.summaryTime}</span></div>}
           <div className="al-item"><span className="k">Taskbar flashing</span><span>{s.flashTaskbar ? 'On' : 'Never'}</span></div>
-          <div className="al-item"><span className="k">Video meetings</span><span>{s.meetingAlerts ? '15 and 5 minutes before' : 'Off'}</span></div>
+          <div className="al-item"><span className="k">Video meetings</span><span>{[s.meetingAlert1On && s.meetingAlert1Mins, s.meetingAlert2On && s.meetingAlert2Mins].filter(Boolean).sort((a, b) => Number(b) - Number(a)).join(' and ') ? `${[s.meetingAlert1On && s.meetingAlert1Mins, s.meetingAlert2On && s.meetingAlert2Mins].filter(Boolean).sort((a, b) => Number(b) - Number(a)).join(' and ')} minutes before` : 'Off'}</span></div>
           <button className="btn" style={{ marginLeft: 'auto' }} onClick={() => openScreen('settings', 'reminders')}>Change in Settings</button>
         </div>
       </footer>
