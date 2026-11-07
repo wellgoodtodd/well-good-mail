@@ -13,6 +13,9 @@ interface UpdateState {
 
 export const useUpdates = create<UpdateState>(() => ({ status: 'idle' }));
 
+/** A test build has a word after the number, like 0.6.3-beta.1. */
+export const isBetaVersion = (version?: string) => Boolean(version && /^\d+\.\d+\.\d+-/.test(version));
+
 /** True while a newer version is found, downloading or waiting for a restart. */
 export const useUpdatePending = () => useUpdates((s) => s.status === 'available' || s.status === 'downloading' || s.status === 'ready');
 

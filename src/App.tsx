@@ -34,7 +34,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { isPopout, isTauri, onTauriEvent, rememberPopoutSize, setAutostart, setCloseQuits } from './lib/platform';
 import { loadGoogleKeys, useGoogleConfigured } from './lib/auth/google';
 import { loadMicrosoftKeys } from './lib/auth/microsoft';
-import { startUpdateChecks, useUpdates, restartToUpdate } from './lib/updater';
+import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from './lib/updater';
 import './lib/sender';
 import { DialogHost } from './components/DialogHost';
 import { useDialogs, askConfirm } from './lib/dialogs';
@@ -249,6 +249,14 @@ function MainWindow() {
   const s = useSettings();
   const themeIsDark = s.theme === 'dark' || (s.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   const update = useUpdates();
+  const beta = isBetaVersion(update.currentVersion);
+  // A test build says so in the window title, so it can't be mistaken for the real one.
+  useEffect(() => {
+    if (!update.currentVersion) return;
+    const title = beta ? `Well Good Mail BETA ${update.currentVersion}` : 'Well Good Mail';
+    document.title = title;
+    if (isTauri()) import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().setTitle(title)).catch(() => {});
+  }, [beta, update.currentVersion]);
   const narrow = useNarrow();
   const [mobileNav, setMobileNav] = useState(false);
   const view = useMail((st) => st.view);
@@ -362,7 +370,7 @@ function MainWindow() {
 
   return (
     <div className={`app density-${s.density}`}>
-      <header className="toolbar">
+      <header className={`toolbar ${beta ? 'beta' : ''}`}>
         <button className="icon-btn" title="Menu" aria-label="Menu" onClick={(e) => appMenu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), appMenuItems())}><Icon name="menu" /></button>
         <button className={`icon-btn ${s.sidebarVisible ? '' : 'active'}`} title="Show or hide sidebar (Ctrl+Shift+S)" aria-label="Toggle sidebar" onClick={() => (narrow ? setMobileNav(!mobileNav) : s.set({ sidebarVisible: !s.sidebarVisible }))}><Icon name="sidebar" /></button>
         <button className="icon-btn" title="Check for new mail (F5)" aria-label="Check for new mail" onClick={() => refreshAll()} disabled={!accounts.length}>
@@ -371,6 +379,7 @@ function MainWindow() {
         <button className="btn primary" onClick={() => startCompose('new')} disabled={!accounts.length} title="New email (Ctrl+N)" aria-label="New email"><Icon name="compose" /><span className="hide-narrow">New email</span></button>
         {accounts.length > 0 && <UndoRedo />}
         <span className="spacer" />
+        {beta && <span className="beta-pill" title="This is a test build. Settings, then Updates, has the version.">BETA {update.currentVersion}</span>}
         <button
           className="icon-btn"
           title={themeIsDark ? 'Switch to light mode' : 'Switch to dark mode'}
