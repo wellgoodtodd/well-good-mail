@@ -22,6 +22,8 @@ export interface MailProvider {
   /** Maps standard mailboxes to this provider's folder/label ids. */
   systemFolderId(folder: SystemFolder): string | null;
   listFolders(): Promise<Folder[]>;
+  /** Tells the provider which folders were saved last time, so Inbox, Sent and the rest are known straight after the app starts. */
+  hydrate?(folders: Folder[]): void;
   listAliases(): Promise<Alias[]>;
   /** First sync: recent mail back to `sinceDays` (null = everything). */
   fullSync(sinceDays: number | null, onBatch: (msgs: Message[]) => Promise<void> | void, isKnown?: (providerId: string) => boolean): Promise<{ cursor?: string }>;

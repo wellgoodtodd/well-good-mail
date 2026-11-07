@@ -59,6 +59,10 @@ export class MicrosoftProvider implements MailProvider {
     return this.folderIds[f] || null;
   }
 
+  hydrate(folders: Folder[]) {
+    for (const f of folders) if (f.system && f.system !== 'flagged') this.folderIds[f.system] = f.id;
+  }
+
   private async call<T>(url: string, init: RequestInit = {}): Promise<T> {
     const token = await getMicrosoftAccessToken(this.account.email);
     const res = await httpFetch(url.startsWith('http') ? url : G + url, {
@@ -136,6 +140,8 @@ export class MicrosoftProvider implements MailProvider {
   }
 
   async incrementalSync(cursor: string): Promise<SyncResult> {
+    // After a restart the folder ids are unknown until they are looked up; without them nothing shows as Inbox or Sent.
+    if (!this.folderIds.inbox) await this.listFolders();
     const since = new Date(new Date(cursor).getTime() - 5 * 60000).toISOString();
     const page = await this.call<{ value: GraphMessage[] }>(`/messages?$top=200&$filter=lastModifiedDateTime ge ${since}&$orderby=lastModifiedDateTime desc`);
     return { upserted: page.value.map((m) => this.toMessage(m, false)), labelChanges: [], deleted: [], cursor: new Date().toISOString() };

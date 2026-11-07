@@ -228,6 +228,7 @@ export async function initMail(opts: { popout?: boolean } = {}) {
   accounts.forEach((a) => providers.set(a.id, makeProvider(a)));
   const byAcc: Record<string, Folder[]> = {};
   folders.forEach((f) => (byAcc[f.accountId] ||= []).push(f));
+  for (const [id, list] of Object.entries(byAcc)) providers.get(id)?.hydrate?.(list);
   const map: Record<string, Message> = {};
   messages.forEach((m) => (map[m.id] = m));
   rebuildIndex(messages);

@@ -77,6 +77,10 @@ export class ImapProvider implements MailProvider {
     }
   }
 
+  hydrate(folders: Folder[]) {
+    for (const f of folders) if (f.system && f.system !== 'flagged') this.sys[f.system] = f.id;
+  }
+
   private mine = () => this.known().filter((m) => m.accountId === this.account.id);
 
   private async ensureFolders(force = false) {
