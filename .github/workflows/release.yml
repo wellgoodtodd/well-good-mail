@@ -6,6 +6,11 @@ name: Build Windows app
 
 on:
   workflow_dispatch:
+    inputs:
+      prerelease:
+        description: 'Publish as a beta (a test build that nobody is updated to automatically)'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -40,8 +45,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
         with:
           tagName: v__VERSION__
-          releaseName: Well Good Mail v__VERSION__
-          releaseBody: Alpha build of Well Good Mail. Download the setup.exe below. The app updates itself after that.
+          releaseName: Well Good Mail v__VERSION__${{ inputs.prerelease && ' (beta)' || '' }}
+          releaseBody: ${{ inputs.prerelease && 'Beta build for testing. It is not offered as an automatic update: download the setup.exe below and run it over your current copy.' || 'Alpha build of Well Good Mail. Download the setup.exe below. The app updates itself after that.' }}
           releaseDraft: false
-          prerelease: false
+          prerelease: ${{ inputs.prerelease == true }}
+          commitish: ${{ github.sha }}
           updaterJsonPreferNsis: true

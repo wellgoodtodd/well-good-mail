@@ -1,10 +1,10 @@
-// Usage: node scripts/bump-version.cjs 0.2.0
+// Usage: node scripts/bump-version.cjs 0.2.0   (or 0.2.0-beta.1 for a test build)
 // Updates the version in package.json, tauri.conf.json and Cargo.toml.
 const fs = require('fs');
 const path = require('path');
 const v = process.argv[2];
-if (!/^\d+\.\d+\.\d+$/.test(v || '')) {
-  console.error('Give a version like 0.2.0');
+if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/.test(v || '')) {
+  console.error('Give a version like 0.2.0, or 0.2.0-beta.1 for a test build');
   process.exit(1);
 }
 const root = path.join(__dirname, '..');
