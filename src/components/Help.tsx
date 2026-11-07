@@ -14,7 +14,7 @@ export function Help() {
   const found = countItems(topics);
   const searching = query.trim().length > 0;
   return (
-    <div className="help-screen">
+    <div className="help-screen" role="main">
       <div className="help-inner">
         <div className="help-top">
           <button className="btn ghost" onClick={() => useMail.setState({ screen: 'mail' })}><Icon name="chevronLeft" /> Back to mail</button>

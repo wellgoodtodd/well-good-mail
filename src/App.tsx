@@ -15,7 +15,7 @@ import { SettingsScreen } from './components/Settings';
 import { Splitter, useMenu, type MenuItem } from './components/ui';
 import { addAccountItems } from './lib/accountMenu';
 import { useSettings } from './lib/settings';
-import { skinById, SKIN_VARS } from './lib/skins';
+import { skinById, SKIN_VARS, buttonFill, accentOn } from './lib/skins';
 import { useBanners, dismissBanner, showBanner } from './lib/banners';
 import { backupDue, haveOwnKeys } from './lib/backup';
 import {
@@ -78,6 +78,8 @@ function useTheme() {
     Object.entries(skin.vars).forEach(([k, v]) => root.style.setProperty(k, v));
     root.style.setProperty('--on-accent', skin.onAccent);
     root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-fill', buttonFill(accent, skin.onAccent));
+    root.style.setProperty('--accent-text', accentOn(accent, skin.vars['--bg'] || (mode === 'dark' ? '#1c1c1e' : '#ffffff')));
     root.style.setProperty('--scale', String(scale));
     root.style.setProperty('--ui-font', `'${font}'`);
     if (unreadColour) root.style.setProperty('--unread', unreadColour);

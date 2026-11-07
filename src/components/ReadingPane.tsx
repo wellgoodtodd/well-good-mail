@@ -65,7 +65,7 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
 
   if (!standalone && selectedKeys.length > 1) {
     return (
-      <div className="pane">
+      <div className="pane" role="main" aria-label="Email">
         <div className="pane-empty">
           <div style={{ fontSize: '1.2em', fontWeight: 600 }}>{selectedKeys.length} conversations selected</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -80,7 +80,7 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
 
   if (!key || !latest) {
     return (
-      <div className="pane">
+      <div className="pane" role="main" aria-label="Email">
         {inlineDraftId ? (
           <>
             {onBack && <div className="pane-toolbar"><button className="btn ghost" onClick={onBack}><Icon name="chevronLeft" /> Back</button></div>}
@@ -140,7 +140,7 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
   };
 
   return (
-    <div className="pane">
+    <div className="pane" role="main" aria-label="Email">
       <div ref={bar} className={`pane-toolbar ${fit.compact ? 'compact' : ''}`} role="toolbar" aria-label="Email actions">
         {onBack && <button className="icon-btn" aria-label="Back to list" onClick={onBack}><Icon name="chevronLeft" /></button>}
         <span className="bar-fixed">

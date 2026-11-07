@@ -140,7 +140,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
   const subRows = (key: string) => [...messagesInThread(key)].reverse().map((m) => {
     const fromMe = mine.has(m.from.email.toLowerCase());
     return (
-      <div key={`sub:${m.id}`} className={`row subrow ${m.unread ? 'unread' : ''}`} onClick={() => selectThread(key)} role="option" aria-selected={false}>
+      <div key={`sub:${m.id}`} className={`row subrow ${m.unread ? 'unread' : ''}`} onClick={() => selectThread(key)} role="listitem">
         <div className="row-body">
           <div className="row-top">
             <span className="from">{isDraftMsg(m) && <span className="draft-tag">Draft</span>}{fromMe ? 'Me' : m.from.name || m.from.email}</span>
@@ -182,11 +182,11 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
           e.dataTransfer.setData('text/wgm-keys', JSON.stringify(keys));
           e.dataTransfer.effectAllowed = 'move';
         }}
-        role="option"
-        aria-selected={selected}
+        role="listitem"
+        aria-current={selected ? 'true' : undefined}
       >
         {showAccount && <span className="acct" style={{ background: accountColour[m.accountId] }} />}
-        {item.unread && <span className="unread-dot" aria-label="Unread" />}
+        {item.unread && <span className="unread-dot" role="img" aria-label="Unread" />}
         {senderPhotos && (() => {
           const who = fromMe ? m.to[0] || m.from : m.from;
           const photo = photoOf.get(who.email.toLowerCase());
@@ -198,7 +198,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
         <div className="row-body">
           <div className="row-top">
             {item.count > 1 && list !== remote && (
-              <button
+              <button tabIndex={-1}
                 className="twisty"
                 aria-label={openRows.has(key) ? 'Hide the messages in this conversation' : 'Show the messages in this conversation'}
                 aria-expanded={openRows.has(key)}
@@ -214,7 +214,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
               {item.hasAttachments && <Icon name="paperclip" size={12} />}
               {item.count > 1 && (list === remote
                 ? <span className="badge">{item.count}</span>
-                : <button className="badge" aria-label="Show the messages in this conversation" onClick={(e) => { e.stopPropagation(); toggleRow(key); }} onDoubleClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer' }}>{item.count}</button>)}
+                : <button tabIndex={-1} className="badge" aria-label="Show the messages in this conversation" onClick={(e) => { e.stopPropagation(); toggleRow(key); }} onDoubleClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer' }}>{item.count}</button>)}
             </span>
             <span className="time">{listTime(m.date)}</span>
           </div>
@@ -223,13 +223,13 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
         </div>
         <div className="quick" onClick={(e) => e.stopPropagation()}>
           <div className="qb">
-          <button className="icon-btn" title="Archive" aria-label="Archive" onClick={() => archive(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="archive" /></button>
-          <button className="icon-btn" title={item.flagged ? 'Remove flag' : 'Flag'} aria-label="Flag" onClick={() => toggleFlag(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="flag" /></button>
-          <button className="icon-btn" title="Snooze" aria-label="Snooze" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), snoozeOptions().map((o) => ({ label: o.label, icon: 'clock', onClick: () => snooze(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]), o.at) })), 'right')}><Icon name="clock" /></button>
-          <button className="icon-btn" title={item.unread ? 'Mark as read' : 'Mark as unread'} aria-label="Toggle read" onClick={() => markRead(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]), item.unread)}><Icon name={item.unread ? 'mailOpen' : 'mail'} /></button>
-          <button className="icon-btn" title="Move to Bin" aria-label="Move to Bin" onClick={() => trash(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="trash" /></button>
+          <button tabIndex={-1} className="icon-btn" title="Archive" aria-label="Archive" onClick={() => archive(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="archive" /></button>
+          <button tabIndex={-1} className="icon-btn" title={item.flagged ? 'Remove flag' : 'Flag'} aria-label="Flag" onClick={() => toggleFlag(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="flag" /></button>
+          <button tabIndex={-1} className="icon-btn" title="Snooze" aria-label="Snooze" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), snoozeOptions().map((o) => ({ label: o.label, icon: 'clock', onClick: () => snooze(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]), o.at) })), 'right')}><Icon name="clock" /></button>
+          <button tabIndex={-1} className="icon-btn" title={item.unread ? 'Mark as read' : 'Mark as unread'} aria-label="Toggle read" onClick={() => markRead(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]), item.unread)}><Icon name={item.unread ? 'mailOpen' : 'mail'} /></button>
+          <button tabIndex={-1} className="icon-btn" title="Move to Bin" aria-label="Move to Bin" onClick={() => trash(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="trash" /></button>
           </div>
-          <button
+          <button tabIndex={-1}
             className="qh"
             title="More options"
             aria-label="More options"
@@ -294,7 +294,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
           {!view.mailbox.within && <span className="hint">Drafts are marked in coral.</span>}
         </div>
       )}
-      <div className="rows" ref={listRef} onScroll={onListScroll} tabIndex={0} role="listbox" aria-label={title} aria-multiselectable>
+      <div className="rows" ref={listRef} onScroll={onListScroll} tabIndex={0} role="list" aria-label={title}>
         {items.slice(0, limit).map((i) => [row(i, items), openRows.has(threadKey(i.message)) ? subRows(threadKey(i.message)) : null])}
         {items.length > limit && <div ref={moreRef} className="empty" style={{ padding: 16 }}>Loading more...</div>}
         {view.mailbox.kind === 'search' && (searching || remote.length > 0) && (

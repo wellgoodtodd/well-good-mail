@@ -16,6 +16,43 @@ export interface Skin {
   vars: Record<string, string>;
 }
 
+const lum = (hex: string) => {
+  const n = parseInt(hex.replace('#', '').slice(0, 6), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+
+/** WCAG contrast ratio between two colours (1 to 21). */
+export function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+const mixWith = (hex: string, target: string, t: number) => {
+  const p = (h: string) => { const n = parseInt(h.replace('#', '').slice(0, 6), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const [a, b] = [p(hex), p(target)];
+  return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('');
+};
+
+/**
+ * The colour to paint buttons with. It is the accent, nudged darker (or lighter, when the text on it is dark) until the
+ * text on it is easy to read. Links and highlights keep the plain accent.
+ */
+export function buttonFill(accent: string, onAccent: string, minimum = 4.5): string {
+  const towards = lum(onAccent) > 0.5 ? '#000000' : '#ffffff';
+  let fill = accent;
+  for (let i = 0; i < 20 && contrastRatio(onAccent, fill) < minimum; i++) fill = mixWith(fill, towards, 0.06);
+  return fill;
+}
+
+/** The accent as text or a thin icon on a background: nudged lighter or darker until it is easy to read there. */
+export function accentOn(accent: string, background: string, minimum = 4.5): string {
+  const towards = lum(background) > 0.5 ? '#000000' : '#ffffff';
+  let colour = accent;
+  for (let i = 0; i < 20 && contrastRatio(colour, background) < minimum; i++) colour = mixWith(colour, towards, 0.06);
+  return colour;
+}
+
 const base = (bg: string, side: string, elev: string, subtle: string, border: string, strong: string, text: string, muted: string, faint: string) => ({
   '--bg': bg, '--bg-list': bg, '--bg-sidebar': side, '--toolbar': side, '--bg-elev': elev, '--bg-input': elev,
   '--bg-subtle': subtle, '--border': border, '--border-strong': strong, '--text': text, '--text-muted': muted, '--text-faint': faint,

@@ -129,7 +129,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
     extensions: editorExtensions(),
     content: '',
     editorProps: {
-      attributes: { spellcheck: 'true', lang: 'en-GB', 'aria-label': 'Email body' },
+      attributes: { spellcheck: 'true', lang: 'en-GB', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Email body' },
       handlePaste: (view, event) => {
         const files = Array.from(event.clipboardData?.files || []);
         if (!files.length) return false;

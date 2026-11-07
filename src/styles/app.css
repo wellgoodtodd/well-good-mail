@@ -66,7 +66,7 @@ body {
 }
 input, textarea, select, button { font: inherit; color: inherit; }
 button { cursor: pointer; }
-a { color: var(--accent); }
+a { color: var(--accent-text, var(--accent)); }
 ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -92,7 +92,7 @@ a { color: var(--accent); }
   border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--text); font-weight: 500; white-space: nowrap;
 }
 .btn:hover { background: var(--bg-hover); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary { background: var(--accent-fill, var(--accent)); border-color: var(--accent-fill, var(--accent)); color: var(--on-accent); }
 .btn.primary:hover { filter: brightness(1.08); }
 .btn.danger { color: var(--danger); }
 .btn.ghost { border-color: transparent; background: transparent; }
@@ -103,7 +103,7 @@ a { color: var(--accent); }
   border: none; background: transparent; color: var(--text-muted);
 }
 .icon-btn:hover { background: var(--bg-hover); color: var(--text); }
-.icon-btn.active { color: var(--accent); }
+.icon-btn.active { color: var(--accent-text, var(--accent)); }
 .icon-btn:disabled { opacity: 0.4; cursor: default; }
 .btn-group { display: inline-flex; }
 .btn-group > .btn:not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }

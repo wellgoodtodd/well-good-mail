@@ -59,7 +59,7 @@ export function SettingsScreen() {
     if (next.join() !== ordered.join()) useSettings.getState().set({ settingsOrder: next });
   };
   return (
-    <div className="settings">
+    <div className="settings" role="main">
       <nav className="settings-nav" aria-label="Settings sections">
         <button className="side-item" onClick={() => useMail.setState({ screen: 'mail' })}><Icon name="chevronLeft" /> <span className="name">Back to mail</span></button>
         <div className="side-heading" style={{ marginTop: 8 }}>Settings</div>
@@ -256,7 +256,7 @@ function AccountsTab() {
 function SignatureEditor({ email, initial, onChange }: { email: string; initial: string; onChange: (html: string) => void }) {
   const font = useSettings((s) => s.writingFont);
   const size = useSettings((s) => s.writingSize);
-  const editor = useEditor({ extensions: editorExtensions('Type or paste a signature'), content: tidyForEditor(initial), onUpdate: ({ editor: e }) => onChange(e.isEmpty ? '' : e.getHTML()) }, [email]);
+  const editor = useEditor({ extensions: editorExtensions('Type or paste a signature'), editorProps: { attributes: { role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Signature' } }, content: tidyForEditor(initial), onUpdate: ({ editor: e }) => onChange(e.isEmpty ? '' : e.getHTML()) }, [email]);
   return (
     <div className="sig-editor">
       <FormatBar editor={editor} defaultFont={font} defaultSize={size} />
@@ -624,7 +624,7 @@ function NotificationsTab() {
         <h2>Per account</h2>
         {accounts.map((a) => (
           <Row key={a.id} label={a.label}>
-            <select value={a.notify} onChange={(e) => updateAccount(a.id, { notify: e.target.value as typeof a.notify })}>
+            <select aria-label={`Alerts for ${a.email}`} value={a.notify} onChange={(e) => updateAccount(a.id, { notify: e.target.value as typeof a.notify })}>
               <option value="all">Follow the setting above</option>
               <option value="important">Important senders only</option>
               <option value="off">Never</option>
@@ -718,7 +718,7 @@ function OfflineTab() {
         <p className="hint">Mail in this window is stored on your PC for instant search and offline reading. Recent mail (about 6 weeks) is stored in full; older mail downloads when you open it. Searches also check Google's servers for anything older. {count.toLocaleString('en-GB')} emails stored now.</p>
         {accounts.map((a) => (
           <Row key={a.id} label={a.label}>
-            <select value={String(a.retentionDays)} onChange={(e) => { updateAccount(a.id, { retentionDays: e.target.value === 'null' ? null : Number(e.target.value), syncCursor: undefined }); toast({ text: `${a.label} will resync with the new range` }); setTimeout(() => syncAccount(a.id, { full: true }), 300); }}>
+            <select aria-label={`How much mail to keep for ${a.email}`} value={String(a.retentionDays)} onChange={(e) => { updateAccount(a.id, { retentionDays: e.target.value === 'null' ? null : Number(e.target.value), syncCursor: undefined }); toast({ text: `${a.label} will resync with the new range` }); setTimeout(() => syncAccount(a.id, { full: true }), 300); }}>
               {opts.map((o) => <option key={String(o.v)} value={String(o.v)}>{o.l}</option>)}
             </select>
           </Row>
@@ -764,7 +764,7 @@ function TemplatesTab() {
         </div>
         {current && (
           <>
-            <Row label="Name"><input type="text" value={current.name} onChange={(e) => set({ templates: templates.map((t) => (t.id === current.id ? { ...t, name: e.target.value } : t)) })} /></Row>
+            <Row label="Name"><input type="text" aria-label="Template name" value={current.name} onChange={(e) => set({ templates: templates.map((t) => (t.id === current.id ? { ...t, name: e.target.value } : t)) })} /></Row>
             <SignatureEditor key={current.id} email={current.id} initial={current.html} onChange={(html) => set({ templates: useSettings.getState().templates.map((t) => (t.id === current.id ? { ...t, html } : t)) })} />
             <button className="btn ghost danger" style={{ marginTop: 10 }} onClick={() => { set({ templates: templates.filter((t) => t.id !== current.id) }); setEditing(null); }}>Delete template</button>
           </>
