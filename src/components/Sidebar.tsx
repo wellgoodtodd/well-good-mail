@@ -540,11 +540,12 @@ export function Sidebar({ width }: { width: number }) {
         {onShelf('all|inbox') && (
           <Item
             d={d('all|inbox')!}
-            twisty={accounts.length > 1 ? (allInboxOpen ? 'open' : 'closed') : undefined}
+            twisty={accounts.filter((a) => !a.leaveOutOfAll).length > 1 ? (allInboxOpen ? 'open' : 'closed') : undefined}
             onTwisty={() => setCollapsed('all-inboxes', allInboxOpen)}
           />
         )}
-        {onShelf('all|inbox') && allInboxOpen && accounts.length > 1 && sorted.map((a) => {
+        {/* Accounts left out of All Inboxes are not listed under it. They keep their own place under Accounts. */}
+        {onShelf('all|inbox') && allInboxOpen && accounts.filter((a) => !a.leaveOutOfAll).length > 1 && sorted.filter((a) => !a.leaveOutOfAll).map((a) => {
           const ref = `acc|${a.id}|inbox`;
           const desc = d(ref);
           return desc && <Item key={ref} d={{ ...desc, name: a.label, dot: a.colour, icon: undefined, account: a }} level={1} accountRow="inbox" chip={width >= CHIP_BESIDE ? 'beside' : width >= CHIP_WIDTH ? 'under' : false} />;
