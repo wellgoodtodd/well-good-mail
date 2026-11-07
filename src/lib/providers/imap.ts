@@ -10,6 +10,7 @@ import PostalMime, { type Address as PostalAddress, type Email } from 'postal-mi
 import { AuthError } from '../auth/google';
 import { getImapPassword, mailError, type ImapConn } from '../auth/imap';
 import { imapDate, isSyncable, labelsFor, leafName, decodeFolderName, mergeCopies, messageKey, previewOf, summariseFlags, systemFolders, threadFor, type ImapFolderInfo } from '../imapUtil';
+import { fetchContacts, fetchEvents, type DavAuth } from '../dav';
 import { base64ToBytes, buildRawMessage, bytesToBase64 } from '../mime';
 import { invoke } from '../platform';
 import type { Account, Address, Alias, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
@@ -477,11 +478,21 @@ export class ImapProvider implements MailProvider {
     return out;
   }
 
-  async listContacts(): Promise<Address[]> {
-    return [];
+  /** Contacts and calendars are available for iCloud, using the same app password as the mail. */
+  private async davAuth(): Promise<DavAuth | null> {
+    const s = this.settings();
+    if (!/(^|\.)mail\.me\.com$/i.test(s.host)) return null;
+    const pass = await getImapPassword(this.account.email);
+    return pass ? { user: s.appleId || s.username, pass } : null;
   }
 
-  async listEvents(_fromMs: number, _toMs: number): Promise<CalendarEvent[]> {
-    return [];
+  async listContacts(): Promise<Address[]> {
+    const auth = await this.davAuth();
+    return auth ? fetchContacts(auth) : [];
+  }
+
+  async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
+    const auth = await this.davAuth();
+    return auth ? fetchEvents(auth, this.account.id, fromMs, toMs) : [];
   }
 }

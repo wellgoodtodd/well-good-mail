@@ -46,7 +46,7 @@ export interface Account {
   /** Keep this account's mail out of All Inboxes and the other combined views. It still has its own place in the sidebar. */
   leaveOutOfAll?: boolean;
   /** For IMAP accounts (not tested yet). */
-  imap?: { host: string; port: number; smtpHost: string; smtpPort: number; username: string };
+  imap?: { host: string; port: number; smtpHost: string; smtpPort: number; username: string; /** iCloud: the Apple Account email, when it differs from the mail address. Used for contacts and calendar. */ appleId?: string };
 }
 
 /** The standard mailboxes every account has. */

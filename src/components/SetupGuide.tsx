@@ -472,6 +472,7 @@ function ImapGuide() {
   const [smtpHost, setSmtpHost] = useState(existing?.imap?.smtpHost || '');
   const [smtpPort, setSmtpPort] = useState(String(existing?.imap?.smtpPort || 465));
   const [username, setUsername] = useState(existing?.imap?.username || '');
+  const [appleId, setAppleId] = useState(existing?.imap?.appleId || '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const preset = presetById(presetId);
@@ -487,7 +488,7 @@ function ImapGuide() {
     if (!password.trim()) return setError('Paste the app password first.');
     const matched = preset || presetForEmail(address);
     const settings = matched
-      ? { host: matched.host, port: matched.port, smtpHost: matched.smtpHost, smtpPort: matched.smtpPort, username: address }
+      ? { host: matched.host, port: matched.port, smtpHost: matched.smtpHost, smtpPort: matched.smtpPort, username: address, ...(matched.id === 'icloud' && appleId.trim() ? { appleId: appleId.trim().toLowerCase() } : {}) }
       : { host: host.trim(), port: Number(port) || 993, smtpHost: smtpHost.trim(), smtpPort: Number(smtpPort) || 465, username: (username || address).trim() };
     if (!settings.host || !settings.smtpHost) return setError('Enter the incoming and outgoing server names.');
     setBusy(true);
@@ -536,6 +537,13 @@ function ImapGuide() {
       <input id="i-email" className="gin" value={email} disabled={Boolean(existing)} placeholder={preset?.id === 'icloud' ? 'you@icloud.com' : 'you@example.com'} onChange={(e) => { setEmail(e.target.value); setError(''); }} />
       <label className="glabel" htmlFor="i-pass">{preset ? `The ${preset.passwordName}` : 'Password (an app password, if your service has them)'}</label>
       <input id="i-pass" className="gin" type="password" autoComplete="off" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} />
+      {(preset?.id === 'icloud' || presetForEmail(email)?.id === 'icloud') && (
+        <details className="gdetails">
+          <summary>My Apple Account uses a different email address</summary>
+          <p>Contacts and calendars sign in with your Apple Account. If that is the same as your iCloud address above, leave this empty. If it is another address, such as your Gmail, enter it here.</p>
+          <input className="gin" aria-label="Apple Account email" value={appleId} placeholder="the email you sign in to Apple with" onChange={(e) => setAppleId(e.target.value)} />
+        </details>
+      )}
       {custom && !existing && (
         <>
           <label className="glabel" htmlFor="i-host">Incoming mail server (IMAP) and port</label>
