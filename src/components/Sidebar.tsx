@@ -524,8 +524,8 @@ export function Sidebar({ width }: { width: number }) {
 
   return (
     <SideCtx.Provider value={{ view, screen, favDrop, menuFor, open, openMenu: menu.open, pickColour, renaming, startRename: setRenaming, finishRename }}>
-    <nav className="sidebar" style={{ width }} aria-label="Mailboxes">
-      <div className="side-scroll" onContextMenu={(e) => {
+    <nav className="sidebar" style={{ width }} aria-label="Mailboxes" onClick={(e) => { if (screen !== 'mail' && e.target === e.currentTarget) openScreen('mail'); }}>
+      <div className="side-scroll" onClick={(e) => { if (screen !== 'mail' && (e.target as HTMLElement).closest('.side-row, .side-heading, button') === null) openScreen('mail'); }} onContextMenu={(e) => {
         if ((e.target as HTMLElement).closest('.side-row, .side-heading')) return;
         e.preventDefault();
         menu.open({ x: e.clientX, y: e.clientY }, [{ label: 'New folder...', icon: 'folder', onClick: newFolder }]);
@@ -613,7 +613,7 @@ export function Sidebar({ width }: { width: number }) {
       </div>
       <div className="side-footer">
         <div className="side-row">
-          <button className={`side-item ${screen === 'reminders' ? 'selected' : ''}`} onClick={() => openScreen('reminders')}>
+          <button className={`side-item ${screen === 'reminders' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'reminders' ? 'mail' : 'reminders')}>
             <Icon name="bell" /><span className="name">Reminders</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}
           </button>
         </div>

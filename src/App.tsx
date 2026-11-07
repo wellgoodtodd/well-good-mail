@@ -6,6 +6,7 @@ import { MessageList } from './components/MessageList';
 import { ReadingPane } from './components/ReadingPane';
 import { Composer } from './components/Composer';
 import { Reminders } from './components/Reminders';
+import { ComingUpPanel, MeetingBanner } from './components/ComingUp';
 import { Help } from './components/Help';
 import { SetupGuide, useGuide, openGuide } from './components/SetupGuide';
 import { UndoRedo } from './components/UndoRedo';
@@ -387,7 +388,11 @@ function MainWindow() {
           onClick={() => s.set({ theme: themeIsDark ? 'light' : 'dark' })}
         ><Icon name={themeIsDark ? 'sun' : 'moon'} /></button>
         {accounts.length > 0 && <SearchBox />}
+        {accounts.length > 0 && (
+          <button className={`icon-btn ${s.comingUpOpen ? 'active' : ''}`} title="Coming up: meetings and reminders" aria-label="Coming up" aria-pressed={s.comingUpOpen} onClick={() => s.set({ comingUpOpen: !s.comingUpOpen })}><Icon name="calendar" /></button>
+        )}
       </header>
+      {accounts.length > 0 && !guide && <MeetingBanner />}
       {!online && <div className="offline">You're offline. Mail you've already downloaded is still here, and anything you send will go when you're back online.</div>}
       {update.status === 'ready' && <div className="update-bar">Version {update.version} is ready. <button className="btn" onClick={restartToUpdate}>Restart to update</button></div>}
       {guide ? (
@@ -425,6 +430,7 @@ function MainWindow() {
                   <ReadingPane />
                 </>
               )}
+              {s.comingUpOpen && <ComingUpPanel />}
             </div>
           ) : screen === 'reminders' ? (
             <Reminders />

@@ -354,7 +354,9 @@ export class DemoProvider implements MailProvider {
       id: `${this.account.id}|${id}`, accountId: this.account.id, calendarName: cal, title, start, end: start + durH * H, allDay: false, reminderMinutes: mins,
     });
     if (this.account.id === 'demo-wgm') {
+      const soon = Date.now() + 4 * 60000;
       return [
+        { ...ev('e0', 'Catch up with Euan', soon, [5], 'Studio', 0.5), start: soon, end: soon + 30 * 60000, meetingUrl: 'https://meet.google.com/abc-defg-hij', description: 'Quote for the March event and edit schedule.' },
         ev('e1', 'Send invoice to Glen Corrie', t - D + 17 * H, [0], 'Studio'),
         ev('e2', 'Call Euan about March event quote', t + 14 * H, [15], 'Studio'),
         ev('e3', 'Back up SD cards from Tuesday shoot', t + 8 * H, [0], 'Studio'),

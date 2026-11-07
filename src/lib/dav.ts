@@ -1,6 +1,7 @@
 // Contacts (CardDAV) and calendar (CalDAV) for iCloud. The requests go through the Rust side (src-tauri/src/dav.rs),
 // and the answers are read here. Everything is signed in with the same app password as the mail.
 import { invoke } from './platform';
+import { findMeetingUrl } from './meetings';
 import type { Address, CalendarEvent } from './types';
 
 export interface DavAuth { user: string; pass: string }
@@ -172,7 +173,7 @@ const parseProp = (line: string) => {
 /** Events from calendar text. Repeating events should already have been expanded by the server. */
 export function parseEvents(ics: string, calendarName: string, accountId: string): CalendarEvent[] {
   const out: CalendarEvent[] = [];
-  let ev: { uid?: string; title?: string; location?: string; start?: { ms: number; allDay: boolean }; end?: number; duration?: string; cancelled?: boolean; reminders: number[] } | undefined;
+  let ev: { uid?: string; title?: string; location?: string; description?: string; url?: string; start?: { ms: number; allDay: boolean }; end?: number; duration?: string; cancelled?: boolean; reminders: number[] } | undefined;
   let inAlarm = false;
   for (const line of unfold(ics).split(/\r?\n/)) {
     if (!line) continue;
@@ -194,6 +195,8 @@ export function parseEvents(ics: string, calendarName: string, accountId: string
           end: end as number,
           allDay: ev.start.allDay,
           location: ev.location,
+          description: ev.description ? ev.description.slice(0, 600) : undefined,
+          meetingUrl: findMeetingUrl(ev.url, ev.location, ev.description),
           reminderMinutes: ev.reminders,
         });
       }
@@ -215,6 +218,8 @@ export function parseEvents(ics: string, calendarName: string, accountId: string
     if (p.name === 'UID') ev.uid = p.value;
     else if (p.name === 'SUMMARY') ev.title = unescapeText(p.value);
     else if (p.name === 'LOCATION') ev.location = unescapeText(p.value) || undefined;
+    else if (p.name === 'DESCRIPTION') ev.description = unescapeText(p.value) || undefined;
+    else if (p.name === 'URL') ev.url = p.value;
     else if (p.name === 'DTSTART') ev.start = parseTime(p.value, p.params);
     else if (p.name === 'DTEND') ev.end = parseTime(p.value, p.params).ms;
     else if (p.name === 'DURATION') ev.duration = p.value;

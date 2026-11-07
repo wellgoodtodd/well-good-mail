@@ -7,6 +7,7 @@ import { bytesToBase64, buildRawMessage, base64ToBytes } from '../mime';
 import { httpFetch } from '../platform';
 import type { Account, Address, Alias, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
+import { findMeetingUrl } from '../meetings';
 
 const G = 'https://graph.microsoft.com/v1.0/me';
 const WELL_KNOWN: Record<Exclude<SystemFolder, 'flagged'>, string> = {
@@ -215,7 +216,7 @@ export class MicrosoftProvider implements MailProvider {
   }
 
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
-    const page = await this.call<{ value: { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string } }[] }>(
+    const page = await this.call<{ value: { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null }[] }>(
       `/calendarView?startDateTime=${new Date(fromMs).toISOString()}&endDateTime=${new Date(toMs).toISOString()}&$top=250`,
       { headers: { Prefer: 'outlook.timezone="UTC"' } },
     );
@@ -228,6 +229,8 @@ export class MicrosoftProvider implements MailProvider {
       end: new Date(e.end.dateTime + 'Z').getTime(),
       allDay: e.isAllDay,
       location: e.location?.displayName,
+      description: e.bodyPreview?.slice(0, 600) || undefined,
+      meetingUrl: e.onlineMeeting?.joinUrl || e.onlineMeetingUrl || findMeetingUrl(e.location?.displayName, e.bodyPreview),
       reminderMinutes: e.isReminderOn ? [e.reminderMinutesBeforeStart] : [],
       htmlLink: e.webLink,
     }));

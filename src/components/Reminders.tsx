@@ -1,10 +1,11 @@
 // Reminders: calendar items and follow ups that wait quietly until you clear them.
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Icon } from './Icon';
 import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectThread } from '../lib/mail';
 import { useSettings } from '../lib/settings';
-import { dueReminders, upcoming } from '../lib/reminders';
-import type { ReminderItem } from '../lib/types';
+import { dueReminders, eventKey } from '../lib/reminders';
+import { ComingUpList, EventPreview, JoinButton, MonthView } from './ComingUp';
+import type { CalendarEvent, ReminderItem } from '../lib/types';
 
 const MODE_TEXT = { never: 'Off', daily: 'Daily summary only', important: 'Important only', all: 'Every reminder' } as const;
 
@@ -22,7 +23,8 @@ export function Reminders() {
   }, []);
 
   const items = useMemo(() => dueReminders(events, followups, dismissed), [events, followups, dismissed, tick]); // eslint-disable-line react-hooks/exhaustive-deps
-  const next = useMemo(() => upcoming(events).slice(0, 8), [events, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [preview, setPreview] = useState<CalendarEvent | null>(null);
+  const eventFor = (r: ReminderItem) => (r.kind === 'event' ? events.find((e) => eventKey(e) === r.id) : undefined);
   const colour = (id: string) => accounts.find((a) => a.id === id)?.colour || '#888';
   const label = (id: string) => accounts.find((a) => a.id === id)?.label || '';
 
@@ -42,11 +44,16 @@ export function Reminders() {
         <div className="main-col">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ flex: 1 }}>Reminders</h1>
+            <div className="seg" role="group" aria-label="View">
+              <button className={s.remindersView === 'list' ? 'on' : ''} aria-pressed={s.remindersView === 'list'} onClick={() => s.set({ remindersView: 'list' })}><Icon name="list" size={14} /> List</button>
+              <button className={s.remindersView === 'calendar' ? 'on' : ''} aria-pressed={s.remindersView === 'calendar'} onClick={() => s.set({ remindersView: 'calendar' })}><Icon name="calendar" size={14} /> Calendar</button>
+            </div>
             <button className="btn ghost" onClick={() => refreshEvents()}><Icon name="refresh" /> Refresh</button>
             <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>
           </div>
           <p className="lead">Everything from your calendars and follow ups collects here quietly until you clear it. Nothing pops up unless you ask it to.</p>
-          {items.length === 0 ? (
+          {s.remindersView === 'calendar' && <MonthView onPick={setPreview} />}
+          {s.remindersView === 'calendar' ? null : items.length === 0 ? (
             <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
               <Icon name="check" size={26} />
               <div style={{ marginTop: 8, fontSize: '1.1em', color: 'var(--text)' }}>All clear</div>
@@ -59,10 +66,11 @@ export function Reminders() {
                   <div className="rem-row" key={r.id}>
                     <span className="bar" style={{ background: colour(r.accountId) }} />
                     <div className="grow">
-                      <div className="title">{r.title}</div>
+                      <div className="title">{eventFor(r) ? <button className="link-btn" onClick={() => setPreview(eventFor(r)!)}>{r.title}</button> : r.title}</div>
                       <div className="sub">{when(r)} · {r.calendarName || label(r.accountId)}</div>
                     </div>
                     {r.kind === 'followup' && <span className="pill important">Follow up</span>}
+                    {eventFor(r)?.meetingUrl && <JoinButton event={eventFor(r)!} small />}
                     {overdue && r.kind === 'event' && <span className="pill overdue">Overdue</span>}
                     {r.kind === 'event' && (
                       <button className={`icon-btn ${isImportant(r.title) ? 'active' : ''}`} title={isImportant(r.title) ? 'Important: pops up' : 'Mark as important so it pops up'} aria-label="Important" onClick={() => s.toggleIn('importantEvents', r.title)}>
@@ -78,33 +86,23 @@ export function Reminders() {
               })}
             </div>
           )}
-        </div>
-        <aside className="side-col">
-          <div className="card" style={{ padding: 16 }}>
-            <h2 style={{ margin: '0 0 10px', fontSize: '1em' }}>How you get alerted</h2>
+          <div className="alerts-quiet">
+            <h2>How you get alerted</h2>
             <div className="kv"><span className="k">Pop ups</span><span>{MODE_TEXT[s.reminderMode]}</span></div>
             {(s.reminderMode === 'daily' || s.reminderMode === 'important') && <div className="kv"><span className="k">Daily summary</span><span>{s.summaryTime}</span></div>}
             <div className="kv"><span className="k">Taskbar flashing</span><span>{s.flashTaskbar ? 'On' : 'Never'}</span></div>
-            <button className="btn ghost" style={{ marginTop: 8, paddingLeft: 0 }} onClick={() => openScreen('settings', 'reminders')}>Change in Settings</button>
+            <div className="kv"><span className="k">Video meetings</span><span>{s.meetingAlerts ? '15 and 5 minutes before' : 'Off'}</span></div>
+            <button className="btn ghost" style={{ paddingLeft: 0 }} onClick={() => openScreen('settings', 'reminders')}>Change in Settings</button>
           </div>
-          <div className="card" style={{ padding: 16, marginTop: 16 }}>
+        </div>
+        <aside className="side-col">
+          <div className="card" style={{ padding: 16 }}>
             <h2 style={{ margin: '0 0 10px', fontSize: '1em' }}>Coming up</h2>
-            {next.length === 0 && <div style={{ color: 'var(--text-muted)' }}>Nothing in the next week</div>}
-            {next.map((e) => (
-              <div key={e.id} style={{ display: 'flex', gap: 8, padding: '6px 0' }}>
-                <span className="dot" style={{ background: colour(e.accountId), marginTop: 6 }} />
-                <div>
-                  <div style={{ fontWeight: 500 }}>{e.title}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>
-                    {new Date(e.start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
-                    {!e.allDay && `, ${new Date(e.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`} · {e.calendarName}
-                  </div>
-                </div>
-              </div>
-            ))}
+            <ComingUpList onPick={setPreview} />
           </div>
         </aside>
       </div>
+      {preview && <EventPreview event={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }

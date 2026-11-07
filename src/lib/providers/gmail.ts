@@ -5,6 +5,7 @@ import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHead
 import { httpFetch } from '../platform';
 import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
+import { findMeetingUrl } from '../meetings';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 /** Mail newer than this many days is downloaded with full bodies for offline search. */
@@ -459,7 +460,7 @@ export class GmailProvider implements MailProvider {
         maxResults: '250',
       });
       try {
-        const { items } = await this.call<{ items: { id: string; summary?: string; status?: string; location?: string; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] } }[] }>(
+        const { items } = await this.call<{ items: { id: string; summary?: string; status?: string; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] } }[] }>(
           `${CAL}/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
         );
         for (const e of items) {
@@ -479,6 +480,8 @@ export class GmailProvider implements MailProvider {
             end,
             allDay,
             location: e.location,
+            description: e.description ? e.description.replace(/<[^>]+>/g, ' ').replace(/s+/g, ' ').trim().slice(0, 600) : undefined,
+            meetingUrl: e.hangoutLink || e.conferenceData?.entryPoints?.find((p) => p.entryPointType === 'video')?.uri || findMeetingUrl(e.location, e.description),
             reminderMinutes,
             htmlLink: e.htmlLink,
           });

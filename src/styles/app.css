@@ -634,3 +634,41 @@ button.help-head:hover { background: var(--bg-hover); }
 .help-support { margin-top: 14px; }
 .help-support .help-actions { padding: 0 16px 14px; }
 .help-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 10px; }
+
+/* Coming up, event preview, month view, meeting bar */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border: 0; background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+.seg button.on { background: var(--bg-hover); font-weight: 600; }
+.btn.small { padding: 3px 9px; font-size: 0.88em; }
+.link-btn { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--text); text-align: left; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+.alerts-quiet { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.92em; }
+.alerts-quiet h2 { margin: 0 0 8px; font-size: 0.95em; font-weight: 600; }
+.coming-row { display: flex; gap: 8px; align-items: flex-start; padding: 6px 6px; margin: 0 -6px; border-radius: 8px; cursor: pointer; }
+.coming-row:hover, .coming-row:focus-visible { background: var(--bg-hover); outline: none; }
+.coming-row .grow { flex: 1; min-width: 0; }
+.coming-panel { width: 290px; flex: none; border-left: 1px solid var(--border); padding: 12px 14px; overflow-y: auto; background: var(--bg-elev, var(--bg)); }
+.coming-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ev-scrim { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ev-pop { width: min(440px, 100%); background: var(--bg-elev, var(--bg)); color: var(--text); border: 1px solid var(--border-strong, var(--border)); border-radius: 14px; box-shadow: var(--shadow); padding: 16px 18px; }
+.ev-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.ev-head h2 { flex: 1; margin: 0; font-size: 1.15em; }
+.ev-bar { width: 4px; align-self: stretch; border-radius: 2px; }
+.ev-line { display: flex; align-items: center; gap: 8px; color: var(--text-muted); padding: 3px 0; }
+.ev-notes { margin: 10px 0 0; max-height: 140px; overflow-y: auto; white-space: pre-wrap; color: var(--text); }
+.ev-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.month { padding: 12px; }
+.month-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.month-head strong { flex: 1; text-align: center; }
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.month-dow { background: var(--bg-elev, var(--bg)); text-align: center; padding: 4px 0; color: var(--text-muted); font-size: 0.82em; }
+.month-day { background: var(--bg); min-height: 86px; padding: 3px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.month-day.other { opacity: 0.5; }
+.month-day.today .n { background: var(--accent-fill, var(--accent)); color: var(--on-accent); }
+.month-day .n { align-self: flex-start; font-size: 0.82em; min-width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 10px; }
+.month-day .chip { border: 0; border-radius: 4px; padding: 1px 5px; color: #fff; font: inherit; font-size: 0.78em; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-shadow: 0 0 2px rgba(0,0,0,0.45); }
+.month-day .more { font-size: 0.75em; color: var(--text-muted); }
+.meeting-bar { display: flex; align-items: center; gap: 10px; padding: 7px 14px; background: var(--accent-fill, var(--accent)); color: var(--on-accent); }
+.meeting-bar .meeting-text { flex: 1; min-width: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meeting-bar .btn.primary { background: #fff; color: #111; border-color: #fff; }
+.meeting-bar .icon-btn { color: inherit; }

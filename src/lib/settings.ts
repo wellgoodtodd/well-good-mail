@@ -59,6 +59,13 @@ export interface Settings {
   summaryTime: string;
   flashTaskbar: boolean;
   importantEvents: string[];
+  /** Notifications 15 and 5 minutes before a meeting that has a video link. */
+  meetingAlerts: boolean;
+  /** The bar over your mail 5 minutes before a meeting with a video link. */
+  meetingBanner: boolean;
+  /** The Coming up column beside your mail. */
+  comingUpOpen: boolean;
+  remindersView: 'list' | 'calendar';
 
   newMailAlerts: 'all' | 'important' | 'off';
   alertSound: boolean;
@@ -161,6 +168,10 @@ export const defaultSettings: Settings = {
   summaryTime: '08:30',
   flashTaskbar: false,
   importantEvents: [],
+  meetingAlerts: true,
+  meetingBanner: true,
+  comingUpOpen: false,
+  remindersView: 'list',
 
   newMailAlerts: 'important',
   alertSound: false,

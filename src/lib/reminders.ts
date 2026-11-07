@@ -3,6 +3,7 @@
 import { store } from './db';
 import { notify, flashTaskbar } from './platform';
 import { isQuietNow, settings } from './settings';
+import { meetingService } from './meetings';
 import type { CalendarEvent, FollowUp, ReminderItem } from './types';
 
 export function eventReminderTime(e: CalendarEvent): number {
@@ -64,8 +65,31 @@ export async function checkReminderAlerts(events: CalendarEvent[], followups: Fo
       }
     }
     await maybeDailySummary(events, now);
+    if (s.meetingAlerts) await meetingAlerts(events, now);
   }
   await store.kvSet('notifiedReminders', [...notified].slice(-500));
+}
+
+/** A notification 15 minutes and again 5 minutes before any meeting that has a video link. */
+export function meetingAlertsDue(events: CalendarEvent[], now: number): { key: string; event: CalendarEvent; minutes: number }[] {
+  const out: { key: string; event: CalendarEvent; minutes: number }[] = [];
+  for (const e of events) {
+    if (!e.meetingUrl || e.allDay) continue;
+    const until = e.start - now;
+    if (until <= 0) continue;
+    if (until <= 5 * 60000) out.push({ key: `mt|${e.id}|${e.start}|5`, event: e, minutes: 5 });
+    else if (until <= 15 * 60000) out.push({ key: `mt|${e.id}|${e.start}|15`, event: e, minutes: 15 });
+  }
+  return out;
+}
+
+async function meetingAlerts(events: CalendarEvent[], now: number) {
+  for (const a of meetingAlertsDue(events, now)) {
+    if (notified.has(a.key)) continue;
+    notified.add(a.key);
+    const when = new Date(a.event.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    await notify(`${a.event.title} in ${a.minutes} minutes`, `${when} · ${meetingService(a.event.meetingUrl!)} link in Well Good Mail`);
+  }
 }
 
 async function maybeDailySummary(events: CalendarEvent[], now: number) {

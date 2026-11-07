@@ -141,6 +141,10 @@ export interface CalendarEvent {
   end: number;
   allDay: boolean;
   location?: string;
+  /** Notes from the event, kept short. */
+  description?: string;
+  /** The Teams, Zoom or Meet link, when the event has one. */
+  meetingUrl?: string;
   /** Minutes before start that the calendar wants a reminder. */
   reminderMinutes: number[];
   htmlLink?: string;

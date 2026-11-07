@@ -583,6 +583,8 @@ function RemindersTab() {
           <Row label="Summary time" htmlFor="sumtime"><input id="sumtime" type="time" value={s.summaryTime} onChange={(e) => s.set({ summaryTime: e.target.value })} /></Row>
         )}
         <Check checked={s.flashTaskbar} onChange={(v) => s.set({ flashTaskbar: v })}>Flash the taskbar icon for reminders and new mail when the app is in the background</Check>
+        <Check checked={s.meetingAlerts} onChange={(v) => s.set({ meetingAlerts: v })}>Notify me 15 and 5 minutes before a meeting that has a video link</Check>
+        <Check checked={s.meetingBanner} onChange={(v) => s.set({ meetingBanner: v })}>Show a bar over my mail 5 minutes before a video meeting, with a Join button</Check>
         <p className="hint">Windows notifications from Well Good Mail never cover your work and never need dismissing one by one.</p>
       </section>
     </>
