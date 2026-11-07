@@ -1,5 +1,6 @@
 // Right column: the open conversation, with reply inline underneath.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { toolsThatFit } from '../lib/toolbarFit';
 import { Icon } from './Icon';
 import { MessageView } from './MessageView';
 import { Composer } from './Composer';
@@ -27,6 +28,21 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
   const latest = thread[thread.length - 1];
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const dragTool = useRef<string>();
+  const bar = useRef<HTMLDivElement>(null);
+  // How much room the toolbar has. As it narrows, icons drop off the right end and wait in the More menu.
+  const [fit, setFit] = useState<{ room: number; compact: boolean }>({ room: 99, compact: false });
+  useEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const measure = () => {
+      const fixed = (el.querySelector('.bar-fixed') as HTMLElement | null)?.offsetWidth ?? 0;
+      setFit(toolsThatFit(el.clientWidth, fixed));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [key]);
 
   // Expand unread ones and the newest, mark as read on open.
   useEffect(() => {
@@ -125,13 +141,15 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
 
   return (
     <div className="pane">
-      <div className="pane-toolbar" role="toolbar" aria-label="Email actions">
+      <div ref={bar} className={`pane-toolbar ${fit.compact ? 'compact' : ''}`} role="toolbar" aria-label="Email actions">
         {onBack && <button className="icon-btn" aria-label="Back to list" onClick={onBack}><Icon name="chevronLeft" /></button>}
-        <button className="btn ghost" onClick={() => startCompose('reply', latest)} title={`Reply (${kbd('reply')})`}><Icon name="reply" /> Reply</button>
-        <button className="btn ghost" onClick={() => startCompose('replyAll', latest)} title={`Reply All (${kbd('replyAll')})`}><Icon name="replyAll" /> Reply All</button>
-        <button className="btn ghost" onClick={() => startCompose('forward', latest)} title={`Forward (${kbd('forward')})`}><Icon name="forward" /> Forward</button>
+        <span className="bar-fixed">
+          <button className="btn ghost" onClick={() => startCompose('reply', latest)} title={`Reply (${kbd('reply')})`} aria-label="Reply"><Icon name="reply" /><span className="lbl"> Reply</span></button>
+          <button className="btn ghost" onClick={() => startCompose('replyAll', latest)} title={`Reply All (${kbd('replyAll')})`} aria-label="Reply All"><Icon name="replyAll" /><span className="lbl"> Reply All</span></button>
+          <button className="btn ghost" onClick={() => startCompose('forward', latest)} title={`Forward (${kbd('forward')})`} aria-label="Forward"><Icon name="forward" /><span className="lbl"> Forward</span></button>
+        </span>
         <span style={{ flex: 1 }} />
-        {order.map((id) => (tools[id] ? <span key={id} className="tool" {...dragProps(id)}>{tools[id]}</span> : null))}
+        {order.filter((id) => tools[id]).filter((id, i) => id === 'more' || i < fit.room).map((id) => <span key={id} className="tool" {...dragProps(id)}>{tools[id]}</span>)}
       </div>
       <div className="pane-scroll">
         <h2 className="thread-subject">{latest.subject}</h2>
