@@ -39,9 +39,9 @@ export function Reminders() {
   const isImportant = (title: string) => s.importantEvents.includes(title.toLowerCase());
 
   return (
-    <div className="screen">
-      <div className="split-screen">
-        <div className="main-col">
+    <div className="screen rem-screen">
+      <div className="rem-top">
+        <div className="rem-main">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <h1 style={{ flex: 1 }}>Reminders</h1>
             <div className="seg" role="group" aria-label="View">
@@ -52,56 +52,58 @@ export function Reminders() {
             <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>
           </div>
           <p className="lead">Everything from your calendars and follow ups collects here quietly until you clear it. Nothing pops up unless you ask it to.</p>
-          {s.remindersView === 'calendar' && <MonthView onPick={setPreview} />}
-          {s.remindersView === 'calendar' ? null : items.length === 0 ? (
-            <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-              <Icon name="check" size={26} />
-              <div style={{ marginTop: 8, fontSize: '1.1em', color: 'var(--text)' }}>All clear</div>
-            </div>
-          ) : (
-            <div className="card">
-              {items.map((r) => {
-                const overdue = r.eventStart !== undefined && r.eventStart < Date.now() - 3600000;
-                return (
-                  <div className="rem-row" key={r.id}>
-                    <span className="bar" style={{ background: colour(r.accountId) }} />
-                    <div className="grow">
-                      <div className="title">{eventFor(r) ? <button className="link-btn" onClick={() => setPreview(eventFor(r)!)}>{r.title}</button> : r.title}</div>
-                      <div className="sub">{when(r)} · {r.calendarName || label(r.accountId)}</div>
+          <div className="rem-scroll">
+            {s.remindersView === 'calendar' ? <MonthView onPick={setPreview} /> : items.length === 0 ? (
+              <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Icon name="check" size={26} />
+                <div style={{ marginTop: 8, fontSize: '1.1em', color: 'var(--text)' }}>All clear</div>
+              </div>
+            ) : (
+              <div className="card">
+                {items.map((r) => {
+                  const overdue = r.eventStart !== undefined && r.eventStart < Date.now() - 3600000;
+                  return (
+                    <div className="rem-row" key={r.id}>
+                      <span className="bar" style={{ background: colour(r.accountId) }} />
+                      <div className="grow">
+                        <div className="title">{eventFor(r) ? <button className="link-btn" onClick={() => setPreview(eventFor(r)!)}>{r.title}</button> : r.title}</div>
+                        <div className="sub">{when(r)} · {r.calendarName || label(r.accountId)}</div>
+                      </div>
+                      {r.kind === 'followup' && <span className="pill important">Follow up</span>}
+                      {eventFor(r)?.meetingUrl && <JoinButton event={eventFor(r)!} small />}
+                      {overdue && r.kind === 'event' && <span className="pill overdue">Overdue</span>}
+                      {r.kind === 'event' && (
+                        <button className={`icon-btn ${isImportant(r.title) ? 'active' : ''}`} title={isImportant(r.title) ? 'Important: pops up' : 'Mark as important so it pops up'} aria-label="Important" onClick={() => s.toggleIn('importantEvents', r.title)}>
+                          <Icon name="star" />
+                        </button>
+                      )}
+                      {r.kind === 'followup' && r.threadId && (
+                        <button className="btn" onClick={() => { setView({ scope: { type: 'account', accountId: r.accountId }, mailbox: { kind: 'system', folder: 'sent' } }); selectThread(`${r.accountId}|${r.threadId}`); }}>Open</button>
+                      )}
+                      <button className="btn primary" onClick={() => dismissReminders([r.id])}>Done</button>
                     </div>
-                    {r.kind === 'followup' && <span className="pill important">Follow up</span>}
-                    {eventFor(r)?.meetingUrl && <JoinButton event={eventFor(r)!} small />}
-                    {overdue && r.kind === 'event' && <span className="pill overdue">Overdue</span>}
-                    {r.kind === 'event' && (
-                      <button className={`icon-btn ${isImportant(r.title) ? 'active' : ''}`} title={isImportant(r.title) ? 'Important: pops up' : 'Mark as important so it pops up'} aria-label="Important" onClick={() => s.toggleIn('importantEvents', r.title)}>
-                        <Icon name="star" />
-                      </button>
-                    )}
-                    {r.kind === 'followup' && r.threadId && (
-                      <button className="btn" onClick={() => { setView({ scope: { type: 'account', accountId: r.accountId }, mailbox: { kind: 'system', folder: 'sent' } }); selectThread(`${r.accountId}|${r.threadId}`); }}>Open</button>
-                    )}
-                    <button className="btn primary" onClick={() => dismissReminders([r.id])}>Done</button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <div className="alerts-quiet">
-            <h2>How you get alerted</h2>
-            <div className="kv"><span className="k">Pop ups</span><span>{MODE_TEXT[s.reminderMode]}</span></div>
-            {(s.reminderMode === 'daily' || s.reminderMode === 'important') && <div className="kv"><span className="k">Daily summary</span><span>{s.summaryTime}</span></div>}
-            <div className="kv"><span className="k">Taskbar flashing</span><span>{s.flashTaskbar ? 'On' : 'Never'}</span></div>
-            <div className="kv"><span className="k">Video meetings</span><span>{s.meetingAlerts ? '15 and 5 minutes before' : 'Off'}</span></div>
-            <button className="btn ghost" style={{ paddingLeft: 0 }} onClick={() => openScreen('settings', 'reminders')}>Change in Settings</button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
-        <aside className="side-col">
-          <div className="card" style={{ padding: 16 }}>
+        <aside className="rem-side">
+          <div className="card rem-coming">
             <h2 style={{ margin: '0 0 10px', fontSize: '1em' }}>Coming up</h2>
-            <ComingUpList onPick={setPreview} />
+            <div className="rem-scroll"><ComingUpList onPick={setPreview} /></div>
           </div>
         </aside>
       </div>
+      <footer className="rem-footer">
+        <div className="alerts-card">
+          <div className="al-item"><span className="k">Pop ups</span><span>{MODE_TEXT[s.reminderMode]}</span></div>
+          {(s.reminderMode === 'daily' || s.reminderMode === 'important') && <div className="al-item"><span className="k">Daily summary</span><span>{s.summaryTime}</span></div>}
+          <div className="al-item"><span className="k">Taskbar flashing</span><span>{s.flashTaskbar ? 'On' : 'Never'}</span></div>
+          <div className="al-item"><span className="k">Video meetings</span><span>{s.meetingAlerts ? '15 and 5 minutes before' : 'Off'}</span></div>
+          <button className="btn" style={{ marginLeft: 'auto' }} onClick={() => openScreen('settings', 'reminders')}>Change in Settings</button>
+        </div>
+      </footer>
       {preview && <EventPreview event={preview} onClose={() => setPreview(null)} />}
     </div>
   );
