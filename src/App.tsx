@@ -8,6 +8,7 @@ import { Composer } from './components/Composer';
 import { Reminders } from './components/Reminders';
 import { ComingUpPanel, MeetingBanner } from './components/ComingUp';
 import { PrintPreview } from './components/PrintPreview';
+import { WhatsNew } from './components/WhatsNew';
 import { Help } from './components/Help';
 import { SetupGuide, useGuide, openGuide } from './components/SetupGuide';
 import { UndoRedo } from './components/UndoRedo';
@@ -34,7 +35,7 @@ import { startSettingsSync } from './lib/settingsSync';
 import { restoreOpenDrafts } from './lib/openDrafts';
 import { CommandPalette } from './components/CommandPalette';
 import { isPopout, isTauri, onTauriEvent, rememberPopoutSize, setAutostart, setCloseQuits } from './lib/platform';
-import { loadGoogleKeys, useGoogleConfigured } from './lib/auth/google';
+import { loadGoogleKeys, useGoogleConfigured, calendarEditAllowed } from './lib/auth/google';
 import { loadMicrosoftKeys } from './lib/auth/microsoft';
 import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from './lib/updater';
 import './lib/sender';
@@ -365,6 +366,26 @@ function MainWindow() {
     return () => clearTimeout(t);
   }, [ready, accounts]);
 
+  // Google accounts that signed in before replying to invitations existed are asked once to allow it.
+  const askedCalendar = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ready || !isTauri()) return;
+    const look = () => {
+      const due = useMail.getState().accounts.find((a) => a.kind === 'gmail' && a.status === 'ok' && calendarEditAllowed(a.email) === false && !askedCalendar.current.has(a.id));
+      if (!due || useDialogs.getState().pending || useGuide.getState().mode) return;
+      askedCalendar.current.add(due.id);
+      askConfirm(
+        'Answer calendar invitations from your mail',
+        `Well Good Mail can now say Yes, No or Maybe to invitations and add them to your calendar. For that, Google needs you to allow it to edit your calendar events. You will sign in to ${due.email} once more, and your saved mail stays where it is.`,
+        'Sign in and allow',
+        { cancelLabel: 'Later' },
+      ).then((ok) => { if (ok) reconnectAccount(due.id); });
+    };
+    const t = setInterval(look, 20000);
+    const first = setTimeout(look, 12000);
+    return () => { clearInterval(t); clearTimeout(first); };
+  }, [ready]);
+
   if (!ready) return <div className="pane-empty" style={{ height: '100%' }}>Loading...</div>;
 
   const bottom = s.panePosition === 'bottom';
@@ -445,6 +466,7 @@ function MainWindow() {
       )}
       {appMenu.node}
       <DialogHost />
+      <WhatsNew />
       <CommandPalette />
       <Toasts />
       <Banners />

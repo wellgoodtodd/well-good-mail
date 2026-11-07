@@ -23,6 +23,7 @@ import { showBanner } from '../lib/banners';
 import { useSettingsAlerts } from '../lib/alerts';
 import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate } from '../lib/updater';
 import { useMenu, Dialog } from './ui';
+import { UpdateLog } from './WhatsNew';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../lib/shortcuts';
 
 const TABS = [
@@ -1016,6 +1017,7 @@ function UpdatesTab() {
         <Check checked={s.startWithWindows} onChange={(v) => { s.set({ startWithWindows: v }); setAutostart(v); }}>Start with Windows (sits quietly in the tray)</Check>
         <Check checked={s.closeQuits} onChange={(v) => { s.set({ closeQuits: v }); setCloseQuits(v); }}>The close button quits the app (otherwise it keeps running in the tray, so mail and reminders still arrive)</Check>
       </section>
+      <UpdateLog />
     </>
   );
 }

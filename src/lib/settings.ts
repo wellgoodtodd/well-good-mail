@@ -86,6 +86,8 @@ export interface Settings {
   spellCheck: boolean;
   /** When the app keys were last backed up to a file (0 = never). */
   keysBackedUpAt: number;
+  /** The last main version whose What's new pop-up was shown on this computer. */
+  whatsNewSeen: string;
   vips: string[];
   /** Senders whose emails go straight to Junk. */
   blockedSenders: string[];
@@ -193,6 +195,7 @@ export const defaultSettings: Settings = {
 
   spellCheck: true,
   keysBackedUpAt: 0,
+  whatsNewSeen: '',
   vips: [],
   blockedSenders: [],
   mutedThreads: [],
