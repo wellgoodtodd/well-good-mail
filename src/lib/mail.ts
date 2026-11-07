@@ -199,8 +199,9 @@ function removeMessages(ids: string[]) {
 
 function updateUnreadBadge() {
   let n = 0;
+  const leftOut = new Set(get().accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id));
   for (const m of Object.values(get().messages)) {
-    if (m.unread && inSystemFolder(m, 'inbox', providers.get(m.accountId))) n++;
+    if (m.unread && !leftOut.has(m.accountId) && inSystemFolder(m, 'inbox', providers.get(m.accountId))) n++;
   }
   setUnreadCount(n);
 }
@@ -392,6 +393,12 @@ export async function removeAccount(id: string) {
 export function updateAccount(id: string, patch: Partial<Account>) {
   const a = get().accounts.find((x) => x.id === id);
   if (a) saveAccount({ ...a, ...patch });
+}
+
+/** Keeps an account's mail out of All Inboxes (or puts it back). It stays in the sidebar on its own. */
+export function setLeaveOutOfAll(id: string, on: boolean) {
+  updateAccount(id, { leaveOutOfAll: on });
+  updateUnreadBadge();
 }
 
 export function reorderAccounts(ids: string[]) {
@@ -1067,7 +1074,8 @@ function minuteTick() {
 
 export function inboxUnreadFor(accountIds: string[] | 'all', folder: SystemFolder = 'inbox'): number {
   let n = 0;
-  const allowed = accountIds === 'all' ? null : new Set(accountIds);
+  const leftOut = get().accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id);
+  const allowed = accountIds === 'all' ? (leftOut.length ? new Set(get().accounts.map((a) => a.id).filter((id) => !leftOut.includes(id))) : null) : new Set(accountIds);
   const snoozed = new Set(get().snoozes.map((s) => s.messageId));
   for (const m of Object.values(get().messages)) {
     if (!m.unread || (allowed && !allowed.has(m.accountId)) || snoozed.has(m.id)) continue;
@@ -1079,7 +1087,7 @@ export function inboxUnreadFor(accountIds: string[] | 'all', folder: SystemFolde
 /** Marks everything unread in a mailbox as read. */
 export async function markViewRead(view: View) {
   const { inMailbox, scopeAccountIds } = await import('./mailbox');
-  const allowed = new Set(scopeAccountIds(view.scope, get().accounts.map((a) => a.id), settings().groups));
+  const allowed = new Set(scopeAccountIds(view.scope, get().accounts.map((a) => a.id), settings().groups, get().accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id)));
   const ctx = { vips: new Set(settings().vips), snoozed: new Set(get().snoozes.map((s) => s.messageId)) };
   const ids = Object.values(get().messages)
     .filter((m) => m.unread && allowed.has(m.accountId) && inMailbox(m, view.mailbox, providers.get(m.accountId), ctx))

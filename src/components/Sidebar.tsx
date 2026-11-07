@@ -36,12 +36,14 @@ function useCounts(): Counts {
     const c: Counts = {};
     const snoozed = new Set(snoozes.map((s) => s.messageId));
     const inc = (k: string) => (c[k] = (c[k] || 0) + 1);
+    const leftOut = new Set(accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id));
     for (const m of Object.values(messages)) {
       const p = providerFor(m.accountId);
-      if (m.unread && !snoozed.has(m.id) && inSystemFolder(m, 'inbox', p)) { inc(`${m.accountId}|inbox`); inc('all|inbox'); }
-      if (m.unread && inSystemFolder(m, 'junk', p)) { inc(`${m.accountId}|junk`); inc('all|junk'); }
-      if (inSystemFolder(m, 'drafts', p)) { inc(`${m.accountId}|drafts`); inc('all|drafts'); }
-      if (m.flagged && inSystemFolder(m, 'flagged', p)) inc('all|flagged');
+      const all = (k: string) => { if (!leftOut.has(m.accountId)) inc(k); };
+      if (m.unread && !snoozed.has(m.id) && inSystemFolder(m, 'inbox', p)) { inc(`${m.accountId}|inbox`); all('all|inbox'); }
+      if (m.unread && inSystemFolder(m, 'junk', p)) { inc(`${m.accountId}|junk`); all('all|junk'); }
+      if (inSystemFolder(m, 'drafts', p)) { inc(`${m.accountId}|drafts`); all('all|drafts'); }
+      if (m.flagged && inSystemFolder(m, 'flagged', p)) all('all|flagged');
       if (m.unread) for (const l of m.labels) if (l.startsWith('Label_') || l.length > 12) inc(`${m.accountId}|label|${l}`);
     }
     return c;

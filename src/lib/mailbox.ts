@@ -31,8 +31,9 @@ export function inSystemFolder(m: Message, folder: SystemFolder, provider: MailP
   }
 }
 
-export function scopeAccountIds(scope: Scope, allIds: string[], groups: AccountGroup[]): string[] {
-  if (scope.type === 'all') return allIds;
+/** The accounts a view covers. `leftOut` are accounts kept out of the combined "all" view (they still show on their own). */
+export function scopeAccountIds(scope: Scope, allIds: string[], groups: AccountGroup[], leftOut: string[] = []): string[] {
+  if (scope.type === 'all') return leftOut.length ? allIds.filter((id) => !leftOut.includes(id)) : allIds;
   if (scope.type === 'account') return [scope.accountId];
   return groups.find((g) => g.id === scope.groupId)?.accountIds.filter((id) => allIds.includes(id)) || [];
 }

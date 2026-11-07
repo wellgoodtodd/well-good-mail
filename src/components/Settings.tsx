@@ -6,7 +6,7 @@ import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
 import { PALETTES, paletteById } from '../lib/palettes';
-import { useMail, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
+import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
 import { useSettings, type Settings as S } from '../lib/settings';
 import { allAliases } from '../lib/compose';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
@@ -182,6 +182,11 @@ function AccountsTab() {
                 {a.status === 'needs-signin' ? <span className="status-bad">Needs signing in again</span> : a.status === 'error' ? <span className="status-bad" title={a.error}>Problem syncing</span> : a.status === 'syncing' ? (a.syncDone ? `Syncing... ${a.syncDone.toLocaleString()} ${a.syncDone === 1 ? 'message' : 'messages'}` : 'Syncing...') : <span className="status-ok">Connected</span>}
                 {a.lastSync ? ` · checked ${new Date(a.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
               </div>
+              {a.kind !== 'demo' && sorted.length > 1 && (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: '0.88em', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /> Show in All Inboxes
+                </label>
+              )}
             </div>
             <button className="icon-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(a.id, -1)}><Icon name="chevronDown" className="rot180" /></button>
             <button className="icon-btn" aria-label="Move down" disabled={i === sorted.length - 1} onClick={() => move(a.id, 1)}><Icon name="chevronDown" /></button>

@@ -22,7 +22,9 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
   const hitIds = useMemo(() => (query ? localSearch(query).map((m) => m.id) : []), [query]);
 
   return useMemo(() => {
-    const allowed = new Set(scopeAccountIds(view.scope, accounts.map((a) => a.id), groups));
+    // Accounts left out of All Inboxes stay out of the combined views, but a search still looks everywhere.
+    const leftOut = view.mailbox.kind === 'search' ? [] : accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id);
+    const allowed = new Set(scopeAccountIds(view.scope, accounts.map((a) => a.id), groups, leftOut));
     const ctx = { vips: new Set(vips), snoozed: new Set(snoozes.map((s) => s.messageId)) };
     const pool = view.mailbox.kind === 'search' ? hitIds.map((id) => messages[id]).filter(Boolean) : Object.values(messages);
     // A search that started in a folder stays in that folder (until you choose All mail).

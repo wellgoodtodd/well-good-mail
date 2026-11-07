@@ -43,6 +43,8 @@ export interface Account {
   /** How far back to keep mail offline, in days. null = everything. */
   retentionDays: number | null;
   notify: 'all' | 'important' | 'off';
+  /** Keep this account's mail out of All Inboxes and the other combined views. It still has its own place in the sidebar. */
+  leaveOutOfAll?: boolean;
   /** For IMAP accounts (not tested yet). */
   imap?: { host: string; port: number; smtpHost: string; smtpPort: number; username: string };
 }
