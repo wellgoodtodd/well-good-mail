@@ -178,12 +178,16 @@ export function MeetingBanner() {
         const mins = Math.round((e.start - Date.now()) / 60000);
         return (
           <div className="meeting-bar" key={e.id} role="status">
-            <Icon name="calendar" size={16} />
-            <button className="meeting-text" onClick={() => setOpen(e)}>
-              <strong>{e.title}</strong> <span>{mins > 0 ? `starts in ${mins} ${mins === 1 ? 'minute' : 'minutes'}` : mins === 0 ? 'is starting now' : 'has started'}</span>
-            </button>
+            <div className="mb-left">
+              <Icon name="calendar" size={16} />
+              <button className="meeting-text" onClick={() => setOpen(e)}>
+                <strong>{e.title}</strong> <span>{mins > 0 ? `starts in ${mins} ${mins === 1 ? 'minute' : 'minutes'}` : mins === 0 ? 'is starting now' : 'has started'}</span>
+              </button>
+            </div>
             <JoinButton event={e} />
-            <button className="icon-btn" aria-label="Dismiss" onClick={() => setGone(new Set(gone).add(`${e.id}|${e.start}`))}><Icon name="close" size={14} /></button>
+            <div className="mb-right">
+              <button className="icon-btn" aria-label="Dismiss" onClick={() => setGone(new Set(gone).add(`${e.id}|${e.start}`))}><Icon name="close" size={14} /></button>
+            </div>
           </div>
         );
       })}

@@ -698,3 +698,8 @@ button.help-head:hover { background: var(--bg-hover); }
 .pp-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--toolbar, var(--bg-elev)); }
 .pp-note { color: var(--text-muted); font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pp-frame { flex: 1; width: 100%; border: 0; background: #fff; }
+
+/* The Join button sits in the middle of the bar, where it can't get lost */
+.meeting-bar { display: grid; grid-template-columns: 1fr auto 1fr; }
+.meeting-bar .mb-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.meeting-bar .mb-right { display: flex; justify-content: flex-end; }
