@@ -14,6 +14,7 @@ A Windows mail app in the style of Apple Mail: combined inboxes, calm reminders,
 ## Layout
 
 - `src/lib/providers/`: the interface every account type implements (`provider.ts`), with `gmail.ts`, `microsoft.ts` and `demo.ts`.
+- IMAP: `src-tauri/src/imapmail.rs` makes the IMAP and SMTP connections and returns raw data. `src/lib/providers/imap.ts` works out what it means (the same email in two folders is joined by Message-ID, conversations come from References headers, a copy is filed in Sent after sending). `src/lib/imapUtil.ts` holds the plain helpers and the service list (iCloud and others), `src/lib/auth/imap.ts` the app password storage. `src/lib/__tests__/imapProvider.test.ts` runs the provider against a pretend server.
 - `src/lib/mail.ts`: sync loop and every mail action, outbox for undo send and send later.
 - `src/lib/compose.ts`: drafts, reply, reply all and forward switching, building the outgoing message.
 - `src/lib/mime.ts`: MIME building and parsing. Tests are in `src/lib/__tests__`.
@@ -30,10 +31,10 @@ A Windows mail app in the style of Apple Mail: combined inboxes, calm reminders,
 
 ## Known gaps
 
-- IMAP is not implemented. Microsoft 365 is untested.
+- IMAP (iCloud, Yahoo, Fastmail, AOL and custom servers) is new and has not been tried against a real account yet. Microsoft 365 is lightly tested.
 - Pictures in some forwarded Apple Mail emails still show as <IMG_1234.jpeg> notes in the text instead of the picture (they are available as attachments). A fix is in `src/lib/render.ts` and `MessageView.tsx` but did not work on a real example yet.
 - Calendar is reminders only. Snooze, follow ups and mute are local to the app (Gmail has no snooze API).
 
 ## Roadmap
 
-Microsoft 365 testing, IMAP (iCloud, Yahoo and others), a split inbox you can switch on or off, attachment search, calendar invites, saved searches, dictation.
+Trying IMAP on real accounts, Microsoft 365 testing, a split inbox you can switch on or off, attachment search, calendar invites, saved searches, dictation.

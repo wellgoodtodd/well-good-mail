@@ -1,6 +1,6 @@
 // Sign in for IMAP accounts (iCloud, Yahoo, Fastmail and others). There is no web sign in for these: the person makes
 // an app password with their provider and pastes it in. It is kept in Windows Credential Manager, never in the cache.
-import { invoke, secrets } from '../platform';
+import { invoke, isTauri, secrets } from '../platform';
 import { AuthError } from './google';
 import type { Account } from '../types';
 import type { ImapFolderInfo } from '../imapUtil';
@@ -26,6 +26,7 @@ export function mailError(e: unknown): Error {
 
 /** Signs in with the password and lists the folders. If this works, the account details are right. */
 export async function testImap(settings: ImapSettings, password: string): Promise<ImapFolderInfo[]> {
+  if (!isTauri()) throw new Error('Adding this kind of account works in the desktop app.');
   try {
     return await invoke<ImapFolderInfo[]>('imap_folders', { conn: { host: settings.host, port: settings.port, user: settings.username, pass: password } });
   } catch (e) {
