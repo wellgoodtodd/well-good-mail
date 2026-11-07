@@ -33,6 +33,11 @@ native-tls = "0.2"
 lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "native-tls", "builder"] }
 base64 = "0.22"
 
+# Saving an email as a PDF with the Windows web view's own PDF maker.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = { version = "0.62", features = ["Win32_Foundation"] }
+
 [profile.release]
 codegen-units = 1
 lto = true

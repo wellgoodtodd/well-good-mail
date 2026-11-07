@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('../platform', () => ({ invoke: async () => {}, isTauri: () => false }));
 vi.mock('../mail', () => ({ getAttachmentData: async () => new Uint8Array(), loadBody: async () => undefined, messagesInThread: () => [], toast: () => {} }));
 
-const { printDocument, addressText } = await import('../print');
+const { printDocument, addressText, pdfName } = await import('../print');
 
 const part = { from: 'Sam <sam@example.com>', to: 'me@example.com', cc: '', date: 'Monday 2 November 2026, 10:00', subject: 'Plans <for> "Friday"', body: '<p>Hello</p>', styles: '', attachments: ['plan.pdf'] };
 
@@ -25,6 +26,11 @@ describe('print page', () => {
   it('puts every message in a conversation on the page in order', () => {
     const html = printDocument('x', [{ ...part, subject: 'First' }, { ...part, subject: 'Second' }]);
     expect(html.indexOf('First')).toBeLessThan(html.indexOf('Second'));
+  });
+  it('names the PDF after the subject, with nothing Windows refuses', () => {
+    expect(pdfName('Re: Q3 VAT return / final?')).toBe('Re Q3 VAT return final.pdf');
+    expect(pdfName('   ')).toBe('Email.pdf');
+    expect(pdfName('a'.repeat(200)).length).toBeLessThanOrEqual(84);
   });
   it('writes address lists with names', () => {
     expect(addressText([{ name: 'Ann', email: 'a@x.com' }, { email: 'b@x.com' }])).toBe('Ann <a@x.com>, b@x.com');

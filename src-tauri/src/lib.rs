@@ -6,6 +6,7 @@
 
 mod dav;
 mod imapmail;
+mod pdf;
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -180,7 +181,9 @@ pub fn run() {
             imapmail::imap_delete_by_id,
             imapmail::imap_append,
             imapmail::smtp_send,
-            dav::dav_request
+            dav::dav_request,
+            pdf::save_pdf,
+            pdf::set_printing
         ])
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;
@@ -231,6 +234,11 @@ pub fn run() {
             // mail and reminders keep arriving. Quit from the tray menu.
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
+                    // The Windows print window sits inside this window, and its corner X would otherwise quit the app.
+                    if pdf::PRINTING.load(Ordering::Relaxed) {
+                        api.prevent_close();
+                        return;
+                    }
                     if CLOSE_QUITS.load(Ordering::Relaxed) {
                         window.app_handle().exit(0);
                     } else {

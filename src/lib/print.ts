@@ -4,6 +4,7 @@ import { renderEmail } from './render';
 import { bytesToBase64 } from './mime';
 import { getAttachmentData, loadBody, messagesInThread, toast } from './mail';
 import { settings } from './settings';
+import { invoke, isTauri } from './platform';
 import type { Address, Message } from './types';
 
 export interface PrintPart {
@@ -78,25 +79,63 @@ async function partFor(m: Message): Promise<PrintPart> {
   };
 }
 
-/** Opens the print window for a conversation (oldest message first). */
-export async function printThread(key: string, opts: { pdf?: boolean } = {}): Promise<void> {
+/** The page for a conversation (oldest message first), and its subject. */
+async function threadPage(key: string): Promise<{ html: string; subject: string } | undefined> {
   const thread = messagesInThread(key);
-  if (!thread.length) return;
+  if (!thread.length) return undefined;
   const parts = await Promise.all(thread.map(partFor));
+  const subject = thread[thread.length - 1].subject;
+  return { html: printDocument(subject, parts), subject };
+}
+
+/** Tells the app a print window is open, so its corner X can't quit the app by accident. */
+const setPrinting = (on: boolean) => { if (isTauri()) invoke('set_printing', { on }).catch(() => {}); };
+
+/** Opens the Windows print window for a conversation. */
+export async function printThread(key: string, opts: { pdf?: boolean } = {}): Promise<void> {
+  const page = await threadPage(key);
+  if (!page) return;
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-  frame.srcdoc = printDocument(thread[thread.length - 1].subject, parts);
+  frame.srcdoc = page.html;
   frame.onload = () => {
     const win = frame.contentWindow;
     if (!win) return;
+    const finish = () => { setPrinting(false); setTimeout(() => frame.remove(), 1000); };
+    win.addEventListener('afterprint', finish);
     // Give pictures a moment to finish loading before the page is drawn for printing.
     setTimeout(() => {
       win.focus();
+      setPrinting(true);
+      setTimeout(finish, 10 * 60000);
       win.print();
-      setTimeout(() => frame.remove(), 60000);
     }, 400);
   };
   document.body.appendChild(frame);
-  if (opts.pdf) toast({ text: 'In the print window, choose Save as PDF as the printer.', ttl: 7000 });
+  toast({ text: opts.pdf ? 'In the print window, choose Save as PDF as the printer. Use Cancel to close it.' : 'Use Cancel to close the print window.', ttl: 5000 });
+}
+
+/** A file name that Windows accepts, made from the subject. */
+export function pdfName(subject: string): string {
+  const clean = subject.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  return `${clean || 'Email'}.pdf`;
+}
+
+/** Asks where to save, then writes the conversation as a PDF. Falls back to the print window if that isn't possible. */
+export async function savePdfThread(key: string): Promise<void> {
+  if (!isTauri()) return printThread(key, { pdf: true });
+  const page = await threadPage(key);
+  if (!page) return;
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const path = await save({ defaultPath: pdfName(page.subject), filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+  if (!path) return;
+  try {
+    await invoke('save_pdf', { html: page.html, path });
+    toast({ text: `PDF saved to ${path}`, ttl: 7000 });
+  } catch (e) {
+    console.warn('PDF save failed', e);
+    toast({ text: "Couldn't save the PDF directly, so here is the print window. Choose Save as PDF.", ttl: 6000 });
+    await printThread(key, { pdf: true });
+  }
 }

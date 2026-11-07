@@ -9,7 +9,7 @@ import { Reminders } from './components/Reminders';
 import { Help } from './components/Help';
 import { SetupGuide, useGuide, openGuide } from './components/SetupGuide';
 import { UndoRedo } from './components/UndoRedo';
-import { printThread } from './lib/print';
+import { printThread, savePdfThread } from './lib/print';
 import { redoSteps, undoSteps, useHistory } from './lib/history';
 import { SettingsScreen } from './components/Settings';
 import { Splitter, useMenu, type MenuItem } from './components/ui';
@@ -314,7 +314,7 @@ function MainWindow() {
       { label: history.future.length ? `Redo ${history.future[history.future.length - 1].label}` : 'Redo', icon: 'redo', kbd: 'Ctrl+Y', disabled: !history.future.length, onClick: () => { redoSteps(1); } },
       { divider: true },
       { label: 'Print', icon: 'printer', kbd: 'Ctrl+P', disabled: !hasThread, onClick: () => { if (st0.selectedKey) printThread(st0.selectedKey); } },
-      { label: 'Save as PDF', icon: 'filePdf', disabled: !hasThread, onClick: () => { if (st0.selectedKey) printThread(st0.selectedKey, { pdf: true }); } },
+      { label: 'Save as PDF', icon: 'filePdf', disabled: !hasThread, onClick: () => { if (st0.selectedKey) savePdfThread(st0.selectedKey); } },
       { divider: true },
       { label: 'Add account', icon: 'plus', submenu: addAccountItems() },
       { divider: true },

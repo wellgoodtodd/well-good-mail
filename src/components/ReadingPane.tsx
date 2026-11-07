@@ -10,7 +10,7 @@ import { useSettings } from '../lib/settings';
 import { startCompose, popoutMessage } from '../lib/composeActions';
 import { messageMenu, kbd } from '../lib/actions';
 import { inSystemFolder } from '../lib/mailbox';
-import { printThread } from '../lib/print';
+import { printThread, savePdfThread } from '../lib/print';
 
 const DEFAULT_TOOLS = ['archive', 'bin', 'junk', 'read', 'flag', 'snooze', 'print', 'pdf', 'popout', 'more'];
 
@@ -102,7 +102,7 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
   const inJunk = inSystemFolder(latest, 'junk', p);
   const isMuted = muted.includes(key.toLowerCase());
 
-  const ordered = [...toolbarOrder.filter((t) => DEFAULT_TOOLS.includes(t)), ...DEFAULT_TOOLS.filter((t) => !toolbarOrder.includes(t))];
+  const ordered = [...toolbarOrder.filter((t) => DEFAULT_TOOLS.includes(t)), ...DEFAULT_TOOLS.filter((t) => !toolbarOrder.includes(t))].filter((t) => t !== 'more').concat('more');
   const order = ordered;
   // The icon being dragged: the others slide out of the way as it passes over them.
   const moveTool = (from: string, over: string) => {
@@ -134,7 +134,7 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
     flag: <button className={`icon-btn ${thread.some((m) => m.flagged) ? 'active' : ''}`} title={`Flag (${kbd('flag')})`} aria-label="Flag" onClick={() => toggleFlag([latest.id])}><Icon name="flag" /></button>,
     snooze: <button className="icon-btn" title="Snooze" aria-label="Snooze" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), snoozeOptions().map((o) => ({ label: o.label, icon: 'clock', onClick: () => snooze(ids, o.at) })), 'right')}><Icon name="clock" /></button>,
     print: <button className="icon-btn" title={`Print (${kbd('print')})`} aria-label="Print" onClick={() => printThread(key)}><Icon name="printer" /></button>,
-    pdf: <button className="icon-btn" title="Save as PDF" aria-label="Save as PDF" onClick={() => printThread(key, { pdf: true })}><Icon name="filePdf" /></button>,
+    pdf: <button className="icon-btn" title="Save as PDF" aria-label="Save as PDF" onClick={() => savePdfThread(key)}><Icon name="filePdf" /></button>,
     popout: !standalone && <button className="icon-btn" title="Open in new window" aria-label="Open in new window" onClick={() => popoutMessage(key)}><Icon name="popout" /></button>,
     more: <button className="icon-btn" title="More" aria-label="More" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), messageMenu([key]), 'right')}><Icon name="more" /></button>,
   };
