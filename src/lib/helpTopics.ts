@@ -1,0 +1,90 @@
+// The words in Help. Plain text, so it is easy to keep in step with the app. Searching Help looks at every question,
+// answer and keyword here.
+import type { IconName } from '../components/Icon';
+
+export interface HelpItem { q: string; a: string; /** Extra words people might search for. */ keywords?: string }
+export interface HelpTopic { id: string; title: string; icon: IconName; blurb: string; items: HelpItem[] }
+
+export const TOPICS: HelpTopic[] = [
+  {
+    id: 'start', title: 'Get started', icon: 'compose', blurb: 'Accounts, writing and sending.',
+    items: [
+      { q: 'Add another account', a: 'Click Add account in the sidebar, or the menu at the top left. Gmail, Microsoft 365 and Outlook, iCloud, Yahoo, Fastmail and other IMAP mailboxes are all there. Each account gets its own colour, and they all feed into All Inboxes.', keywords: 'new account connect icloud outlook hotmail yahoo imap' },
+      { q: 'Connect iCloud, Yahoo or another account', a: 'These need an app password, which you make in your email service\'s own settings. The setup guide opens the right page and tells you what to click. Your normal password is never used, and the app password is kept in Windows Credential Manager on this computer.', keywords: 'icloud apple app specific password yahoo fastmail aol imap smtp' },
+      { q: 'Write, reply and send', a: 'New email is top left. Replies open in the reading pane, or in their own window if you switch that on in Settings, then Composing. After Send you have a short time to undo it, set in the same place.', keywords: 'compose new message undo send' },
+      { q: 'Save something for later', a: 'Save and close keeps an email as a draft. Closing a window on an unsent email asks whether to keep it, and can remember your answer.', keywords: 'draft' },
+      { q: 'Spelling and dictation', a: 'Misspelt words are underlined while you write. Settings, then Composing, can switch that off. The microphone button in the writing toolbar tells you how to start Windows voice typing, which is the Windows key and H.', keywords: 'spell check spelling voice typing speech dictate' },
+    ],
+  },
+  {
+    id: 'organise', title: 'Organise', icon: 'folder', blurb: 'Folders, favourites, undo and blocking.',
+    items: [
+      { q: 'Undo and redo', a: 'The two small buttons beside New email undo and redo your last archive, delete, move, snooze, star and read marks. They are dim until there is something to undo. Click the small arrow, or press and hold a button, to see the last 10 steps and go back several at once. Ctrl+Z and Ctrl+Y work too, when you are not typing in a box.', keywords: 'undo redo oops mistake accidentally deleted restore' },
+      { q: 'Make your own folders', a: 'Right click empty space in the sidebar and choose New folder. Drag mailboxes onto it, or right click any mailbox and choose Put in. Drag a row out of a folder to take it out again. Nothing in your mail moves.' },
+      { q: 'Rename things', a: 'Right click a mailbox, account or folder and choose Rename, or click a selected one again after a short pause.' },
+      { q: 'Pin favourites', a: 'Right click anything and choose Add to Favourites, or drag it into the Favourites section.' },
+      { q: 'Leave an account out of All Inboxes', a: 'Settings, then Accounts, has a Show in All Inboxes tick box on each account. Untick it and that account\'s mail stays out of All Inboxes, the unread counts and the taskbar number. It still has its own place under Accounts in the sidebar.', keywords: 'hide combine group exclude test account' },
+      { q: 'Block a sender', a: 'Open the More menu on any of their emails and choose Block. Their emails go to Junk, now and in future, and never alert you. Settings, then Privacy, lists everyone you have blocked and lets you unblock them.', keywords: 'spam unwanted stop emails from' },
+      { q: 'Quick actions on a message', a: 'Hover over a message and move to the small dots in its bottom right corner. The coloured buttons slide out: archive, flag, snooze, read or unread, and bin. Clicking the dots opens the same menu as a right click.' },
+      { q: 'The buttons above an open email', a: 'Reply, Reply All and Forward stay put. The small icons beside them (archive, bin, junk, snooze, print and more) drop into the three dots menu one by one as the window gets narrower, so nothing is lost.', keywords: 'toolbar narrow small window more menu' },
+    ],
+  },
+  {
+    id: 'reading', title: 'Reading and printing', icon: 'filePdf', blurb: 'Attachments, print and PDF.',
+    items: [
+      { q: 'Print an email or save it as a PDF', a: 'Use the printer or PDF buttons above the open email, Print in the top left menu, right click, or Ctrl+P. Both open the Windows print window, with the whole conversation laid out on a clean page. For a PDF, choose Save as PDF as the printer.', keywords: 'print pdf export save' },
+      { q: 'Preview or save attachments', a: 'Click an attachment to preview it, hover for a peek, or right click to save one or all of them to a folder.', keywords: 'download save all' },
+    ],
+  },
+  {
+    id: 'search', title: 'Search and filters', icon: 'search', blurb: 'Finding what you need.',
+    items: [
+      { q: 'Search where you are', a: 'The search box looks in the mailbox you are in. Use All mail beside the results to search everywhere.', keywords: 'find' },
+      { q: 'Show only unread', a: 'The unread button above the list filters to unread mail. The button beside it groups replies into conversations or lists every message.', keywords: 'filter' },
+    ],
+  },
+  {
+    id: 'yours', title: 'Make it yours', icon: 'settings', blurb: 'Themes, alerts and shortcuts.',
+    items: [
+      { q: 'Light and dark', a: 'The sun and moon button at the top switches between them. Settings, then Appearance, has eight colour themes, each with its own account colours, plus fonts, density and the layout of the panes.', keywords: 'theme colours dark mode' },
+      { q: 'Account colours', a: 'Click an account\'s dot in the sidebar to choose its colour, or pick a whole palette in Settings, then Appearance.' },
+      { q: 'New mail alerts', a: 'Settings, then Notifications, chooses what is announced (all new mail, only important senders, or nothing). While the app is open you get a small banner inside it, otherwise a Windows notification. The sound and Do not disturb are controlled by Windows, and there are buttons to test both kinds and to open the Windows settings.', keywords: 'notifications sound banner' },
+      { q: 'Keyboard shortcuts', a: 'Settings, then Keyboard shortcuts, lists them all and lets you change any of them.', keywords: 'keys hotkeys' },
+    ],
+  },
+  {
+    id: 'accounts', title: 'Accounts and your mail', icon: 'user', blurb: 'Signing in, backups and moving.',
+    items: [
+      { q: 'An account needs signing in again', a: 'A coral dot appears on Settings and on the account. Click Sign in beside it. For iCloud and other app password accounts, you enter a new app password. Your saved mail stays where it is meanwhile.', keywords: 'password sign in error unauthorised' },
+      { q: 'Back up your app keys', a: 'Settings, then Search and storage, has Back up my keys. It saves the Google key from the setup guide to a file you choose, so a reinstall or a new computer doesn\'t mean another ten minute setup. The file holds your Google secret, so keep it somewhere private.', keywords: 'google key backup restore reinstall client secret' },
+      { q: 'Move your mail to another computer', a: 'Settings, then Search and storage, has Export and Import under Moving to another computer. The file holds your emails, so keep it somewhere private. You sign in to your accounts again on the new computer.', keywords: 'transfer new pc export import' },
+    ],
+  },
+  {
+    id: 'questions', title: 'Common questions', icon: 'help', blurb: 'The things people ask most.',
+    items: [
+      { q: 'Why does Google keep signing me out?', a: 'Until your Google project is published, Google signs you out about once a week. Settings, then Accounts, has a short guide to stop that.', keywords: 'weekly seven days testing' },
+      { q: 'Is my email stored anywhere but this computer?', a: 'No. Mail is kept on this computer and the app talks straight to your email service. There is no Well Good Mail server. Your keys and passwords are in Windows Credential Manager.', keywords: 'privacy security private' },
+      { q: 'Why does an email show odd symbols?', a: 'Usually the sender labelled the text wrongly. The app corrects the common case. If you still see one, tell us using the link below.', keywords: 'garbled characters encoding' },
+    ],
+  },
+];
+
+/** Words in a search, lower case. */
+const words = (q: string) => q.toLowerCase().split(/[^a-z0-9']+/).filter((w) => w.length > 1);
+
+/** True when every word typed appears somewhere in the question, answer or keywords. */
+export function matches(item: HelpItem, query: string): boolean {
+  const ws = words(query);
+  if (!ws.length) return true;
+  const hay = `${item.q} ${item.a} ${item.keywords || ''}`.toLowerCase();
+  return ws.every((w) => hay.includes(w));
+}
+
+/** The topics left once a search is applied. With no search, everything. */
+export function searchHelp(query: string, topics: HelpTopic[] = TOPICS): HelpTopic[] {
+  if (!words(query).length) return topics;
+  return topics.map((t) => ({ ...t, items: t.items.filter((i) => matches(i, query)) })).filter((t) => t.items.length);
+}
+
+export const countItems = (topics: HelpTopic[]) => topics.reduce((n, t) => n + t.items.length, 0);

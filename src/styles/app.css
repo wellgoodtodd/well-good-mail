@@ -539,7 +539,7 @@ button.badge:hover { color: var(--text); border-color: var(--text-muted); }
 .guide-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
 .weekly-card { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-subtle); }
 .help-screen { flex: 1; overflow: auto; }
-.help-inner { max-width: 680px; margin: 0 auto; padding: 18px 20px 40px; }
+.help-inner { max-width: 980px; margin: 0 auto; padding: 18px 20px 40px; }
 .help-section { margin-top: 18px; }
 .help-section h2 { font-size: 1.05em; margin: 0 0 6px; }
 .help-item { border-top: 1px solid var(--border); padding: 8px 0; }
@@ -611,3 +611,16 @@ button.badge:hover { color: var(--text); border-color: var(--text-muted); }
 .ur-group.has button { opacity: 1; color: var(--text); background: var(--bg-hover); cursor: pointer; }
 .ur-group.has button:hover { background: var(--bg-active, var(--bg-hover)); filter: brightness(1.15); }
 .ur-group.has .ur-arrow { border-left: 1px solid var(--border); }
+
+.help-search { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-input, var(--bg-elev)); max-width: 560px; }
+.help-search:focus-within { border-color: var(--accent); }
+.help-search input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; min-width: 0; }
+.help-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 14px; align-items: start; margin-top: 6px; }
+.help-card { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elev, var(--bg-subtle)); padding: 14px 16px 8px; }
+.help-card header { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
+.help-card h2 { font-size: 1.05em; margin: 0; }
+.help-card header p { margin: 1px 0 0; color: var(--text-muted); font-size: 0.9em; }
+.help-ico { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: var(--bg-hover); color: var(--accent); flex: none; }
+.help-card .help-item:first-of-type { border-top: 1px solid var(--border); }
+.help-support { margin-top: 14px; }
+.help-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0 10px; }
