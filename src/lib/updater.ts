@@ -17,17 +17,15 @@ export const useUpdates = create<UpdateState>(() => ({ status: 'idle' }));
 export const useUpdatePending = () => useUpdates((s) => s.status === 'available' || s.status === 'downloading' || s.status === 'ready');
 
 /** An update that has been downloaded and is waiting for the person to restart. */
-let waiting: { install: () => Promise<void> } | undefined;
+let waiting: { install: () => Promise<void>; version: string } | undefined;
 /** The newest version found, for "Download and restart" when nothing has been downloaded yet. */
 let found: { downloadAndInstall: () => Promise<void> } | undefined;
 
 // A new version installs by itself when the app has only just been opened. While the app is
 // already open and in use, it downloads quietly and waits for "Restart to update".
 export async function checkForUpdates(opts: { userInitiated?: boolean; atStart?: boolean } = {}) {
-  if (waiting) {
-    if (opts.userInitiated) useUpdates.setState({ status: 'ready' });
-    return;
-  }
+  // A downloaded update does not stop the looking: a newer one may have come out since, and it should replace it.
+  if (waiting && opts.userInitiated) useUpdates.setState({ status: 'ready' });
   if (useUpdates.getState().status === 'downloading') return;
   if (!isTauri()) {
     useUpdates.setState({ status: 'none', currentVersion: 'browser preview' });
@@ -42,9 +40,12 @@ export async function checkForUpdates(opts: { userInitiated?: boolean; atStart?:
     const { check } = await import('@tauri-apps/plugin-updater');
     const update = await check();
     if (!update) {
-      useUpdates.setState({ status: 'none' });
+      if (!waiting) useUpdates.setState({ status: 'none' });
       return;
     }
+    // Already downloaded this very version: nothing more to do.
+    if (waiting && waiting.version === update.version) return;
+    waiting = undefined;
     found = update;
     useUpdates.setState({ status: 'available', version: update.version, notes: update.body });
     if (opts.atStart && settings().autoUpdate) {
@@ -56,7 +57,7 @@ export async function checkForUpdates(opts: { userInitiated?: boolean; atStart?:
       // (Check now only looks: you then choose whether to download and restart.)
       useUpdates.setState({ status: 'downloading' });
       await update.download();
-      waiting = update;
+      waiting = { install: () => update.install(), version: update.version };
       useUpdates.setState({ status: 'ready' });
     }
   } catch (e) {
@@ -79,7 +80,17 @@ export async function installFoundUpdate() {
 }
 
 export async function restartToUpdate() {
-  if (waiting) await waiting.install();
+  if (waiting) {
+    // One last look, so a version released since the download is the one that gets installed.
+    try {
+      const { check } = await import('@tauri-apps/plugin-updater');
+      const latest = await check();
+      if (latest && latest.version !== waiting.version) await latest.downloadAndInstall();
+      else await waiting.install();
+    } catch {
+      await waiting.install();
+    }
+  }
   const { relaunch } = await import('@tauri-apps/plugin-process');
   await relaunch();
 }
