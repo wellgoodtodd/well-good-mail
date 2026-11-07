@@ -1,7 +1,7 @@
 // Right click menu for one or more conversations in the list.
 import type { MenuItem } from '../components/ui';
 import { snoozeOptions } from '../components/ui';
-import { applyLabel, archive, idsForKeys, markRead, markSpam, moveToInbox, moveToLabel, providerFor, restoreFromBin, runSearch, snooze, toast, toggleFlag, toggleMute, toggleVip, trash, useMail } from './mail';
+import { applyLabel, blockSender, unblockSender, archive, idsForKeys, markRead, markSpam, moveToInbox, moveToLabel, providerFor, restoreFromBin, runSearch, snooze, toast, toggleFlag, toggleMute, toggleVip, trash, useMail } from './mail';
 import { startCompose, popoutMessage } from './composeActions';
 import { settings } from './settings';
 import { inSystemFolder } from './mailbox';
@@ -42,6 +42,7 @@ export function messageMenu(keys: string[]): MenuItem[] {
   const sender = latest.from.email.toLowerCase();
   const senderName = latest.from.name || latest.from.email;
   const vip = settings().vips.includes(sender);
+  const blocked = settings().blockedSenders.includes(sender);
 
   const items: MenuItem[] = [];
   if (single) {
@@ -88,6 +89,9 @@ export function messageMenu(keys: string[]): MenuItem[] {
     const more: MenuItem[] = [
       { label: muted ? 'Unmute conversation' : 'Mute conversation', icon: 'mute', onClick: () => toggleMute(keys[0]) },
       { label: vip ? `Remove ${senderName} from important senders` : `Mark ${senderName} as important`, icon: 'star', onClick: () => toggleVip(sender) },
+      blocked
+        ? { label: `Unblock ${senderName}`, icon: 'junk' as const, onClick: () => unblockSender(sender) }
+        : { label: `Block ${senderName}`, icon: 'junk' as const, onClick: () => blockSender(sender, ids) },
       { label: `Find emails from ${senderName}`, icon: 'search', onClick: () => runSearch(`from:${sender}`, { everywhere: true }) },
       { label: 'Copy sender address', icon: 'user', onClick: () => copy(sender, 'Address') },
       { label: 'Copy subject', icon: 'file', onClick: () => copy(latest.subject, 'Subject') },

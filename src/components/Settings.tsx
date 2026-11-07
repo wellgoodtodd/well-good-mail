@@ -15,6 +15,7 @@ import { openGuide } from './SetupGuide';
 import { IMAP_PRESETS } from '../lib/imapUtil';
 import { addAccountItems } from '../lib/accountMenu';
 import { exportCache, importCache } from '../lib/cacheTransfer';
+import { exportKeys, importKeys } from '../lib/backup';
 import { paceInfo } from '../lib/providers/gmail';
 import { enableSettingsSync } from '../lib/settingsSync';
 import { isTauri, setAutostart, setCloseQuits, notify, openExternal } from '../lib/platform';
@@ -543,6 +544,7 @@ function WritingTab() {
           <Radio name="defreply" value={s.defaultReply} onChange={(v) => s.set({ defaultReply: v })} options={[{ value: 'reply', label: 'Reply' }, { value: 'replyAll', label: 'Reply All' }]} />
         </Row>
         <Check checked={s.popOutCompose} onChange={(v) => s.set({ popOutCompose: v })}>Always open replies in their own window</Check>
+        <Check checked={s.spellCheck} onChange={(v) => s.set({ spellCheck: v })}>Underline spelling mistakes while I write</Check>
       </section>
       <section className="set-section">
         <h2>Warnings before sending</h2>
@@ -697,6 +699,20 @@ function OfflineTab() {
           </label>
         </div>
       </section>
+      {isTauri() && (
+        <section className="set-section">
+          <h2>Back up your app keys</h2>
+          <p className="hint">The Google key from the setup guide is kept in Windows Credential Manager. If you reinstall Windows or move to a new PC it is gone, and making another takes ten minutes. This saves the keys to a file you choose. It holds no mail and no sign ins, but it does hold your Google secret, so keep it somewhere private such as a password manager.</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="btn" onClick={() => exportKeys().catch((e) => toast({ text: `Backup failed: ${e instanceof Error ? e.message : e}` }))}>Back up my keys...</button>
+            <label className="btn" style={{ cursor: 'pointer' }}>
+              Restore keys...
+              <input type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) importKeys(f).then((n) => { toast({ text: `${n} key${n === 1 ? '' : 's'} restored. Restart the app, then sign in to your accounts again.`, ttl: 8000 }); }).catch((err) => toast({ text: `Restore failed: ${err instanceof Error ? err.message : err}` })); }} />
+            </label>
+            <span className="hint" style={{ margin: 0 }}>{s.keysBackedUpAt ? `Last backed up ${new Date(s.keysBackedUpAt).toLocaleDateString('en-GB')}` : 'Not backed up yet'}</span>
+          </div>
+        </section>
+      )}
       <section className="set-section">
         <h2>Mail kept on this computer</h2>
         <p className="hint">Mail in this window is stored on your PC for instant search and offline reading. Recent mail (about 6 weeks) is stored in full; older mail downloads when you open it. Searches also check Google's servers for anything older. {count.toLocaleString('en-GB')} emails stored now.</p>
@@ -763,6 +779,7 @@ function TemplatesTab() {
 function PeopleTab() {
   const s = useSettings();
   const [add, setAdd] = useState('');
+  const [blockAdd, setBlockAdd] = useState('');
   return (
     <>
       <h1>Important senders</h1>
@@ -774,6 +791,17 @@ function PeopleTab() {
         <form className="set-row" onSubmit={(e) => { e.preventDefault(); if (add.includes('@')) { s.toggleIn('vips', add.trim()); setAdd(''); } }}>
           <input type="email" placeholder="name@example.com" value={add} onChange={(e) => setAdd(e.target.value)} aria-label="Add important sender" />
           <button className="btn" type="submit">Add</button>
+        </form>
+      </section>
+      <section className="set-section">
+        <h2>Blocked senders ({s.blockedSenders.length})</h2>
+        <p className="hint">Emails from these addresses go straight to Junk, and never alert you. Block someone from the More menu on any of their emails.</p>
+        <div className="tag-list">
+          {s.blockedSenders.map((v) => <span key={v} className="chip">{v}<button aria-label={`Unblock ${v}`} onClick={() => s.toggleIn('blockedSenders', v)}><Icon name="close" size={12} /></button></span>)}
+        </div>
+        <form className="set-row" onSubmit={(e) => { e.preventDefault(); if (blockAdd.includes('@')) { s.toggleIn('blockedSenders', blockAdd.trim()); setBlockAdd(''); } }}>
+          <input type="email" placeholder="name@example.com" value={blockAdd} onChange={(e) => setBlockAdd(e.target.value)} aria-label="Block a sender" />
+          <button className="btn" type="submit">Block</button>
         </form>
       </section>
       <section className="set-section">

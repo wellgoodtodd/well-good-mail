@@ -9,7 +9,7 @@ const FILE_NAME = 'well-good-mail-settings.json';
 const STAMP_KEY = 'wgm.settingsSync.stamp';
 
 /** Things that belong to one computer, not to you. */
-const PER_DEVICE = new Set(['syncSettings', 'startWithWindows', 'closeQuits', 'autoUpdate', 'collapsed']);
+const PER_DEVICE = new Set(['keysBackedUpAt', 'syncSettings', 'startWithWindows', 'closeQuits', 'autoUpdate', 'collapsed']);
 
 const read = (): Record<string, unknown> => {
   const out: Record<string, unknown> = {};

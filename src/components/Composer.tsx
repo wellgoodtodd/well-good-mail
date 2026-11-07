@@ -162,6 +162,11 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   const editorRef = useRef(editor);
   editorRef.current = editor;
 
+  // Spelling underlines follow the setting, and change straight away when it is switched.
+  useEffect(() => {
+    editor?.view.dom.setAttribute('spellcheck', s.spellCheck ? 'true' : 'false');
+  }, [editor, s.spellCheck]);
+
   // Put the saved body into the editor once both exist.
   const loadedInto = useRef<string | null>(null);
   useEffect(() => {
@@ -410,6 +415,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
           <>
             <span className="sep" />
             <button type="button" className="icon-btn" title="Paste as quote" aria-label="Paste as quote" onMouseDown={(e) => e.preventDefault()} onClick={() => editor && pasteAsQuote(editor)}><Icon name="quote" size={15} /><span style={{ fontSize: 10, marginLeft: -2 }}>+</span></button>
+            <button type="button" className="icon-btn" title="Dictate: press the Windows key and H" aria-label="Dictate" onMouseDown={(e) => e.preventDefault()} onClick={() => { editor?.commands.focus(); toast({ text: 'Press the Windows key and H together to speak. Windows types what you say.', ttl: 6000 }); }}><Icon name="mic" size={15} /></button>
             <button type="button" className="icon-btn" title="Attach files" aria-label="Attach files" onClick={() => fileInput.current?.click()}><Icon name="paperclip" size={15} /></button>
             <button type="button" className="icon-btn" title="Templates" aria-label="Templates" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), s.templates.length ? s.templates.map((t) => ({ label: t.name, icon: 'template', onClick: () => editor?.chain().focus().insertContent(t.html).run() })) : [{ label: 'No templates yet. Add them in Settings.', disabled: true }])}><Icon name="template" size={15} /></button>
             <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files || [])); e.target.value = ''; }} />

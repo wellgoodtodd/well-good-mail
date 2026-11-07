@@ -71,7 +71,13 @@ export interface Settings {
   blockTrackers: boolean;
   darkEmails: boolean;
 
+  /** Red underlines under misspelt words while writing. */
+  spellCheck: boolean;
+  /** When the app keys were last backed up to a file (0 = never). */
+  keysBackedUpAt: number;
   vips: string[];
+  /** Senders whose emails go straight to Junk. */
+  blockedSenders: string[];
   mutedThreads: string[];
   templates: Template[];
   groups: AccountGroup[];
@@ -166,7 +172,10 @@ export const defaultSettings: Settings = {
   blockTrackers: true,
   darkEmails: true,
 
+  spellCheck: true,
+  keysBackedUpAt: 0,
   vips: [],
+  blockedSenders: [],
   mutedThreads: [],
   templates: [
     {
@@ -201,7 +210,7 @@ export const defaultSettings: Settings = {
 
 interface SettingsStore extends Settings {
   set: (patch: Partial<Settings>) => void;
-  toggleIn: (key: 'vips' | 'mutedThreads' | 'trustedSenders' | 'importantEvents' | 'hiddenFolders', value: string) => void;
+  toggleIn: (key: 'vips' | 'blockedSenders' | 'mutedThreads' | 'trustedSenders' | 'importantEvents' | 'hiddenFolders', value: string) => void;
   reset: () => void;
   pin: (ref: string, index?: number) => void;
   unpin: (ref: string) => void;

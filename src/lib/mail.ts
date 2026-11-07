@@ -516,6 +516,13 @@ export async function refreshAll() {
 
 /** Mute and other automatic handling for newly arrived mail. */
 function applyRulesToNew(msgs: Message[]) {
+  const blocked = new Set(settings().blockedSenders);
+  const unwanted = msgs.filter((m) => blocked.has(m.from.email.toLowerCase()) && !inSystemFolder(m, 'junk', providers.get(m.accountId)));
+  if (unwanted.length) {
+    const ids = unwanted.map((m) => m.id);
+    markSpam(ids, true, { silent: true });
+    markRead(ids, true);
+  }
   const muted = new Set(settings().mutedThreads);
   const toArchive = msgs.filter((m) => muted.has(threadKey(m).toLowerCase()) || muted.has(threadKey(m)));
   if (toArchive.length) archive(toArchive.map((m) => m.id), { silent: true, markRead: true });
@@ -529,6 +536,7 @@ function notifyNewMail(msgs: Message[]) {
   const candidates = msgs.filter((m) => {
     const acc = get().accounts.find((a) => a.id === m.accountId);
     if (!acc || acc.notify === 'off') return false;
+    if (s.blockedSenders.includes(m.from.email.toLowerCase())) return false;
     if (!m.unread || mine.has(m.from.email.toLowerCase())) return false;
     if (!inSystemFolder(m, 'inbox', providers.get(m.accountId))) return false;
     const important = vips.has(m.from.email.toLowerCase());
@@ -825,6 +833,22 @@ export function toggleMute(key: string) {
     afterRemoveFromView();
     toast({ text: 'Conversation muted. New replies skip your inbox.', undo: () => useSettings.getState().toggleIn('mutedThreads', key) });
   } else toast({ text: 'Conversation unmuted' });
+}
+
+/** Sends this sender's emails to Junk now and from now on. */
+export async function blockSender(email: string, ids: string[]) {
+  const e = email.toLowerCase();
+  const setBlocked = (on: boolean) => { if (settings().blockedSenders.includes(e) !== on) useSettings.getState().toggleIn('blockedSenders', e); };
+  setBlocked(true);
+  afterRemoveFromView();
+  await markSpam(ids, true, { silent: true });
+  const id = record(`Block sender: ${e}`, async () => { setBlocked(false); await modify(ids, sys('inbox'), sys('junk')); }, async () => { setBlocked(true); await markSpam(ids, true, { silent: true }); });
+  toast({ text: `${e} is blocked. Their emails go to Junk.`, undo: () => undoEntry(id) });
+}
+
+export function unblockSender(email: string) {
+  if (settings().blockedSenders.includes(email.toLowerCase())) useSettings.getState().toggleIn('blockedSenders', email);
+  toast({ text: `${email} is no longer blocked` });
 }
 
 export function toggleVip(email: string) {

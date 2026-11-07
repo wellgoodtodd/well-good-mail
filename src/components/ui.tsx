@@ -3,9 +3,45 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
 
+export type Brand = 'google' | 'microsoft' | 'icloud' | 'mail';
+
+/** Small marks for the services in the Add account menu. Google and Microsoft draw their own colours; the others follow the text. */
+export function BrandMark({ brand }: { brand: Brand }) {
+  if (brand === 'google') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" style={{ flex: 'none' }}>
+        <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.7-.4-3.9z" />
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+        <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.7-.4-3.9z" />
+      </svg>
+    );
+  }
+  if (brand === 'microsoft') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style={{ flex: 'none' }}>
+        <rect x="1" y="1" width="6.5" height="6.5" fill="#F25022" />
+        <rect x="8.5" y="1" width="6.5" height="6.5" fill="#7FBA00" />
+        <rect x="1" y="8.5" width="6.5" height="6.5" fill="#00A4EF" />
+        <rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#FFB900" />
+      </svg>
+    );
+  }
+  if (brand === 'icloud') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: 'none' }}>
+        <path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9Z" />
+      </svg>
+    );
+  }
+  return <Icon name="mail" />;
+}
+
 export interface MenuItem {
   label?: string;
   icon?: IconName;
+  /** A service's mark (Google, Microsoft, iCloud) shown instead of an icon. */
+  brand?: Brand;
   kbd?: string;
   onClick?: () => void;
   heading?: string;
@@ -63,7 +99,7 @@ export function Menu({ anchor, items, onClose, align = 'left' }: { anchor: DOMRe
                   setSub(sub?.at === i ? null : { at: i, left: r.right + 230 > window.innerWidth ? Math.max(6, r.left - 232) : r.right - 2, top: Math.max(6, Math.min(r.top - 4, window.innerHeight - 300)) });
                 }}
               >
-                {it.icon ? <Icon name={it.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
+                {it.brand ? <BrandMark brand={it.brand} /> : it.icon ? <Icon name={it.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
                 <span>{it.label}</span>
                 <span className="kbd" style={{ display: 'flex' }}><Icon name="chevronRight" size={14} /></span>
               </button>
@@ -71,7 +107,7 @@ export function Menu({ anchor, items, onClose, align = 'left' }: { anchor: DOMRe
                 <div className="menu submenu" role="menu" style={{ left: sub.left, top: sub.top }}>
                   {it.submenu.map((c, j) => (
                     <button key={j} role="menuitem" className={c.active ? 'active' : ''} disabled={c.disabled} onClick={() => { onClose(); c.onClick?.(); }}>
-                      {c.icon ? <Icon name={c.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
+                      {c.brand ? <BrandMark brand={c.brand} /> : c.icon ? <Icon name={c.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
                       <span>{c.label}</span>
                     </button>
                   ))}
@@ -80,7 +116,7 @@ export function Menu({ anchor, items, onClose, align = 'left' }: { anchor: DOMRe
             </div>
           ) : (
             <button key={i} role="menuitem" className={it.active ? 'active' : ''} disabled={it.disabled} onClick={() => { onClose(); it.onClick?.(); }}>
-              {it.icon ? <Icon name={it.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
+              {it.brand ? <BrandMark brand={it.brand} /> : it.icon ? <Icon name={it.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
               <span>{it.label}</span>
               {it.kbd && <span className="kbd">{it.kbd}</span>}
             </button>

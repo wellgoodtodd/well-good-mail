@@ -16,7 +16,8 @@ import { Splitter, useMenu, type MenuItem } from './components/ui';
 import { addAccountItems } from './lib/accountMenu';
 import { useSettings } from './lib/settings';
 import { skinById, SKIN_VARS } from './lib/skins';
-import { useBanners, dismissBanner } from './lib/banners';
+import { useBanners, dismissBanner, showBanner } from './lib/banners';
+import { backupDue, haveOwnKeys } from './lib/backup';
 import {
   useMail, initMail, refreshAll, runSearch, dismissToast, archive, trash, toggleFlag, markRead, selectedMessageIds, selectThread, startDemo,
   markSpam, snooze, markViewRead, openScreen,
@@ -314,6 +315,19 @@ function MainWindow() {
       { label: s.sidebarVisible ? 'Hide sidebar' : 'Show sidebar', icon: 'sidebar', kbd: 'Ctrl+Shift+S', onClick: () => s.set({ sidebarVisible: !s.sidebarVisible }) },
     ];
   };
+
+  // Now and then, if the person made their own Google key and has never saved a copy, remind them once.
+  useEffect(() => {
+    if (!ready || !isTauri()) return;
+    const t = setTimeout(async () => {
+      const last = Number(localStorage.getItem('wgm.keysReminder') || 0);
+      if (Date.now() - last < 14 * 86400000) return;
+      if (!backupDue(await haveOwnKeys(), useSettings.getState().keysBackedUpAt)) return;
+      try { localStorage.setItem('wgm.keysReminder', String(Date.now())); } catch { /* storage unavailable */ }
+      showBanner({ title: 'Back up your app keys', body: 'A saved copy of your Google key saves a ten minute setup if you ever reinstall.', actionLabel: 'Open', run: () => openScreen('settings', 'offline') });
+    }, 30000);
+    return () => clearTimeout(t);
+  }, [ready]);
 
   // First run in the desktop app: nothing is set up yet, so start the guide.
   const guide = useGuide((g) => g.mode);
