@@ -524,6 +524,7 @@ function ImapGuide() {
         {(APP_PASSWORD_STEPS[preset.id] || []).map((t) => <li key={t}>{t}</li>)}
       </ol>
       <Copy label="Name for the password" value="Well Good Mail" />
+      <p className="ghint">Keep the password you copy from {preset.name} handy. You paste it on the next page.</p>
     </Frame>
   );
 
