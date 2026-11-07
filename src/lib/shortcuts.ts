@@ -4,7 +4,7 @@
 export type ShortcutAction =
   | 'newEmail' | 'reply' | 'replyAll' | 'forward' | 'send' | 'refresh' | 'search'
   | 'markUnread' | 'markRead' | 'flag' | 'archive' | 'delete' | 'junk' | 'snooze'
-  | 'next' | 'previous' | 'openWindow' | 'toggleSidebar' | 'undo' | 'markAllRead' | 'reminders';
+  | 'next' | 'previous' | 'openWindow' | 'toggleSidebar' | 'print' | 'undo' | 'redo' | 'markAllRead' | 'reminders';
 
 export interface ShortcutDef {
   id: ShortcutAction;
@@ -36,7 +36,9 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'toggleSidebar', label: 'Show or hide the sidebar', keys: ['Ctrl+Shift+S'] },
   { id: 'markAllRead', label: 'Mark everything in this mailbox as read', keys: ['Ctrl+Alt+R'] },
   { id: 'reminders', label: 'Open Reminders', keys: ['Ctrl+Shift+M'] },
+  { id: 'print', label: 'Print the open conversation', keys: ['Ctrl+P'] },
   { id: 'undo', label: 'Undo last archive, delete or move', keys: ['Ctrl+Z'] },
+  { id: 'redo', label: 'Redo', keys: ['Ctrl+Y', 'Ctrl+Shift+Z'] },
 ];
 
 const MOD_ORDER = ['Ctrl', 'Alt', 'Shift'];

@@ -7,6 +7,7 @@ import { settings } from './settings';
 import { inSystemFolder } from './mailbox';
 import { bindingsFor, isSingleKey, type ShortcutAction } from './shortcuts';
 import { openExternal } from './platform';
+import { printThread } from './print';
 
 /** The shortcut to show next to a menu item (first one with a modifier or a named key). */
 export function kbd(action: ShortcutAction): string | undefined {
@@ -49,6 +50,8 @@ export function messageMenu(keys: string[]): MenuItem[] {
       { label: 'Reply All', icon: 'replyAll', kbd: kbd('replyAll'), onClick: () => startCompose('replyAll', latest) },
       { label: 'Forward', icon: 'forward', kbd: kbd('forward'), onClick: () => startCompose('forward', latest) },
       { label: 'Open in new window', icon: 'popout', kbd: kbd('openWindow'), onClick: () => popoutMessage(keys[0]) },
+      { label: 'Print...', icon: 'printer', kbd: kbd('print'), onClick: () => printThread(keys[0]) },
+      { label: 'Save as PDF...', icon: 'filePdf', onClick: () => printThread(keys[0], { pdf: true }) },
       { divider: true },
     );
   }

@@ -8,6 +8,9 @@ import { Composer } from './components/Composer';
 import { Reminders } from './components/Reminders';
 import { Help } from './components/Help';
 import { SetupGuide, useGuide, openGuide } from './components/SetupGuide';
+import { UndoRedo } from './components/UndoRedo';
+import { printThread } from './lib/print';
+import { redoSteps, undoSteps, useHistory } from './lib/history';
 import { SettingsScreen } from './components/Settings';
 import { Splitter, useMenu, type MenuItem } from './components/ui';
 import { addAccountItems } from './lib/accountMenu';
@@ -220,10 +223,9 @@ function useShortcuts() {
         toggleSidebar: () => s.set({ sidebarVisible: !s.sidebarVisible }),
         markAllRead: () => markViewRead(st.view),
         reminders: () => openScreen('reminders'),
-        undo: () => {
-          const last = [...st.toasts].reverse().find((t) => t.undo);
-          if (last) { last.undo!(); dismissToast(last.id); }
-        },
+        print: () => { if (sel) printThread(sel); },
+        undo: () => { undoSteps(1); },
+        redo: () => { redoSteps(1); },
       };
       const fn = run[action];
       if (!fn) return;
@@ -287,12 +289,21 @@ function MainWindow() {
 
   // The menu at the top left: the basics, so nothing is lost when the sidebar is hidden.
   const appMenu = useMenu();
+  const history = useHistory();
   const appMenuItems = (): MenuItem[] => {
     const hasAccounts = accounts.length > 0;
+    const st0 = useMail.getState();
+    const hasThread = Boolean(st0.selectedKey);
     const tab = (label: string, id: string): MenuItem => ({ label, onClick: () => openScreen('settings', id) });
     return [
       { label: 'New email', icon: 'compose', kbd: 'Ctrl+N', disabled: !hasAccounts, onClick: () => startCompose('new') },
       { label: 'Check for new mail', icon: 'refresh', kbd: 'F5', disabled: !hasAccounts, onClick: () => refreshAll() },
+      { divider: true },
+      { label: history.past.length ? `Undo ${history.past[history.past.length - 1].label}` : 'Undo', icon: 'undo', kbd: 'Ctrl+Z', disabled: !history.past.length, onClick: () => { undoSteps(1); } },
+      { label: history.future.length ? `Redo ${history.future[history.future.length - 1].label}` : 'Redo', icon: 'redo', kbd: 'Ctrl+Y', disabled: !history.future.length, onClick: () => { redoSteps(1); } },
+      { divider: true },
+      { label: 'Print', icon: 'printer', kbd: 'Ctrl+P', disabled: !hasThread, onClick: () => { if (st0.selectedKey) printThread(st0.selectedKey); } },
+      { label: 'Save as PDF', icon: 'filePdf', disabled: !hasThread, onClick: () => { if (st0.selectedKey) printThread(st0.selectedKey, { pdf: true }); } },
       { divider: true },
       { label: 'Add account', icon: 'plus', submenu: addAccountItems() },
       { divider: true },
@@ -342,6 +353,7 @@ function MainWindow() {
           <span style={{ display: 'inline-flex', animation: syncing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span>
         </button>
         <button className="btn primary" onClick={() => startCompose('new')} disabled={!accounts.length} title="New email (Ctrl+N)" aria-label="New email"><Icon name="compose" /><span className="hide-narrow">New email</span></button>
+        {accounts.length > 0 && <UndoRedo />}
         <span className="spacer" />
         <button
           className="icon-btn"

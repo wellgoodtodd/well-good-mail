@@ -600,3 +600,12 @@ button.badge:hover { color: var(--text); border-color: var(--text-muted); }
 
 .gpick { display: grid; gap: 8px; margin: 10px 0; }
 .gpick .btn { justify-content: flex-start; height: 38px; padding: 0 14px; }
+
+.ur-pair { display: inline-flex; gap: 6px; margin-left: 8px; }
+.ur-group { display: inline-flex; align-items: center; border-radius: 7px; }
+.ur-group button { display: inline-flex; align-items: center; justify-content: center; height: 30px; border: none; background: transparent; color: var(--text-muted); padding: 0; opacity: 0.4; cursor: default; }
+.ur-main { width: 26px; border-radius: 7px 0 0 7px; }
+.ur-arrow { width: 16px; border-radius: 0 7px 7px 0; }
+.ur-group.has button { opacity: 1; color: var(--text); background: var(--bg-hover); cursor: pointer; }
+.ur-group.has button:hover { background: var(--bg-active, var(--bg-hover)); filter: brightness(1.15); }
+.ur-group.has .ur-arrow { border-left: 1px solid var(--border); }

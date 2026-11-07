@@ -7,6 +7,7 @@ import { GmailProvider } from './providers/gmail';
 import { MicrosoftProvider } from './providers/microsoft';
 import { ImapProvider } from './providers/imap';
 import { openImapGuide } from './guide';
+import { record, undoEntry } from './history';
 import { removeImapPassword, saveImapPassword, testImap, type ImapSettings } from './auth/imap';
 import { DemoProvider, DEMO_ACCOUNTS, resetDemo } from './providers/demo';
 import type { MailProvider } from './providers/provider';
@@ -678,16 +679,43 @@ export function selectedMessageIds(): string[] {
   return idsForKeys(keys);
 }
 
-export async function markRead(ids: string[], read = true) {
+/** What an action was done to, for the undo list: the subject, or how many conversations. */
+function describeIds(ids: string[]): string {
+  const msgs = ids.map((id) => get().messages[id]).filter(Boolean);
+  const threads = new Set(msgs.map(threadKey));
+  if (threads.size === 1) {
+    const subject = msgs[0].subject || '(no subject)';
+    return subject.length > 34 ? `${subject.slice(0, 33)}…` : subject;
+  }
+  return `${threads.size} conversations`;
+}
+
+/** Marking as unread is recorded so it can be undone; marking as read happens by itself when you open an email, so it isn't. */
+export async function markRead(ids: string[], read = true, opts: { silent?: boolean } = {}) {
   if (read) await modify(ids.filter((id) => get().messages[id]?.unread), none, () => ['UNREAD']);
-  else await modify(ids, () => ['UNREAD'], none);
+  else {
+    const was = ids.filter((id) => !get().messages[id]?.unread);
+    await modify(ids, () => ['UNREAD'], none);
+    if (!opts.silent && was.length) record(`Mark as unread: ${describeIds(ids)}`, () => markRead(was, true, { silent: true }), () => markRead(ids, false, { silent: true }));
+  }
 }
 
 export async function toggleFlag(ids: string[]) {
   const anyUnflagged = ids.some((id) => !get().messages[id]?.flagged);
   const flagId = (p: MailProvider) => [p.systemFolderId('flagged') || 'STARRED'];
-  if (anyUnflagged) await modify(ids, flagId, none);
-  else await modify(ids, none, flagId);
+  const on = () => modify(ids, flagId, none);
+  const off = () => modify(ids, none, flagId);
+  const before = new Map(ids.map((id) => [id, get().messages[id]?.flagged]));
+  if (anyUnflagged) await on();
+  else await off();
+  const restore = async () => {
+    // Put each email back as it was, not just flip them all.
+    const was = ids.filter((id) => before.get(id));
+    const wasNot = ids.filter((id) => !before.get(id));
+    if (was.length) await modify(was, flagId, none);
+    if (wasNot.length) await modify(wasNot, none, flagId);
+  };
+  record(`${anyUnflagged ? 'Star' : 'Remove star'}: ${describeIds(ids)}`, restore, anyUnflagged ? on : off);
 }
 
 function afterRemoveFromView() {
@@ -701,11 +729,12 @@ export async function archive(ids: string[], opts: { silent?: boolean; markRead?
   await modify(ids, archiveId, remove);
   if (!opts.silent) {
     afterRemoveFromView();
-    toast({ text: ids.length > 1 ? `${ids.length} emails archived` : 'Archived', undo: () => modify(ids, sys('inbox'), archiveId) });
+    const id = record(`Archive: ${describeIds(ids)}`, () => modify(ids, sys('inbox'), archiveId), () => archive(ids, { silent: true, markRead: opts.markRead }));
+    toast({ text: ids.length > 1 ? `${ids.length} emails archived` : 'Archived', undo: () => undoEntry(id) });
   }
 }
 
-export async function trash(ids: string[]) {
+export async function trash(ids: string[], opts: { silent?: boolean } = {}) {
   if (!ids.length) return;
   const groups = groupByAccount(ids);
   for (const [accId, msgs] of groups) {
@@ -715,8 +744,11 @@ export async function trash(ids: string[]) {
     patchMessages(msgs.map((m) => m.id), (m) => ({ ...m, labels: [...new Set([...m.labels.filter((l) => l !== inboxId), binId])] }));
     p.trash(msgs).catch((e) => { errorToast(e, 'Delete didn\'t save'); syncAccount(accId); });
   }
+  if (opts.silent) return;
   afterRemoveFromView();
-  toast({ text: ids.length > 1 ? `${ids.length} emails moved to Bin` : 'Moved to Bin', undo: () => restoreFromBin(ids) });
+  const label = describeIds(ids);
+  const id = record(`Move to Bin: ${label}`, () => restoreFromBin(ids), () => trash(ids, { silent: true }));
+  toast({ text: ids.length > 1 ? `${ids.length} emails moved to Bin` : 'Moved to Bin', undo: () => undoEntry(id) });
 }
 
 export async function restoreFromBin(ids: string[]) {
@@ -730,11 +762,13 @@ export async function restoreFromBin(ids: string[]) {
   }
 }
 
-export async function markSpam(ids: string[], spam = true) {
+export async function markSpam(ids: string[], spam = true, opts: { silent?: boolean } = {}) {
   if (spam) {
     await modify(ids, sys('junk'), sys('inbox'));
+    if (opts.silent) return;
     afterRemoveFromView();
-    toast({ text: 'Moved to Junk', undo: () => modify(ids, sys('inbox'), sys('junk')) });
+    const id = record(`Move to Junk: ${describeIds(ids)}`, () => modify(ids, sys('inbox'), sys('junk')), () => markSpam(ids, true, { silent: true }));
+    toast({ text: 'Moved to Junk', undo: () => undoEntry(id) });
   } else {
     await modify(ids, sys('inbox'), sys('junk'));
     toast({ text: 'Moved to Inbox' });
@@ -751,26 +785,30 @@ export async function applyLabel(ids: string[], accountId: string, labelId: stri
   else await modify(valid, () => [labelId], none);
 }
 
-export async function moveToLabel(ids: string[], accountId: string, labelId: string) {
+export async function moveToLabel(ids: string[], accountId: string, labelId: string, opts: { silent?: boolean } = {}) {
   const valid = ids.filter((id) => get().messages[id]?.accountId === accountId);
   await modify(valid, () => [labelId], sys('inbox'));
+  if (opts.silent) return;
   afterRemoveFromView();
   const name = get().folders[accountId]?.find((f) => f.id === labelId)?.name || 'folder';
-  toast({ text: `Moved to ${name}`, undo: () => modify(valid, sys('inbox'), () => [labelId]) });
+  const id = record(`Move to ${name}: ${describeIds(valid)}`, () => modify(valid, sys('inbox'), () => [labelId]), () => moveToLabel(valid, accountId, labelId, { silent: true }));
+  toast({ text: `Moved to ${name}`, undo: () => undoEntry(id) });
 }
 
 // ---------- snooze, mute, important senders, unsubscribe ----------
 
-export async function snooze(ids: string[], until: number) {
+export async function snooze(ids: string[], until: number, opts: { silent?: boolean } = {}) {
   const msgs = ids.map((id) => get().messages[id]).filter(Boolean);
   if (!msgs.length) return;
   const items: Snooze[] = msgs.map((m) => ({ messageId: m.id, accountId: m.accountId, threadId: m.threadId, until, subject: m.subject }));
   for (const s of items) await store.putSnooze(s);
   set({ snoozes: [...get().snoozes.filter((s) => !ids.includes(s.messageId)), ...items] });
   await archive(ids, { silent: true });
+  if (opts.silent) return;
   afterRemoveFromView();
   const when = new Date(until).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-  toast({ text: `Snoozed until ${when}`, undo: () => unsnooze(ids) });
+  const id = record(`Snooze: ${describeIds(ids)}`, () => unsnooze(ids), () => snooze(ids, until, { silent: true }));
+  toast({ text: `Snoozed until ${when}`, undo: () => undoEntry(id) });
 }
 
 export async function unsnooze(ids: string[]) {
@@ -1094,5 +1132,6 @@ export async function markViewRead(view: View) {
     .map((m) => m.id);
   if (!ids.length) return;
   await markRead(ids, true);
-  toast({ text: `${ids.length} marked as read`, undo: () => markRead(ids, false) });
+  const id = record(`Mark ${ids.length} as read`, () => markRead(ids, false, { silent: true }), () => markRead(ids, true));
+  toast({ text: `${ids.length} marked as read`, undo: () => undoEntry(id) });
 }

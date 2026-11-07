@@ -9,8 +9,9 @@ import { useSettings } from '../lib/settings';
 import { startCompose, popoutMessage } from '../lib/composeActions';
 import { messageMenu, kbd } from '../lib/actions';
 import { inSystemFolder } from '../lib/mailbox';
+import { printThread } from '../lib/print';
 
-const DEFAULT_TOOLS = ['archive', 'bin', 'junk', 'read', 'flag', 'snooze', 'popout', 'more'];
+const DEFAULT_TOOLS = ['archive', 'bin', 'junk', 'read', 'flag', 'snooze', 'print', 'pdf', 'popout', 'more'];
 
 export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: { threadKeyOverride?: string; standalone?: boolean; onBack?: () => void }) {
   const selectedKey = useMail((s) => s.selectedKey);
@@ -116,6 +117,8 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
     read: <button className="icon-btn" title={thread.some((m) => m.unread) ? `Mark as read (${kbd('markRead')})` : `Mark as unread (${kbd('markUnread')})`} aria-label="Toggle read" onClick={() => markRead(ids, thread.some((m) => m.unread))}><Icon name={thread.some((m) => m.unread) ? 'mailOpen' : 'mail'} /></button>,
     flag: <button className={`icon-btn ${thread.some((m) => m.flagged) ? 'active' : ''}`} title={`Flag (${kbd('flag')})`} aria-label="Flag" onClick={() => toggleFlag([latest.id])}><Icon name="flag" /></button>,
     snooze: <button className="icon-btn" title="Snooze" aria-label="Snooze" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), snoozeOptions().map((o) => ({ label: o.label, icon: 'clock', onClick: () => snooze(ids, o.at) })), 'right')}><Icon name="clock" /></button>,
+    print: <button className="icon-btn" title={`Print (${kbd('print')})`} aria-label="Print" onClick={() => printThread(key)}><Icon name="printer" /></button>,
+    pdf: <button className="icon-btn" title="Save as PDF" aria-label="Save as PDF" onClick={() => printThread(key, { pdf: true })}><Icon name="filePdf" /></button>,
     popout: !standalone && <button className="icon-btn" title="Open in new window" aria-label="Open in new window" onClick={() => popoutMessage(key)}><Icon name="popout" /></button>,
     more: <button className="icon-btn" title="More" aria-label="More" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), messageMenu([key]), 'right')}><Icon name="more" /></button>,
   };
