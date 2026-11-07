@@ -566,22 +566,50 @@ function WritingTab() {
 
 // ---------- reminders ----------
 
-/** A number of minutes: pick from the list or type one. Only whole numbers are kept. */
-function WholeMinutes({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
+const MINUTE_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30, 40, 45, 50, 60, 75, 90, 120, 150, 180];
+
+/** A number of minutes. Pick from a long list, or type your own: the list narrows to numbers that start with what you type. */
+function MinutesPicker({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
   const [text, setText] = useState(String(value));
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState(false);
+  const [active, setActive] = useState(0);
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => setText(String(value)), [value]);
-  const commit = (raw: string) => {
-    const n = Math.round(Number(raw));
-    if (raw.trim() !== '' && Number.isFinite(n) && n >= 1 && n <= 180) onChange(n);
-    else setText(String(value));
-  };
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) close(); };
+    document.addEventListener('mousedown', away);
+    return () => document.removeEventListener('mousedown', away);
+  });
+  const shown = typed && text ? MINUTE_CHOICES.filter((n) => String(n).startsWith(text)) : MINUTE_CHOICES;
+  const close = () => { setOpen(false); setTyped(false); const n = Number(text); if (!(Number.isInteger(n) && n >= 1 && n <= 180)) setText(String(value)); };
+  const pick = (n: number) => { onChange(n); setText(String(n)); setOpen(false); setTyped(false); };
   return (
-    <>
-      <input className="mins-input" type="text" inputMode="numeric" list="wgm-mins" aria-label={`${label}: minutes before`} value={text}
-        onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); setText(v); const n = Number(v); if (v && n >= 1 && n <= 180) onChange(n); }}
-        onBlur={(e) => commit(e.target.value)} />
-      <datalist id="wgm-mins">{[1, 2, 3, 5, 10, 15, 20, 30, 45, 60].map((n) => <option key={n} value={n} />)}</datalist>
-    </>
+    <div className="mins-box" ref={box}>
+      <input
+        className="mins-input" type="text" inputMode="numeric" role="combobox" aria-expanded={open} aria-label={`${label}: minutes before`} aria-autocomplete="list"
+        value={text}
+        onFocus={(e) => { setOpen(true); e.target.select(); }}
+        onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); setText(v); setTyped(true); setOpen(true); setActive(0); const n = Number(v); if (v && n >= 1 && n <= 180) onChange(n); }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((i) => Math.min(shown.length - 1, i + 1)); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
+          else if (e.key === 'Enter') { e.preventDefault(); if (open && shown[active] !== undefined && typed) pick(shown[active]); else close(); }
+          else if (e.key === 'Escape') close();
+        }}
+      />
+      <button type="button" className="mins-arrow" tabIndex={-1} aria-label="Show common times" onClick={() => { setTyped(false); setOpen(!open); }}><Icon name="chevronDown" size={14} /></button>
+      {open && (
+        <ul className="mins-list" role="listbox" aria-label="Minutes">
+          {shown.length === 0 && <li className="none">No match. Whole minutes up to 180 are fine.</li>}
+          {shown.map((n, i) => (
+            <li key={n} role="option" aria-selected={n === value} className={`${n === value ? 'sel' : ''} ${typed && i === active ? 'act' : ''}`} onMouseDown={(e) => { e.preventDefault(); pick(n); }}>{n} {n === 1 ? 'minute' : 'minutes'}</li>
+          ))}
+          <li className="none">Or type any number from 1 to 180</li>
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -602,11 +630,11 @@ function RemindersTab() {
           <Row label="Summary time" htmlFor="sumtime"><input id="sumtime" type="time" value={s.summaryTime} onChange={(e) => s.set({ summaryTime: e.target.value })} /></Row>
         )}
         <Check checked={s.flashTaskbar} onChange={(v) => s.set({ flashTaskbar: v })}>Flash the taskbar icon for reminders and new mail when the app is in the background</Check>
-        <h3 className="sub-head">Video meetings</h3>
-        <p className="hint">For meetings that have a Teams, Zoom or Google Meet link. Choose the times in whole minutes, from the list or typed in.</p>
-        <div className="min-row"><Check checked={s.meetingAlert1On} onChange={(v) => s.set({ meetingAlert1On: v })}>First notification</Check><WholeMinutes label="First notification" value={s.meetingAlert1Mins} onChange={(n) => s.set({ meetingAlert1Mins: n })} /><span>minutes before</span></div>
-        <div className="min-row"><Check checked={s.meetingAlert2On} onChange={(v) => s.set({ meetingAlert2On: v })}>Second notification</Check><WholeMinutes label="Second notification" value={s.meetingAlert2Mins} onChange={(n) => s.set({ meetingAlert2Mins: n })} /><span>minutes before</span></div>
-        <div className="min-row"><Check checked={s.meetingBanner} onChange={(v) => s.set({ meetingBanner: v })}>Bar over my mail, with a Join button</Check><WholeMinutes label="Bar over my mail" value={s.meetingBannerMins} onChange={(n) => s.set({ meetingBannerMins: n })} /><span>minutes before</span></div>
+        <h3 className="sub-head">Video meeting notifications</h3>
+        <p className="hint">For events that have a Teams, Zoom or Google Meet link. Pick a time from the list, or type your own number of minutes. Other events use the reminder time set in your calendar.</p>
+        <div className="min-grid"><div className="min-row"><Check checked={s.meetingAlert1On} onChange={(v) => s.set({ meetingAlert1On: v })}>First notification</Check><MinutesPicker label="First notification" value={s.meetingAlert1Mins} onChange={(n) => s.set({ meetingAlert1Mins: n })} /><span>minutes before</span></div>
+        <div className="min-row"><Check checked={s.meetingAlert2On} onChange={(v) => s.set({ meetingAlert2On: v })}>Second notification</Check><MinutesPicker label="Second notification" value={s.meetingAlert2Mins} onChange={(n) => s.set({ meetingAlert2Mins: n })} /><span>minutes before</span></div>
+        <div className="min-row"><Check checked={s.meetingBanner} onChange={(v) => s.set({ meetingBanner: v })}>Bar over my mail, with a Join button</Check><MinutesPicker label="Bar over my mail" value={s.meetingBannerMins} onChange={(n) => s.set({ meetingBannerMins: n })} /><span>minutes before</span></div></div>
         <p className="hint">Windows notifications from Well Good Mail never cover your work and never need dismissing one by one.</p>
       </section>
     </>

@@ -712,3 +712,15 @@ button.help-head:hover { background: var(--bg-hover); }
 .rem-scroll { overflow-x: hidden; }
 .rem-coming .coming-row { flex-wrap: wrap; }
 .rem-coming .coming-row .grow { flex: 1 1 150px; }
+
+.min-grid { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 8px 10px; margin: 6px 0; }
+.min-grid .min-row { display: contents; }
+.mins-box { position: relative; display: inline-flex; align-items: center; }
+.mins-box .mins-input { width: 64px; text-align: center; padding-right: 22px; }
+.mins-arrow { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--text-muted); cursor: pointer; padding: 3px; display: inline-flex; }
+.mins-list { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; margin: 0; padding: 4px; list-style: none; min-width: 170px; max-height: 240px; overflow-y: auto; background: var(--bg-elev); border: 1px solid var(--border-strong, var(--border)); border-radius: 10px; box-shadow: var(--shadow); }
+.mins-list li { padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.mins-list li:hover, .mins-list li.act { background: var(--bg-hover); }
+.mins-list li.sel { font-weight: 600; }
+.mins-list li.none { cursor: default; color: var(--text-muted); font-size: 0.85em; }
+.mins-list li.none:hover { background: transparent; }

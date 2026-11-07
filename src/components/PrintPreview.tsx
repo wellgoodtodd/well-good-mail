@@ -9,6 +9,7 @@ export function PrintPreview({ threadKey }: { threadKey: string }) {
   const [page, setPage] = useState<{ html: string; subject: string } | null | undefined>(undefined);
   const [note, setNote] = useState('');
   const frame = useRef<HTMLIFrameElement>(null);
+  const started = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -45,7 +46,14 @@ export function PrintPreview({ threadKey }: { threadKey: string }) {
       </div>
       {page === undefined && <div className="pane-empty">Getting the page ready...</div>}
       {page === null && <div className="pane-empty">That conversation couldn't be found.</div>}
-      {page && <iframe ref={frame} className="pp-frame" title="Print preview" srcDoc={page.html} />}
+      {page && <iframe ref={frame} className="pp-frame" title="Print preview" srcDoc={page.html} onLoad={() => {
+        // Open the Windows print dialog straight away, and close this window once it's done with.
+        const win = frame.current?.contentWindow;
+        if (!win || started.current) return;
+        started.current = true;
+        win.addEventListener('afterprint', () => closeThisWindow());
+        setTimeout(() => { win.focus(); win.print(); }, 500);
+      }} />}
     </div>
   );
 }
