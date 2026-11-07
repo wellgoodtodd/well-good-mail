@@ -728,3 +728,8 @@ button.help-head:hover { background: var(--bg-hover); }
 /* Coming up stays available on every screen; on a narrow window it slides over the content */
 .main.narrow { position: relative; }
 .main.narrow .coming-panel { position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; box-shadow: var(--shadow); }
+
+/* The month calendar stretches to fill the window, down as well as across */
+.rem-scroll:has(.month) { display: flex; flex-direction: column; }
+.rem-scroll .month { flex: 1 1 auto; display: flex; flex-direction: column; }
+.rem-scroll .month .month-grid { flex: 1 1 auto; grid-template-rows: auto repeat(6, minmax(86px, 1fr)); }
