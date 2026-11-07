@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { openExternal } from '../lib/platform';
 import { askConfirm } from '../lib/dialogs';
 
-export function EmailFrame({ html, onLinkHover, onContext }: { html: string; onLinkHover: (info: { href: string; mismatch?: string } | null) => void; onContext?: (at: { x: number; y: number; selection: string }) => void }) {
+export function EmailFrame({ html, onLinkHover, onContext }: { html: string; onLinkHover: (info: { href: string; mismatch?: string } | null) => void; onContext?: (at: { x: number; y: number; selection: string; link?: { href: string; mismatch: boolean } }) => void }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(80);
 
@@ -29,7 +29,10 @@ export function EmailFrame({ html, onLinkHover, onContext }: { html: string; onL
       doc.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const box = frame.getBoundingClientRect();
-        onContext?.({ x: box.left + e.clientX, y: box.top + e.clientY, selection: doc.getSelection()?.toString() || '' });
+        const a = (e.target as HTMLElement).closest('a');
+        const href = a?.getAttribute('href') || '';
+        const link = a && href && !href.startsWith('#') ? { href, mismatch: a.hasAttribute('data-wgm-mismatch') } : undefined;
+        onContext?.({ x: box.left + e.clientX, y: box.top + e.clientY, selection: doc.getSelection()?.toString() || '', link });
       });
       doc.addEventListener('click', (e) => {
         const a = (e.target as HTMLElement).closest('a');
