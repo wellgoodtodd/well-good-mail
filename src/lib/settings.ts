@@ -120,6 +120,8 @@ export interface Settings {
   /** Colour of the unread dot in the email list ('' = accent colour). */
   unreadColour: string;
   autoUpdate: boolean;
+  /** Live builds mention a newer test build in Settings, Updates. Test builds always do. */
+  testVersionNotices: boolean;
   startWithWindows: boolean;
   /** The window's close button quits the app instead of tucking it into the tray. */
   closeQuits: boolean;
@@ -227,6 +229,7 @@ export const defaultSettings: Settings = {
   badgeHidden: [],
   unreadColour: '',
   autoUpdate: true,
+  testVersionNotices: false,
   startWithWindows: true,
   closeQuits: false,
   syncSettings: false,

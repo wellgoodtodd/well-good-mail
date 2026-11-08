@@ -857,3 +857,10 @@ li.yes .g-word { color: var(--success); } li.no .g-word { color: var(--danger); 
 .guests[open] .g-chev { transform: rotate(0deg); }
 .inv-change.up { top: auto; bottom: calc(100% + 6px); }
 .ev-actions { margin-top: 18px; gap: 10px; }
+
+/* Settings, Updates: a newer test version */
+.beta-card { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 14px; margin: 10px 0; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-subtle); }
+.beta-card > div:first-child { flex: 1; min-width: 220px; display: grid; gap: 2px; }
+.beta-card span { color: var(--text-muted); font-size: 0.9em; }
+.beta-card.prominent { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg-subtle)); }
+.beta-actions { display: flex; gap: 8px; flex-wrap: wrap; }

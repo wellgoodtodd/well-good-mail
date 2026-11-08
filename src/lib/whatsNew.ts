@@ -12,6 +12,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.6.4',
+    date: 'November 2026',
+    highlights: ['Settings, Updates can tell you when a newer test version is out'],
+    more: [
+      'Switch on Tell me about test versions in Settings, Updates, and a card shows when a newer test version exists, with links to what changed and to the installer. Nothing installs by itself.',
+      'The copyright and licence are shown at the bottom of Settings, Updates.',
+    ],
+  },
+  {
     version: '0.6.3',
     date: 'November 2026',
     highlights: [

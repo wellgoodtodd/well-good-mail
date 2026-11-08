@@ -34,6 +34,7 @@
       "allow": [
         { "url": "https://*.googleapis.com/*" },
         { "url": "https://oauth2.googleapis.com/*" },
+        { "url": "https://api.github.com/*" },
         { "url": "https://*.googleusercontent.com/*" },
         { "url": "https://graph.microsoft.com/*" },
         { "url": "https://login.microsoftonline.com/*" }

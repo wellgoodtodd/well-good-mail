@@ -21,9 +21,10 @@ import { enableSettingsSync } from '../lib/settingsSync';
 import { isTauri, setAutostart, setCloseQuits, notify, openExternal } from '../lib/platform';
 import { showBanner } from '../lib/banners';
 import { useSettingsAlerts } from '../lib/alerts';
-import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate } from '../lib/updater';
+import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate, isBetaVersion } from '../lib/updater';
 import { useMenu, Dialog } from './ui';
 import { UpdateLog } from './WhatsNew';
+import { useBetaNotice, checkForBeta, wantsBetaNotices } from '../lib/betaNotice';
 import { CalendarList } from './ComingUp';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../lib/shortcuts';
 
@@ -1027,7 +1028,10 @@ function DiagnosticsTab() {
 function UpdatesTab() {
   const s = useSettings();
   const u = useUpdates();
+  const beta = useBetaNotice();
+  const onBeta = isBetaVersion(u.currentVersion);
   useEffect(() => { if (u.status === 'idle') checkForUpdates(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (u.currentVersion) checkForBeta(u.currentVersion); }, [u.currentVersion, s.testVersionNotices]);
   return (
     <>
       <h1>Updates</h1>
@@ -1044,15 +1048,23 @@ function UpdatesTab() {
           </span>
         </Row>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" onClick={() => checkForUpdates({ userInitiated: true })}>Check now</button>
+          <button className="btn" onClick={() => { checkForUpdates({ userInitiated: true }); checkForBeta(u.currentVersion, { force: true }); }}>Check now</button>
           {u.status === 'available' && <button className="btn primary" onClick={installFoundUpdate}>Download and restart</button>}
           {u.status === 'ready' && <button className="btn primary" onClick={restartToUpdate}>Restart to update</button>}
         </div>
+        {wantsBetaNotices(u.currentVersion) && beta.found && (
+          <div className={`beta-card ${onBeta ? 'prominent' : ''}`} role="status">
+            <div><strong>{onBeta ? `A newer test version is out: ${beta.found.version}` : `A test version is available: ${beta.found.version}`}</strong><span>{onBeta ? 'It does not install by itself. Read what changed, then download it if you want it.' : 'Optional. You stay on the live version, which only updates to the next full release, unless you download this yourself.'}</span></div>
+            <div className="beta-actions"><button className="btn" onClick={() => openExternal(beta.found!.notesUrl)}>What's new in it</button><button className="btn" onClick={() => openExternal(beta.found!.downloadUrl)}>Download</button></div>
+          </div>
+        )}
         <Check checked={s.autoUpdate} onChange={(v) => s.set({ autoUpdate: v })}>Download updates in the background (installs when the app opens, or when you choose Restart)</Check>
+        <Check checked={onBeta || s.testVersionNotices} onChange={(v) => { if (!onBeta) s.set({ testVersionNotices: v }); }}>Tell me about test versions{onBeta ? ' (always on while you are on a test version)' : ''}</Check>
         <Check checked={s.startWithWindows} onChange={(v) => { s.set({ startWithWindows: v }); setAutostart(v); }}>Start with Windows (sits quietly in the tray)</Check>
         <Check checked={s.closeQuits} onChange={(v) => { s.set({ closeQuits: v }); setCloseQuits(v); }}>The close button quits the app (otherwise it keeps running in the tray, so mail and reminders still arrive)</Check>
       </section>
       <UpdateLog />
+      <p className="hint" style={{ marginTop: 18 }}>© 2026 Well Good Media Ltd. Free and open source under the MIT licence. <button className="link-btn" onClick={() => openExternal('https://github.com/wellgoodtodd/well-good-mail/blob/main/LICENSE')}>Read the licence</button></p>
     </>
   );
 }
