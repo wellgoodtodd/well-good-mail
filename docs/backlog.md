@@ -10,6 +10,8 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 ## Later
 
+- AI connection: consider renaming the "Read and write" level to "Full access" when writing actions arrive.
+
 - Hover preview: a "Loading..." line for slower files.
 - Microsoft and iCloud guest lists tried against real accounts.
 - Microsoft answers to invitations through the calendar (Graph), not only by email.
