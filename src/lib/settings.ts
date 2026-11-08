@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AccountGroup, Template } from './types';
+import { defaultMcp, type McpSettings } from './mcp/permissions';
 
 export type ThemeSetting = 'dark' | 'light' | 'system';
 export type ReminderMode = 'never' | 'daily' | 'important' | 'all';
@@ -74,6 +75,8 @@ export interface Settings {
   hiddenCalendars: string[];
   /** What hidden calendars may still alert you about: everything, video meetings only, or nothing. */
   hiddenCalendarsAlerts: 'all' | 'meetings' | 'none';
+  /** The AI connection: off until switched on, each account Off until given a level. Kept on this computer only. */
+  mcp: McpSettings;
 
   newMailAlerts: 'all' | 'important' | 'off';
   alertSound: boolean;
@@ -190,6 +193,7 @@ export const defaultSettings: Settings = {
   remindersView: 'list',
   hiddenCalendars: [],
   hiddenCalendarsAlerts: 'meetings',
+  mcp: defaultMcp(),
 
   newMailAlerts: 'important',
   alertSound: false,

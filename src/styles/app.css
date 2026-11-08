@@ -887,3 +887,41 @@ li.yes .g-word { color: var(--success); } li.no .g-word { color: var(--danger); 
 .cal-flat-row .acc-dots { min-width: 30px; }
 .cal-missing { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0 2px 18px; color: var(--text-muted); font-size: 0.9em; }
 .cal-flat .cal-missing { padding-left: 0; }
+
+/* Settings, AI connection */
+.ai-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.set-section .ai-row:first-of-type { border-top: 0; }
+.ai-row .grow { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.ai-row .grow small, .ai-row .grow .hint { color: var(--text-muted); font-size: 0.85em; margin: 0; }
+.ai-seg { display: inline-flex; border: 1px solid var(--border-strong, var(--border)); border-radius: 8px; overflow: hidden; flex: none; }
+.ai-seg button { border: 0; border-left: 1px solid var(--border); background: transparent; color: var(--text-muted); font: inherit; font-size: 0.88em; padding: 5px 10px; cursor: pointer; }
+.ai-seg button:first-child { border-left: 0; }
+.ai-seg button.on { background: var(--accent); color: var(--on-accent, #fff); font-weight: 600; }
+.ai-seg button:disabled { opacity: 0.4; cursor: default; }
+.ai-status { margin: 6px 0 0; color: var(--text-muted); font-size: 0.9em; }
+.ai-status.on { color: var(--success); }
+.ai-setup { white-space: pre-wrap; word-break: break-all; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 0.85em; user-select: text; }
+.ai-never summary { cursor: pointer; color: var(--text-muted); margin-top: 10px; }
+.ai-never ul { margin: 6px 0 0; padding-left: 20px; color: var(--text-muted); font-size: 0.9em; }
+.ai-log { list-style: none; margin: 0; padding: 0; font-size: 0.9em; }
+.ai-log li { display: flex; gap: 12px; padding: 5px 0; border-top: 1px solid var(--border); }
+.ai-log li:first-child { border-top: 0; }
+.ai-log time { color: var(--text-muted); min-width: 110px; }
+.ai-log li.refused span, .ai-log li.failed span { color: var(--text-muted); }
+
+/* Calendar cards fold; the pop-up folds hidden calendars away; long names end with dots instead of overlapping */
+.rot-90 { transform: rotate(-90deg); }
+.cal-card-head { display: flex; align-items: center; gap: 8px; }
+.cal-card-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; padding: 2px 0; }
+.cal-card-toggle small { color: var(--text-muted); font-size: 0.85em; margin-left: 4px; }
+.cal-chev { color: var(--text-muted); transform: rotate(-90deg); transition: transform 0.15s; flex: none; }
+.cal-card.open .cal-chev { transform: rotate(0deg); }
+.chev-space { width: 14px; flex: none; }
+.cal-card { padding: 8px 14px; }
+.cal-card.open .cal-card-head { padding-bottom: 4px; }
+.cal-card-row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-card-row { padding-left: 36px; }
+.switch:indeterminate { background: linear-gradient(90deg, var(--accent) 50%, var(--border-strong, var(--border)) 50%); }
+.switch:indeterminate::after { left: 9px; }
+.cal-flat-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-hidden-toggle { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text-muted); font: inherit; font-size: 0.9em; padding: 8px 0 4px; margin-top: 4px; cursor: pointer; text-align: left; }

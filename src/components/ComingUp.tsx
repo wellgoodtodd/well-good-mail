@@ -49,15 +49,21 @@ function chipBackground(ids: string[], colour: (id: string) => string): string {
   return `linear-gradient(90deg, ${ids.map((id, i) => `${colour(id)} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
 }
 
-/** A switch that reads as an on/off control and works with the keyboard. */
-function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
-  return <input type="checkbox" role="switch" className="switch" checked={on} aria-label={label} onChange={(e) => onChange(e.target.checked)} />;
+/** A switch that reads as an on/off control and works with the keyboard. `mixed` shows a half-lit switch when only some of what it controls is on; clicking it turns everything on. */
+function Switch({ on, onChange, label, mixed }: { on: boolean; onChange: (v: boolean) => void; label: string; mixed?: boolean }) {
+  return (
+    <input
+      type="checkbox" role="switch" className="switch" checked={on && !mixed} aria-label={label} aria-checked={mixed ? 'mixed' : on}
+      ref={(el) => { if (el) el.indeterminate = Boolean(mixed); }}
+      onChange={(e) => onChange(mixed ? true : e.target.checked)}
+    />
+  );
 }
 
 /** Account types that have a calendar to show (plain IMAP mailboxes don't, but iCloud does). */
 const hasCalendar = (a: { kind: string; imap?: { host?: string } }) => a.kind !== 'demo' && (a.kind !== 'imap' || /icloud|me\.com/i.test(a.imap?.host || ''));
 
-/** Every calendar your accounts show. The pop-up lists them flat, with calendars of the same name on several accounts (like Holidays in the UK) as one row. Settings lists them in a card for each account. Both change the same setting, so they always agree. Accounts and calendars keep the order of your accounts. */
+/** Every calendar your accounts show. The pop-up lists the shown calendars first and folds the hidden ones away (it only re-sorts when you open it again, so quick on-and-off checks don't jump about). Settings lists them in a folding card for each account. Both change the same setting. */
 export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' }) {
   const events = useMail((s) => s.events);
   const accounts = useMail((s) => s.accounts);
@@ -66,6 +72,10 @@ export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' 
   const hidden = useSettings((s) => s.hiddenCalendars);
   const set = useSettings((s) => s.set);
   const [looking, setLooking] = useState(false);
+  const [openCards, setOpenCards] = useState<Set<string>>(new Set());
+  const [showHidden, setShowHidden] = useState(false);
+  // What was hidden when this list opened. Rows stay where they are until it is opened again.
+  const [hiddenAtOpen] = useState(() => new Set(hidden));
   const ordered = useMemo(() => [...accounts].sort((a, b) => a.order - b.order), [accounts]);
   const groups = useMemo(() => {
     const names = new Map<string, Set<string>>();
@@ -108,31 +118,37 @@ export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' 
   );
 
   if (variant === 'cards') {
+    const toggleCard = (id: string) => setOpenCards((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
     return (
       <div className="cal-cards">
         {ordered.filter((a) => groups.some((g) => g.account.id === a.id) || missing.includes(a)).map((a) => {
           const g = groups.find((x) => x.account.id === a.id);
+          const open = openCards.has(a.id);
           if (!g) return (
             <div key={a.id} className="cal-card">
-              <div className="cal-card-head"><span className="dot" style={{ background: a.colour }} /><strong>{a.label || a.email}</strong></div>
+              <div className="cal-card-head"><span className="chev-space" /><span className="dot" style={{ background: a.colour }} /><strong>{a.label || a.email}</strong></div>
               <MissingNote a={a} />
             </div>
           );
           const keys = g.calendars.map((n) => `${a.id}|${n}`);
-          const anyOn = keys.some((k) => !hidden.includes(k));
+          const shown = keys.filter((k) => !hidden.includes(k)).length;
+          const summary = shown === keys.length ? `${shown} of ${keys.length} shown` : shown === 0 ? 'None shown' : `${shown} of ${keys.length} shown`;
           return (
-            <div key={a.id} className="cal-card">
+            <div key={a.id} className={`cal-card ${open ? 'open' : ''}`}>
               <div className="cal-card-head">
-                <span className="dot" style={{ background: a.colour }} />
-                <strong>{a.label || a.email}</strong>
-                <span className="grow" />
-                <Switch on={anyOn} label={`Show all calendars for ${a.label || a.email}`} onChange={(v) => setKeys(keys, v)} />
+                <button className="cal-card-toggle" aria-expanded={open} onClick={() => toggleCard(a.id)}>
+                  <Icon name="chevronDown" size={14} className="cal-chev" />
+                  <span className="dot" style={{ background: a.colour }} />
+                  <strong>{a.label || a.email}</strong>
+                  <small>{summary}</small>
+                </button>
+                <Switch on={shown > 0} mixed={shown > 0 && shown < keys.length} label={`Show all calendars for ${a.label || a.email}`} onChange={(v) => setKeys(keys, v)} />
               </div>
-              {g.calendars.map((name) => {
+              {open && g.calendars.map((name) => {
                 const key = `${a.id}|${name}`;
                 return (
                   <div key={key} className="cal-card-row">
-                    <span>{name}</span>
+                    <span title={name}>{name}</span>
                     <Switch on={!hidden.includes(key)} label={`Show ${name} for ${a.label || a.email}`} onChange={(v) => setKeys([key], v)} />
                   </div>
                 );
@@ -144,22 +160,34 @@ export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' 
     );
   }
 
+  const wasHidden = (r: (typeof rows)[number]) => r.keys.every((k) => hiddenAtOpen.has(k));
+  const top = rows.filter((r) => !wasHidden(r));
+  const folded = rows.filter(wasHidden);
+  const Row = ({ r }: { r: (typeof rows)[number] }) => {
+    const on = r.keys.some((k) => !hidden.includes(k));
+    const sub = r.accounts.length > 1 ? `${r.accounts.length} accounts` : r.accounts[0].label || r.accounts[0].email;
+    return (
+      <div className="cal-flat-row">
+        <span className="acc-dots" aria-hidden="true">{r.accounts.map((a) => <span key={a.id} className="dot" style={{ background: a.colour }} />)}</span>
+        <span className="cal-flat-name" title={r.name}><span>{r.name}</span><small>{sub}</small></span>
+        <Switch on={on} label={`Show ${r.name}`} onChange={(v) => setKeys(r.keys, v)} />
+      </div>
+    );
+  };
   return (
     <div className="cal-flat">
       <div className="cal-flat-top">
         <button className="link-btn" disabled={!hidden.length} onClick={() => set({ hiddenCalendars: [] })}>Show all</button>
       </div>
-      {rows.map((r) => {
-        const on = r.keys.some((k) => !hidden.includes(k));
-        const sub = r.accounts.length > 1 ? `${r.accounts.length} accounts` : r.accounts[0].label || r.accounts[0].email;
-        return (
-          <div key={r.name} className="cal-flat-row">
-            <span className="acc-dots" aria-hidden="true">{r.accounts.map((a) => <span key={a.id} className="dot" style={{ background: a.colour }} />)}</span>
-            <span className="cal-flat-name"><span>{r.name}</span><small>{sub}</small></span>
-            <Switch on={on} label={`Show ${r.name}`} onChange={(v) => setKeys(r.keys, v)} />
-          </div>
-        );
-      })}
+      {top.map((r) => <Row key={r.name} r={r} />)}
+      {folded.length > 0 && (
+        <>
+          <button className="cal-hidden-toggle" aria-expanded={showHidden} onClick={() => setShowHidden(!showHidden)}>
+            <Icon name="chevronDown" size={13} className={showHidden ? '' : 'rot-90'} /> Hidden ({folded.length})
+          </button>
+          {showHidden && folded.map((r) => <Row key={r.name} r={r} />)}
+        </>
+      )}
       {missing.length > 0 && (
         <div className="cal-missing">
           <span>No calendar yet for {missing.map((a) => a.label || a.email).join(', ')}.</span>
@@ -183,7 +211,7 @@ export function CalendarPicker({ iconOnly }: { iconOnly?: boolean }) {
     window.addEventListener('keydown', esc);
     return () => { document.removeEventListener('mousedown', away); window.removeEventListener('keydown', esc); };
   }, [open]);
-  const label = hidden.length ? `Calendars (${hidden.length} hidden)` : 'Calendars';
+  const label = 'Calendars';
   return (
     <div className="cal-picker" ref={box}>
       {iconOnly

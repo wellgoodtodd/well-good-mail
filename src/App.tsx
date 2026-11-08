@@ -38,6 +38,7 @@ import { isPopout, isTauri, onTauriEvent, rememberPopoutSize, setAutostart, setC
 import { loadGoogleKeys, useGoogleConfigured, calendarEditAllowed } from './lib/auth/google';
 import { loadMicrosoftKeys } from './lib/auth/microsoft';
 import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from './lib/updater';
+import { startMcpWatch } from './lib/mcp/server';
 import './lib/sender';
 import { DialogHost } from './components/DialogHost';
 import { useDialogs, askConfirm } from './lib/dialogs';
@@ -297,6 +298,7 @@ function MainWindow() {
     setCloseQuits(useSettings.getState().closeQuits);
     startSettingsSync();
     startUpdateChecks();
+    startMcpWatch();
     const restore = setTimeout(() => { restoreOpenDrafts().catch(() => {}); }, 3000);
     return () => { clearTimeout(restore); offs.forEach((p) => p.then((f) => f())); bc.close(); };
   }, []);

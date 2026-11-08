@@ -6,7 +6,11 @@
 
 mod dav;
 mod imapmail;
+mod mcp;
 mod pdf;
+
+/// For main(): the pass-through mode an AI app starts with `--mcp`.
+pub use mcp::passthrough as mcp_passthrough;
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -183,7 +187,11 @@ pub fn run() {
             imapmail::smtp_send,
             dav::dav_request,
             pdf::save_pdf,
-            pdf::set_printing
+            pdf::set_printing,
+            mcp::mcp_start,
+            mcp::mcp_stop,
+            mcp::mcp_respond,
+            mcp::mcp_exe_path
         ])
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;

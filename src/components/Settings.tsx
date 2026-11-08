@@ -26,6 +26,7 @@ import { useMenu, Dialog } from './ui';
 import { UpdateLog } from './WhatsNew';
 import { useBetaNotice, checkForBeta, wantsBetaNotices } from '../lib/betaNotice';
 import { CalendarList } from './ComingUp';
+import { AiConnectionTab } from './AiConnection';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../lib/shortcuts';
 
 const TABS = [
@@ -38,6 +39,7 @@ const TABS = [
   ['privacy', 'Privacy'],
   ['offline', 'Search & Storage'],
   ['shortcuts', 'Keyboard Shortcuts'],
+  ['ai', 'AI connection'],
   ['updates', 'Updates'],
   ['diagnostics', 'Diagnostics'],
 ] as const;
@@ -101,6 +103,7 @@ export function SettingsScreen() {
         {tab === 'privacy' && <><PrivacyTab /><PeopleTab /></>}
         {tab === 'offline' && <OfflineTab />}
         {tab === 'shortcuts' && <ShortcutsTab />}
+        {tab === 'ai' && <AiConnectionTab />}
         {tab === 'updates' && <UpdatesTab />}
         {tab === 'diagnostics' && <DiagnosticsTab />}
       </div>
