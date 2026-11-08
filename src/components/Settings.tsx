@@ -53,7 +53,7 @@ export function SettingsScreen() {
   const tab = TAB_ALIAS[rawTab] || rawTab;
   const alerts = useSettingsAlerts();
   const order = useSettings((s) => s.settingsOrder);
-  const ids: string[] = TABS.map(([id]) => id);
+  const ids: string[] = TABS.map(([id]) => id).filter((id) => id !== 'updates');
   const ordered = [...order.filter((id) => ids.includes(id)), ...ids.filter((id) => !order.includes(id))];
   const drag = useRef<string | null>(null);
   const lastMove = useRef(0);
@@ -88,10 +88,15 @@ export function SettingsScreen() {
             onDrop={(e) => { e.preventDefault(); drag.current = null; }}
             onDragEnd={() => { drag.current = null; }}
           >
-            <span className="name" style={id === 'updates' ? { textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 600 } : undefined}>{label}</span>{alerts.tabs[id] ? <span className="attn-dot" title={alerts.tabs[id]} aria-label={alerts.tabs[id]} /> : null}
+            <span className="name">{label}</span>{alerts.tabs[id] ? <span className="attn-dot" title={alerts.tabs[id]} aria-label={alerts.tabs[id]} /> : null}
           </button>
         ))}
-        <div className="settings-version">Version {version || '...'}</div>
+        <div className="settings-foot">
+          <button className={`side-item ${tab === 'updates' ? 'selected' : ''}`} onClick={() => useMail.setState({ settingsTab: 'updates' })}>
+            <span className="name">Updates</span>{alerts.tabs.updates ? <span className="attn-dot" title={alerts.tabs.updates} aria-label={alerts.tabs.updates} /> : null}
+          </button>
+          <div className="settings-version">Version {version || '...'}</div>
+        </div>
       </nav>
       <div className="settings-body">
         {tab === 'accounts' && <AccountsTab />}
@@ -1068,6 +1073,9 @@ function UpdatesTab() {
         )}
         <Check checked={s.autoUpdate} onChange={(v) => s.set({ autoUpdate: v })}>Download updates in the background (installs when the app opens, or when you choose Restart)</Check>
         <Check checked={onBeta || s.testVersionNotices} onChange={(v) => { if (!onBeta) s.set({ testVersionNotices: v }); }}>Tell me about test versions{onBeta ? ' (always on while you are on a test version)' : ''}</Check>
+      </section>
+      <section className="set-section">
+        <h2>Startup and window</h2>
         <Check checked={s.startWithWindows} onChange={(v) => { s.set({ startWithWindows: v }); setAutostart(v); }}>Start with Windows (sits quietly in the tray)</Check>
         <Check checked={s.closeQuits} onChange={(v) => { s.set({ closeQuits: v }); setCloseQuits(v); }}>The close button quits the app (otherwise it keeps running in the tray, so mail and reminders still arrive)</Check>
       </section>

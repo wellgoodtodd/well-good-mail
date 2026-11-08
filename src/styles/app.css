@@ -951,3 +951,7 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .ai-tries .ai-question { margin-top: 0; align-items: center; }
 .ai-question .grow { display: grid; gap: 2px; min-width: 0; }
 .ai-question small { color: var(--text-muted); font-size: 0.85em; }
+
+/* Settings: Updates at the foot of the sidebar, just above the version */
+.settings-foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
+.settings-foot .settings-version { margin-top: 0; padding-top: 6px; }
