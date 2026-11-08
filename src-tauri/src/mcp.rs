@@ -248,6 +248,8 @@ fn config_path(kind: &str) -> Option<PathBuf> {
     match kind {
         "claude-desktop" => std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("Claude").join("claude_desktop_config.json")),
         "gemini" => home.map(|h| h.join(".gemini").join("settings.json")),
+        // Claude Code keeps tools for every folder in .claude.json in the user folder.
+        "claude-code" => home.map(|h| h.join(".claude.json")),
         "codex" => home.map(|h| h.join(".codex").join("config.toml")),
         _ => None,
     }
@@ -264,8 +266,13 @@ pub fn mcp_install(kind: String, remove: bool) -> Result<String, String> {
     let app_name = match kind.as_str() {
         "claude-desktop" => "Claude Desktop",
         "gemini" => "Gemini CLI",
+        "claude-code" => "Claude Code",
         _ => "ChatGPT desktop",
     };
+    // Claude Code writes its settings file the first time it runs; without it, it is not set up yet.
+    if kind == "claude-code" && !path.exists() {
+        return Err("Claude Code doesn't seem to be set up for this Windows user, so nothing was changed. Run it once, then try again.".to_string());
+    }
     if !dir.exists() {
         if kind == "codex" && !remove {
             std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -318,7 +325,12 @@ pub fn mcp_install(kind: String, remove: bool) -> Result<String, String> {
         if remove {
             servers.remove(ENTRY);
         } else {
-            servers.insert(ENTRY.to_string(), serde_json::json!({ "command": exe, "args": ["--mcp"] }));
+            let entry = if kind == "claude-code" {
+                serde_json::json!({ "type": "stdio", "command": exe, "args": ["--mcp"], "env": {} })
+            } else {
+                serde_json::json!({ "command": exe, "args": ["--mcp"] })
+            };
+            servers.insert(ENTRY.to_string(), entry);
         }
         serde_json::to_string_pretty(&root).map_err(|e| e.to_string())?
     };
