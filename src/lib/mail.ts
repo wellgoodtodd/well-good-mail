@@ -69,6 +69,8 @@ interface MailState {
   events: CalendarEvent[];
   /** Why an account's calendar did not load, by account id. */
   calendarErrors: Record<string, string>;
+  /** The calendars each account has, even ones with nothing coming up. */
+  calendarNames: Record<string, string[]>;
   dismissed: Set<string>;
   contacts: Address[];
   toasts: Toast[];
@@ -116,6 +118,7 @@ export const useMail = create<MailState>(() => ({
   followups: [],
   events: [],
   calendarErrors: {},
+  calendarNames: {},
   dismissed: new Set(),
   contacts: [],
   toasts: [],
@@ -1047,11 +1050,13 @@ export async function refreshEvents(): Promise<string[]> {
   const all: CalendarEvent[] = [];
   const failed: string[] = [];
   const errors: Record<string, string> = {};
+  const names: Record<string, string[]> = { ...get().calendarNames };
   await Promise.all(get().accounts.map(async (a) => {
     try {
       const events = await providers.get(a.id)!.listEvents(from, to);
       all.push(...events);
       store.replaceEvents(a.id, events);
+      names[a.id] = providers.get(a.id)!.knownCalendars?.() || [];
     } catch (e) {
       errors[a.id] = e instanceof Error ? e.message.replace(/\s+/g, ' ').slice(0, 140) : 'The calendar could not be reached.';
       all.push(...get().events.filter((x) => x.accountId === a.id));
@@ -1059,7 +1064,7 @@ export async function refreshEvents(): Promise<string[]> {
       failed.push(`${a.label || a.email}${e instanceof Error ? ` (${e.message.replace(/\s+/g, ' ').slice(0, 90)})` : ''}`);
     }
   }));
-  set({ events: all, calendarErrors: errors });
+  set({ events: all, calendarErrors: errors, calendarNames: names });
   return failed;
 }
 

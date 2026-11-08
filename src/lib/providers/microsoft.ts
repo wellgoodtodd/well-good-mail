@@ -235,11 +235,15 @@ export class MicrosoftProvider implements MailProvider {
     return page.value.flatMap((c) => c.emailAddresses.map((e) => ({ name: c.displayName, email: e.address.toLowerCase() })));
   }
 
+  private calNames: string[] = [];
+  knownCalendars(): string[] { return this.calNames; }
+
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
     const page = await this.call<{ value: { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null; isOrganizer?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { type?: string; status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] }[] }>(
       `/calendarView?startDateTime=${new Date(fromMs).toISOString()}&endDateTime=${new Date(toMs).toISOString()}&$top=250`,
       { headers: { Prefer: 'outlook.timezone="UTC"' } },
     );
+    this.calNames = ['Calendar'];
     return page.value.map((e) => ({
       id: `${this.account.id}|${e.id}`,
       accountId: this.account.id,

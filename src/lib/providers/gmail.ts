@@ -458,10 +458,14 @@ export class GmailProvider implements MailProvider {
     return out;
   }
 
+  private calNames: string[] = [];
+  knownCalendars(): string[] { return this.calNames; }
+
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
     const CAL = 'https://www.googleapis.com/calendar/v3';
     const { items: calendars } = await this.call<{ items: { id: string; summary: string; selected?: boolean; primary?: boolean; defaultReminders?: { method: string; minutes: number }[] }[] }>(`${CAL}/users/me/calendarList`);
     const events: CalendarEvent[] = [];
+    this.calNames = calendars.filter((c) => c.selected || c.primary).map((c) => c.summary);
     for (const cal of calendars.filter((c) => c.selected || c.primary)) {
       const params = new URLSearchParams({
         timeMin: new Date(fromMs).toISOString(),

@@ -43,6 +43,8 @@ export interface MailProvider {
   listContacts(): Promise<Address[]>;
   listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]>;
   /** Is this invitation in the person's calendar, and what did they answer? */
+  /** The calendars this account has, as last seen, even if none has an event. */
+  knownCalendars?(): string[];
   inviteStatus?(uid: string): Promise<{ inCalendar: boolean; response?: Rsvp; guests?: EventGuest[] }>;
   /** Answers an invitation in the calendar itself, telling the organiser. False when it isn't in the calendar. */
   respondToInvite?(uid: string, status: Rsvp): Promise<boolean>;

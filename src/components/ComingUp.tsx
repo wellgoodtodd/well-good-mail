@@ -62,6 +62,7 @@ export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' 
   const events = useMail((s) => s.events);
   const accounts = useMail((s) => s.accounts);
   const errors = useMail((s) => s.calendarErrors);
+  const known = useMail((s) => s.calendarNames);
   const hidden = useSettings((s) => s.hiddenCalendars);
   const set = useSettings((s) => s.set);
   const [looking, setLooking] = useState(false);
@@ -69,13 +70,14 @@ export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' 
   const groups = useMemo(() => {
     const names = new Map<string, Set<string>>();
     for (const e of events) { if (!names.has(e.accountId)) names.set(e.accountId, new Set()); names.get(e.accountId)!.add(e.calendarName); }
+    for (const [id, list] of Object.entries(known)) for (const n of list) { if (!names.has(id)) names.set(id, new Set()); names.get(id)!.add(n); }
     for (const k of hidden) { const i = k.indexOf('|'); const id = k.slice(0, i); if (!names.has(id)) names.set(id, new Set()); names.get(id)!.add(k.slice(i + 1)); }
     return ordered.map((a) => ({
       account: a,
       // The account's own calendar first, then the rest in A to Z order.
       calendars: [...(names.get(a.id) || [])].sort((x, y) => Number(y.toLowerCase() === a.email.toLowerCase()) - Number(x.toLowerCase() === a.email.toLowerCase()) || x.localeCompare(y)),
     })).filter((g) => g.calendars.length);
-  }, [events, ordered, hidden]);
+  }, [events, known, ordered, hidden]);
   const missing = useMemo(() => ordered.filter((a) => hasCalendar(a) && !groups.some((g) => g.account.id === a.id)), [ordered, groups]);
   const rows = useMemo(() => {
     const byName = new Map<string, { name: string; keys: string[]; accounts: typeof accounts }>();
