@@ -72,8 +72,8 @@ export interface Settings {
   remindersView: 'list' | 'calendar';
   /** Calendars switched off in the calendar and Coming up, as "accountId|calendar name". Alerts still use them. */
   hiddenCalendars: string[];
-  /** Ordinary (non video) events on hidden calendars stay quiet too. Video meeting alerts always stay on. */
-  hiddenCalendarsHideAlerts: boolean;
+  /** What hidden calendars may still alert you about: everything, video meetings only, or nothing. */
+  hiddenCalendarsAlerts: 'all' | 'meetings' | 'none';
 
   newMailAlerts: 'all' | 'important' | 'off';
   alertSound: boolean;
@@ -189,7 +189,7 @@ export const defaultSettings: Settings = {
   comingUpOpen: false,
   remindersView: 'list',
   hiddenCalendars: [],
-  hiddenCalendarsHideAlerts: true,
+  hiddenCalendarsAlerts: 'meetings',
 
   newMailAlerts: 'important',
   alertSound: false,
@@ -271,7 +271,8 @@ export const useSettings = create<SettingsStore>()(
     }),
     {
       name: 'wgm-settings',
-      version: 4,
+      version: 5,
+      // Version 5: hidden calendars have a three way choice for alerts (it was one tick box).
       // Version 4: the video meeting notifications and the bar over the mail are on for everyone (they can still be switched off after this).
       // Version 2: emails follow the app's dark mode by default (it used to be off).
       // Version 3: "Drafts, Sent, Bin and more" is an ordinary folder you can change (it keeps a name you gave it).
@@ -286,6 +287,10 @@ export const useSettings = create<SettingsStore>()(
           p = { ...p, sidebarNames: names, customFolders: folders.some((f) => f.id === MORE_FOLDER.id) ? folders : [{ ...MORE_FOLDER, name: custom || MORE_FOLDER.name }, ...folders] };
         }
         if (from < 4) p = { ...p, meetingAlert1On: true, meetingAlert2On: true, meetingBanner: true };
+        if (from < 5) {
+          const old = (p as { hiddenCalendarsHideAlerts?: boolean }).hiddenCalendarsHideAlerts;
+          p = { ...p, hiddenCalendarsAlerts: old === false ? 'all' : 'meetings' };
+        }
         return p as SettingsStore;
       },
       merge: (persisted, current) => {

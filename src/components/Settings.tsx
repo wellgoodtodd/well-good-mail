@@ -224,9 +224,14 @@ function AccountsTab() {
       {accounts.some((a) => a.kind !== 'demo') && (
         <section className="set-section">
           <h2>Calendars</h2>
-          <p className="hint">Tick the calendars to show in the calendar and in Coming up. The same list is on the Reminders page and the Coming up panel, so changing it in one place changes it everywhere. Video meeting alerts always stay on, unless you have said No to the meeting.</p>
-          <CalendarList />
-          <div style={{ marginTop: 10 }}><Check checked={s.hiddenCalendarsHideAlerts} onChange={(v) => s.set({ hiddenCalendarsHideAlerts: v })}>Hidden calendars also hide their ordinary event alerts and reminders</Check></div>
+          <p className="hint">Switch calendars on or off here, or from the Calendars button on the Reminders page and in the Coming up panel. It is the same list, so they always agree.</p>
+          <CalendarList variant="cards" />
+          <h3 className="sub-head">Alerts from hidden calendars</h3>
+          <Radio name="hidalerts" value={s.hiddenCalendarsAlerts} onChange={(v) => s.set({ hiddenCalendarsAlerts: v })} options={[
+            { value: 'all', label: 'Keep all their alerts', sub: 'Hiding only tidies the views.' },
+            { value: 'meetings', label: 'Mute ordinary reminders, keep video meeting alerts', sub: 'Recommended. You will not miss a call because you hid its calendar.' },
+            { value: 'none', label: 'Mute everything from them', sub: 'No reminders, notifications or banner. Meetings you have said No to are always quiet.' },
+          ]} />
         </section>
       )}
       <div className="set-card" style={{ marginTop: 0, marginBottom: 18, maxWidth: 760 }}>
@@ -1040,7 +1045,7 @@ function UpdatesTab() {
         <Row label="Status">
           <span>
             {u.status === 'checking' && 'Checking...'}
-            {u.status === 'none' && `${onBeta ? 'No newer full release' : 'Up to date'}${u.checkedAt ? ` (checked ${new Date(u.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})` : ''}`}
+            {u.status === 'none' && `${onBeta ? (beta.found ? 'A newer test version is out' : beta.status === 'done' && beta.checkedAt ? 'This is the latest test version' : 'No newer full release') : 'Up to date'}${u.checkedAt ? ` (checked ${new Date(u.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})` : ''}`}
             {u.status === 'available' && `Version ${u.version} is available`}
             {u.status === 'downloading' && `Downloading ${u.version}...`}
             {u.status === 'ready' && `Version ${u.version} is ready`}

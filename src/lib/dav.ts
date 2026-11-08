@@ -2,7 +2,7 @@
 // and the answers are read here. Everything is signed in with the same app password as the mail.
 import { invoke } from './platform';
 import { findMeetingUrl } from './meetings';
-import type { Address, CalendarEvent } from './types';
+import type { Address, CalendarEvent, EventGuest, GuestAnswer } from './types';
 
 export interface DavAuth { user: string; pass: string }
 
@@ -170,15 +170,37 @@ export const parseProp = (line: string) => {
   return { name: name.toUpperCase(), params, value: line.slice(i + 1) };
 };
 
-/** Events from calendar text. Repeating events should already have been expanded by the server. */
-export function parseEvents(ics: string, calendarName: string, accountId: string): CalendarEvent[] {
+/** What a calendar file's PARTSTAT says, as a guest answer. */
+export function partstatAnswer(s?: string): GuestAnswer {
+  const v = (s || '').toUpperCase();
+  return v === 'ACCEPTED' ? 'yes' : v === 'DECLINED' ? 'no' : v === 'TENTATIVE' ? 'maybe' : 'waiting';
+}
+
+/** The guest list for an event, marking you and the organiser, and your own answer. Nothing when nobody was invited. */
+export function davGuests(guests: EventGuest[], organiser: string | undefined, mine: Set<string>): Pick<CalendarEvent, 'guests' | 'myResponse'> {
+  const seen = new Set<string>();
+  const list: EventGuest[] = [];
+  for (const g of guests) {
+    if (seen.has(g.email)) continue;
+    seen.add(g.email);
+    list.push({ ...g, organiser: g.email === organiser || undefined, self: mine.has(g.email) || undefined });
+  }
+  // The organiser sometimes isn't in the attendee list. They are coming.
+  if (organiser && !seen.has(organiser) && list.length) list.unshift({ email: organiser, answer: 'yes', organiser: true, self: mine.has(organiser) || undefined });
+  if (!list.length) return {};
+  return { guests: list.slice(0, 60), myResponse: list.find((g) => g.self)?.answer };
+}
+
+/** Events from calendar text. Repeating events should already have been expanded by the server. `own` is every address that counts as you. */
+export function parseEvents(ics: string, calendarName: string, accountId: string, own: string[] = []): CalendarEvent[] {
+  const mine = new Set(own.map((a) => a.toLowerCase()));
   const out: CalendarEvent[] = [];
-  let ev: { uid?: string; title?: string; location?: string; description?: string; url?: string; start?: { ms: number; allDay: boolean }; end?: number; duration?: string; cancelled?: boolean; reminders: number[] } | undefined;
+  let ev: { uid?: string; title?: string; location?: string; description?: string; url?: string; start?: { ms: number; allDay: boolean }; end?: number; duration?: string; cancelled?: boolean; reminders: number[]; guests: EventGuest[]; organiser?: string } | undefined;
   let inAlarm = false;
   for (const line of unfold(ics).split(/\r?\n/)) {
     if (!line) continue;
     const upper = line.toUpperCase();
-    if (upper === 'BEGIN:VEVENT') { ev = { reminders: [] }; continue; }
+    if (upper === 'BEGIN:VEVENT') { ev = { reminders: [], guests: [] }; continue; }
     if (upper === 'END:VEVENT') {
       if (ev?.start && Number.isFinite(ev.start.ms) && !ev.cancelled) {
         let end = ev.end;
@@ -198,6 +220,7 @@ export function parseEvents(ics: string, calendarName: string, accountId: string
           description: ev.description ? ev.description.slice(0, 600) : undefined,
           meetingUrl: findMeetingUrl(ev.url, ev.location, ev.description),
           reminderMinutes: ev.reminders,
+          ...davGuests(ev.guests, ev.organiser, mine),
         });
       }
       ev = undefined;
@@ -224,13 +247,18 @@ export function parseEvents(ics: string, calendarName: string, accountId: string
     else if (p.name === 'DTEND') ev.end = parseTime(p.value, p.params).ms;
     else if (p.name === 'DURATION') ev.duration = p.value;
     else if (p.name === 'STATUS') ev.cancelled = p.value.toUpperCase() === 'CANCELLED';
+    else if (p.name === 'ORGANIZER') ev.organiser = p.value.replace(/^mailto:/i, '').trim().toLowerCase();
+    else if (p.name === 'ATTENDEE') {
+      const email = p.value.replace(/^mailto:/i, '').trim().toLowerCase();
+      if (email.includes('@') && !/^(ROOM|RESOURCE)$/i.test(p.params.CUTYPE || '')) ev.guests.push({ email, name: p.params.CN ? unescapeText(p.params.CN) : undefined, answer: partstatAnswer(p.params.PARTSTAT) });
+    }
   }
   return out;
 }
 
 const stamp = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
 
-export async function fetchEvents(auth: DavAuth, accountId: string, fromMs: number, toMs: number): Promise<CalendarEvent[]> {
+export async function fetchEvents(auth: DavAuth, accountId: string, fromMs: number, toMs: number, own: string[] = [auth.user]): Promise<CalendarEvent[]> {
   const principal = await principalUrl(auth, 'https://caldav.icloud.com/');
   const home = await homeUrl(auth, principal, 'urn:ietf:params:xml:ns:caldav', 'calendar-home-set');
   const cals = await collections(auth, home, 'calendar');
@@ -239,7 +267,7 @@ export async function fetchEvents(auth: DavAuth, accountId: string, fromMs: numb
   const out: CalendarEvent[] = [];
   for (const c of cals) {
     const r = await davRequest(auth, c.url, 'REPORT', query, '1');
-    for (const item of readItems(r.body)) out.push(...parseEvents(textOf(inProps(item, 'calendar-data') as Element | undefined), c.name, accountId));
+    for (const item of readItems(r.body)) out.push(...parseEvents(textOf(inProps(item, 'calendar-data') as Element | undefined), c.name, accountId, own));
   }
   return out;
 }

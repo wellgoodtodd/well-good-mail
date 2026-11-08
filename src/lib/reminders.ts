@@ -13,16 +13,21 @@ export function eventReminderTime(e: CalendarEvent): number {
 
 export const eventKey = (e: CalendarEvent) => `ev|${e.id}|${e.start}`;
 
-/** Calendars whose ordinary events should stay quiet: the ones you hid, when the setting says hidden calendars also hide alerts. Video meetings are never included here. */
-export function quietCalendars(s: { hiddenCalendars: string[]; hiddenCalendarsHideAlerts: boolean }): string[] {
-  return s.hiddenCalendarsHideAlerts ? s.hiddenCalendars : [];
+/** Which hidden calendars stay quiet. `ordinary` ones are silent for everyday events only; `all` ones are silent for video meetings too. */
+export interface AlertMute { ordinary: string[]; all: string[] }
+export const noMute: AlertMute = { ordinary: [], all: [] };
+
+export function alertMute(s: { hiddenCalendars: string[]; hiddenCalendarsAlerts: 'all' | 'meetings' | 'none' }): AlertMute {
+  if (s.hiddenCalendarsAlerts === 'all') return noMute;
+  return s.hiddenCalendarsAlerts === 'none' ? { ordinary: s.hiddenCalendars, all: s.hiddenCalendars } : { ordinary: s.hiddenCalendars, all: [] };
 }
 
 /** Everything that's come due and hasn't been dismissed, newest first. */
-export function dueReminders(events: CalendarEvent[], followups: FollowUp[], dismissed: Set<string>, now = Date.now(), quiet: string[] = []): ReminderItem[] {
+export function dueReminders(events: CalendarEvent[], followups: FollowUp[], dismissed: Set<string>, now = Date.now(), mute: AlertMute = noMute): ReminderItem[] {
   const items: ReminderItem[] = [];
   for (const e of events) {
-    if (!e.meetingUrl && quiet.includes(calendarKey(e))) continue;
+    const key = calendarKey(e);
+    if (mute.all.includes(key) || (!e.meetingUrl && mute.ordinary.includes(key))) continue;
     const due = e.allDay ? e.start : eventReminderTime(e);
     // Only things that are due now, and not ones that ended days ago.
     if (due > now || e.end < now - 3 * 86400000) continue;
@@ -56,7 +61,7 @@ export async function checkReminderAlerts(events: CalendarEvent[], followups: Fo
     loaded = true;
   }
   const now = Date.now();
-  const due = dueReminders(events, followups, dismissed, now, quietCalendars(s)).filter((r) => now - r.dueAt < 15 * 60000);
+  const due = dueReminders(events, followups, dismissed, now, alertMute(s)).filter((r) => now - r.dueAt < 15 * 60000);
   const important = new Set(s.importantEvents);
 
   if (!isQuietNow(s)) {
@@ -78,10 +83,10 @@ export async function checkReminderAlerts(events: CalendarEvent[], followups: Fo
 }
 
 /** A notification 15 minutes and again 5 minutes before any meeting that has a video link. */
-export function meetingAlertsDue(events: CalendarEvent[], now: number, times: number[] = [15, 5]): { key: string; event: CalendarEvent; minutes: number }[] {
+export function meetingAlertsDue(events: CalendarEvent[], now: number, times: number[] = [15, 5], silenced: string[] = []): { key: string; event: CalendarEvent; minutes: number }[] {
   const out: { key: string; event: CalendarEvent; minutes: number }[] = [];
   const mins = [...new Set(times.filter((m) => Number.isInteger(m) && m > 0))].sort((a, b) => b - a);
-  for (const e of dedupeEvents(events)) {
+  for (const e of dedupeEvents(silenced.length ? events.filter((x) => !silenced.includes(calendarKey(x))) : events)) {
     if (!e.meetingUrl || e.allDay || e.declined) continue;
     const until = e.start - now;
     if (until <= 0) continue;
@@ -96,7 +101,7 @@ export function meetingAlertsDue(events: CalendarEvent[], now: number, times: nu
 async function meetingAlerts(events: CalendarEvent[], now: number) {
   const s = settings();
   const times = [s.meetingAlert1On ? s.meetingAlert1Mins : 0, s.meetingAlert2On ? s.meetingAlert2Mins : 0];
-  for (const a of meetingAlertsDue(events, now, times)) {
+  for (const a of meetingAlertsDue(events, now, times, alertMute(s).all)) {
     if (notified.has(a.key)) continue;
     notified.add(a.key);
     const when = new Date(a.event.start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });

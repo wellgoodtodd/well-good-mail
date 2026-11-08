@@ -47,8 +47,8 @@ export function dedupeEvents(events: CalendarEvent[]): CalendarEvent[] {
 export const BANNER_GRACE_MINUTES = 10;
 
 /** Meetings with a video link that start within the next few minutes (or started a moment ago). Meetings you said No to are left out. */
-export function meetingsSoon(events: CalendarEvent[], now = Date.now(), leadMinutes = 5): CalendarEvent[] {
-  return dedupeEvents(events)
+export function meetingsSoon(events: CalendarEvent[], now = Date.now(), leadMinutes = 5, silenced: string[] = []): CalendarEvent[] {
+  return dedupeEvents(silenced.length ? events.filter((x) => !silenced.includes(calendarKey(x))) : events)
     .filter((e) => e.meetingUrl && !e.allDay && !e.declined && e.start - leadMinutes * 60000 <= now && e.end > now && e.start + BANNER_GRACE_MINUTES * 60000 > now)
     .sort((a, b) => a.start - b.start);
 }

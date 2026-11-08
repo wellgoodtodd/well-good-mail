@@ -5,7 +5,7 @@
 import { getMicrosoftAccessToken } from '../auth/microsoft';
 import { bytesToBase64, buildRawMessage, base64ToBytes } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventGuest, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
 import { findMeetingUrl } from '../meetings';
 
@@ -49,6 +49,26 @@ const addr = (r?: { emailAddress: { name?: string; address: string } }): Address
  */
 function withoutFrom(raw: string): string {
   return raw.replace(/^From:[^\r\n]*(\r?\n[ \t][^\r\n]*)*\r?\n/m, '');
+}
+
+/** The guest list and your own answer from a Microsoft calendar event. */
+export function graphGuests(
+  e: { isOrganizer?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] },
+  own: string[],
+): Pick<CalendarEvent, 'guests' | 'myResponse'> {
+  const mine = new Set(own.map((a) => a.toLowerCase()));
+  const answer = (r?: string): GuestAnswer => (r === 'accepted' || r === 'organizer' ? 'yes' : r === 'declined' ? 'no' : r === 'tentativelyAccepted' ? 'maybe' : 'waiting');
+  const org = e.organizer?.emailAddress?.address?.toLowerCase();
+  const list: EventGuest[] = [];
+  for (const a of e.attendees || []) {
+    const email = a.emailAddress?.address?.toLowerCase();
+    if (!email || list.some((g) => g.email === email)) continue;
+    list.push({ email, name: a.emailAddress?.name || undefined, answer: answer(a.status?.response), organiser: email === org || undefined, self: mine.has(email) || undefined });
+  }
+  if (org && !list.some((g) => g.email === org) && list.length) list.unshift({ email: org, name: e.organizer?.emailAddress?.name || undefined, answer: 'yes', organiser: true, self: mine.has(org) || undefined });
+  if (!list.length) return {};
+  const me = list.find((g) => g.self);
+  return { guests: list.slice(0, 60), myResponse: me?.answer ?? (e.isOrganizer ? 'yes' : e.responseStatus ? answer(e.responseStatus.response) : undefined) };
 }
 
 export class MicrosoftProvider implements MailProvider {
@@ -216,7 +236,7 @@ export class MicrosoftProvider implements MailProvider {
   }
 
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
-    const page = await this.call<{ value: { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null }[] }>(
+    const page = await this.call<{ value: { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null; isOrganizer?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { type?: string; status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] }[] }>(
       `/calendarView?startDateTime=${new Date(fromMs).toISOString()}&endDateTime=${new Date(toMs).toISOString()}&$top=250`,
       { headers: { Prefer: 'outlook.timezone="UTC"' } },
     );
@@ -233,6 +253,7 @@ export class MicrosoftProvider implements MailProvider {
       meetingUrl: e.onlineMeeting?.joinUrl || e.onlineMeetingUrl || findMeetingUrl(e.location?.displayName, e.bodyPreview),
       reminderMinutes: e.isReminderOn ? [e.reminderMinutesBeforeStart] : [],
       htmlLink: e.webLink,
+      ...graphGuests(e, [this.account.email, ...(this.account.aliases || []).map((a) => a.email)]),
     }));
   }
 }

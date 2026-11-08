@@ -4,7 +4,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
-import { upcoming } from '../lib/reminders';
+import { upcoming, alertMute } from '../lib/reminders';
 import { meetingService, meetingsSoon, dedupeEvents, visibleEvents, guestTally, guestAnswerWord, inviteText, meetingPhase, meetingPhaseText } from '../lib/meetings';
 import { startCompose } from '../lib/composeActions';
 import { openExternal } from '../lib/platform';
@@ -49,8 +49,13 @@ function chipBackground(ids: string[], colour: (id: string) => string): string {
   return `linear-gradient(90deg, ${ids.map((id, i) => `${colour(id)} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
 }
 
-/** Every calendar your accounts show, grouped by account, each with a tick box. The same list sits in Settings, so they always agree. */
-export function CalendarList() {
+/** A switch that reads as an on/off control and works with the keyboard. */
+function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
+  return <input type="checkbox" role="switch" className="switch" checked={on} aria-label={label} onChange={(e) => onChange(e.target.checked)} />;
+}
+
+/** Every calendar your accounts show. The pop-up lists them flat, with calendars of the same name on several accounts (like Holidays in the UK) as one row. Settings lists them in a card for each account. Both change the same setting, so they always agree. */
+export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' }) {
   const events = useMail((s) => s.events);
   const accounts = useMail((s) => s.accounts);
   const hidden = useSettings((s) => s.hiddenCalendars);
@@ -61,24 +66,65 @@ export function CalendarList() {
     for (const k of hidden) { const i = k.indexOf('|'); const id = k.slice(0, i); if (!names.has(id)) names.set(id, new Set()); names.get(id)!.add(k.slice(i + 1)); }
     return accounts.map((a) => ({ account: a, calendars: [...(names.get(a.id) || [])].sort((x, y) => x.localeCompare(y)) })).filter((g) => g.calendars.length);
   }, [events, accounts, hidden]);
-  const toggle = (key: string) => set({ hiddenCalendars: hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key] });
+  const rows = useMemo(() => {
+    const byName = new Map<string, { name: string; keys: string[]; accounts: typeof accounts }>();
+    for (const g of groups) for (const name of g.calendars) {
+      const row = byName.get(name) || { name, keys: [], accounts: [] };
+      row.keys.push(`${g.account.id}|${name}`);
+      row.accounts.push(g.account);
+      byName.set(name, row);
+    }
+    return [...byName.values()].sort((x, y) => x.name.localeCompare(y.name));
+  }, [groups]);
+  const setKeys = (keys: string[], show: boolean) => set({ hiddenCalendars: show ? hidden.filter((k) => !keys.includes(k)) : [...new Set([...hidden, ...keys])] });
   if (!groups.length) return <p className="hint" style={{ margin: 0 }}>Calendars appear here once your accounts have loaded them.</p>;
+
+  if (variant === 'cards') {
+    return (
+      <div className="cal-cards">
+        {groups.map((g) => {
+          const keys = g.calendars.map((n) => `${g.account.id}|${n}`);
+          const anyOn = keys.some((k) => !hidden.includes(k));
+          return (
+            <div key={g.account.id} className="cal-card">
+              <div className="cal-card-head">
+                <span className="dot" style={{ background: g.account.colour }} />
+                <strong>{g.account.label || g.account.email}</strong>
+                <span className="grow" />
+                <Switch on={anyOn} label={`Show all calendars for ${g.account.label || g.account.email}`} onChange={(v) => setKeys(keys, v)} />
+              </div>
+              {g.calendars.map((name) => {
+                const key = `${g.account.id}|${name}`;
+                return (
+                  <div key={key} className="cal-card-row">
+                    <span>{name}</span>
+                    <Switch on={!hidden.includes(key)} label={`Show ${name} for ${g.account.label || g.account.email}`} onChange={(v) => setKeys([key], v)} />
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
-    <div className="cal-list">
-      {groups.map((g) => (
-        <div key={g.account.id} className="cal-group">
-          <div className="cal-acc"><span className="dot" style={{ background: g.account.colour }} />{g.account.label || g.account.email}</div>
-          {g.calendars.map((name) => {
-            const key = `${g.account.id}|${name}`;
-            return (
-              <label key={key} className="cal-row">
-                <input type="checkbox" checked={!hidden.includes(key)} onChange={() => toggle(key)} />
-                <span>{name}</span>
-              </label>
-            );
-          })}
-        </div>
-      ))}
+    <div className="cal-flat">
+      <div className="cal-flat-top">
+        <button className="link-btn" disabled={!hidden.length} onClick={() => set({ hiddenCalendars: [] })}>Show all</button>
+      </div>
+      {rows.map((r) => {
+        const on = r.keys.some((k) => !hidden.includes(k));
+        const sub = r.accounts.length > 1 ? `${r.accounts.length} accounts` : r.accounts[0].label || r.accounts[0].email;
+        return (
+          <div key={r.name} className="cal-flat-row">
+            <span className="acc-dots" aria-hidden="true">{r.accounts.map((a) => <span key={a.id} className="dot" style={{ background: a.colour }} />)}</span>
+            <span className="grow"><span>{r.name}</span><small>{sub}</small></span>
+            <Switch on={on} label={`Show ${r.name}`} onChange={(v) => setKeys(r.keys, v)} />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -106,7 +152,7 @@ export function CalendarPicker({ iconOnly }: { iconOnly?: boolean }) {
         <div className="cal-pop" role="dialog" aria-label="Choose which calendars to show">
           <strong>Show these calendars</strong>
           <CalendarList />
-          <p className="hint" style={{ margin: '8px 0 0' }}>Video meeting alerts stay on. Other alerts follow your <button className="link-btn" onClick={() => { setOpen(false); openScreen('settings', 'accounts'); }}>account settings</button>.</p>
+          <p className="hint" style={{ margin: '8px 0 0' }}>Alerts from hidden calendars follow your <button className="link-btn" onClick={() => { setOpen(false); openScreen('settings', 'accounts'); }}>account settings</button>.</p>
         </div>
       )}
     </div>
@@ -318,6 +364,8 @@ export function MeetingBanner() {
   const events = useMail((s) => s.events);
   const enabled = useSettings((s) => s.meetingBanner);
   const lead = useSettings((s) => s.meetingBannerMins);
+  const hiddenCals = useSettings((s) => s.hiddenCalendars);
+  const alertsMode = useSettings((s) => s.hiddenCalendarsAlerts);
   const [now, setNow] = useState(() => Date.now());
   const [gone, setGone] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<CalendarEvent | null>(null);
@@ -333,10 +381,10 @@ export function MeetingBanner() {
     return () => window.removeEventListener('wgm-test-meeting-bar', show);
   }, []);
   const soon = useMemo(() => {
-    const real = enabled ? meetingsSoon(events, now, lead) : [];
+    const real = enabled ? meetingsSoon(events, now, lead, alertMute({ hiddenCalendars: hiddenCals, hiddenCalendarsAlerts: alertsMode }).all) : [];
     const shown = demo && demo.start + 10 * 60000 > now ? [demo, ...real] : real;
     return shown.filter((e) => !gone.has(`${e.id}|${e.start}`));
-  }, [events, enabled, lead, gone, now, demo]);
+  }, [events, enabled, lead, gone, now, demo, hiddenCals, alertsMode]);
   if (!soon.length) return null;
   const dismiss = (e: CalendarEvent) => { if (e.id === 'demo-meeting') setDemo(null); setGone((g) => new Set(g).add(`${e.id}|${e.start}`)); };
   return (

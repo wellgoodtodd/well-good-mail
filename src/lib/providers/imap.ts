@@ -493,6 +493,6 @@ export class ImapProvider implements MailProvider {
 
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
     const auth = await this.davAuth();
-    return auth ? fetchEvents(auth, this.account.id, fromMs, toMs) : [];
+    return auth ? fetchEvents(auth, this.account.id, fromMs, toMs, [this.account.email, ...(this.account.aliases || []).map((a) => a.email)]) : [];
   }
 }

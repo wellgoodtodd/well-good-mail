@@ -864,3 +864,21 @@ li.yes .g-word { color: var(--success); } li.no .g-word { color: var(--danger); 
 .beta-card span { color: var(--text-muted); font-size: 0.9em; }
 .beta-card.prominent { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg-subtle)); }
 .beta-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Calendars: flat pop-up list, account cards in Settings, and the on/off switch */
+.switch { appearance: none; -webkit-appearance: none; width: 32px; height: 18px; border-radius: 9px; background: var(--border-strong, var(--border)); position: relative; flex: none; cursor: pointer; transition: background 0.15s; margin: 0; }
+.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left 0.15s; }
+.switch:checked { background: var(--accent); }
+.switch:checked::after { left: 16px; }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cal-flat-top { display: flex; justify-content: flex-end; margin: 4px 0 2px; }
+.cal-flat-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.cal-flat-row .grow { display: grid; min-width: 0; line-height: 1.25; }
+.cal-flat-row small { color: var(--text-muted); font-size: 0.8em; }
+.cal-flat-row .acc-dots { display: inline-flex; gap: 2px; flex: none; }
+.cal-flat-row .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.cal-cards { display: grid; gap: 10px; margin: 8px 0 14px; max-width: 520px; }
+.cal-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; background: var(--bg-subtle); }
+.cal-card-head { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; }
+.cal-card-head .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.cal-card-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0 6px 18px; color: var(--text-muted); }

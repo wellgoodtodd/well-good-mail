@@ -4,7 +4,8 @@ vi.mock('../platform', () => ({ notify: async () => {}, flashTaskbar: () => {}, 
 vi.mock('../db', () => ({ store: { kvGet: async () => undefined, kvSet: async () => {} } }));
 
 const { findMeetingUrl, meetingService, meetingsSoon, dedupeEvents, meetingPhase, meetingPhaseText, visibleEvents, guestTally, inviteText } = await import('../meetings');
-const { meetingAlertsDue, dueReminders, quietCalendars } = await import('../reminders');
+const { meetingAlertsDue, dueReminders, alertMute } = await import('../reminders');
+const { graphGuests } = await import('../providers/microsoft');
 const { parseEvents } = await import('../dav');
 import type { CalendarEvent } from '../types';
 
@@ -123,11 +124,63 @@ describe('hidden calendars and alerts', () => {
   it('keeps ordinary events quiet on hidden calendars, but never video meetings', () => {
     const plain = ev({ id: 'p', accountId: 'a', calendarName: 'Holidays', start: now - 1000, end: now + 60000, reminderMinutes: [0] });
     const call = ev({ id: 'v', accountId: 'a', calendarName: 'Holidays', title: 'Call', start: now - 1000, end: now + 60000, reminderMinutes: [0], meetingUrl: 'https://meet.google.com/a-b-c' });
-    expect(dueReminders([plain, call], [], new Set(), now, []).map((r) => r.id.split('|')[1]).sort()).toEqual(['p', 'v']);
-    expect(dueReminders([plain, call], [], new Set(), now, ['a|Holidays']).map((r) => r.id.split('|')[1])).toEqual(['v']);
+    expect(dueReminders([plain, call], [], new Set(), now).map((r) => r.id.split('|')[1]).sort()).toEqual(['p', 'v']);
+    expect(dueReminders([plain, call], [], new Set(), now, alertMute({ hiddenCalendars: ['a|Holidays'], hiddenCalendarsAlerts: 'meetings' })).map((r) => r.id.split('|')[1])).toEqual(['v']);
+    expect(dueReminders([plain, call], [], new Set(), now, alertMute({ hiddenCalendars: ['a|Holidays'], hiddenCalendarsAlerts: 'none' }))).toEqual([]);
+    expect(dueReminders([plain, call], [], new Set(), now, alertMute({ hiddenCalendars: ['a|Holidays'], hiddenCalendarsAlerts: 'all' })).length).toBe(2);
   });
   it('follows the setting', () => {
-    expect(quietCalendars({ hiddenCalendars: ['a|X'], hiddenCalendarsHideAlerts: true })).toEqual(['a|X']);
-    expect(quietCalendars({ hiddenCalendars: ['a|X'], hiddenCalendarsHideAlerts: false })).toEqual([]);
+    expect(alertMute({ hiddenCalendars: ['a|X'], hiddenCalendarsAlerts: 'meetings' })).toEqual({ ordinary: ['a|X'], all: [] });
+    expect(alertMute({ hiddenCalendars: ['a|X'], hiddenCalendarsAlerts: 'none' })).toEqual({ ordinary: ['a|X'], all: ['a|X'] });
+    expect(alertMute({ hiddenCalendars: ['a|X'], hiddenCalendarsAlerts: 'all' })).toEqual({ ordinary: [], all: [] });
+  });
+});
+
+describe('muting video meetings from hidden calendars', () => {
+  const now = 1_000_000_000;
+  const min = 60000;
+  it('silences the banner and notifications only when everything is muted', () => {
+    const e = ev({ accountId: 'a', calendarName: 'Work', meetingUrl: 'https://meet.google.com/a-b-c', start: now + 3 * min, end: now + 33 * min });
+    expect(meetingsSoon([e], now, 5, [])).toHaveLength(1);
+    expect(meetingsSoon([e], now, 5, ['a|Work'])).toHaveLength(0);
+    expect(meetingAlertsDue([e], now, [15, 5], ['a|Work'])).toEqual([]);
+    expect(meetingAlertsDue([e], now, [15, 5], [])).toHaveLength(1);
+  });
+  it('still alerts when another account has the same meeting on a calendar that is not hidden', () => {
+    const a = ev({ id: '1', accountId: 'a', calendarName: 'Work', title: 'Sync', meetingUrl: 'https://meet.google.com/a-b-c', start: now + 3 * min, end: now + 33 * min });
+    const b = ev({ id: '2', accountId: 'b', calendarName: 'Work', title: 'Sync', meetingUrl: 'https://meet.google.com/a-b-c', start: now + 3 * min, end: now + 33 * min });
+    expect(meetingsSoon([a, b], now, 5, ['a|Work'])).toHaveLength(1);
+  });
+});
+
+describe('guest lists from iCloud and Microsoft', () => {
+  it('reads attendees and your answer from a calendar file', () => {
+    const ics = ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:1', 'SUMMARY:Review', 'DTSTART:20261110T100000Z', 'DTEND:20261110T103000Z', 'ORGANIZER;CN=Sam:mailto:sam@x.com', 'ATTENDEE;CN=Sam;PARTSTAT=ACCEPTED:mailto:sam@x.com', 'ATTENDEE;CN=Me;PARTSTAT=TENTATIVE:mailto:me@icloud.com', 'ATTENDEE;PARTSTAT=DECLINED:mailto:lee@x.com', 'ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:kim@x.com', 'ATTENDEE;CUTYPE=ROOM;PARTSTAT=ACCEPTED:mailto:room@x.com', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+    const [e] = parseEvents(ics, 'Home', 'acc', ['Me@iCloud.com']);
+    expect(e.guests?.map((g) => [g.email, g.answer])).toEqual([['sam@x.com', 'yes'], ['me@icloud.com', 'maybe'], ['lee@x.com', 'no'], ['kim@x.com', 'waiting']]);
+    expect(e.guests?.find((g) => g.self)?.email).toBe('me@icloud.com');
+    expect(e.guests?.find((g) => g.organiser)?.email).toBe('sam@x.com');
+    expect(e.myResponse).toBe('maybe');
+  });
+  it('gives no guests when nobody was invited', () => {
+    const ics = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:2\r\nSUMMARY:Alone\r\nDTSTART:20261110T100000Z\r\nDTEND:20261110T103000Z\r\nEND:VEVENT\r\nEND:VCALENDAR';
+    const [e] = parseEvents(ics, 'Home', 'acc', ['me@icloud.com']);
+    expect(e.guests).toBeUndefined();
+  });
+  it('reads Microsoft attendees and answers', () => {
+    const out = graphGuests({
+      isOrganizer: false,
+      responseStatus: { response: 'accepted' },
+      organizer: { emailAddress: { name: 'Sam', address: 'Sam@x.com' } },
+      attendees: [
+        { status: { response: 'accepted' }, emailAddress: { name: 'Me', address: 'me@outlook.com' } },
+        { status: { response: 'declined' }, emailAddress: { address: 'lee@x.com' } },
+        { status: { response: 'notResponded' }, emailAddress: { address: 'kim@x.com' } },
+        { status: { response: 'tentativelyAccepted' }, emailAddress: { address: 'jo@x.com' } },
+      ],
+    }, ['Me@outlook.com']);
+    expect(out.guests?.map((g) => [g.email, g.answer])).toEqual([['sam@x.com', 'yes'], ['me@outlook.com', 'yes'], ['lee@x.com', 'no'], ['kim@x.com', 'waiting'], ['jo@x.com', 'maybe']]);
+    expect(out.guests?.[0].organiser).toBe(true);
+    expect(out.myResponse).toBe('yes');
   });
 });
