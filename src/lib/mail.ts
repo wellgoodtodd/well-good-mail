@@ -1032,8 +1032,13 @@ export async function refreshAccountPhotos() {
   }
 }
 
+let eventsFetchedAt = 0;
+/** When the calendars were last fetched, in milliseconds. */
+export const lastEventsRefresh = () => eventsFetchedAt;
+
 /** Fetches every account's calendar again. Returns the accounts it couldn't reach. */
 export async function refreshEvents(): Promise<string[]> {
+  eventsFetchedAt = Date.now();
   const from = Date.now() - 3 * 86400000;
   const to = Date.now() + 8 * 86400000;
   const all: CalendarEvent[] = [];

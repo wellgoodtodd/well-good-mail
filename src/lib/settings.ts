@@ -70,6 +70,8 @@ export interface Settings {
   /** The Coming up column beside your mail. */
   comingUpOpen: boolean;
   remindersView: 'list' | 'calendar';
+  /** Calendars switched off in the calendar and Coming up, as "accountId|calendar name". Alerts still use them. */
+  hiddenCalendars: string[];
 
   newMailAlerts: 'all' | 'important' | 'off';
   alertSound: boolean;
@@ -182,6 +184,7 @@ export const defaultSettings: Settings = {
   meetingBannerMins: 5,
   comingUpOpen: false,
   remindersView: 'list',
+  hiddenCalendars: [],
 
   newMailAlerts: 'important',
   alertSound: false,

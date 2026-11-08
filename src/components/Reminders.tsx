@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectThread, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { dueReminders, eventKey } from '../lib/reminders';
-import { ComingUpList, EventPreview, JoinButton, MonthView } from './ComingUp';
+import { CalendarPicker, ComingUpList, EventPreview, JoinButton, MonthView } from './ComingUp';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
 
 /** One readable sentence about how reminders reach you. */
@@ -62,6 +62,7 @@ export function Reminders() {
               <button className={s.remindersView === 'list' ? 'on' : ''} aria-pressed={s.remindersView === 'list'} onClick={() => s.set({ remindersView: 'list' })}><Icon name="list" size={14} /> List</button>
               <button className={s.remindersView === 'calendar' ? 'on' : ''} aria-pressed={s.remindersView === 'calendar'} onClick={() => s.set({ remindersView: 'calendar' })}><Icon name="calendar" size={14} /> Calendar</button>
             </div>
+            <CalendarPicker />
             <button className="btn ghost" disabled={refreshing} onClick={refresh}><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span> {refreshing ? 'Refreshing' : 'Refresh'}</button>
             <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>
           </div>

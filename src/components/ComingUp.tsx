@@ -1,13 +1,14 @@
 // Calendar pieces shared by the Reminders screen and the mail screen: the Coming up list, a small event
 // preview with a Join button, a month view, and the bar that appears just before a video meeting.
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail } from '../lib/mail';
+import { useMail, refreshEvents, lastEventsRefresh, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { upcoming } from '../lib/reminders';
-import { meetingService, meetingsSoon, dedupeEvents } from '../lib/meetings';
+import { meetingService, meetingsSoon, dedupeEvents, visibleEvents, guestTally, guestAnswerWord, inviteText, meetingPhase, meetingPhaseText } from '../lib/meetings';
+import { startCompose } from '../lib/composeActions';
 import { openExternal } from '../lib/platform';
-import type { CalendarEvent } from '../lib/types';
+import type { CalendarEvent, EventGuest, GuestAnswer } from '../lib/types';
 
 /** Re-renders every minute so "soon" and "coming up" stay current. */
 function useMinute() {
@@ -48,19 +49,123 @@ function chipBackground(ids: string[], colour: (id: string) => string): string {
   return `linear-gradient(90deg, ${ids.map((id, i) => `${colour(id)} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
 }
 
-export function JoinButton({ event, small }: { event: CalendarEvent; small?: boolean }) {
+/** Every calendar your accounts show, grouped by account, each with a tick box. The same list sits in Settings, so they always agree. */
+export function CalendarList() {
+  const events = useMail((s) => s.events);
+  const accounts = useMail((s) => s.accounts);
+  const hidden = useSettings((s) => s.hiddenCalendars);
+  const set = useSettings((s) => s.set);
+  const groups = useMemo(() => {
+    const names = new Map<string, Set<string>>();
+    for (const e of events) { if (!names.has(e.accountId)) names.set(e.accountId, new Set()); names.get(e.accountId)!.add(e.calendarName); }
+    for (const k of hidden) { const i = k.indexOf('|'); const id = k.slice(0, i); if (!names.has(id)) names.set(id, new Set()); names.get(id)!.add(k.slice(i + 1)); }
+    return accounts.map((a) => ({ account: a, calendars: [...(names.get(a.id) || [])].sort((x, y) => x.localeCompare(y)) })).filter((g) => g.calendars.length);
+  }, [events, accounts, hidden]);
+  const toggle = (key: string) => set({ hiddenCalendars: hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key] });
+  if (!groups.length) return <p className="hint" style={{ margin: 0 }}>Calendars appear here once your accounts have loaded them.</p>;
+  return (
+    <div className="cal-list">
+      {groups.map((g) => (
+        <div key={g.account.id} className="cal-group">
+          <div className="cal-acc"><span className="dot" style={{ background: g.account.colour }} />{g.account.label || g.account.email}</div>
+          {g.calendars.map((name) => {
+            const key = `${g.account.id}|${name}`;
+            return (
+              <label key={key} className="cal-row">
+                <input type="checkbox" checked={!hidden.includes(key)} onChange={() => toggle(key)} />
+                <span>{name}</span>
+              </label>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** A "Calendars" button that opens the tick list. */
+export function CalendarPicker({ iconOnly }: { iconOnly?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const hidden = useSettings((s) => s.hiddenCalendars);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', away);
+    window.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', away); window.removeEventListener('keydown', esc); };
+  }, [open]);
+  const label = hidden.length ? `Calendars (${hidden.length} hidden)` : 'Calendars';
+  return (
+    <div className="cal-picker" ref={box}>
+      {iconOnly
+        ? <button className={`icon-btn ${hidden.length ? 'active' : ''}`} title={label} aria-label={label} aria-expanded={open} onClick={() => setOpen(!open)}><Icon name="list" size={14} /></button>
+        : <button className="btn ghost" aria-expanded={open} onClick={() => setOpen(!open)}><Icon name="calendar" size={14} /> {label}</button>}
+      {open && (
+        <div className="cal-pop" role="dialog" aria-label="Choose which calendars to show">
+          <strong>Show these calendars</strong>
+          <CalendarList />
+          <p className="hint" style={{ margin: '8px 0 0' }}>Hiding a calendar only tidies the views. Meeting alerts still use it.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const GLYPH: Record<GuestAnswer, string> = { yes: '✓', no: '✕', maybe: '?', waiting: '…' };
+
+/** Who is invited and what they said: a tally you can read at a glance, then one list. Click a name to write to them. */
+export function GuestList({ guests, subject }: { guests: EventGuest[]; subject?: string }) {
+  const order: Record<GuestAnswer, number> = { yes: 0, maybe: 1, no: 2, waiting: 3 };
+  const sorted = [...guests].sort((a, b) => order[a.answer] - order[b.answer] || (a.name || a.email).localeCompare(b.name || b.email));
+  const write = (to: EventGuest[]) => { void startCompose('new', undefined, { extra: { to: to.map((g) => ({ email: g.email, name: g.name })), subject: subject || '' } }); };
+  const others = guests.filter((g) => !g.self);
+  return (
+    <details className="guests" open>
+      <summary>
+        <span className="g-title">Guests ({guests.length})</span>
+        {guestTally(guests).map((t) => <span key={t.answer} className={`g-tally ${t.answer}`}><span className="g-dot" aria-hidden="true" />{t.n} {guestAnswerWord(t.answer).toLowerCase()}</span>)}
+      </summary>
+      <ul>
+        {sorted.map((g) => (
+          <li key={g.email} className={g.answer}>
+            <span className={`g-chip ${g.answer}`} aria-hidden="true">{GLYPH[g.answer]}</span>
+            {g.self ? <span className="g-name">{g.name || g.email} (you)</span> : <button className="g-name link-btn" title={`Write to ${g.email}`} onClick={() => write([g])}>{g.name || g.email}</button>}
+            <span className="g-word">{guestAnswerWord(g.answer)}{g.organiser ? ' · organiser' : ''}</span>
+          </li>
+        ))}
+      </ul>
+      {others.length > 1 && (
+        <div className="g-actions">
+          <button className="btn small" onClick={() => write(others)}>Email everyone</button>
+          {others.some((g) => g.answer === 'waiting') && <button className="btn small" onClick={() => write(others.filter((g) => g.answer === 'waiting'))}>Email those waiting</button>}
+        </div>
+      )}
+    </details>
+  );
+}
+
+export function JoinButton({ event, small, onJoin }: { event: CalendarEvent; small?: boolean; onJoin?: () => void }) {
   if (!event.meetingUrl) return null;
   return (
-    <button className={`btn primary ${small ? 'small' : ''}`} onClick={(e) => { e.stopPropagation(); openExternal(event.meetingUrl!); }} title={`Join the ${meetingService(event.meetingUrl)} call`}>
+    <button className={`btn primary ${small ? 'small' : ''}`} onClick={(e) => { e.stopPropagation(); openExternal(event.meetingUrl!); onJoin?.(); }} title={`Join the ${meetingService(event.meetingUrl)} call`}>
       <Icon name="link" size={14} /> Join {meetingService(event.meetingUrl)}
     </button>
   );
 }
 
 /** A small window with the details of one event. */
-export function EventPreview({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
+export function EventPreview({ event: picked, onClose }: { event: CalendarEvent; onClose: () => void }) {
   const colour = useColour();
   const accounts = useMail((s) => s.accounts);
+  const all = useMail((s) => s.events);
+  // The calendar refreshes in the background, so show the newest copy of this event.
+  const event = useMemo(() => dedupeEvents(all).find((x) => x.id === picked.id) || picked, [all, picked]);
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => { setRefreshing(true); try { await refreshEvents(); } finally { setRefreshing(false); } };
+  // Opening an event with guests pulls the latest answers, unless they were fetched in the last minute.
+  useEffect(() => { if (picked.guests?.length && Date.now() - lastEventsRefresh() > 60000) void refresh(); }, [picked.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const ids = event.accountIds?.length ? event.accountIds : [event.accountId];
   const labels = ids.map((id) => accounts.find((a) => a.id === id)?.label || accounts.find((a) => a.id === id)?.email || '').filter(Boolean);
   useEffect(() => {
@@ -83,8 +188,15 @@ export function EventPreview({ event, onClose }: { event: CalendarEvent; onClose
         {event.location && !event.location.startsWith('http') && <div className="ev-line"><Icon name="folder" size={15} /> {event.location}</div>}
         {event.meetingUrl && <div className="ev-line"><Icon name="link" size={15} /> {meetingService(event.meetingUrl)} call</div>}
         {event.description && <p className="ev-notes">{event.description}</p>}
+        {event.guests && event.guests.length > 0 && (
+          <div className="ev-guests">
+            <GuestList guests={event.guests} subject={event.title} />
+            <button className="btn ghost small" disabled={refreshing} onClick={refresh} title="Fetch the latest answers"><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" size={13} /></span> {refreshing ? 'Checking' : 'Refresh answers'}</button>
+          </div>
+        )}
         <div className="ev-actions">
           <JoinButton event={event} />
+          <button className="btn" onClick={() => { void navigator.clipboard?.writeText(inviteText(event)).then(() => toast({ text: 'Invite copied. Paste it anywhere.', ttl: 2500 }), () => toast({ text: "Couldn't copy the invite", ttl: 4000 })); }}>Copy invite</button>
           {event.htmlLink && <button className="btn" onClick={() => openExternal(event.htmlLink!)}>Open in calendar</button>}
           <button className="btn ghost" onClick={onClose}>Close</button>
         </div>
@@ -96,8 +208,9 @@ export function EventPreview({ event, onClose }: { event: CalendarEvent; onClose
 /** The next week, as a list. Click one for its details. */
 export function ComingUpList({ limit = 8, onPick }: { limit?: number; onPick: (e: CalendarEvent) => void }) {
   const events = useMail((s) => s.events);
+  const hidden = useSettings((s) => s.hiddenCalendars);
   const tick = useMinute();
-  const next = useMemo(() => upcoming(events).slice(0, limit), [events, tick, limit]); // eslint-disable-line react-hooks/exhaustive-deps
+  const next = useMemo(() => upcoming(visibleEvents(events, hidden)).slice(0, limit), [events, hidden, tick, limit]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!next.length) return <div style={{ color: 'var(--text-muted)' }}>Nothing in the next week</div>;
   return (
     <>
@@ -122,7 +235,8 @@ export function ComingUpPanel() {
   return (
     <aside className="coming-panel" aria-label="Coming up">
       <div className="coming-head">
-        <strong>Coming up</strong>
+        <strong style={{ flex: 1 }}>Coming up</strong>
+        <CalendarPicker iconOnly />
         <button className="icon-btn" aria-label="Close Coming up" onClick={() => set({ comingUpOpen: false })}><Icon name="close" size={14} /></button>
       </div>
       <ComingUpList limit={12} onPick={setOpen} />
@@ -133,7 +247,9 @@ export function ComingUpPanel() {
 
 /** A month at a time, each event a coloured chip. */
 export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
-  const events = useMail((s) => s.events);
+  const allEvents = useMail((s) => s.events);
+  const hidden = useSettings((s) => s.hiddenCalendars);
+  const events = useMemo(() => visibleEvents(allEvents, hidden), [allEvents, hidden]);
   const colour = useColour();
   const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
   const first = new Date(month);
@@ -184,31 +300,47 @@ export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
   );
 }
 
-/** Appears over the mail 5 minutes before a meeting that has a video link, and stays until dismissed. */
+/** Appears over the mail a few minutes before a meeting that has a video link. It turns amber for the first minute, coral once the meeting has started, and goes by itself 10 minutes after the start. */
 export function MeetingBanner() {
   const events = useMail((s) => s.events);
   const enabled = useSettings((s) => s.meetingBanner);
   const lead = useSettings((s) => s.meetingBannerMins);
-  const tick = useMinute();
+  const [now, setNow] = useState(() => Date.now());
   const [gone, setGone] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<CalendarEvent | null>(null);
-  const soon = useMemo(() => (enabled ? meetingsSoon(events, Date.now(), lead).filter((e) => !gone.has(`${e.id}|${e.start}`)) : []), [events, enabled, lead, gone, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [demo, setDemo] = useState<CalendarEvent | null>(null);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
+  // Settings has a button that shows a pretend meeting five minutes away, so you can see the bar and how it changes.
+  useEffect(() => {
+    const show = () => { const s = Date.now() + 5 * 60000; setDemo({ id: 'demo-meeting', accountId: '', calendarName: 'Test', title: 'Test meeting', start: s, end: s + 30 * 60000, allDay: false, meetingUrl: 'https://meet.google.com/abc-defg-hij', reminderMinutes: [] }); setNow(Date.now()); };
+    window.addEventListener('wgm-test-meeting-bar', show);
+    return () => window.removeEventListener('wgm-test-meeting-bar', show);
+  }, []);
+  const soon = useMemo(() => {
+    const real = enabled ? meetingsSoon(events, now, lead) : [];
+    const shown = demo && demo.start + 10 * 60000 > now ? [demo, ...real] : real;
+    return shown.filter((e) => !gone.has(`${e.id}|${e.start}`));
+  }, [events, enabled, lead, gone, now, demo]);
   if (!soon.length) return null;
+  const dismiss = (e: CalendarEvent) => { if (e.id === 'demo-meeting') setDemo(null); setGone((g) => new Set(g).add(`${e.id}|${e.start}`)); };
   return (
     <>
       {soon.slice(0, 2).map((e) => {
-        const mins = Math.round((e.start - Date.now()) / 60000);
+        const p = meetingPhase(e.start, now);
         return (
-          <div className="meeting-bar" key={e.id} role="status">
+          <div className={`meeting-bar ${p.phase === 'now' ? 'starting' : p.phase === 'late' || p.phase === 'long' ? 'late' : ''}`} key={e.id} role={p.phase === 'before' ? 'status' : 'alert'}>
             <div className="mb-left">
               <Icon name="calendar" size={16} />
               <button className="meeting-text" onClick={() => setOpen(e)}>
-                <strong>{e.title}</strong> <span>{mins > 0 ? `starts in ${mins} ${mins === 1 ? 'minute' : 'minutes'}` : mins === 0 ? 'is starting now' : 'has started'}</span>
+                <strong>{e.title}</strong> <span>{meetingPhaseText(p)}</span>
               </button>
             </div>
-            <JoinButton event={e} />
+            <JoinButton event={e} onJoin={() => dismiss(e)} />
             <div className="mb-right">
-              <button className="icon-btn" aria-label="Dismiss" onClick={() => setGone(new Set(gone).add(`${e.id}|${e.start}`))}><Icon name="close" size={14} /></button>
+              <button className="icon-btn" aria-label="Dismiss" onClick={() => dismiss(e)}><Icon name="close" size={14} /></button>
             </div>
           </div>
         );

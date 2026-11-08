@@ -76,7 +76,7 @@ export function meetingAlertsDue(events: CalendarEvent[], now: number, times: nu
   const out: { key: string; event: CalendarEvent; minutes: number }[] = [];
   const mins = [...new Set(times.filter((m) => Number.isInteger(m) && m > 0))].sort((a, b) => b - a);
   for (const e of dedupeEvents(events)) {
-    if (!e.meetingUrl || e.allDay) continue;
+    if (!e.meetingUrl || e.allDay || e.declined) continue;
     const until = e.start - now;
     if (until <= 0) continue;
     // Each time covers the stretch back to the next smaller one, so an app opened late doesn't fire stale alerts.

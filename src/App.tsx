@@ -411,7 +411,15 @@ function MainWindow() {
         ><Icon name={themeIsDark ? 'sun' : 'moon'} /></button>
         {accounts.length > 0 && <SearchBox />}
         {accounts.length > 0 && (
-          <button className={`icon-btn ${s.comingUpOpen ? 'active' : ''}`} title="Coming up: meetings and reminders" aria-label="Coming up" aria-pressed={s.comingUpOpen} onClick={() => s.set({ comingUpOpen: !s.comingUpOpen })}><Icon name="calendar" /></button>
+          <button
+            className={`icon-btn ${s.comingUpOpen && screen !== 'reminders' ? 'active' : ''}`}
+            title={screen === 'reminders' ? 'Coming up is already showing on this page' : 'Coming up: meetings and reminders'}
+            aria-label="Coming up"
+            aria-pressed={s.comingUpOpen && screen !== 'reminders'}
+            aria-disabled={screen === 'reminders'}
+            style={screen === 'reminders' ? { opacity: 0.45, cursor: 'default' } : undefined}
+            onClick={() => { if (screen !== 'reminders') s.set({ comingUpOpen: !s.comingUpOpen }); }}
+          ><Icon name="calendar" /></button>
         )}
       </header>
       {accounts.length > 0 && !guide && <MeetingBanner />}
@@ -434,7 +442,7 @@ function MainWindow() {
               {selectedKey || inlineDraftId ? <ReadingPane onBack={() => useMail.setState({ selectedKey: undefined, selectedKeys: [], inlineDraftId: undefined })} /> : <MessageList style={{ flex: 1, width: '100%', borderRight: 0 }} />}
             </div>
           ) : screen === 'reminders' ? <Reminders /> : screen === 'help' ? <Help /> : <SettingsScreen />}
-          {s.comingUpOpen && <ComingUpPanel />}
+          {s.comingUpOpen && screen !== 'reminders' && <ComingUpPanel />}
         </div>
       ) : (
         <div className={`main ${bottom ? 'bottom' : ''}`}>
@@ -461,7 +469,7 @@ function MainWindow() {
           ) : (
             <SettingsScreen />
           )}
-          {s.comingUpOpen && <ComingUpPanel />}
+          {s.comingUpOpen && screen !== 'reminders' && <ComingUpPanel />}
         </div>
       )}
       {appMenu.node}

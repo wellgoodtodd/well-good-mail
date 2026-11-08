@@ -1,14 +1,14 @@
 // At the top of an email that is a calendar invitation: when it is, who's invited, a Join button,
 // Yes / No / Maybe, and Add to calendar.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { JoinButton } from './ComingUp';
+import { GuestList, JoinButton } from './ComingUp';
 import { addInviteToCalendar, answerInvite, canAddToCalendar, getAttachmentData, inviteStatus, reconnectAccount, toast, useMail } from '../lib/mail';
 import { parseInvite, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from '../lib/invites';
 import { CalendarPermissionError } from '../lib/providers/provider';
 import { calendarEditAllowed } from '../lib/auth/google';
 import { saveFile } from '../lib/platform';
-import type { CalendarEvent, Message } from '../lib/types';
+import type { CalendarEvent, EventGuest, Message } from '../lib/types';
 
 const isCalendarFile = (a: Message['attachments'][number]) => /calendar|ics/i.test(a.mimeType) || /\.ics$/i.test(a.filename);
 
@@ -23,6 +23,12 @@ function whenText(i: Invite): string {
 
 const personName = (p?: { email: string; name?: string }) => (p ? p.name || p.email : '');
 
+const CHIP: Record<Rsvp, { word: string; cls: 'yes' | 'no' | 'maybe'; glyph: string }> = {
+  accepted: { word: 'Going', cls: 'yes', glyph: '✓' },
+  declined: { word: 'Not going', cls: 'no', glyph: '✕' },
+  tentative: { word: 'Maybe', cls: 'maybe', glyph: '?' },
+};
+
 export function InviteCard({ message }: { message: Message }) {
   const account = useMail((s) => s.accounts.find((a) => a.id === message.accountId));
   const [invite, setInvite] = useState<Invite | undefined>();
@@ -33,12 +39,17 @@ export function InviteCard({ message }: { message: Message }) {
   const [wanted, setWanted] = useState<Rsvp | undefined>();
   const [needsPermission, setNeedsPermission] = useState(false);
   const [hint, setHint] = useState('');
+  const [how, setHow] = useState<'calendar' | 'email' | undefined>();
+  const [fresh, setFresh] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const freshTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => { if (freshTimer.current) clearTimeout(freshTimer.current); }, []);
   const files = message.attachments.filter(isCalendarFile);
   const fileKey = files.map((f) => f.id).join('|');
 
   useEffect(() => {
     let alive = true;
-    setInvite(undefined); setServer(undefined); setAnswer(undefined); setNeedsPermission(false); setHint('');
+    setInvite(undefined); setServer(undefined); setAnswer(undefined); setNeedsPermission(false); setHint(''); setHow(undefined); setFresh(false); setMenu(false);
     (async () => {
       for (const [i, f] of files.entries()) {
         try {
@@ -72,7 +83,9 @@ export function InviteCard({ message }: { message: Message }) {
     setBusy(true);
     try {
       const how = await answerInvite(message.id, invite, status, { byEmail });
-      setAnswer(status); setNeedsPermission(false); setHint('');
+      setAnswer(status); setNeedsPermission(false); setHint(''); setHow(how); setMenu(false); setFresh(true);
+      if (freshTimer.current) clearTimeout(freshTimer.current);
+      freshTimer.current = setTimeout(() => setFresh(false), 30000);
       toast({ text: how === 'calendar' ? `${RSVP_WORDS[status].past}. The organiser has been told.` : `${RSVP_WORDS[status].past}. A reply has been emailed to ${personName(invite.organizer)}.`, ttl: 4000 });
     } catch (e) {
       if (e instanceof CalendarPermissionError) setNeedsPermission(true);
@@ -122,22 +135,40 @@ export function InviteCard({ message }: { message: Message }) {
         <div className="inv-note">{personName(invite.attendees[0])} answered: {invite.attendees[0]?.status === 'ACCEPTED' ? 'Yes' : invite.attendees[0]?.status === 'DECLINED' ? 'No' : invite.attendees[0]?.status === 'TENTATIVE' ? 'Maybe' : 'no answer yet'}.</div>
       )}
 
-      {canReply && (
+      {canReply && !current && (
         <div className="inv-row">
           <span className="inv-label">Going?</span>
           <div className="inv-pill" role="group" aria-label="Your answer">
             {(['accepted', 'declined', 'tentative'] as Rsvp[]).map((s) => (
-              <button key={s} className={current === s ? 'on' : ''} aria-pressed={current === s} disabled={busy} onClick={() => reply(s)}>{RSVP_WORDS[s].label}</button>
+              <button key={s} disabled={busy} onClick={() => reply(s)}>{RSVP_WORDS[s].label}</button>
             ))}
           </div>
+          <span className="inv-small">You haven't responded yet. Replying as {account.email}</span>
+        </div>
+      )}
+
+      {canReply && current && (
+        <div className="inv-row">
+          <span className={`inv-chip ${CHIP[current].cls}`}><span aria-hidden="true">{CHIP[current].glyph}</span> {CHIP[current].word}</span>
+          <span className="inv-saved" role="status">{fresh ? (how === 'email' ? 'Your reply has been emailed' : 'Your calendar has been updated') : how === 'email' ? 'Reply sent by email' : 'Saved to your calendar'}</span>
+          <span className="cal-picker">
+            <button className="btn ghost small" aria-expanded={menu} disabled={busy} onClick={() => setMenu(!menu)}>Change answer <Icon name="chevronDown" size={12} /></button>
+            {menu && (
+              <div className="cal-pop inv-change" role="menu">
+                {(['accepted', 'declined', 'tentative'] as Rsvp[]).filter((s) => s !== current).map((s) => (
+                  <button key={s} role="menuitem" className="btn ghost" onClick={() => reply(s)}>{RSVP_WORDS[s].label}</button>
+                ))}
+              </div>
+            )}
+          </span>
           <span className="inv-small">Replying as {account.email}</span>
         </div>
       )}
 
-      {!cancelled && invite.method !== 'REPLY' && (
+      {!cancelled && invite.method !== 'REPLY' && !(canReply && current && (server?.inCalendar || how)) && (
         <div className="inv-row">
           {server?.inCalendar ? (
-            <span className="inv-ok"><Icon name="check" size={14} /> In your calendar{current ? `, you said ${RSVP_WORDS[current].label}` : ''}</span>
+            <span className="inv-ok"><Icon name="check" size={14} /> Saved to your calendar</span>
           ) : canAddToCalendar(message.id) ? (
             <button className="btn" disabled={busy} onClick={add}><Icon name="calendar" size={14} /> Add to calendar</button>
           ) : (
@@ -159,14 +190,15 @@ export function InviteCard({ message }: { message: Message }) {
       {hint && <div className="inv-note">{hint}</div>}
 
       {invite.attendees.length > 0 && (
-        <details className="inv-guests">
-          <summary>Guests ({invite.attendees.length})</summary>
-          <ul>
-            {invite.attendees.map((a) => (
-              <li key={a.email}>{personName(a)}{a.status === 'ACCEPTED' ? ' · Yes' : a.status === 'DECLINED' ? ' · No' : a.status === 'TENTATIVE' ? ' · Maybe' : ''}{invite.organizer?.email === a.email ? ' · organiser' : ''}</li>
-            ))}
-          </ul>
-        </details>
+        <div className="inv-guests">
+          <GuestList subject={invite.title} guests={invite.attendees.map((a): EventGuest => ({
+            email: a.email,
+            name: a.name,
+            answer: a.status === 'ACCEPTED' ? 'yes' : a.status === 'DECLINED' ? 'no' : a.status === 'TENTATIVE' ? 'maybe' : 'waiting',
+            organiser: invite.organizer?.email === a.email || undefined,
+            self: mine.some((m) => m.toLowerCase() === a.email.toLowerCase()) || undefined,
+          }))} />
+        </div>
       )}
     </section>
   );

@@ -150,6 +150,22 @@ export interface CalendarEvent {
   htmlLink?: string;
   /** When the same event is on several of your calendars it is shown once; these are all the accounts it is on. */
   accountIds?: string[];
+  /** Who is invited and what they answered, when the calendar tells us. */
+  guests?: EventGuest[];
+  /** Your own answer on this copy of the event. */
+  myResponse?: GuestAnswer;
+  /** True when every copy of the event has your "No" on it, so no alerts are needed. */
+  declined?: boolean;
+}
+
+export type GuestAnswer = 'yes' | 'no' | 'maybe' | 'waiting';
+
+export interface EventGuest {
+  email: string;
+  name?: string;
+  answer: GuestAnswer;
+  organiser?: boolean;
+  self?: boolean;
 }
 
 export type ReminderKind = 'event' | 'followup' | 'snooze';

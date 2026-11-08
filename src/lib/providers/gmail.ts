@@ -3,7 +3,7 @@
 import { getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import { CalendarPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { Invite, Rsvp } from '../invites';
 import { findMeetingUrl } from '../meetings';
@@ -196,6 +196,16 @@ function decodeEntities(s: string): string {
 }
 
 const METADATA_HEADERS = ['From', 'To', 'Cc', 'Bcc', 'Reply-To', 'Subject', 'Date', 'Message-ID', 'References', 'In-Reply-To', 'List-Unsubscribe', 'List-Unsubscribe-Post', 'Delivered-To', 'Content-Type'];
+
+/** The guest list and your own answer, from Google's attendee list. */
+export function guestsOf(attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[]): Pick<CalendarEvent, 'guests' | 'myResponse'> {
+  const people = (attendees || []).filter((a) => a.email && !a.resource);
+  if (!people.length) return {};
+  const answerOf = (s?: string): EventGuest['answer'] => (s === 'accepted' ? 'yes' : s === 'declined' ? 'no' : s === 'tentative' ? 'maybe' : 'waiting');
+  const guests: EventGuest[] = people.slice(0, 60).map((a) => ({ email: a.email!.toLowerCase(), name: a.displayName, answer: answerOf(a.responseStatus), organiser: a.organizer || undefined, self: a.self || undefined }));
+  const me = people.find((a) => a.self);
+  return { guests, myResponse: me ? answerOf(me.responseStatus) : undefined };
+}
 
 export class GmailProvider implements MailProvider {
   constructor(public readonly account: Account) {}
@@ -461,7 +471,7 @@ export class GmailProvider implements MailProvider {
         maxResults: '250',
       });
       try {
-        const { items } = await this.call<{ items: { id: string; summary?: string; status?: string; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] } }[] }>(
+        const { items } = await this.call<{ items: { id: string; summary?: string; status?: string; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] }; attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[] }[] }>(
           `${CAL}/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
         );
         for (const e of items) {
@@ -485,6 +495,7 @@ export class GmailProvider implements MailProvider {
             meetingUrl: e.hangoutLink || e.conferenceData?.entryPoints?.find((p) => p.entryPointType === 'video')?.uri || findMeetingUrl(e.location, e.description),
             reminderMinutes,
             htmlLink: e.htmlLink,
+            ...guestsOf(e.attendees),
           });
         }
       } catch (err) {

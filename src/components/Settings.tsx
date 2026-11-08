@@ -24,6 +24,7 @@ import { useSettingsAlerts } from '../lib/alerts';
 import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate } from '../lib/updater';
 import { useMenu, Dialog } from './ui';
 import { UpdateLog } from './WhatsNew';
+import { CalendarList } from './ComingUp';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../lib/shortcuts';
 
 const TABS = [
@@ -219,6 +220,13 @@ function AccountsTab() {
           </details>
         )}
       </section>
+      {accounts.some((a) => a.kind !== 'demo') && (
+        <section className="set-section">
+          <h2>Calendars</h2>
+          <p className="hint">Tick the calendars to show in the calendar and in Coming up. The same list is on the Reminders page and the Coming up panel, so changing it in one place changes it everywhere. Hiding a calendar only tidies the views: meeting alerts still use it.</p>
+          <CalendarList />
+        </section>
+      )}
       <div className="set-card" style={{ marginTop: 0, marginBottom: 18, maxWidth: 760 }}>
         <div className="tx"><strong>Colours and appearance</strong><span>Pick a colour theme, the account colour palettes, fonts and layout.</span></div>
         <button className="btn" onClick={() => openScreen('settings', 'appearance')}>Open Appearance</button>
@@ -567,50 +575,72 @@ function WritingTab() {
 
 // ---------- reminders ----------
 
-const MINUTE_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30, 40, 45, 50, 60, 75, 90, 120, 150, 180];
+const MINUTE_CHOICES = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 180];
+const timeLabel = (n: number) => (n >= 120 && n % 60 === 0 ? `${n / 60} hours` : `${n} ${n === 1 ? 'minute' : 'minutes'}`);
 
-/** A number of minutes. Pick from a long list, or type your own: the list narrows to numbers that start with what you type. */
+/** A time before a meeting. Pick from the list, or type a number and choose minutes or hours. The list opens upwards when it would run off the bottom of the window. */
 function MinutesPicker({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
-  const [text, setText] = useState(String(value));
+  const [unit, setUnit] = useState<'minutes' | 'hours'>(value >= 120 && value % 60 === 0 ? 'hours' : 'minutes');
+  const per = unit === 'hours' ? 60 : 1;
+  const top = unit === 'hours' ? 3 : 180;
+  const show = (n: number) => String(Math.max(1, Math.round(n / per)));
+  const [text, setText] = useState(show(value));
   const [open, setOpen] = useState(false);
+  const [up, setUp] = useState(false);
   const [typed, setTyped] = useState(false);
   const [active, setActive] = useState(0);
   const box = useRef<HTMLDivElement>(null);
-  useEffect(() => setText(String(value)), [value]);
+  useEffect(() => setText(show(value)), [value, unit]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
     const away = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) close(); };
     document.addEventListener('mousedown', away);
     return () => document.removeEventListener('mousedown', away);
   });
-  const shown = typed && text ? MINUTE_CHOICES.filter((n) => String(n).startsWith(text)) : MINUTE_CHOICES;
-  const close = () => { setOpen(false); setTyped(false); const n = Number(text); if (!(Number.isInteger(n) && n >= 1 && n <= 180)) setText(String(value)); };
-  const pick = (n: number) => { onChange(n); setText(String(n)); setOpen(false); setTyped(false); };
+  const choices = unit === 'hours' ? [60, 120, 180] : MINUTE_CHOICES;
+  const shown = typed && text ? choices.filter((n) => String(n / per).startsWith(text)) : choices;
+  const openList = () => {
+    const r = box.current?.getBoundingClientRect();
+    if (r) { const below = window.innerHeight - r.bottom; setUp(below < 280 && r.top > below); }
+    setOpen(true);
+  };
+  const close = () => { setOpen(false); setTyped(false); const n = Number(text); if (!(Number.isInteger(n) && n >= 1 && n <= top)) setText(show(value)); };
+  const pick = (n: number) => { if (n >= 120 && n % 60 === 0) setUnit('hours'); else if (unit === 'hours' && n < 120) setUnit('minutes'); onChange(n); setText(show(n)); setOpen(false); setTyped(false); };
+  const changeUnit = (u: 'minutes' | 'hours') => {
+    setUnit(u);
+    if (u === 'hours') onChange(Math.min(3, Math.max(1, Math.round(value / 60))) * 60);
+  };
   return (
-    <div className="mins-box" ref={box}>
-      <input
-        className="mins-input" type="text" inputMode="numeric" role="combobox" aria-expanded={open} aria-label={`${label}: minutes before`} aria-autocomplete="list"
-        value={text}
-        onFocus={(e) => { setOpen(true); e.target.select(); }}
-        onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); setText(v); setTyped(true); setOpen(true); setActive(0); const n = Number(v); if (v && n >= 1 && n <= 180) onChange(n); }}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((i) => Math.min(shown.length - 1, i + 1)); }
-          else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
-          else if (e.key === 'Enter') { e.preventDefault(); if (open && shown[active] !== undefined && typed) pick(shown[active]); else close(); }
-          else if (e.key === 'Escape') close();
-        }}
-      />
-      <button type="button" className="mins-arrow" tabIndex={-1} aria-label="Show common times" onClick={() => { setTyped(false); setOpen(!open); }}><Icon name="chevronDown" size={14} /></button>
-      {open && (
-        <ul className="mins-list" role="listbox" aria-label="Minutes">
-          {shown.length === 0 && <li className="none">No match. Whole minutes up to 180 are fine.</li>}
-          {shown.map((n, i) => (
-            <li key={n} role="option" aria-selected={n === value} className={`${n === value ? 'sel' : ''} ${typed && i === active ? 'act' : ''}`} onMouseDown={(e) => { e.preventDefault(); pick(n); }}>{n} {n === 1 ? 'minute' : 'minutes'}</li>
-          ))}
-          <li className="none">Or type any number from 1 to 180</li>
-        </ul>
-      )}
-    </div>
+    <>
+      <div className="mins-box" ref={box}>
+        <input
+          className="mins-input" type="text" inputMode="numeric" role="combobox" aria-expanded={open} aria-label={`${label}: time before`} aria-autocomplete="list"
+          value={text}
+          onFocus={(e) => { openList(); e.target.select(); }}
+          onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); setText(v); setTyped(true); openList(); setActive(0); const n = Number(v); if (v && n >= 1 && n <= top) onChange(n * per); }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); openList(); setActive((i) => Math.min(shown.length - 1, i + 1)); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
+            else if (e.key === 'Enter') { e.preventDefault(); if (open && shown[active] !== undefined && typed) pick(shown[active]); else close(); }
+            else if (e.key === 'Escape') close();
+          }}
+        />
+        <button type="button" className="mins-arrow" tabIndex={-1} aria-label="Show common times" onClick={() => { setTyped(false); if (open) setOpen(false); else openList(); }}><Icon name="chevronDown" size={14} /></button>
+        {open && (
+          <ul className={`mins-list ${up ? 'up' : ''}`} role="listbox" aria-label="Time before the meeting">
+            {shown.length === 0 && <li className="none">No match. Up to {top} {unit} is fine.</li>}
+            {shown.map((n, i) => (
+              <li key={n} role="option" aria-selected={n === value} className={`${n === value ? 'sel' : ''} ${typed && i === active ? 'act' : ''}`} onMouseDown={(e) => { e.preventDefault(); pick(n); }}>{timeLabel(n)}</li>
+            ))}
+            <li className="none">Or type a number, up to {top} {unit}</li>
+          </ul>
+        )}
+      </div>
+      <select className="mins-unit" aria-label={`${label}: minutes or hours`} value={unit} onChange={(e) => changeUnit(e.target.value as 'minutes' | 'hours')}>
+        <option value="minutes">{Number(text) === 1 && unit === 'minutes' ? 'minute' : 'minutes'}</option>
+        <option value="hours">{Number(text) === 1 && unit === 'hours' ? 'hour' : 'hours'}</option>
+      </select>
+    </>
   );
 }
 
@@ -633,10 +663,14 @@ function RemindersTab() {
         <Check checked={s.flashTaskbar} onChange={(v) => s.set({ flashTaskbar: v })}>Flash the taskbar icon for reminders and new mail when the app is in the background</Check>
         <h3 className="sub-head">Video meeting notifications</h3>
         <p className="hint">For events that have a Teams, Zoom or Google Meet link. Pick a time from the list, or type your own number of minutes. Other events use the reminder time set in your calendar.</p>
-        <div className="min-grid"><div className="min-row"><Check checked={s.meetingAlert1On} onChange={(v) => s.set({ meetingAlert1On: v })}>First notification</Check><MinutesPicker label="First notification" value={s.meetingAlert1Mins} onChange={(n) => s.set({ meetingAlert1Mins: n })} /><span>minutes before</span></div>
-        <div className="min-row"><Check checked={s.meetingAlert2On} onChange={(v) => s.set({ meetingAlert2On: v })}>Second notification</Check><MinutesPicker label="Second notification" value={s.meetingAlert2Mins} onChange={(n) => s.set({ meetingAlert2Mins: n })} /><span>minutes before</span></div>
-        <div className="min-row"><Check checked={s.meetingBanner} onChange={(v) => s.set({ meetingBanner: v })}>Bar over my mail, with a Join button</Check><MinutesPicker label="Bar over my mail" value={s.meetingBannerMins} onChange={(n) => s.set({ meetingBannerMins: n })} /><span>minutes before</span></div></div>
-        <p className="hint">Windows notifications from Well Good Mail never cover your work and never need dismissing one by one.</p>
+        <div className="min-grid"><div className="min-row"><Check checked={s.meetingAlert1On} onChange={(v) => s.set({ meetingAlert1On: v })}>First notification</Check><MinutesPicker label="First notification" value={s.meetingAlert1Mins} onChange={(n) => s.set({ meetingAlert1Mins: n })} /><span>before</span></div>
+        <div className="min-row"><Check checked={s.meetingAlert2On} onChange={(v) => s.set({ meetingAlert2On: v })}>Second notification</Check><MinutesPicker label="Second notification" value={s.meetingAlert2Mins} onChange={(n) => s.set({ meetingAlert2Mins: n })} /><span>before</span></div>
+        <div className="min-row"><Check checked={s.meetingBanner} onChange={(v) => s.set({ meetingBanner: v })}>Banner in the app, with a Join button</Check><MinutesPicker label="Banner in the app" value={s.meetingBannerMins} onChange={(n) => s.set({ meetingBannerMins: n })} /><span>before</span></div></div>
+        <p className="hint">A <strong>notification</strong> is the Windows pop up. The <strong>banner</strong> is the bar across the top of the app. The banner turns amber as the meeting starts, then coral, and goes by itself 10 minutes after the start. Meetings you have said No to don't alert you.</p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn" onClick={() => notify('Test meeting in 5 minutes', `${new Date(Date.now() + 5 * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · Google Meet link in Well Good Mail`)}>Test notification</button>
+          <button className="btn" onClick={() => window.dispatchEvent(new Event('wgm-test-meeting-bar'))}>Test banner</button>
+        </div>
       </section>
     </>
   );
@@ -668,8 +702,8 @@ function NotificationsTab() {
         ]} />
         <p className="hint" style={{ marginTop: 10 }}>When the app is minimised or in the background, new mail always uses a Windows notification. Its sound, and whether it appears at all, are set in Windows. The app plays no sounds of its own.</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-          <button className="btn" onClick={() => notify('Isla Grant', 'This is how a new email will look. You can ignore this one.')}>Test Windows notification</button>
-          <button className="btn" onClick={() => showBanner({ title: 'Isla Grant', body: 'This is how a new email will look in the app.', run: () => {} , actionLabel: 'Open' })}>Test in-app banner</button>
+          <button className="btn" onClick={() => notify('Isla Grant', 'This is how a new email will look. You can ignore this one.')}>Test notification</button>
+          <button className="btn" onClick={() => showBanner({ title: 'Isla Grant', body: 'This is how a new email will look in the app.', run: () => {} , actionLabel: 'Open' })}>Test banner</button>
           {isTauri() && <button className="btn" onClick={() => openExternal('ms-settings:notifications')}>Open Windows notification settings</button>}
         </div>
       </section>
