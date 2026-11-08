@@ -9,7 +9,7 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 ## Later
 
-- **Smoother installer** (noted 8 Nov 2026). Move on by itself when a step finishes (no Next or Close after the progress bar, including the step that removes the old copy), and show the licence with two choices, I accept and I do not accept, then Next. Needs our own copy of Tauri's installer template (`bundle.windows.nsis.template`), kept in step with Tauri updates. Keep Back buttons. The quiet update path skips these pages, so test both a fresh install and an update.
+- **Installer:** decided 8 Nov 2026 to keep Tauri's standard installer, so it never needs keeping in step with Tauri updates. No custom template.
 
 - AI connection: consider renaming the "Read and write" level to "Full access" when writing actions arrive.
 - Hover preview: a "Loading..." line for slower files.
