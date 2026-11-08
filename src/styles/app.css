@@ -826,3 +826,18 @@ li.yes .g-word { color: var(--success); } li.no .g-word { color: var(--danger); 
 .coming-head .cal-pop { width: 240px; right: -4px; }
 .min-grid { grid-template-columns: auto auto auto 1fr; }
 .min-grid .mins-unit { width: auto; justify-self: start; margin-left: 0; }
+
+/* Attachments: a card for a single file, compact chips for several */
+.ftile { display: inline-flex; align-items: center; justify-content: center; flex: none; font-weight: 700; letter-spacing: 0.02em; background: var(--bg-hover); color: var(--text-muted); }
+.ftile.pdf { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+.ftile.img { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.ftile.cal { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.ftile.doc { background: color-mix(in srgb, var(--maybe-fill) 28%, transparent); color: var(--maybe); }
+.attachments.chips .attachment { border-radius: 999px; padding: 3px 6px 3px 4px; max-width: 260px; }
+.attachments.chips .ftile { width: 26px; height: 26px; border-radius: 50%; font-size: 9px; }
+.attachments.chips .fsize { display: inline; margin-left: 6px; }
+.attachments.chips .info { display: flex; align-items: baseline; min-width: 0; }
+.attachments.single .attachment { border-radius: 12px; padding: 8px 10px; gap: 10px; max-width: 420px; min-width: 260px; }
+.attachments.single .attachment .open { flex: 1; gap: 12px; }
+.attachments.single .ftile { width: 48px; height: 48px; border-radius: 10px; font-size: 13px; }
+.attachments.single .info { display: block; }

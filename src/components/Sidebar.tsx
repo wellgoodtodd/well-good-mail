@@ -13,7 +13,7 @@ import { ColourPicker } from './ColourPicker';
 import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
 import { inSystemFolder } from '../lib/mailbox';
-import { dueReminders } from '../lib/reminders';
+import { dueReminders, quietCalendars } from '../lib/reminders';
 import type { Account, AccountGroup, Folder, Scope, SystemFolder, View } from '../lib/types';
 
 const FOLDERS: { folder: SystemFolder; icon: IconName; name: string; all: string }[] = [
@@ -425,7 +425,9 @@ export function Sidebar({ width }: { width: number }) {
   const [renaming, setRenaming] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
   const pickColour = (accountId: string, anchor: { x: number; y: number }) => setPicker({ accountId, anchor });
-  const reminderCount = useMemo(() => dueReminders(events, followups, dismissed).length, [events, followups, dismissed]);
+  const hiddenCals = useSettings((s) => s.hiddenCalendars);
+  const hideAlerts = useSettings((s) => s.hiddenCalendarsHideAlerts);
+  const reminderCount = useMemo(() => dueReminders(events, followups, dismissed, Date.now(), quietCalendars({ hiddenCalendars: hiddenCals, hiddenCalendarsHideAlerts: hideAlerts })).length, [events, followups, dismissed, hiddenCals, hideAlerts]);
 
   const ctx = { accounts, folders, groups: s.groups, counts, badges: s.badges, badgeHidden: new Set(s.badgeHidden), names: s.sidebarNames };
   const hidden = new Set(s.hiddenItems);

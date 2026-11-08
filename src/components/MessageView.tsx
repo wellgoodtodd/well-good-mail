@@ -17,6 +17,21 @@ import { threadKey } from '../lib/mailbox';
 import type { Message } from '../lib/types';
 
 /** True when the email's HTML really uses this picture (cid:...), so it needs no chip of its own. */
+/** The little letters on an attachment's tile: PDF, JPG, ICS and so on. */
+function fileTag(a: Message['attachments'][number]): string {
+  const ext = (a.filename.match(/.([A-Za-z0-9]{1,5})$/)?.[1] || a.mimeType.split('/')[1] || 'file').toUpperCase();
+  return ext.slice(0, 4);
+}
+
+/** A colour family for the tile: documents, pictures, calendar files, everything else. */
+function fileTone(a: Message['attachments'][number]): string {
+  if (/calendar|ics/i.test(a.mimeType) || /.ics$/i.test(a.filename)) return 'cal';
+  if (a.mimeType.startsWith('image/')) return 'img';
+  if (/pdf/i.test(a.mimeType) || /.pdf$/i.test(a.filename)) return 'pdf';
+  if (/word|document|sheet|excel|presentation|powerpoint|text|csv/i.test(a.mimeType)) return 'doc';
+  return 'other';
+}
+
 function pointedAt(m: Message, a: Message['attachments'][number]): boolean {
   return Boolean(a.contentId && m.bodyHtml && m.bodyHtml.toLowerCase().includes(`cid:${a.contentId.toLowerCase()}`));
 }
@@ -222,9 +237,10 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
       </div>
 
       {attachments.length > 0 && (
-        <div className="attachments">
+        <div className={`attachments ${attachments.length === 1 ? 'single' : 'chips'}`}>
           {attachments.map((a, i) => {
             const canPreview = previewKind(a) !== null;
+            const single = attachments.length === 1;
             return (
               <div key={a.id} className="attachment" onContextMenu={(e) => { e.preventDefault(); setPeek(null); menu.open({ x: e.clientX, y: e.clientY }, [
                 ...(canPreview ? [{ label: 'Preview', icon: 'eye' as const, onClick: () => setPreviewAt(i) }] : []),
@@ -232,12 +248,13 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
                 ...(attachments.length > 1 ? [{ label: `Save all ${attachments.length} to a folder...`, icon: 'folder' as const, onClick: saveAll }] : []),
               ]); }} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); clearTimeout(peekTimer.current); if (canPreview) peekTimer.current = setTimeout(() => setPeek({ i, rect }), 600); }} onMouseLeave={() => { clearTimeout(peekTimer.current); setPeek(null); }}>
                 <button className="open" onClick={() => (canPreview ? (setPeek(null), setPreviewAt(i)) : download(a.id, a.filename, a.mimeType))} title={canPreview ? `Preview ${a.filename}` : `Save ${a.filename}`}>
-                  <Icon name={canPreview ? 'eye' : 'paperclip'} />
+                  <span className={`ftile ${fileTone(a)}`} aria-hidden="true">{fileTag(a)}</span>
                   <span className="info">
                     <div className="fname">{a.filename}</div>
                     <div className="fsize">{fileSize(a.size)}</div>
                   </span>
                 </button>
+                {single && canPreview && <button className="btn small" onClick={() => { setPeek(null); setPreviewAt(i); }}>Preview</button>}
                 <button className="icon-btn" onClick={() => download(a.id, a.filename, a.mimeType)} title={`Save ${a.filename}`} aria-label={`Save ${a.filename}`}><Icon name="download" /></button>
               </div>
             );

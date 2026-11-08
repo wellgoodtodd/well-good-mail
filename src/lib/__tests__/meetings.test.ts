@@ -4,7 +4,7 @@ vi.mock('../platform', () => ({ notify: async () => {}, flashTaskbar: () => {}, 
 vi.mock('../db', () => ({ store: { kvGet: async () => undefined, kvSet: async () => {} } }));
 
 const { findMeetingUrl, meetingService, meetingsSoon, dedupeEvents, meetingPhase, meetingPhaseText, visibleEvents, guestTally, inviteText } = await import('../meetings');
-const { meetingAlertsDue } = await import('../reminders');
+const { meetingAlertsDue, dueReminders, quietCalendars } = await import('../reminders');
 const { parseEvents } = await import('../dav');
 import type { CalendarEvent } from '../types';
 
@@ -115,5 +115,19 @@ describe('guests and copying an invite', () => {
     expect(t.split('\n')[0]).toBe('Beta test');
     expect(t).toContain('14:08 to 14:38');
     expect(t).toContain('Google Meet: https://meet.google.com/abc-defg-hij');
+  });
+});
+
+describe('hidden calendars and alerts', () => {
+  const now = 1_000_000_000;
+  it('keeps ordinary events quiet on hidden calendars, but never video meetings', () => {
+    const plain = ev({ id: 'p', accountId: 'a', calendarName: 'Holidays', start: now - 1000, end: now + 60000, reminderMinutes: [0] });
+    const call = ev({ id: 'v', accountId: 'a', calendarName: 'Holidays', title: 'Call', start: now - 1000, end: now + 60000, reminderMinutes: [0], meetingUrl: 'https://meet.google.com/a-b-c' });
+    expect(dueReminders([plain, call], [], new Set(), now, []).map((r) => r.id.split('|')[1]).sort()).toEqual(['p', 'v']);
+    expect(dueReminders([plain, call], [], new Set(), now, ['a|Holidays']).map((r) => r.id.split('|')[1])).toEqual(['v']);
+  });
+  it('follows the setting', () => {
+    expect(quietCalendars({ hiddenCalendars: ['a|X'], hiddenCalendarsHideAlerts: true })).toEqual(['a|X']);
+    expect(quietCalendars({ hiddenCalendars: ['a|X'], hiddenCalendarsHideAlerts: false })).toEqual([]);
   });
 });

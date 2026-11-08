@@ -3,7 +3,7 @@ import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Icon } from './Icon';
 import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectThread, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
-import { dueReminders, eventKey } from '../lib/reminders';
+import { dueReminders, eventKey, quietCalendars } from '../lib/reminders';
 import { CalendarPicker, ComingUpList, EventPreview, JoinButton, MonthView } from './ComingUp';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
 
@@ -28,7 +28,8 @@ export function Reminders() {
     return () => window.removeEventListener('wgm-minute', t);
   }, []);
 
-  const items = useMemo(() => dueReminders(events, followups, dismissed), [events, followups, dismissed, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const quiet = quietCalendars(s);
+  const items = useMemo(() => dueReminders(events, followups, dismissed, Date.now(), quiet), [events, followups, dismissed, tick, s.hiddenCalendars, s.hiddenCalendarsHideAlerts]); // eslint-disable-line react-hooks/exhaustive-deps
   const [preview, setPreview] = useState<CalendarEvent | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => {

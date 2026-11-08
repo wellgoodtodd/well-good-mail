@@ -72,6 +72,8 @@ export interface Settings {
   remindersView: 'list' | 'calendar';
   /** Calendars switched off in the calendar and Coming up, as "accountId|calendar name". Alerts still use them. */
   hiddenCalendars: string[];
+  /** Ordinary (non video) events on hidden calendars stay quiet too. Video meeting alerts always stay on. */
+  hiddenCalendarsHideAlerts: boolean;
 
   newMailAlerts: 'all' | 'important' | 'off';
   alertSound: boolean;
@@ -185,6 +187,7 @@ export const defaultSettings: Settings = {
   comingUpOpen: false,
   remindersView: 'list',
   hiddenCalendars: [],
+  hiddenCalendarsHideAlerts: true,
 
   newMailAlerts: 'important',
   alertSound: false,

@@ -3,7 +3,7 @@
 import { store } from './db';
 import { notify, flashTaskbar } from './platform';
 import { isQuietNow, settings } from './settings';
-import { meetingService, dedupeEvents } from './meetings';
+import { meetingService, dedupeEvents, calendarKey } from './meetings';
 import type { CalendarEvent, FollowUp, ReminderItem } from './types';
 
 export function eventReminderTime(e: CalendarEvent): number {
@@ -13,10 +13,16 @@ export function eventReminderTime(e: CalendarEvent): number {
 
 export const eventKey = (e: CalendarEvent) => `ev|${e.id}|${e.start}`;
 
+/** Calendars whose ordinary events should stay quiet: the ones you hid, when the setting says hidden calendars also hide alerts. Video meetings are never included here. */
+export function quietCalendars(s: { hiddenCalendars: string[]; hiddenCalendarsHideAlerts: boolean }): string[] {
+  return s.hiddenCalendarsHideAlerts ? s.hiddenCalendars : [];
+}
+
 /** Everything that's come due and hasn't been dismissed, newest first. */
-export function dueReminders(events: CalendarEvent[], followups: FollowUp[], dismissed: Set<string>, now = Date.now()): ReminderItem[] {
+export function dueReminders(events: CalendarEvent[], followups: FollowUp[], dismissed: Set<string>, now = Date.now(), quiet: string[] = []): ReminderItem[] {
   const items: ReminderItem[] = [];
   for (const e of events) {
+    if (!e.meetingUrl && quiet.includes(calendarKey(e))) continue;
     const due = e.allDay ? e.start : eventReminderTime(e);
     // Only things that are due now, and not ones that ended days ago.
     if (due > now || e.end < now - 3 * 86400000) continue;
@@ -50,7 +56,7 @@ export async function checkReminderAlerts(events: CalendarEvent[], followups: Fo
     loaded = true;
   }
   const now = Date.now();
-  const due = dueReminders(events, followups, dismissed, now).filter((r) => now - r.dueAt < 15 * 60000);
+  const due = dueReminders(events, followups, dismissed, now, quietCalendars(s)).filter((r) => now - r.dueAt < 15 * 60000);
   const important = new Set(s.importantEvents);
 
   if (!isQuietNow(s)) {

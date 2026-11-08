@@ -106,7 +106,7 @@ export function CalendarPicker({ iconOnly }: { iconOnly?: boolean }) {
         <div className="cal-pop" role="dialog" aria-label="Choose which calendars to show">
           <strong>Show these calendars</strong>
           <CalendarList />
-          <p className="hint" style={{ margin: '8px 0 0' }}>Hiding a calendar only tidies the views. Meeting alerts still use it.</p>
+          <p className="hint" style={{ margin: '8px 0 0' }}>Video meeting alerts stay on. Other alerts from hidden calendars follow the setting in Settings, Accounts.</p>
         </div>
       )}
     </div>

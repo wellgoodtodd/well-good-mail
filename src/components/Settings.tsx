@@ -223,8 +223,9 @@ function AccountsTab() {
       {accounts.some((a) => a.kind !== 'demo') && (
         <section className="set-section">
           <h2>Calendars</h2>
-          <p className="hint">Tick the calendars to show in the calendar and in Coming up. The same list is on the Reminders page and the Coming up panel, so changing it in one place changes it everywhere. Hiding a calendar only tidies the views: meeting alerts still use it.</p>
+          <p className="hint">Tick the calendars to show in the calendar and in Coming up. The same list is on the Reminders page and the Coming up panel, so changing it in one place changes it everywhere. Video meeting alerts always stay on, unless you have said No to the meeting.</p>
           <CalendarList />
+          <div style={{ marginTop: 10 }}><Check checked={s.hiddenCalendarsHideAlerts} onChange={(v) => s.set({ hiddenCalendarsHideAlerts: v })}>Hidden calendars also hide their ordinary event alerts and reminders</Check></div>
         </section>
       )}
       <div className="set-card" style={{ marginTop: 0, marginBottom: 18, maxWidth: 760 }}>
