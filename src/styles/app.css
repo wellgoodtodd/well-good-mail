@@ -842,3 +842,7 @@ li.yes .g-word { color: var(--success); } li.no .g-word { color: var(--danger); 
 .attachments.single .ftile { width: 48px; height: 48px; border-radius: 10px; font-size: 13px; }
 .attachments.single .info { display: block; }
 .ev-guests > .btn.ghost { margin-left: -10px; }
+.attachment .open { background: transparent; border: 0; }
+.attachment .open:hover { background: transparent; }
+.attachment .fsize { white-space: nowrap; }
+.cal-pop .link-btn { padding: 0; }

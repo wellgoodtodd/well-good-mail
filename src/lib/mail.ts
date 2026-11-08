@@ -21,7 +21,7 @@ import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout
 import { myAddresses } from './compose';
 import { bytesToBase64 } from './mime';
 import { paletteById, colourFor } from './palettes';
-import type { Account, Address, CalendarEvent, Draft, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
+import type { Account, Address, CalendarEvent, Draft, EventGuest, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
 
 const providers = new Map<string, MailProvider>();
 export const providerFor = (accountId: string) => providers.get(accountId);
@@ -638,7 +638,7 @@ function inviteAddresses(accountId: string, m: Message): string[] {
 }
 
 /** Whether the invitation is in the person's calendar yet, and what they answered. Undefined when this account can't tell. */
-export async function inviteStatus(messageId: string, invite: Invite): Promise<{ inCalendar: boolean; response?: Rsvp } | undefined> {
+export async function inviteStatus(messageId: string, invite: Invite): Promise<{ inCalendar: boolean; response?: Rsvp; guests?: EventGuest[] } | undefined> {
   const m = get().messages[messageId];
   const p = m && providers.get(m.accountId);
   if (!p?.inviteStatus) return undefined;

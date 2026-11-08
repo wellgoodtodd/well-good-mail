@@ -2,7 +2,7 @@
 // preview with a Join button, a month view, and the bar that appears just before a video meeting.
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, refreshEvents, lastEventsRefresh, toast } from '../lib/mail';
+import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { upcoming } from '../lib/reminders';
 import { meetingService, meetingsSoon, dedupeEvents, visibleEvents, guestTally, guestAnswerWord, inviteText, meetingPhase, meetingPhaseText } from '../lib/meetings';
@@ -106,7 +106,7 @@ export function CalendarPicker({ iconOnly }: { iconOnly?: boolean }) {
         <div className="cal-pop" role="dialog" aria-label="Choose which calendars to show">
           <strong>Show these calendars</strong>
           <CalendarList />
-          <p className="hint" style={{ margin: '8px 0 0' }}>Video meeting alerts stay on. Other alerts from hidden calendars follow the setting in Settings, Accounts.</p>
+          <p className="hint" style={{ margin: '8px 0 0' }}>Video meeting alerts stay on. Other alerts follow your <button className="link-btn" onClick={() => { setOpen(false); openScreen('settings', 'accounts'); }}>account settings</button>.</p>
         </div>
       )}
     </div>

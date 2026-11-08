@@ -1,5 +1,5 @@
 // The contract every mail service (Gmail, Microsoft 365, IMAP, demo) fulfils.
-import type { Account, Address, Alias, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Invite, Rsvp } from '../invites';
 
 export interface SyncResult {
@@ -43,7 +43,7 @@ export interface MailProvider {
   listContacts(): Promise<Address[]>;
   listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]>;
   /** Is this invitation in the person's calendar, and what did they answer? */
-  inviteStatus?(uid: string): Promise<{ inCalendar: boolean; response?: Rsvp }>;
+  inviteStatus?(uid: string): Promise<{ inCalendar: boolean; response?: Rsvp; guests?: EventGuest[] }>;
   /** Answers an invitation in the calendar itself, telling the organiser. False when it isn't in the calendar. */
   respondToInvite?(uid: string, status: Rsvp): Promise<boolean>;
   /** Puts an invitation in the calendar. */

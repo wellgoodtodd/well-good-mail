@@ -508,7 +508,7 @@ export class GmailProvider implements MailProvider {
   /** The invitation as it sits in the primary calendar, found by its calendar id. */
   private async findInvite(uid: string) {
     const CAL = 'https://www.googleapis.com/calendar/v3';
-    type Att = { email?: string; self?: boolean; responseStatus?: string };
+    type Att = { email?: string; displayName?: string; self?: boolean; organizer?: boolean; resource?: boolean; responseStatus?: string };
     const r = await this.call<{ items?: { id: string; attendees?: Att[] }[] }>(`${CAL}/calendars/primary/events?iCalUID=${encodeURIComponent(uid)}&maxResults=5`);
     const ev = r.items?.[0];
     return ev ? { id: ev.id, attendees: ev.attendees || [] } : undefined;
@@ -520,12 +520,12 @@ export class GmailProvider implements MailProvider {
     throw e;
   }
 
-  async inviteStatus(uid: string): Promise<{ inCalendar: boolean; response?: Rsvp }> {
+  async inviteStatus(uid: string): Promise<{ inCalendar: boolean; response?: Rsvp; guests?: EventGuest[] }> {
     const ev = await this.findInvite(uid);
     if (!ev) return { inCalendar: false };
     const me = ev.attendees.find((a) => a.self);
     const response = me?.responseStatus === 'accepted' || me?.responseStatus === 'declined' || me?.responseStatus === 'tentative' ? me.responseStatus : undefined;
-    return { inCalendar: true, response };
+    return { inCalendar: true, response, guests: guestsOf(ev.attendees).guests };
   }
 
   async respondToInvite(uid: string, status: Rsvp): Promise<boolean> {

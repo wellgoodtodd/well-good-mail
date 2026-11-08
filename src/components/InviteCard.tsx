@@ -33,7 +33,7 @@ export function InviteCard({ message }: { message: Message }) {
   const account = useMail((s) => s.accounts.find((a) => a.id === message.accountId));
   const [invite, setInvite] = useState<Invite | undefined>();
   const [fileIndex, setFileIndex] = useState(-1);
-  const [server, setServer] = useState<{ inCalendar: boolean; response?: Rsvp } | undefined>();
+  const [server, setServer] = useState<{ inCalendar: boolean; response?: Rsvp; guests?: EventGuest[] } | undefined>();
   const [answer, setAnswer] = useState<Rsvp | undefined>();
   const [busy, setBusy] = useState(false);
   const [wanted, setWanted] = useState<Rsvp | undefined>();
@@ -70,6 +70,8 @@ export function InviteCard({ message }: { message: Message }) {
   if (!invite || !account) return null;
 
   const mine = [account.email, ...(account.aliases || []).map((a) => a.email), message.deliveredTo || '', ...message.to.map((a) => a.email)].filter(Boolean);
+  // Only the addresses that are really yours: the account, its aliases and the one this was delivered to. Not everyone it was sent to.
+  const own = [account.email, ...(account.aliases || []).map((a) => a.email), message.deliveredTo || ''].filter(Boolean);
   const me = whichIsMe(invite, mine);
   const organiserIsMe = invite.organizer ? mine.some((m) => m.toLowerCase() === invite.organizer!.email) : false;
   const cancelled = invite.method === 'CANCEL';
@@ -97,7 +99,7 @@ export function InviteCard({ message }: { message: Message }) {
     setBusy(true);
     try {
       await addInviteToCalendar(message.id, invite);
-      setServer({ inCalendar: true, response: server?.response });
+      setServer({ inCalendar: true, response: server?.response, guests: server?.guests });
       toast({ text: 'Added to your calendar', ttl: 3000 });
     } catch (e) {
       if (e instanceof CalendarPermissionError) { setWanted(undefined); setNeedsPermission(true); }
@@ -191,12 +193,12 @@ export function InviteCard({ message }: { message: Message }) {
 
       {invite.attendees.length > 0 && (
         <div className="inv-guests">
-          <GuestList subject={invite.title} guests={invite.attendees.map((a): EventGuest => ({
+          <GuestList subject={invite.title} guests={server?.guests?.length ? server.guests : invite.attendees.map((a): EventGuest => ({
             email: a.email,
             name: a.name,
             answer: a.status === 'ACCEPTED' ? 'yes' : a.status === 'DECLINED' ? 'no' : a.status === 'TENTATIVE' ? 'maybe' : 'waiting',
             organiser: invite.organizer?.email === a.email || undefined,
-            self: mine.some((m) => m.toLowerCase() === a.email.toLowerCase()) || undefined,
+            self: own.some((m) => m.toLowerCase() === a.email.toLowerCase()) || undefined,
           }))} />
         </div>
       )}
