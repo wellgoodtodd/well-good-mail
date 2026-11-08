@@ -262,7 +262,8 @@ pub fn passthrough() {
             }
         }
     }
-    if let Some(s) = sock.lock().unwrap().take() {
+    let last = sock.lock().unwrap().take();
+    if let Some(s) = last {
         let _ = s.shutdown(Shutdown::Both);
     }
 }
