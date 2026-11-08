@@ -10,6 +10,8 @@ interface UpdateState {
   notes?: string;
   error?: string;
   currentVersion?: string;
+  /** When the update file was last looked at. */
+  checkedAt?: number;
 }
 
 export const useUpdates = create<UpdateState>(() => ({ status: 'idle' }));
@@ -44,7 +46,7 @@ export async function checkForUpdates(opts: { userInitiated?: boolean; atStart?:
     const { check } = await import('@tauri-apps/plugin-updater');
     const update = await check();
     if (!update) {
-      if (!waiting) useUpdates.setState({ status: 'none' });
+      if (!waiting) useUpdates.setState({ status: 'none', checkedAt: Date.now() });
       return;
     }
     // Already downloaded this very version: nothing more to do.

@@ -1040,7 +1040,7 @@ function UpdatesTab() {
         <Row label="Status">
           <span>
             {u.status === 'checking' && 'Checking...'}
-            {u.status === 'none' && 'Up to date'}
+            {u.status === 'none' && `Up to date${u.checkedAt ? ` (checked ${new Date(u.checkedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})` : ''}`}
             {u.status === 'available' && `Version ${u.version} is available`}
             {u.status === 'downloading' && `Downloading ${u.version}...`}
             {u.status === 'ready' && `Version ${u.version} is ready`}
