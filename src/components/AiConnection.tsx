@@ -1,6 +1,6 @@
 // Settings, AI connection: the main switch, adding it to an AI app, each account's level, what it may look at,
 // and the activity log. Only a person in the app can change any of this, never the connection itself.
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useMail, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { invoke, isTauri } from '../lib/platform';
@@ -69,6 +69,50 @@ export function AiConnectionTab() {
   const allLevel = levels.length && levels.every((l) => l === levels[0]) ? levels[0] : undefined;
   const readCaps = CAPABILITIES.filter((c) => c.group === 'read' && TOOLS.some((t) => READY.has(t.name) && t.capability === c.id));
   const chosen = APPS.find((a) => a.id === app)!;
+  const [copied, setCopied] = useState(false);
+  const [test, setTest] = useState<{ state: 'idle' | 'running' | 'ok' | 'fail'; text?: string }>({ state: 'idle' });
+  const anyShared = ordered.some((a) => (mcp.accounts[a.id] ?? 'off') !== 'off');
+  const added = chosen.auto ? Boolean(installed) : copied;
+  const runTest = async () => {
+    setTest({ state: 'running' });
+    try { setTest({ state: 'ok', text: await invoke<string>('mcp_self_test') }); } catch (e) { setTest({ state: 'fail', text: e instanceof Error ? e.message : String(e) }); }
+  };
+  // Check itself once the connection is on, so the person sees it working before opening their AI app.
+  useEffect(() => { if (mcp.enabled && isTauri() && test.state === 'idle') void runTest(); }, [mcp.enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!mcp.enabled) setTest({ state: 'idle' }); }, [mcp.enabled]);
+  /** Questions to try, from a simple look to one that needs your yes. */
+  const TRIES: { q: string; note: string }[] = [
+    { q: 'What accounts can you see in Well Good Mail, and what is the newest email in each?', note: 'Lists your shared accounts and searches each one.' },
+    { q: 'Find my most recent emails about invoices or quotes in Well Good Mail.', note: 'A search across shared accounts.' },
+    { q: 'Open the newest email in my inbox in Well Good Mail and summarise it.', note: 'Reading a whole email is set to Ask, so Well Good Mail comes to the front and asks you first. Try Refuse once too.' },
+  ];
+  const restartWord = app === 'claude-code' ? 'Start a new Claude Code session' : `Restart ${chosen.label}`;
+  const steps: { title: string; detail: string; done: boolean; action?: ReactNode; extra?: ReactNode }[] = [
+    { title: 'Switch the connection on', detail: mcp.enabled ? 'On. Only apps on this computer can use it.' : 'Use the switch at the top of this page.', done: mcp.enabled },
+    { title: 'Share at least one account', detail: anyShared ? 'Done. You can change each account below.' : 'Set an account to Read only below.', done: anyShared },
+    {
+      title: chosen.auto ? `Add it to ${chosen.label}` : `Copy the setup into ${chosen.label}`,
+      detail: chosen.auto ? (installed ? 'Added. Your other settings there were kept, and a copy was saved.' : 'Adds Well Good Mail to its list of tools and keeps everything else there.') : 'Copy the setup below and follow the steps.',
+      done: added,
+      action: chosen.auto
+        ? <span className="ai-actions"><button className={installed ? 'btn ghost small' : 'btn primary small'} disabled={busy || !isTauri()} onClick={() => install(false)}>{installed ? 'Add again' : 'Add'}</button>{installed && <button className="btn ghost small" disabled={busy} onClick={() => install(true)}>Take it out</button>}</span>
+        : <button className="btn small" onClick={() => void copy()}>Copy</button>,
+    },
+    {
+      title: 'Well Good Mail checks itself',
+      detail: test.state === 'running' ? 'Checking...' : test.state === 'ok' ? (test.text || 'Working.') : test.state === 'fail' ? (test.text || 'Not working yet.') : 'Starts the connection the way your AI app will, and checks it answers.',
+      done: test.state === 'ok',
+      action: <button className="btn small" disabled={!mcp.enabled || test.state === 'running' || !isTauri()} onClick={runTest}>{test.state === 'idle' ? 'Test' : 'Test again'}</button>,
+    },
+    { title: restartWord, detail: activity.lastHello ? `Connected${activity.client ? `: ${activity.client}` : ''}, ${new Date(activity.lastHello).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.` : 'Quit it fully (from the tray too) and open it again. This ticks when it says hello.', done: Boolean(activity.lastHello) },
+    {
+      title: 'Ask it something',
+      detail: activity.lastCall ? `Its last request was at ${new Date(activity.lastCall).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}. Everything it does is listed under Activity. More to try:` : 'This ticks when it makes its first request. Copy one of these into your AI app:',
+      done: Boolean(activity.lastCall),
+      extra: <span className="ai-tries">{TRIES.map((t) => <span key={t.q} className="ai-question"><span className="grow"><span>"{t.q}"</span><small>{t.note}</small></span><button className="btn small" onClick={() => { void navigator.clipboard?.writeText(t.q).then(() => toast({ text: 'Copied. Paste it into your AI app.', ttl: 2500 })); }}>Copy</button></span>)}</span>,
+    },
+  ];
+  const current = steps.findIndex((s) => !s.done);
 
   useEffect(() => { void setupText(app).then(setText); }, [app]);
 
@@ -79,7 +123,7 @@ export function AiConnectionTab() {
 
   const copy = async () => {
     const t = text || (await setupText(app));
-    try { await navigator.clipboard.writeText(t); toast({ text: `Copied the setup for ${chosen.label}`, ttl: 2500 }); } catch { toast({ text: 'Select the text below and copy it', ttl: 4000 }); }
+    try { await navigator.clipboard.writeText(t); setCopied(true); toast({ text: `Copied the setup for ${chosen.label}`, ttl: 2500 }); } catch { toast({ text: 'Select the text below and copy it', ttl: 4000 }); }
   };
   const install = async (remove: boolean) => {
     setBusy(true);
@@ -102,27 +146,39 @@ export function AiConnectionTab() {
         </div>
         {mcp.enabled && (
           <p className={activity.connected ? 'ai-status on' : 'ai-status'}>
-            {activity.connected ? `Connected${activity.client ? `: ${activity.client}` : ''}` : 'Waiting for an AI app to connect'}
+            {activity.connected ? `Connected${activity.client ? `: ${activity.client}` : ''}${activity.lastCall ? `. Last request ${new Date(activity.lastCall).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}` : 'Waiting for an AI app to connect'}
           </p>
         )}
         {!isTauri() && <p className="hint">The connection works in the desktop app, not in this browser preview.</p>}
       </section>
 
       <section className="set-section">
-        <h2>Add it to your AI app</h2>
+        <h2>Connect your AI app</h2>
         <div className="ai-row" style={{ flexWrap: 'wrap' }}>
           <select aria-label="Which AI app" value={app} onChange={(e) => setApp(e.target.value as AppId)}>
             {APPS.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
           </select>
-          {chosen.auto && <button className="btn primary" disabled={busy || !isTauri()} onClick={() => install(false)}>{installed ? `Update in ${chosen.label}` : `Add to ${chosen.label}`}</button>}
-          {chosen.auto && installed && <button className="btn ghost" disabled={busy} onClick={() => install(true)}>Take it out</button>}
+          <span className="hint" style={{ margin: 0 }}>Each step ticks itself when it happens.</span>
         </div>
-        {chosen.auto && <p className="hint" style={{ marginTop: 6 }}>{installed ? `Already added to ${chosen.label}.` : `Adds Well Good Mail to ${chosen.label}'s list of tools and keeps everything else there. A copy of its settings is saved first.`}</p>}
-        <div className="ai-code">
-          <div className="ai-code-head"><span>{chosen.auto ? 'Or add it by hand' : 'Add it by hand'}</span><button className="btn small" onClick={copy}>Copy</button></div>
+        <ol className="ai-check">
+          {steps.map((s, i) => (
+            <li key={s.title} className={s.done ? 'done' : i === current ? 'now' : 'wait'}>
+              <span className="tick" aria-hidden="true">{s.done ? '✓' : i + 1}</span>
+              <div className="grow">
+                <span>{s.title}</span>
+                <small>{s.detail}</small>
+                {s.extra}
+              </div>
+              {s.action}
+            </li>
+          ))}
+        </ol>
+        <details className="ai-code" open={!chosen.auto}>
+          <summary>{chosen.auto ? 'Add it by hand instead' : 'How to add it'}</summary>
+          <div className="ai-code-head"><span>The setup for {chosen.label}</span><button className="btn small" onClick={copy}>Copy</button></div>
           <pre className="ai-setup">{text || '...'}</pre>
           <ol className="ai-steps">{chosen.steps.map((s) => <li key={s}>{s}</li>)}</ol>
-        </div>
+        </details>
       </section>
 
       <section className="set-section">
@@ -131,6 +187,7 @@ export function AiConnectionTab() {
         {ordered.length === 0 && <p className="hint">Add an account first.</p>}
         {ordered.length > 1 && (
           <div className="ai-row ai-all">
+            <span className="ai-dot-space" aria-hidden="true" />
             <div className="grow"><strong>All accounts</strong><small>{allLevel ? `All set to ${LEVEL_WORDS[allLevel]}` : 'Mixed. Set them all at once, then change any below.'}</small></div>
             <Segmented<AccountLevel> label="AI access for all accounts" value={allLevel} options={LEVELS}
               onChange={(v) => save({ accounts: { ...mcp.accounts, ...Object.fromEntries(ordered.map((a) => [a.id, v])) } })} />

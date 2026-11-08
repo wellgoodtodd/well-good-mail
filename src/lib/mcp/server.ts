@@ -1,6 +1,6 @@
 // Turning the AI connection on and off, and answering what comes through it. The Rust side only passes messages;
 // everything is decided here, with the person's settings.
-import { invoke, isTauri } from '../platform';
+import { invoke, isTauri, notify } from '../platform';
 import { settings, useSettings } from '../settings';
 import { useMail, loadBody } from '../mail';
 import { searchMessages } from '../search';
@@ -8,7 +8,25 @@ import { askConfirm } from '../dialogs';
 import { useUpdates } from '../updater';
 import { tidy } from './permissions';
 import { handleRpc, type JsonRpc } from './handlers';
-import { logActivity, useActivity } from './activity';
+import { logActivity, noteStatus, useActivity } from './activity';
+
+/** The self-test in Settings starts the connection the way Claude does. It isn't a real AI app, so it isn't logged as one. */
+export const SELF_TEST = 'well-good-mail-self-test';
+
+/** An Ask needs the person, so bring Well Good Mail forward and say so in a Windows notification, then show the question. */
+async function askPerson(what: string): Promise<boolean> {
+  if (isTauri()) {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const w = getCurrentWindow();
+      await w.unminimize();
+      await w.show();
+      await w.setFocus();
+    } catch { /* the question still shows inside the app */ }
+    void notify('Your AI app is asking', `It wants to ${what}. Answer in Well Good Mail.`);
+  }
+  return askConfirm('Your AI app is asking', `It wants to ${what}. Allow it this once?`, 'Allow', { cancelLabel: 'Refuse' });
+}
 
 let listening = false;
 let running = false;
@@ -18,9 +36,12 @@ async function answer(rid: number, body: string) {
   try { msg = JSON.parse(body); } catch { return; }
   if (msg.method === 'initialize') {
     const info = msg.params?.clientInfo as { name?: string } | undefined;
-    useActivity.setState({ client: info?.name });
-    logActivity(`${info?.name || 'An AI app'} connected`);
+    if (info?.name !== SELF_TEST) {
+      noteStatus({ client: info?.name, lastHello: Date.now() });
+      logActivity(`${info?.name || 'An AI app'} connected`);
+    }
   }
+  if (msg.method === 'tools/call') noteStatus({ lastCall: Date.now() });
   const mail = useMail.getState();
   const out = await handleRpc({
     settings: tidy(settings().mcp),
@@ -31,7 +52,7 @@ async function answer(rid: number, body: string) {
     followups: mail.followups,
     search: (q) => searchMessages(q, useMail.getState().messages),
     loadBody,
-    ask: (what) => askConfirm('Your AI app is asking', `It wants to ${what}. Allow it this once?`, 'Allow', { cancelLabel: 'Refuse' }),
+    ask: askPerson,
     log: logActivity,
     version: useUpdates.getState().currentVersion || '',
     now: Date.now(),

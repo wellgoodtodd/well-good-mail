@@ -53,6 +53,13 @@ describe('the AI connection answering requests', () => {
     expect(log).toHaveBeenCalledWith(expect.stringContaining('Searched'), 'done');
   });
 
+  it('lists the newest emails when no words are given', async () => {
+    const { w } = world({ accounts: { a: 'read', b: 'read' } });
+    const r = await handleRpc(w, call('search_mail', {}));
+    expect(text(r)).toContain('Quote');
+    expect(text(r)).toContain('Private');
+  });
+
   it('asks before reading a whole email, and respects a no', async () => {
     const yes = world({ accounts: { a: 'read' } }, true);
     const ok = await handleRpc(yes.w, call('get_message', { id: 'm1' }));

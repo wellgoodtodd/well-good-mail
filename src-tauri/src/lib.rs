@@ -193,7 +193,8 @@ pub fn run() {
             mcp::mcp_respond,
             mcp::mcp_exe_path,
             mcp::mcp_install,
-            mcp::mcp_installed
+            mcp::mcp_installed,
+            mcp::mcp_self_test
         ])
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;

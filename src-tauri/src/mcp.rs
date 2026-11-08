@@ -183,63 +183,139 @@ pub fn mcp_exe_path() -> Result<String, String> {
     std::env::current_exe().map(|p| p.to_string_lossy().to_string()).map_err(|e| e.to_string())
 }
 
-fn refuse_first(message: &str) {
-    // Answer the AI app's first request with a clear reason, so it can tell the person what to do.
-    let mut first = String::new();
-    if std::io::stdin().read_line(&mut first).is_ok() {
-        let id = serde_json::from_str::<serde_json::Value>(first.trim()).ok().and_then(|v| v.get("id").cloned());
-        if id.is_some() {
-            let reply = serde_json::json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32000, "message": message } });
-            let mut out = std::io::stdout();
-            let _ = writeln!(out, "{}", reply);
-            let _ = out.flush();
-        }
-    }
-    eprintln!("{}", message);
-}
+const OFF_MESSAGE: &str = "Well Good Mail is not open, or its AI connection is switched off. Open Well Good Mail, then Settings, AI connection, and switch it on. Then ask again.";
 
-/// `Well Good Mail.exe --mcp`: passes messages between the AI app (standard input and output) and the running app.
-pub fn passthrough() {
-    const OFF: &str = "Well Good Mail is not open, or its AI connection is switched off. Open Well Good Mail, then Settings, AI connection, and switch it on.";
+/// The port and token of the running app, if its connection is on.
+fn read_info() -> Option<(u16, String)> {
     let info = info_path()
         .and_then(|p| std::fs::read_to_string(p).ok())
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
-    let (Some(port), Some(token)) = (
-        info.as_ref().and_then(|v| v.get("port")).and_then(|v| v.as_u64()),
-        info.as_ref().and_then(|v| v.get("token")).and_then(|v| v.as_str()).map(|s| s.to_string()),
-    ) else {
-        refuse_first(OFF);
-        return;
-    };
-    let Ok(mut socket) = TcpStream::connect(("127.0.0.1", port as u16)) else {
-        refuse_first(OFF);
-        return;
-    };
-    if writeln!(socket, "{}", token).is_err() {
-        refuse_first(OFF);
-        return;
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())?;
+    let port = info.get("port")?.as_u64()? as u16;
+    let token = info.get("token")?.as_str()?.to_string();
+    Some((port, token))
+}
+
+type Shared<T> = Arc<Mutex<T>>;
+
+/// Connects to the running app and starts passing its answers to the AI app. False when the app is closed or off.
+fn connect(out: &Shared<std::io::Stdout>, sock: &Shared<Option<TcpStream>>) -> bool {
+    let mut guard = sock.lock().unwrap();
+    if guard.is_some() {
+        return true;
     }
-    let Ok(from_app) = socket.try_clone() else { return };
-    // The app's answers go straight to the AI app.
-    let reader = std::thread::spawn(move || {
-        let mut out = std::io::stdout();
+    let Some((port, token)) = read_info() else { return false };
+    let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) else { return false };
+    if writeln!(stream, "{}", token).is_err() || stream.flush().is_err() {
+        return false;
+    }
+    let Ok(from_app) = stream.try_clone() else { return false };
+    *guard = Some(stream);
+    let (out2, sock2) = (out.clone(), sock.clone());
+    std::thread::spawn(move || {
         for line in BufReader::new(from_app).lines() {
             let Ok(line) = line else { break };
-            if writeln!(out, "{}", line).is_err() || out.flush().is_err() {
+            let mut o = out2.lock().unwrap();
+            if writeln!(o, "{}", line).is_err() || o.flush().is_err() {
                 break;
             }
         }
+        // The app closed or switched the connection off. The next request tries again.
+        *sock2.lock().unwrap() = None;
     });
-    // The AI app's requests go to the app.
-    let stdin = std::io::stdin();
-    for line in stdin.lock().lines() {
+    true
+}
+
+fn send(sock: &Shared<Option<TcpStream>>, line: &str) -> bool {
+    let mut guard = sock.lock().unwrap();
+    let Some(s) = guard.as_mut() else { return false };
+    if writeln!(s, "{}", line).is_ok() && s.flush().is_ok() {
+        return true;
+    }
+    *guard = None;
+    false
+}
+
+/// `Well Good Mail.exe --mcp`: passes messages between the AI app (standard input and output) and the running app.
+/// If Well Good Mail is closed or its connection is off, each request gets a clear answer saying so, and the next
+/// request tries again. So opening the app, or switching the connection back on, works without restarting the AI app.
+pub fn passthrough() {
+    let out: Shared<std::io::Stdout> = Arc::new(Mutex::new(std::io::stdout()));
+    let sock: Shared<Option<TcpStream>> = Arc::new(Mutex::new(None));
+    for line in std::io::stdin().lock().lines() {
         let Ok(line) = line else { break };
-        if writeln!(socket, "{}", line).is_err() || socket.flush().is_err() {
-            break;
+        let line = line.trim().to_string();
+        if line.is_empty() {
+            continue;
+        }
+        let mut sent = connect(&out, &sock) && send(&sock, &line);
+        if !sent {
+            // One fresh try, in case the app was restarted or switched off and on.
+            sent = connect(&out, &sock) && send(&sock, &line);
+        }
+        if !sent {
+            let id = serde_json::from_str::<serde_json::Value>(&line).ok().and_then(|v| v.get("id").cloned());
+            if let Some(id) = id {
+                let reply = serde_json::json!({ "jsonrpc": "2.0", "id": id, "error": { "code": -32000, "message": OFF_MESSAGE } });
+                let mut o = out.lock().unwrap();
+                let _ = writeln!(o, "{}", reply);
+                let _ = o.flush();
+            }
         }
     }
-    let _ = socket.shutdown(Shutdown::Both);
-    let _ = reader.join();
+    if let Some(s) = sock.lock().unwrap().take() {
+        let _ = s.shutdown(Shutdown::Both);
+    }
+}
+
+/// Starts this program the same way an AI app does, asks it to say hello and list its tools, and reports back.
+/// Proves the whole path works before you open Claude.
+#[tauri::command]
+pub async fn mcp_self_test() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        use std::process::{Command, Stdio};
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let mut child = Command::new(exe)
+            .arg("--mcp")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("Couldn't start the connection: {}", e))?;
+        let mut stdin = child.stdin.take().ok_or("No input")?;
+        let stdout = child.stdout.take().ok_or("No output")?;
+        let (tx, rx) = channel::<String>();
+        std::thread::spawn(move || {
+            for line in BufReader::new(stdout).lines() {
+                let Ok(line) = line else { break };
+                if tx.send(line).is_err() {
+                    break;
+                }
+            }
+        });
+        let hello = serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": { "name": "well-good-mail-self-test", "version": "1" } } });
+        let list = serde_json::json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" });
+        let result = (|| -> Result<String, String> {
+            writeln!(stdin, "{}", hello).map_err(|e| e.to_string())?;
+            stdin.flush().map_err(|e| e.to_string())?;
+            let first = rx.recv_timeout(Duration::from_secs(10)).map_err(|_| "No answer from Well Good Mail.".to_string())?;
+            let v: serde_json::Value = serde_json::from_str(&first).map_err(|_| "An answer came back, but not one Claude would understand.".to_string())?;
+            if let Some(err) = v.get("error") {
+                return Err(err.get("message").and_then(|m| m.as_str()).unwrap_or("The connection said no.").to_string());
+            }
+            writeln!(stdin, "{}", list).map_err(|e| e.to_string())?;
+            stdin.flush().map_err(|e| e.to_string())?;
+            let second = rx.recv_timeout(Duration::from_secs(10)).map_err(|_| "Said hello, but did not list its tools.".to_string())?;
+            let v: serde_json::Value = serde_json::from_str(&second).map_err(|_| "The tool list could not be read.".to_string())?;
+            let n = v.get("result").and_then(|r| r.get("tools")).and_then(|t| t.as_array()).map(|a| a.len()).unwrap_or(0);
+            Ok(format!("Working. Claude will see {} {}.", n, if n == 1 { "tool" } else { "tools" }))
+        })();
+        drop(stdin);
+        let _ = child.kill();
+        let _ = child.wait();
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Where each AI app keeps its list of tools, for this Windows user.

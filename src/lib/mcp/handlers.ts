@@ -31,11 +31,10 @@ const SCHEMAS: Record<string, object> = {
   search_mail: {
     type: 'object',
     properties: {
-      query: { type: 'string', description: 'Words to look for. Also understands from:, to:, subject: and has:attachment.' },
+      query: { type: 'string', description: 'Words to look for. Also understands from:, to:, subject: and has:attachment. Leave it empty to get the newest emails.' },
       account: { type: 'string', description: 'Optional account id from list_accounts, to search one account only.' },
       limit: { type: 'number', description: 'Most results to return, up to 50. Default 20.' },
     },
-    required: ['query'],
   },
   get_message: { type: 'object', properties: { id: { type: 'string', description: 'The id from search_mail.' } }, required: ['id'] },
   get_thread: { type: 'object', properties: { id: { type: 'string', description: 'The id of any email in the conversation.' } }, required: ['id'] },
@@ -89,15 +88,15 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
     }
     case 'search_mail': {
       const query = String(args.query || '').trim();
-      if (!query) throw new Error('Give some words to search for.');
       const ids = usable(typeof args.account === 'string' ? args.account : undefined);
       if (!ids.length) throw new Refused('No shared account allows searching.');
-      for (const id of ids) if (decide(w.settings, tool.capability, id, w.now).verdict === 'ask') await permit(w, tool, id, `search ${accName(byId(id))} for "${query.slice(0, 60)}"`);
+      for (const id of ids) if (decide(w.settings, tool.capability, id, w.now).verdict === 'ask') await permit(w, tool, id, query ? `search ${accName(byId(id))} for "${query.slice(0, 60)}"` : `see the newest emails in ${accName(byId(id))}`);
       const limit = Math.min(50, Math.max(1, Number(args.limit) || 20));
-      const hits = w.search(query).filter((m) => ids.includes(m.accountId)).slice(0, limit);
+      // No words: the newest emails in the shared accounts.
+      const hits = (query ? w.search(query) : Object.values(w.messages).sort((a, b) => b.date - a.date)).filter((m) => ids.includes(m.accountId)).slice(0, limit);
       return {
         data: { results: hits.map((m) => ({ id: m.id, account: accName(byId(m.accountId)), from: who(m.from), subject: m.subject, date: iso(m.date), preview: m.snippet })) },
-        logText: `Searched ${ids.length === 1 ? accName(byId(ids[0])) : 'shared accounts'} for "${query.slice(0, 60)}" (${hits.length} found)`,
+        logText: query ? `Searched ${ids.length === 1 ? accName(byId(ids[0])) : 'shared accounts'} for "${query.slice(0, 60)}" (${hits.length} found)` : `Looked at the newest emails in ${ids.length === 1 ? accName(byId(ids[0])) : 'shared accounts'}`,
       };
     }
     case 'get_message':
