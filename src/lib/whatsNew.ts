@@ -12,6 +12,25 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.6.5',
+    date: 'November 2026',
+    highlights: [
+      'Guest lists for iCloud and Microsoft calendars too',
+      'Switch calendars on or off with a tidier list, and choose what hidden calendars may alert you about',
+      'The pop-up that says what is new stays until you close it',
+    ],
+    more: [
+      'Guest lists and answers now show for iCloud and Microsoft 365 events, the same as Google.',
+      'The calendars list in the pop-up is a flat list with a switch for each calendar. The same calendar on several accounts, like Holidays in the UK, shows as one row. Calendars follow the order of your accounts.',
+      'Settings, Accounts shows a card for each account, with a switch for the whole account and one for each calendar.',
+      'Hidden calendars have a three way choice for alerts: keep all, mute ordinary reminders but keep video meeting alerts (the default), or mute everything.',
+      'Accounts you rarely use still list their calendars, and an account with no calendar yet says why and has a Look again button.',
+      'The pop-up that says what is new appears almost at once and stays until you close it.',
+      'On a test version, Settings, Updates says whether it is the latest test version.',
+      'Help has a new Calendar and meetings section.',
+    ],
+  },
+  {
     version: '0.6.4',
     date: 'November 2026',
     highlights: ['Settings, Updates can tell you when a newer test version is out'],

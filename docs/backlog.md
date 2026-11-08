@@ -1,0 +1,16 @@
+# Backlog
+
+Things noted but not built yet. Newest first. Nothing here is promised for a date.
+
+## For 0.7 beta 1
+
+- **Calendars list is too busy** (noted 8 Nov 2026). With many calendars, the pop-up is long and names overlap the switches. Plan: keep the visible calendars on top, fold the hidden ones into a collapsed "Hidden" section at the bottom, give long names room (wrap or truncate with a tooltip), and say "Calendars" on the button instead of how many are hidden.
+- **AI connection and agents.** Local bridge, approval card, activity log. See `docs/mcp-and-agents.md` on the `mcp-prep` branch.
+
+## Later
+
+- Hover preview: a "Loading..." line for slower files.
+- Microsoft and iCloud guest lists tried against real accounts.
+- Microsoft answers to invitations through the calendar (Graph), not only by email.
+- A Support and ideas card in Settings.
+- Faster New email.
