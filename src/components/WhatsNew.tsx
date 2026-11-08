@@ -21,7 +21,7 @@ export function WhatsNew() {
     // A brand new install has nothing to catch up on.
     if (!seen && !accounts.length) { set({ whatsNewSeen: base }); return; }
     if (!releaseFor(base)) { set({ whatsNewSeen: base }); return; }
-    const t = setTimeout(() => setOpen(true), 3000);
+    const t = setTimeout(() => setOpen(true), 400);
     return () => clearTimeout(t);
   }, [ready, base, seen]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -40,7 +40,7 @@ export function WhatsNew() {
     if (all) openScreen('settings', 'updates');
   };
   return (
-    <div className="ev-scrim" onClick={() => done()}>
+    <div className="ev-scrim">
       <div className="ev-pop whatsnew" role="dialog" aria-modal="true" aria-label={`What's new in ${release.version}`} onClick={(e) => e.stopPropagation()}>
         <div className="ev-head">
           <h2>What's new in {release.version}</h2>
