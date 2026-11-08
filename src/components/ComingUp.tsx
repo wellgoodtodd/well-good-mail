@@ -54,18 +54,29 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
   return <input type="checkbox" role="switch" className="switch" checked={on} aria-label={label} onChange={(e) => onChange(e.target.checked)} />;
 }
 
-/** Every calendar your accounts show. The pop-up lists them flat, with calendars of the same name on several accounts (like Holidays in the UK) as one row. Settings lists them in a card for each account. Both change the same setting, so they always agree. */
+/** Account types that have a calendar to show (plain IMAP mailboxes don't, but iCloud does). */
+const hasCalendar = (a: { kind: string; imap?: { host?: string } }) => a.kind !== 'demo' && (a.kind !== 'imap' || /icloud|me\.com/i.test(a.imap?.host || ''));
+
+/** Every calendar your accounts show. The pop-up lists them flat, with calendars of the same name on several accounts (like Holidays in the UK) as one row. Settings lists them in a card for each account. Both change the same setting, so they always agree. Accounts and calendars keep the order of your accounts. */
 export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' }) {
   const events = useMail((s) => s.events);
   const accounts = useMail((s) => s.accounts);
+  const errors = useMail((s) => s.calendarErrors);
   const hidden = useSettings((s) => s.hiddenCalendars);
   const set = useSettings((s) => s.set);
+  const [looking, setLooking] = useState(false);
+  const ordered = useMemo(() => [...accounts].sort((a, b) => a.order - b.order), [accounts]);
   const groups = useMemo(() => {
     const names = new Map<string, Set<string>>();
     for (const e of events) { if (!names.has(e.accountId)) names.set(e.accountId, new Set()); names.get(e.accountId)!.add(e.calendarName); }
     for (const k of hidden) { const i = k.indexOf('|'); const id = k.slice(0, i); if (!names.has(id)) names.set(id, new Set()); names.get(id)!.add(k.slice(i + 1)); }
-    return accounts.map((a) => ({ account: a, calendars: [...(names.get(a.id) || [])].sort((x, y) => x.localeCompare(y)) })).filter((g) => g.calendars.length);
-  }, [events, accounts, hidden]);
+    return ordered.map((a) => ({
+      account: a,
+      // The account's own calendar first, then the rest in A to Z order.
+      calendars: [...(names.get(a.id) || [])].sort((x, y) => Number(y.toLowerCase() === a.email.toLowerCase()) - Number(x.toLowerCase() === a.email.toLowerCase()) || x.localeCompare(y)),
+    })).filter((g) => g.calendars.length);
+  }, [events, ordered, hidden]);
+  const missing = useMemo(() => ordered.filter((a) => hasCalendar(a) && !groups.some((g) => g.account.id === a.id)), [ordered, groups]);
   const rows = useMemo(() => {
     const byName = new Map<string, { name: string; keys: string[]; accounts: typeof accounts }>();
     for (const g of groups) for (const name of g.calendars) {
@@ -74,31 +85,53 @@ export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' 
       row.accounts.push(g.account);
       byName.set(name, row);
     }
-    return [...byName.values()].sort((x, y) => x.name.localeCompare(y.name));
+    return [...byName.values()];
   }, [groups]);
   const setKeys = (keys: string[], show: boolean) => set({ hiddenCalendars: show ? hidden.filter((k) => !keys.includes(k)) : [...new Set([...hidden, ...keys])] });
-  if (!groups.length) return <p className="hint" style={{ margin: 0 }}>Calendars appear here once your accounts have loaded them.</p>;
+  const lookAgain = async () => {
+    setLooking(true);
+    try {
+      const failed = await refreshEvents();
+      toast({ text: failed.length ? `Couldn't reach the calendar for ${failed.join('; ')}` : 'Calendars updated', ttl: failed.length ? 12000 : 2500 });
+    } finally { setLooking(false); }
+  };
+  const why = (id: string) => errors[id] || 'No calendar has come through yet.';
+  if (!groups.length && !missing.length) return <p className="hint" style={{ margin: 0 }}>Calendars appear here once your accounts have loaded them.</p>;
+
+  const MissingNote = ({ a }: { a: (typeof accounts)[number] }) => (
+    <div className="cal-missing">
+      <span>{why(a.id)}</span>
+      <button className="btn small" disabled={looking} onClick={lookAgain}>{looking ? 'Looking...' : 'Look again'}</button>
+    </div>
+  );
 
   if (variant === 'cards') {
     return (
       <div className="cal-cards">
-        {groups.map((g) => {
-          const keys = g.calendars.map((n) => `${g.account.id}|${n}`);
+        {ordered.filter((a) => groups.some((g) => g.account.id === a.id) || missing.includes(a)).map((a) => {
+          const g = groups.find((x) => x.account.id === a.id);
+          if (!g) return (
+            <div key={a.id} className="cal-card">
+              <div className="cal-card-head"><span className="dot" style={{ background: a.colour }} /><strong>{a.label || a.email}</strong></div>
+              <MissingNote a={a} />
+            </div>
+          );
+          const keys = g.calendars.map((n) => `${a.id}|${n}`);
           const anyOn = keys.some((k) => !hidden.includes(k));
           return (
-            <div key={g.account.id} className="cal-card">
+            <div key={a.id} className="cal-card">
               <div className="cal-card-head">
-                <span className="dot" style={{ background: g.account.colour }} />
-                <strong>{g.account.label || g.account.email}</strong>
+                <span className="dot" style={{ background: a.colour }} />
+                <strong>{a.label || a.email}</strong>
                 <span className="grow" />
-                <Switch on={anyOn} label={`Show all calendars for ${g.account.label || g.account.email}`} onChange={(v) => setKeys(keys, v)} />
+                <Switch on={anyOn} label={`Show all calendars for ${a.label || a.email}`} onChange={(v) => setKeys(keys, v)} />
               </div>
               {g.calendars.map((name) => {
-                const key = `${g.account.id}|${name}`;
+                const key = `${a.id}|${name}`;
                 return (
                   <div key={key} className="cal-card-row">
                     <span>{name}</span>
-                    <Switch on={!hidden.includes(key)} label={`Show ${name} for ${g.account.label || g.account.email}`} onChange={(v) => setKeys([key], v)} />
+                    <Switch on={!hidden.includes(key)} label={`Show ${name} for ${a.label || a.email}`} onChange={(v) => setKeys([key], v)} />
                   </div>
                 );
               })}
@@ -120,11 +153,17 @@ export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' 
         return (
           <div key={r.name} className="cal-flat-row">
             <span className="acc-dots" aria-hidden="true">{r.accounts.map((a) => <span key={a.id} className="dot" style={{ background: a.colour }} />)}</span>
-            <span className="grow"><span>{r.name}</span><small>{sub}</small></span>
+            <span className="cal-flat-name"><span>{r.name}</span><small>{sub}</small></span>
             <Switch on={on} label={`Show ${r.name}`} onChange={(v) => setKeys(r.keys, v)} />
           </div>
         );
       })}
+      {missing.length > 0 && (
+        <div className="cal-missing">
+          <span>No calendar yet for {missing.map((a) => a.label || a.email).join(', ')}.</span>
+          <button className="btn small" disabled={looking} onClick={lookAgain}>{looking ? 'Looking...' : 'Look again'}</button>
+        </div>
+      )}
     </div>
   );
 }

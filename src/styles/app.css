@@ -882,3 +882,8 @@ li.yes .g-word { color: var(--success); } li.no .g-word { color: var(--danger); 
 .cal-card-head { display: flex; align-items: center; gap: 8px; padding-bottom: 6px; }
 .cal-card-head .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .cal-card-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0 6px 18px; color: var(--text-muted); }
+.cal-flat-name { flex: 1; min-width: 0; display: grid; line-height: 1.25; }
+.cal-flat-name small { color: var(--text-muted); font-size: 0.8em; }
+.cal-flat-row .acc-dots { min-width: 30px; }
+.cal-missing { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0 2px 18px; color: var(--text-muted); font-size: 0.9em; }
+.cal-flat .cal-missing { padding-left: 0; }

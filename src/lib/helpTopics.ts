@@ -30,6 +30,17 @@ export const TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: 'calendar', title: 'Calendar and meetings', icon: 'calendar', blurb: 'Coming up, invitations and video calls.',
+    items: [
+      { q: 'See what is coming up', a: 'The calendar button at the top right opens Coming up on any screen. Click an event to see its details. The Reminders page has the same list, and a month calendar too, with each account in its own colour. An event that is on several of your calendars shows once, with a dot for each account.', keywords: 'calendar agenda events schedule' },
+      { q: 'Join a video meeting', a: 'For events with a Teams, Zoom, Google Meet or Webex link, you get a notification before the meeting and a banner across the top with a Join button. Choose the times in Settings, then Notifications and Reminders, from 1 minute to 3 hours. The banner turns amber as the meeting starts, then coral, and goes by itself 10 minutes later. Test notification and Test banner show you how they look.', keywords: 'zoom teams meet webex banner notification late' },
+      { q: 'Answer a calendar invitation', a: 'An email with an invitation gets a card at the top. Click Yes, No or Maybe, and the organiser is told. Change answer is there if you change your mind. Add to calendar puts it in your calendar without answering. Google accounts ask you to sign in once more the first time, so Well Good Mail may change your calendar replies. Your mail stays where it is.', keywords: 'rsvp invite accept decline tentative' },
+      { q: 'See who is coming', a: 'Click an event in Coming up and open Guests. A tally shows how many said yes, maybe or no, and each guest has a colour. Click a name to write to them. More has Email everyone, Email those waiting and Refresh answers. Copy invite copies the details so you can paste them into Slack, WhatsApp or an email.', keywords: 'guests attendees responses' },
+      { q: 'Hide a calendar', a: 'The Calendars button on the Reminders page and in Coming up switches calendars on or off, and so does Settings, then Accounts. They are the same list. Under it you choose what hidden calendars may still alert you about: everything, video meetings only, or nothing. Meetings you have said No to are always quiet.', keywords: 'holidays turn off show hide' },
+      { q: 'A calendar is missing', a: 'Settings, then Accounts, shows each account with its calendars. If an account has no calendar yet, it says why, with a Look again button. Plain email accounts (IMAP) have no calendar. iCloud needs your Apple Account to be set up for calendars.', keywords: 'microsoft icloud outlook not showing' },
+    ],
+  },
+  {
     id: 'reading', title: 'Reading and printing', icon: 'filePdf', blurb: 'Attachments, print and PDF.',
     items: [
       { q: 'Print an email or save it as a PDF', a: 'Use the printer or PDF buttons above the open email, Print in the top left menu, right click, or Ctrl+P. Both open the Windows print window, with the whole conversation laid out on a clean page. For a PDF, choose Save as PDF as the printer.', keywords: 'print pdf export save' },
@@ -63,6 +74,7 @@ export const TOPICS: HelpTopic[] = [
   {
     id: 'questions', title: 'Common questions', icon: 'help', blurb: 'The things people ask most.',
     items: [
+      { q: 'Try a test version', a: 'In Settings, then Updates, switch on Tell me about test versions. When a newer test version exists, a card shows with What\'s new in it and Download. Nothing installs by itself, and you stay on the full release until you download it. A test version always looks for newer ones. Full releases update by themselves.', keywords: 'beta update new version download' },
       { q: 'Why does Google keep signing me out?', a: 'Until your Google project is published, Google signs you out about once a week. Settings, then Accounts, has a short guide to stop that.', keywords: 'weekly seven days testing' },
       { q: 'Is my email stored anywhere but this computer?', a: 'No. Mail is kept on this computer and the app talks straight to your email service. There is no Well Good Mail server. Your keys and passwords are in Windows Credential Manager.', keywords: 'privacy security private' },
       { q: 'Why does an email show odd symbols?', a: 'Usually the sender labelled the text wrongly. The app corrects the common case. If you still see one, tell us using the link below.', keywords: 'garbled characters encoding' },
