@@ -116,14 +116,15 @@ export function CalendarPicker({ iconOnly }: { iconOnly?: boolean }) {
 const GLYPH: Record<GuestAnswer, string> = { yes: '✓', no: '✕', maybe: '?', waiting: '…' };
 
 /** Who is invited and what they said: a tally you can read at a glance, then one list. Click a name to write to them. */
-export function GuestList({ guests, subject }: { guests: EventGuest[]; subject?: string }) {
+export function GuestList({ guests, subject, actions = true, startOpen = false }: { guests: EventGuest[]; subject?: string; actions?: boolean; startOpen?: boolean }) {
   const order: Record<GuestAnswer, number> = { yes: 0, maybe: 1, no: 2, waiting: 3 };
   const sorted = [...guests].sort((a, b) => order[a.answer] - order[b.answer] || (a.name || a.email).localeCompare(b.name || b.email));
   const write = (to: EventGuest[]) => { void startCompose('new', undefined, { extra: { to: to.map((g) => ({ email: g.email, name: g.name })), subject: subject || '' } }); };
   const others = guests.filter((g) => !g.self);
   return (
-    <details className="guests" open>
+    <details className="guests" open={startOpen}>
       <summary>
+        <Icon name="chevronDown" size={14} className="g-chev" />
         <span className="g-title">Guests ({guests.length})</span>
         {guestTally(guests).map((t) => <span key={t.answer} className={`g-tally ${t.answer}`}><span className="g-dot" aria-hidden="true" />{t.n} {guestAnswerWord(t.answer).toLowerCase()}</span>)}
       </summary>
@@ -136,7 +137,7 @@ export function GuestList({ guests, subject }: { guests: EventGuest[]; subject?:
           </li>
         ))}
       </ul>
-      {others.length > 1 && (
+      {actions && others.length > 1 && (
         <div className="g-actions">
           <button className="btn small" onClick={() => write(others)}>Email everyone</button>
           {others.some((g) => g.answer === 'waiting') && <button className="btn small" onClick={() => write(others.filter((g) => g.answer === 'waiting'))}>Email those waiting</button>}
@@ -163,6 +164,7 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
   // The calendar refreshes in the background, so show the newest copy of this event.
   const event = useMemo(() => dedupeEvents(all).find((x) => x.id === picked.id) || picked, [all, picked]);
   const [refreshing, setRefreshing] = useState(false);
+  const [more, setMore] = useState(false);
   const refresh = async () => { setRefreshing(true); try { await refreshEvents(); } finally { setRefreshing(false); } };
   // Opening an event with guests pulls the latest answers, unless they were fetched in the last minute.
   useEffect(() => { if (picked.guests?.length && Date.now() - lastEventsRefresh() > 60000) void refresh(); }, [picked.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -174,6 +176,9 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
     return () => window.removeEventListener('keydown', k);
   }, [onClose]);
   const sameDay = new Date(event.start).toDateString() === new Date(event.end).toDateString();
+  const guestList = (event.guests || []).map((g) => { if (!g.self || g.name) return g; const acc = accounts.find((x) => x.email.toLowerCase() === g.email || x.aliases.some((al) => al.email.toLowerCase() === g.email)); const name = acc?.aliases.find((al) => al.isDefault)?.name || acc?.aliases[0]?.name; return name ? { ...g, name } : g; });
+  const others = guestList.filter((g) => !g.self);
+  const writeTo = (to: EventGuest[]) => { void startCompose('new', undefined, { extra: { to: to.map((g) => ({ email: g.email, name: g.name })), subject: event.title } }); };
   return (
     <div className="ev-scrim" onClick={onClose}>
       <div className="ev-pop" role="dialog" aria-modal="true" aria-label={event.title} onClick={(e) => e.stopPropagation()}>
@@ -190,15 +195,23 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
         {event.description && <p className="ev-notes">{event.description}</p>}
         {event.guests && event.guests.length > 0 && (
           <div className="ev-guests">
-            <GuestList guests={event.guests.map((g) => { if (!g.self || g.name) return g; const acc = accounts.find((x) => x.email.toLowerCase() === g.email || x.aliases.some((al) => al.email.toLowerCase() === g.email)); const name = acc?.aliases.find((al) => al.isDefault)?.name || acc?.aliases[0]?.name; return name ? { ...g, name } : g; })} subject={event.title} />
-            <button className="btn ghost small" disabled={refreshing} onClick={refresh} title="Fetch the latest answers"><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" size={13} /></span> {refreshing ? 'Checking' : 'Refresh answers'}</button>
+            <GuestList guests={guestList} subject={event.title} actions={false} />
           </div>
         )}
         <div className="ev-actions">
           <JoinButton event={event} />
           <button className="btn" onClick={() => { void navigator.clipboard?.writeText(inviteText(event)).then(() => toast({ text: 'Invite copied. Paste it anywhere.', ttl: 2500 }), () => toast({ text: "Couldn't copy the invite", ttl: 4000 })); }}>Copy invite</button>
-          {event.htmlLink && <button className="btn" onClick={() => openExternal(event.htmlLink!)}>Open in calendar</button>}
-          <button className="btn ghost" onClick={onClose}>Close</button>
+          <span className="cal-picker">
+            <button className="btn" aria-expanded={more} onClick={() => setMore(!more)}>More <Icon name="chevronDown" size={12} /></button>
+            {more && (
+              <div className="cal-pop inv-change up" role="menu">
+                {others.length > 0 && <button role="menuitem" className="btn ghost" onClick={() => { setMore(false); writeTo(others); }}>Email everyone</button>}
+                {others.some((g) => g.answer === 'waiting') && <button role="menuitem" className="btn ghost" onClick={() => { setMore(false); writeTo(others.filter((g) => g.answer === 'waiting')); }}>Email those waiting</button>}
+                {guestList.length > 0 && <button role="menuitem" className="btn ghost" disabled={refreshing} onClick={() => { setMore(false); void refresh(); }}>{refreshing ? 'Checking...' : 'Refresh answers'}</button>}
+                {event.htmlLink && <button role="menuitem" className="btn ghost" onClick={() => { setMore(false); openExternal(event.htmlLink!); }}>Open in calendar</button>}
+              </div>
+            )}
+          </span>
         </div>
       </div>
     </div>

@@ -846,3 +846,14 @@ li.yes .g-word { color: var(--success); } li.no .g-word { color: var(--danger); 
 .attachment .open:hover { background: transparent; }
 .attachment .fsize { white-space: nowrap; }
 .cal-pop .link-btn { padding: 0; }
+
+/* Event card: roomier, guests fold with a chevron, More menu opens upwards */
+.ev-pop { width: min(520px, 100%); padding: 20px 24px; }
+.ev-line { padding: 4px 0; }
+.ev-guests { margin: 14px 0 4px; }
+.guests > summary { list-style: none; }
+.guests > summary::-webkit-details-marker { display: none; }
+.guests .g-chev { color: var(--text-muted); transition: transform 0.15s; transform: rotate(-90deg); flex: none; }
+.guests[open] .g-chev { transform: rotate(0deg); }
+.inv-change.up { top: auto; bottom: calc(100% + 6px); }
+.ev-actions { margin-top: 18px; gap: 10px; }
