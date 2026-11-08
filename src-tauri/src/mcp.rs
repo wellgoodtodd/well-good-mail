@@ -29,6 +29,8 @@ struct Bridge {
 static BRIDGE: Mutex<Option<Bridge>> = Mutex::new(None);
 static PENDING: OnceLock<Mutex<HashMap<u64, Sender<String>>>> = OnceLock::new();
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+/// Each connection gets a number, so the app knows which AI app sent what.
+static NEXT_CONN: AtomicU64 = AtomicU64::new(1);
 
 /// How long one request may wait for an answer, including the person deciding on an Ask.
 const ANSWER_WAIT: Duration = Duration::from_secs(180);
@@ -55,7 +57,7 @@ fn new_token() -> String {
     out
 }
 
-fn handle(app: AppHandle, stream: TcpStream, token: String) {
+fn handle(app: AppHandle, stream: TcpStream, token: String, conn: u64) {
     let Ok(read_half) = stream.try_clone() else { return };
     let mut reader = BufReader::new(read_half);
     let mut writer = stream;
@@ -64,7 +66,7 @@ fn handle(app: AppHandle, stream: TcpStream, token: String) {
         let _ = writer.shutdown(Shutdown::Both);
         return;
     }
-    let _ = app.emit("mcp-connected", ());
+    let _ = app.emit("mcp-connected", serde_json::json!({ "conn": conn }));
     loop {
         let mut line = String::new();
         match reader.read_line(&mut line) {
@@ -80,13 +82,13 @@ fn handle(app: AppHandle, stream: TcpStream, token: String) {
         let is_request = original_id.is_some() && parsed.as_ref().map(|v| v.get("method").is_some()).unwrap_or(false);
         if !is_request {
             // Notifications need no answer.
-            let _ = app.emit("mcp-request", serde_json::json!({ "rid": 0, "body": line }));
+            let _ = app.emit("mcp-request", serde_json::json!({ "rid": 0, "conn": conn, "body": line }));
             continue;
         }
         let rid = NEXT_ID.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = channel::<String>();
         pending().lock().unwrap().insert(rid, tx);
-        let _ = app.emit("mcp-request", serde_json::json!({ "rid": rid, "body": line }));
+        let _ = app.emit("mcp-request", serde_json::json!({ "rid": rid, "conn": conn, "body": line }));
         let answer = match rx.recv_timeout(ANSWER_WAIT) {
             Ok(a) => a,
             Err(_) => {
@@ -103,7 +105,7 @@ fn handle(app: AppHandle, stream: TcpStream, token: String) {
             break;
         }
     }
-    let _ = app.emit("mcp-disconnected", ());
+    let _ = app.emit("mcp-disconnected", serde_json::json!({ "conn": conn }));
 }
 
 /// Switches the connection on and returns the port. Calling it again while on does nothing new.
@@ -139,7 +141,8 @@ pub fn mcp_start(app: AppHandle) -> Result<u16, String> {
                         streams2.lock().unwrap().push(copy);
                     }
                     let (app, token) = (app.clone(), token.clone());
-                    std::thread::spawn(move || handle(app, stream, token));
+                    let conn = NEXT_CONN.fetch_add(1, Ordering::Relaxed);
+                    std::thread::spawn(move || handle(app, stream, token, conn));
                 }
                 Err(_) => std::thread::sleep(Duration::from_millis(150)),
             }

@@ -1,6 +1,7 @@
 // Plain helpers for IMAP accounts (iCloud, Yahoo, Fastmail and others): the services we know, folder names, threads.
 // Kept apart from the provider so they can be tested without a mail server.
 import type { Message, SystemFolder } from './types';
+import { cleanPreview } from './cleanText';
 
 export interface ImapPreset {
   id: string;
@@ -217,7 +218,7 @@ export function previewOf(text: string | undefined, html: string | undefined): s
       .replace(/&#39;|&apos;/gi, "'")
       .replace(/&quot;/gi, '"');
   }
-  return s.replace(/\s+/g, ' ').trim().slice(0, 160);
+  return cleanPreview(s);
 }
 
 /** Merges a copy of an email found in another folder into the one we already hold. */

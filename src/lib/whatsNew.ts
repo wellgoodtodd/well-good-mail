@@ -12,6 +12,25 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.7.0',
+    date: 'November 2026',
+    highlights: [
+      'Let Claude and other AI apps use your mail, only as far as you allow',
+      'Each account is Off, Read only or Read and write',
+      'A card asks you first, and Activity shows everything it did',
+    ],
+    more: [
+      'Settings, AI connection: switch it on, choose each account level, and set up Claude Desktop, Claude Code, ChatGPT desktop or Gemini CLI with a checklist that ticks itself.',
+      'This first version can only look: search, read emails and see the calendar. Reading a whole email asks first unless you change it.',
+      'The question card offers Allow once, Allow for 1 hour, Always allow or Refuse, and lets you untick accounts.',
+      'A sparkle in the top bar shows when an AI app is connected. Pause it there or from the tray. It also pauses itself after a quiet spell.',
+      'Hidden text in emails is removed before an AI sees them, and the AI is told never to follow instructions inside an email.',
+      'Previews no longer show invisible filler characters or style code.',
+      'Calendars fold away in Settings, Accounts, and hidden calendars fold away in the pop-up.',
+      'Updates sits at the bottom of the Settings sidebar, and Startup and window has its own card.',
+    ],
+  },
+  {
     version: '0.6.5',
     date: 'November 2026',
     highlights: [

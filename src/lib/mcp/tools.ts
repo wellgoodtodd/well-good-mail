@@ -45,6 +45,9 @@ export function logLine(tool: ToolSpec, args: Record<string, unknown>): string {
   return tool.log.replace(/\{(\w+)\}/g, (_, key: string) => {
     const v = args[key];
     if (Array.isArray(v)) return key === 'count' ? String(v.length) : v.map(String).join(', ').slice(0, 60);
-    return v === undefined ? '' : String(v).slice(0, 60);
+    if (v === undefined) return '';
+    // Long subjects end with dots, never a stray space.
+    const s = String(v).replace(/\s+/g, ' ').trim();
+    return s.length > 60 ? `${s.slice(0, 57).trimEnd()}…` : s;
   });
 }

@@ -62,6 +62,12 @@ export interface McpSettings {
   /** Each account's level. An account that is missing here is Off, so new accounts start hidden from the AI. */
   accounts: Record<string, AccountLevel>;
   modes: Record<string, Mode>;
+  /** An account's own settings, only where they differ from `modes`. */
+  overrides: Record<string, Record<string, Mode>>;
+  /** Pause after this many minutes with no requests. 0 means never. */
+  idleMinutes: number;
+  /** "Don't pause again today": no idle pausing until this time. */
+  noPauseUntil?: number;
   /** The connection switches itself off at this time (ms since 1970). Undefined means it stays until you stop it. */
   expiresAt?: number;
   /** Most actions per minute, whatever the switches say. */
@@ -75,18 +81,27 @@ export const defaultMcp = (): McpSettings => ({
   enabled: false,
   accounts: {},
   modes: Object.fromEntries(CAPABILITIES.map((c) => [c.id, c.fallback])),
+  overrides: {},
+  idleMinutes: 60,
   maxPerMinute: 30,
 });
+
+/** Choices for idle pausing, in minutes (0 is never). */
+export const IDLE_CHOICES = [15, 30, 60, 120, 0];
 
 const rank: Record<Mode, number> = { off: 0, ask: 1, allow: 2 };
 const lower = (a: Mode, b: Mode): Mode => (rank[a] <= rank[b] ? a : b);
 
-/** The mode for a capability once its ceiling is applied, so a stored "allow" can never get past an "ask" limit. */
-export function effectiveMode(s: McpSettings, capabilityId: string): Mode {
+/** The mode for a capability (for one account, if it has its own setting), with its ceiling applied, so a stored "allow" can never get past an "ask" limit. */
+export function effectiveMode(s: McpSettings, capabilityId: string, accountId?: string): Mode {
   const cap = CAPABILITIES.find((c) => c.id === capabilityId);
   if (!cap) return 'off';
-  return lower(s.modes[capabilityId] ?? cap.fallback, cap.max);
+  const own = accountId !== undefined ? s.overrides?.[accountId]?.[capabilityId] : undefined;
+  return lower(own ?? s.modes[capabilityId] ?? cap.fallback, cap.max);
 }
+
+/** True for anything that reaches other people. Those always ask: no "for an hour", no "always". */
+export const alwaysAsks = (capabilityId: string) => CAPABILITIES.find((c) => c.id === capabilityId)?.max === 'ask';
 
 export type Decision = { verdict: 'deny'; reason: string } | { verdict: 'ask' } | { verdict: 'allow' };
 
@@ -101,7 +116,7 @@ export function decide(s: McpSettings, capabilityId: string, accountId?: string,
     if (level === 'off') return { verdict: 'deny', reason: 'That account is not shared with the AI.' };
     if (level === 'read' && cap.group !== 'read') return { verdict: 'deny', reason: 'That account is read only for the AI.' };
   }
-  const mode = effectiveMode(s, capabilityId);
+  const mode = effectiveMode(s, capabilityId, accountId);
   if (mode === 'off') return { verdict: 'deny', reason: `"${cap.label}" is switched off.` };
   return { verdict: mode };
 }
@@ -118,6 +133,9 @@ export function tidy(s: Partial<McpSettings> | undefined): McpSettings {
     enabled: Boolean(s?.enabled),
     accounts: Object.fromEntries(Object.entries(s?.accounts || {}).map(([id, v]) => [id, v === 'read' || v === 'write' ? v : (v as unknown) === true ? 'read' : 'off'] as [string, AccountLevel])),
     modes,
+    overrides: Object.fromEntries(Object.entries(s?.overrides || {}).map(([id, o]) => [id, Object.fromEntries(CAPABILITIES.filter((c) => o?.[c.id] === 'off' || o?.[c.id] === 'ask' || o?.[c.id] === 'allow').map((c) => [c.id, lower(o[c.id], c.max)]))] as [string, Record<string, Mode>]).filter(([, o]) => Object.keys(o).length)),
+    idleMinutes: IDLE_CHOICES.includes(Number(s?.idleMinutes)) ? Number(s?.idleMinutes) : base.idleMinutes,
+    noPauseUntil: typeof s?.noPauseUntil === 'number' ? s.noPauseUntil : undefined,
     expiresAt: typeof s?.expiresAt === 'number' ? s.expiresAt : undefined,
     maxPerMinute: Math.min(120, Math.max(1, Math.round(s?.maxPerMinute ?? base.maxPerMinute))),
   };

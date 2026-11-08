@@ -7,6 +7,7 @@ import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest
 import { CalendarPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { Invite, Rsvp } from '../invites';
 import { findMeetingUrl } from '../meetings';
+import { cleanPreview } from '../cleanText';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 /** Mail newer than this many days is downloaded with full bodies for offline search. */
@@ -168,7 +169,7 @@ export function gmailToMessage(accountId: string, g: GmailMessage, withBody: boo
     replyTo: parseAddressList(header(p, 'Reply-To')),
     deliveredTo: header(p, 'Delivered-To') || header(p, 'X-Original-To'),
     subject: decodeHeader(header(p, 'Subject') || '(no subject)'),
-    snippet: decodeEntities(g.snippet || ''),
+    snippet: cleanPreview(decodeEntities(g.snippet || ''), 300),
     date: Number(g.internalDate || Date.now()),
     unread: labels.includes('UNREAD'),
     flagged: labels.includes('STARRED'),

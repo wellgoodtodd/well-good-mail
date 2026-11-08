@@ -39,6 +39,7 @@ import { loadGoogleKeys, useGoogleConfigured, calendarEditAllowed } from './lib/
 import { loadMicrosoftKeys } from './lib/auth/microsoft';
 import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from './lib/updater';
 import { startMcpWatch } from './lib/mcp/server';
+import { AiApprovalCard, AiStatusButton } from './components/AiApproval';
 import './lib/sender';
 import { DialogHost } from './components/DialogHost';
 import { useDialogs, askConfirm } from './lib/dialogs';
@@ -411,6 +412,7 @@ function MainWindow() {
           aria-label={themeIsDark ? 'Switch to light mode' : 'Switch to dark mode'}
           onClick={() => s.set({ theme: themeIsDark ? 'light' : 'dark' })}
         ><Icon name={themeIsDark ? 'sun' : 'moon'} /></button>
+        {accounts.length > 0 && <AiStatusButton />}
         {accounts.length > 0 && <SearchBox />}
         {accounts.length > 0 && (
           <button
@@ -476,6 +478,7 @@ function MainWindow() {
       )}
       {appMenu.node}
       <DialogHost />
+      <AiApprovalCard />
       <WhatsNew />
       <CommandPalette />
       <Toasts />
@@ -498,6 +501,7 @@ function PopoutWindow() {
     <div className="app">
       {kind === 'print' ? <PrintPreview threadKey={id} /> : kind === 'compose' ? <Composer draftId={id} variant="full" /> : <ReadingPane threadKeyOverride={id} standalone />}
       <DialogHost />
+      <AiApprovalCard />
       <Toasts />
     </div>
   );

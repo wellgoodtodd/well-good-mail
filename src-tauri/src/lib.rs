@@ -200,8 +200,9 @@ pub fn run() {
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;
             let refresh = MenuItem::with_id(app, "refresh", "Check for new mail", true, None::<&str>)?;
             let compose = MenuItem::with_id(app, "compose", "New email", true, None::<&str>)?;
+            let ai_pause = MenuItem::with_id(app, "ai-pause", "Pause or resume the AI connection", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &compose, &refresh, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &compose, &refresh, &ai_pause, &quit])?;
 
             TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
@@ -216,6 +217,9 @@ pub fn run() {
                     "compose" => {
                         show_main(app);
                         let _ = app.emit("tray-compose", ());
+                    }
+                    "ai-pause" => {
+                        let _ = app.emit("tray-mcp-pause", ());
                     }
                     "quit" => app.exit(0),
                     _ => {}

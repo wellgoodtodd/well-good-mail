@@ -41,6 +41,17 @@ export const TOPICS: HelpTopic[] = [
     ],
   },
   {
+    id: 'ai', title: 'AI connection', icon: 'sparkle', blurb: 'Let Claude and other AI apps use your mail.',
+    items: [
+      { q: 'Connect an AI app', a: 'Settings, then AI connection. Switch it on, set an account to Read only, then click Set up and pick the app: Claude Desktop, Claude Code, ChatGPT desktop or Gemini CLI. A checklist ticks itself as each step happens, and suggests questions to try. Only apps on this computer can connect.', keywords: 'claude chatgpt gemini mcp assistant' },
+      { q: 'What the AI can see and do', a: 'Each account is Off, Read only or Read and write, and new accounts start Off. This version can only look: search, read emails and see the calendar. Under What it can do, each thing is Off, Ask or Allow. Customise beside an account gives that account its own settings. Deleting for good, changing accounts and seeing passwords are never possible.', keywords: 'permissions access read only' },
+      { q: 'When the AI asks first', a: 'For anything set to Ask, Well Good Mail comes to the front with a card. Allow once, Allow for 1 hour, Always allow (which changes the setting to Allow), or Refuse. Untick an account to leave just that one out. Anything that reaches other people always asks.', keywords: 'approve allow refuse prompt' },
+      { q: 'Pausing and stopping it', a: 'The sparkle in the top bar shows the connection: lit when an AI app is connected, dimmed when paused. Click it, or use the tray menu, to pause. It also pauses itself when nothing has asked for a while (1 hour unless you change it). The next request then asks you to resume, so an unexpected one is easy to spot. The main switch in Settings cuts every connection at once.', keywords: 'pause idle off stop' },
+      { q: 'After updating Well Good Mail', a: 'Restart your AI app (quit Claude fully, from the tray too) so it connects again. Well Good Mail reminds you after an update.', keywords: 'restart reconnect stopped running' },
+      { q: 'See what the AI did', a: 'Activity, at the bottom of Settings, AI connection, lists everything, newest first: which app, what it did, and anything refused.', keywords: 'log history' },
+    ],
+  },
+  {
     id: 'reading', title: 'Reading and printing', icon: 'filePdf', blurb: 'Attachments, print and PDF.',
     items: [
       { q: 'Print an email or save it as a PDF', a: 'Use the printer or PDF buttons above the open email, Print in the top left menu, right click, or Ctrl+P. Both open the Windows print window, with the whole conversation laid out on a clean page. For a PDF, choose Save as PDF as the printer.', keywords: 'print pdf export save' },

@@ -6,6 +6,8 @@ export interface ActivityEntry {
   /** "Searched WGM for "invoice"", "Asked to read ... (refused)" */
   text: string;
   outcome: 'done' | 'refused' | 'failed';
+  /** Which AI app did it, in plain words. */
+  app?: string;
 }
 
 interface ActivityState {
@@ -17,6 +19,10 @@ interface ActivityState {
   /** When an AI app last said hello, and last asked for something. These tick the setup checklist. */
   lastHello?: number;
   lastCall?: number;
+  /** Paused: by you, or after a quiet spell. The next request asks to resume. */
+  paused?: boolean;
+  /** How many entries you had already seen when you last opened the list. */
+  seen?: number;
 }
 
 const KEY = 'wgm-mcp-activity';
@@ -38,8 +44,8 @@ function loadStatus(): Pick<ActivityState, 'client' | 'lastHello' | 'lastCall'> 
 
 export const useActivity = create<ActivityState>(() => ({ entries: load(), connected: 0, ...loadStatus() }));
 
-export function logActivity(text: string, outcome: ActivityEntry['outcome'] = 'done') {
-  const entries = [{ at: Date.now(), text, outcome }, ...useActivity.getState().entries].slice(0, MAX);
+export function logActivity(text: string, outcome: ActivityEntry['outcome'] = 'done', app?: string) {
+  const entries = [{ at: Date.now(), text, outcome, app }, ...useActivity.getState().entries].slice(0, MAX);
   useActivity.setState({ entries });
   try { localStorage.setItem(KEY, JSON.stringify(entries)); } catch { /* storage full or blocked: the log is a courtesy */ }
 }

@@ -8,6 +8,7 @@ import { httpFetch } from '../platform';
 import type { Account, Address, Alias, CalendarEvent, EventGuest, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
 import { findMeetingUrl } from '../meetings';
+import { cleanPreview } from '../cleanText';
 
 const G = 'https://graph.microsoft.com/v1.0/me';
 const WELL_KNOWN: Record<Exclude<SystemFolder, 'flagged'>, string> = {
@@ -115,7 +116,7 @@ export class MicrosoftProvider implements MailProvider {
       bcc: (g.bccRecipients || []).map(addr),
       replyTo: (g.replyTo || []).map(addr),
       subject: g.subject || '(no subject)',
-      snippet: g.bodyPreview || '',
+      snippet: cleanPreview(g.bodyPreview || '', 300),
       date: new Date(g.receivedDateTime).getTime(),
       unread: !g.isRead,
       flagged: g.flag?.flagStatus === 'flagged',
