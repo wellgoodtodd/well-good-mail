@@ -30,6 +30,8 @@ export const RELEASES: Release[] = [
       'Click an event in Coming up to see who is coming, with a coloured answer for each guest, a tally, and a way to email them or copy the invite.',
       'Invitation answers show a green, red or amber tag, with a Change answer menu.',
       'Test notification and Test banner buttons for video meetings, in Settings.',
+      'Hidden calendars can also keep their ordinary event alerts quiet. Video meeting alerts always stay on.',
+      'A single attachment shows as a card with Preview and Save. Several show as compact chips.',
       'Invitation emails get a card at the top with the time, a Join button, Add to calendar and Yes, No, Maybe.',
       'Right-click a link in an email to open it, copy it or email the address.',
       'Settings tabs have capital letters, and the number of minutes can be picked from a list or typed.',

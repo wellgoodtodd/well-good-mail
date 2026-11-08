@@ -190,7 +190,7 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
         {event.description && <p className="ev-notes">{event.description}</p>}
         {event.guests && event.guests.length > 0 && (
           <div className="ev-guests">
-            <GuestList guests={event.guests} subject={event.title} />
+            <GuestList guests={event.guests.map((g) => { if (!g.self || g.name) return g; const acc = accounts.find((x) => x.email.toLowerCase() === g.email || x.aliases.some((al) => al.email.toLowerCase() === g.email)); const name = acc?.aliases.find((al) => al.isDefault)?.name || acc?.aliases[0]?.name; return name ? { ...g, name } : g; })} subject={event.title} />
             <button className="btn ghost small" disabled={refreshing} onClick={refresh} title="Fetch the latest answers"><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" size={13} /></span> {refreshing ? 'Checking' : 'Refresh answers'}</button>
           </div>
         )}
