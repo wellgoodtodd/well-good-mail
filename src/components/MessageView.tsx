@@ -241,13 +241,15 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
           {attachments.map((a, i) => {
             const canPreview = previewKind(a) !== null;
             const single = attachments.length === 1;
+            // Big files are slow to load, so they skip the hover preview and say to click instead.
+            const big = a.size > 5 * 1024 * 1024;
             return (
               <div key={a.id} className="attachment" onContextMenu={(e) => { e.preventDefault(); setPeek(null); menu.open({ x: e.clientX, y: e.clientY }, [
                 ...(canPreview ? [{ label: 'Preview', icon: 'eye' as const, onClick: () => setPreviewAt(i) }] : []),
                 { label: 'Save...', icon: 'download' as const, onClick: () => download(a.id, a.filename, a.mimeType) },
                 ...(attachments.length > 1 ? [{ label: `Save all ${attachments.length} to a folder...`, icon: 'folder' as const, onClick: saveAll }] : []),
-              ]); }} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); clearTimeout(peekTimer.current); if (canPreview) peekTimer.current = setTimeout(() => setPeek({ i, rect }), 600); }} onMouseLeave={() => { clearTimeout(peekTimer.current); setPeek(null); }}>
-                <button className="open" onClick={() => (canPreview ? (setPeek(null), setPreviewAt(i)) : download(a.id, a.filename, a.mimeType))} title={canPreview ? `Preview ${a.filename}` : `Save ${a.filename}`}>
+              ]); }} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); clearTimeout(peekTimer.current); if (canPreview && !big) peekTimer.current = setTimeout(() => setPeek({ i, rect }), 400); }} onMouseLeave={() => { clearTimeout(peekTimer.current); setPeek(null); }}>
+                <button className="open" onClick={() => (canPreview ? (setPeek(null), setPreviewAt(i)) : download(a.id, a.filename, a.mimeType))} title={canPreview ? (big ? `Large file: click to preview ${a.filename}` : `Preview ${a.filename}`) : `Save ${a.filename}`}>
                   <span className={`ftile ${fileTone(a)}`} aria-hidden="true">{fileTag(a)}</span>
                   <span className="info">
                     <div className="fname">{a.filename}</div>
