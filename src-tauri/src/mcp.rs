@@ -241,3 +241,103 @@ pub fn passthrough() {
     let _ = socket.shutdown(Shutdown::Both);
     let _ = reader.join();
 }
+
+/// Where each AI app keeps its list of tools, for this Windows user.
+fn config_path(kind: &str) -> Option<PathBuf> {
+    let home = std::env::var_os("USERPROFILE").map(PathBuf::from);
+    match kind {
+        "claude-desktop" => std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("Claude").join("claude_desktop_config.json")),
+        "gemini" => home.map(|h| h.join(".gemini").join("settings.json")),
+        "codex" => home.map(|h| h.join(".codex").join("config.toml")),
+        _ => None,
+    }
+}
+
+const ENTRY: &str = "well-good-mail";
+
+/// Adds Well Good Mail to an AI app's settings, or takes it out again, leaving everything else in that file as it was.
+/// A copy of the file as it was is kept beside it first (".wgm-backup"). A file that can't be read safely is left alone.
+#[tauri::command]
+pub fn mcp_install(kind: String, remove: bool) -> Result<String, String> {
+    let path = config_path(&kind).ok_or("That AI app can't be set up automatically. Copy the setup instead.")?;
+    let dir = path.parent().ok_or("Could not find the settings folder")?.to_path_buf();
+    let app_name = match kind.as_str() {
+        "claude-desktop" => "Claude Desktop",
+        "gemini" => "Gemini CLI",
+        _ => "ChatGPT desktop",
+    };
+    if !dir.exists() {
+        if kind == "codex" && !remove {
+            std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        } else {
+            return Err(format!("{} doesn't seem to be installed for this Windows user, so nothing was changed.", app_name));
+        }
+    }
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?.to_string_lossy().to_string();
+    let before = std::fs::read_to_string(&path).ok();
+    if let Some(text) = &before {
+        let mut backup = path.clone().into_os_string();
+        backup.push(".wgm-backup");
+        std::fs::write(PathBuf::from(backup), text).map_err(|e| e.to_string())?;
+    }
+
+    let after = if kind == "codex" {
+        // A TOML file: take out any old Well Good Mail block, then add the new one at the end.
+        let text = before.unwrap_or_default();
+        let mut kept: Vec<&str> = Vec::new();
+        let mut skipping = false;
+        for line in text.lines() {
+            let t = line.trim();
+            if t.starts_with('[') {
+                skipping = t == "[mcp_servers.well-good-mail]" || t.starts_with("[mcp_servers.well-good-mail.");
+            }
+            if !skipping {
+                kept.push(line);
+            }
+        }
+        let mut out = kept.join("\n").trim_end().to_string();
+        if !remove {
+            if !out.is_empty() {
+                out.push_str("\n\n");
+            }
+            out.push_str(&format!("[mcp_servers.well-good-mail]\ncommand = '{}'\nargs = [\"--mcp\"]", exe));
+        }
+        out.push('\n');
+        out
+    } else {
+        // A JSON file: add or remove one entry under "mcpServers" and keep every other setting.
+        let text = before.unwrap_or_else(|| "{}".to_string());
+        let mut root: serde_json::Value = if text.trim().is_empty() {
+            serde_json::json!({})
+        } else {
+            serde_json::from_str(&text).map_err(|_| format!("{}'s settings file couldn't be read safely, so it was left alone. Copy the setup and add it by hand instead.", app_name))?
+        };
+        let obj = root.as_object_mut().ok_or(format!("{}'s settings file isn't in the expected shape, so it was left alone.", app_name))?;
+        let servers = obj.entry("mcpServers").or_insert_with(|| serde_json::json!({}));
+        let servers = servers.as_object_mut().ok_or(format!("{}'s list of tools isn't in the expected shape, so it was left alone.", app_name))?;
+        if remove {
+            servers.remove(ENTRY);
+        } else {
+            servers.insert(ENTRY.to_string(), serde_json::json!({ "command": exe, "args": ["--mcp"] }));
+        }
+        serde_json::to_string_pretty(&root).map_err(|e| e.to_string())?
+    };
+    std::fs::write(&path, after).map_err(|e| e.to_string())?;
+    Ok(if remove {
+        format!("Taken out of {}. Restart it to finish.", app_name)
+    } else {
+        format!("Added to {}. Quit it fully (from the tray too) and open it again.", app_name)
+    })
+}
+
+/// Whether an AI app's settings already list Well Good Mail.
+#[tauri::command]
+pub fn mcp_installed(kind: String) -> bool {
+    let Some(path) = config_path(&kind) else { return false };
+    let Ok(text) = std::fs::read_to_string(path) else { return false };
+    if kind == "codex" {
+        text.lines().any(|l| l.trim() == "[mcp_servers.well-good-mail]")
+    } else {
+        serde_json::from_str::<serde_json::Value>(&text).ok().and_then(|v| v.get("mcpServers").and_then(|s| s.get(ENTRY)).map(|_| true)).unwrap_or(false)
+    }
+}

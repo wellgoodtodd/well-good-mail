@@ -925,3 +925,4 @@ li.yes .g-word { color: var(--success); } li.no .g-word { color: var(--danger); 
 .switch:indeterminate::after { left: 9px; }
 .cal-flat-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-hidden-toggle { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--text-muted); font: inherit; font-size: 0.9em; padding: 8px 0 4px; margin-top: 4px; cursor: pointer; text-align: left; }
+.ai-all { background: var(--bg-subtle); border-radius: 10px; padding: 10px 12px; margin: 6px 0; border-top: 0; }
