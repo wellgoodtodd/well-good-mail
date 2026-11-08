@@ -31,6 +31,8 @@ export function AiApprovalCard() {
   const app = asks.every((a) => a.app === asks[0].app) ? asks[0].app : 'Your AI apps';
   const canRemember = asks.every((a) => a.canRemember);
   const nothingTicked = asks.every((a) => a.accounts.length > 0 && a.ticked.length === 0);
+  const allDrafts = asks.every((a) => a.draft);
+  const oneDraft = asks.length === 1 && asks[0].draft;
   return (
     <div className="ev-scrim ai-scrim">
       <div className="ev-pop ai-card" role="alertdialog" aria-modal="true" aria-label={`${app} is asking`}>
@@ -39,6 +41,17 @@ export function AiApprovalCard() {
           {asks.map((a) => (
             <li key={a.key}>
               <span>It wants to {a.what}.</span>
+              {a.draft && (
+                <div className="ai-draft">
+                  <div className="ai-draft-row"><b>From</b><span>{a.draft.from}</span></div>
+                  <div className="ai-draft-row"><b>To</b><span>{a.draft.to.join(', ') || '(nobody yet)'}</span></div>
+                  {a.draft.cc.length > 0 && <div className="ai-draft-row"><b>Cc</b><span>{a.draft.cc.join(', ')}</span></div>}
+                  <div className="ai-draft-row"><b>Subject</b><span>{a.draft.subject}</span></div>
+                  {a.draft.replyTo && <div className="ai-draft-row"><b>Replies to</b><span>{a.draft.replyTo}</span></div>}
+                  <div className="ai-draft-body">{a.draft.text}</div>
+                  <div className="ai-draft-note">Your signature for this account is added. It is saved as a draft and never sent: you send it yourself.</div>
+                </div>
+              )}
               {a.accounts.length > 1 && (
                 <span className="ai-card-ticks">
                   {a.accounts.map((acc) => (
@@ -53,9 +66,10 @@ export function AiApprovalCard() {
         <div className="ai-card-actions">
           <button className="btn" onClick={() => answerAll('refuse')}>Refuse</button>
           <span className="grow" />
+          {oneDraft && <button className="btn" onClick={() => answerAll('edit')} title="Save it and open it in Well Good Mail to change">Edit first</button>}
           {canRemember && <button className="btn" disabled={nothingTicked} onClick={() => answerAll('always')} title="Stop asking about this. Change it back in Settings, AI connection.">Always allow</button>}
           {canRemember && <button className="btn" disabled={nothingTicked} onClick={() => answerAll('hour')}>Allow for 1 hour</button>}
-          <button className="btn primary" disabled={nothingTicked} onClick={() => answerAll('once')}>Allow once</button>
+          <button className="btn primary" disabled={nothingTicked} onClick={() => answerAll('once')}>{allDrafts ? (asks.length > 1 ? 'Save drafts' : 'Save draft') : 'Allow once'}</button>
         </div>
       </div>
     </div>

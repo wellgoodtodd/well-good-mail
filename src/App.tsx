@@ -40,6 +40,7 @@ import { loadMicrosoftKeys } from './lib/auth/microsoft';
 import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from './lib/updater';
 import { startMcpWatch } from './lib/mcp/server';
 import { AiApprovalCard, AiStatusButton } from './components/AiApproval';
+import { AiDrafts } from './components/AiDrafts';
 import './lib/sender';
 import { DialogHost } from './components/DialogHost';
 import { useDialogs, askConfirm } from './lib/dialogs';
@@ -445,7 +446,7 @@ function MainWindow() {
             <div className="content">
               {selectedKey || inlineDraftId ? <ReadingPane onBack={() => useMail.setState({ selectedKey: undefined, selectedKeys: [], inlineDraftId: undefined })} /> : <MessageList style={{ flex: 1, width: '100%', borderRight: 0 }} />}
             </div>
-          ) : screen === 'reminders' ? <Reminders /> : screen === 'help' ? <Help /> : <SettingsScreen />}
+          ) : screen === 'reminders' ? <Reminders /> : screen === 'help' ? <Help /> : screen === 'aidrafts' ? <AiDrafts /> : <SettingsScreen />}
           {s.comingUpOpen && screen !== 'reminders' && <ComingUpPanel />}
         </div>
       ) : (
@@ -470,6 +471,8 @@ function MainWindow() {
             <Reminders />
           ) : screen === 'help' ? (
             <Help />
+          ) : screen === 'aidrafts' ? (
+            <AiDrafts />
           ) : (
             <SettingsScreen />
           )}

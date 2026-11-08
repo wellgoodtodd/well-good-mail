@@ -76,7 +76,7 @@ interface MailState {
   toasts: Toast[];
   /** Draft open inline in the reading pane. */
   inlineDraftId?: string;
-  screen: 'mail' | 'reminders' | 'settings' | 'help';
+  screen: 'mail' | 'reminders' | 'settings' | 'help' | 'aidrafts';
   settingsTab: string;
   online: boolean;
   filters: ListFilters;

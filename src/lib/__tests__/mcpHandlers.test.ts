@@ -22,6 +22,9 @@ function world(settings: Partial<McpSettings>, ask: boolean | string[] = true) {
     loadBody: async (id) => messages[id as keyof typeof messages],
     ask: askFn,
     granted: () => false,
+    makeDraft: vi.fn(async () => ({ id: 'd1', savedToServer: true })),
+    openDraft: vi.fn(),
+    aiDraft: () => undefined,
     log,
     version: '0.7.0',
     now: 1_000_000,
@@ -87,7 +90,7 @@ describe('the AI connection answering requests', () => {
 
   it('refuses tools that are not ready yet, even when asked by name', async () => {
     const { w } = world({ accounts: { a: 'write' } });
-    for (const name of ['send_email', 'create_draft', 'bin_messages', 'delete_forever']) {
+    for (const name of ['send_email', 'bin_messages', 'delete_forever']) {
       expect(text(await handleRpc(w, call(name, { to: 'x@y.com' })))).toContain('isError');
     }
   });
@@ -145,5 +148,39 @@ describe('search options', () => {
     expect(JSON.stringify(await handleRpc(w, call('search_mail', { unread: true })))).not.toContain('Private');
     const page = JSON.stringify(await handleRpc(w, call('search_mail', { limit: 1 })));
     expect(page).toContain('offset 1');
+  });
+});
+
+describe('writing drafts', () => {
+  const draftArgs = { account: 'a', to: ['Sam Smith <sam@x.com>'], subject: 'Quote', body: 'Hi Sam,\n\nThe shoot is £850.' };
+  it('is refused for a read only account', async () => {
+    const { w } = world({ accounts: { a: 'read' } });
+    const r = JSON.stringify(await handleRpc(w, call('create_draft', draftArgs)));
+    expect(r).toContain('isError');
+    expect(w.makeDraft).not.toHaveBeenCalled();
+  });
+  it('shows the whole draft on the card, then saves it without sending', async () => {
+    const { w, askFn } = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'ask' } });
+    const r = JSON.stringify(await handleRpc(w, call('create_draft', draftArgs)));
+    const req = askFn.mock.calls[0][0];
+    expect(req.draft?.to).toEqual(['Sam Smith <sam@x.com>']);
+    expect(req.draft?.text).toContain('£850');
+    expect(w.makeDraft).toHaveBeenCalledWith(expect.objectContaining({ accountId: 'a', subject: 'Quote', to: [{ email: 'sam@x.com', name: 'Sam Smith' }] }));
+    expect(r).toContain('Nothing was sent');
+  });
+  it('opens the draft when you choose Edit first', async () => {
+    const { w } = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'ask' } });
+    w.ask = async (req) => ({ allowed: req.accounts.map((x) => x.id), edit: true });
+    await handleRpc(w, call('create_draft', draftArgs));
+    expect(w.openDraft).toHaveBeenCalledWith('d1');
+  });
+  it('keeps a reply in the same conversation', async () => {
+    const { w } = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'allow' } });
+    await handleRpc(w, call('create_draft', { account: 'a', reply_to: 'm1', body: 'Thanks' }));
+    expect(w.makeDraft).toHaveBeenCalledWith(expect.objectContaining({ replyToId: 'm1', subject: 'Re: Quote' }));
+  });
+  it('only lists the draft tool when an account is Read and write', () => {
+    expect(visibleTools({ ...defaultMcp(), enabled: true, accounts: { a: 'read' } }).map((t) => t.name)).not.toContain('create_draft');
+    expect(visibleTools({ ...defaultMcp(), enabled: true, accounts: { a: 'write' } }).map((t) => t.name)).toContain('create_draft');
   });
 });

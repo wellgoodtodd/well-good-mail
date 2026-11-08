@@ -14,6 +14,7 @@ import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
 import { inSystemFolder } from '../lib/mailbox';
 import { dueReminders, alertMute } from '../lib/reminders';
+import { useAiDrafts } from '../lib/mcp/aiDrafts';
 import type { Account, AccountGroup, Folder, Scope, SystemFolder, View } from '../lib/types';
 
 const FOLDERS: { folder: SystemFolder; icon: IconName; name: string; all: string }[] = [
@@ -426,6 +427,8 @@ export function Sidebar({ width }: { width: number }) {
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
   const pickColour = (accountId: string, anchor: { x: number; y: number }) => setPicker({ accountId, anchor });
   const hiddenCals = useSettings((s) => s.hiddenCalendars);
+  const aiDrafts = useAiDrafts((s) => s.list);
+  const aiOn = useSettings((s) => Boolean(s.mcp?.enabled));
   const alertsMode = useSettings((s) => s.hiddenCalendarsAlerts);
   const reminderCount = useMemo(() => dueReminders(events, followups, dismissed, Date.now(), alertMute({ hiddenCalendars: hiddenCals, hiddenCalendarsAlerts: alertsMode })).length, [events, followups, dismissed, hiddenCals, alertsMode]);
 
@@ -614,6 +617,13 @@ export function Sidebar({ width }: { width: number }) {
 
       </div>
       <div className="side-footer">
+        {(aiDrafts.length > 0 || aiOn) && (
+          <div className="side-row">
+            <button className={`side-item ${screen === 'aidrafts' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'aidrafts' ? 'mail' : 'aidrafts')} title="Drafts written by AI apps">
+              <Icon name="sparkle" /><span className="name">AI drafts</span>{aiDrafts.length ? <span className="count">{aiDrafts.length}</span> : null}
+            </button>
+          </div>
+        )}
         <div className="side-row">
           <button className={`side-item ${screen === 'reminders' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'reminders' ? 'mail' : 'reminders')}>
             <Icon name="bell" /><span className="name">Reminders</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}

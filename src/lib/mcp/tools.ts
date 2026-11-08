@@ -38,7 +38,7 @@ export const TOOLS: ToolSpec[] = [
 export const toolByName = (name: string) => TOOLS.find((t) => t.name === name);
 
 /** The tools switched on so far. The first version can only look; the rest come in later betas. */
-export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'list_events', 'list_reminders']);
+export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'list_events', 'list_reminders', 'create_draft']);
 
 /** Fills the log line from the arguments, never printing more than a short piece of anything. */
 export function logLine(tool: ToolSpec, args: Record<string, unknown>): string {

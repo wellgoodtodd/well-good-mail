@@ -68,6 +68,16 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
 }
 
 const LEVELS = (['off', 'read', 'write'] as AccountLevel[]).map((v) => ({ value: v, label: LEVEL_WORDS[v] }));
+/** Headings for the switches, in the order they show. */
+const GROUPS: { id: string; label: string }[] = [
+  { id: 'read', label: 'Looking' },
+  { id: 'organise', label: 'Writing and tidying' },
+  { id: 'calendar', label: 'Calendar' },
+  { id: 'send', label: 'Reaches other people' },
+];
+/** Switches for what the AI can actually do so far. */
+const readyCaps = () => CAPABILITIES.filter((c) => TOOLS.some((t) => READY.has(t.name) && t.capability === c.id));
+
 const modeOptions = (max: Mode) => [{ value: 'off' as Mode, label: 'Off' }, { value: 'ask' as Mode, label: 'Ask' }, { value: 'allow' as Mode, label: 'Allow', disabled: max !== 'allow' }];
 
 /** The pop-up that walks you through connecting one AI app, ticking itself as each step happens. */
@@ -206,7 +216,7 @@ export function AiConnectionTab() {
   const ordered = [...accounts].filter((a) => a.kind !== 'demo').sort((a, b) => a.order - b.order);
   const levels = ordered.map((a) => mcp.accounts[a.id] ?? 'off');
   const allLevel = levels.length && levels.every((l) => l === levels[0]) ? levels[0] : undefined;
-  const readCaps = CAPABILITIES.filter((c) => c.group === 'read' && TOOLS.some((t) => READY.has(t.name) && t.capability === c.id));
+  const caps = readyCaps();
   const unseen = activity.entries.length - (activity.seen ?? activity.entries.length);
 
   const loadInstalled = () => {
@@ -296,7 +306,9 @@ export function AiConnectionTab() {
         )}
         {ordered.map((a) => {
           const own = mcp.overrides[a.id] || {};
-          const changed = readCaps.filter((c) => own[c.id] !== undefined);
+          const level = mcp.accounts[a.id] ?? 'off';
+          const mine = caps.filter((c) => level === 'write' || c.group === 'read');
+          const changed = mine.filter((c) => own[c.id] !== undefined);
           const open = customising === a.id;
           return (
             <div key={a.id} className="ai-acc">
@@ -309,13 +321,15 @@ export function AiConnectionTab() {
               {open && (
                 <div className="ai-own">
                   <p className="hint" style={{ margin: '0 0 4px' }}>Only what you change here is different for {a.label || a.email}. Everything else follows "What it can do".</p>
-                  {readCaps.map((c) => (
+                  {GROUPS.filter((g) => mine.some((c) => c.group === g.id)).map((g) => [
+                    <div key={g.id} className="ai-group">{g.label}</div>,
+                    ...mine.filter((c) => c.group === g.id).map((c) => (
                     <div key={c.id} className="ai-row">
                       <div className="grow"><span className={own[c.id] === undefined ? 'muted' : ''}>{c.label}</span></div>
                       {own[c.id] === undefined ? <small className="muted ai-same">Same as all</small> : <button className="link-btn ai-same" onClick={() => setOverride(a.id, c.id, undefined)}>Reset</button>}
                       <Segmented<Mode> label={`${c.label} for ${a.email}`} value={effectiveMode(mcp, c.id, a.id)} onChange={(v) => setOverride(a.id, c.id, v)} options={modeOptions(c.max)} />
                     </div>
-                  ))}
+                  ))])}
                 </div>
               )}
             </div>
@@ -325,13 +339,15 @@ export function AiConnectionTab() {
 
       <section className="set-section">
         <h2>What it can do</h2>
-        <p className="hint">For every shared account, unless you customise one above. This version can only look. Writing drafts, tidying and answering invitations come later, each with its own switch. Ask means it asks you each time.</p>
-        {readCaps.map((c) => (
+        <p className="hint">For every shared account, unless you customise one above. Writing applies only to accounts set to Read and write. Ask means it asks you each time. Tidying, invitations and sending come later, each with its own switch.</p>
+        {GROUPS.filter((g) => caps.some((c) => c.group === g.id)).map((g) => [
+          <div key={g.id} className="ai-group">{g.label}</div>,
+          ...caps.filter((c) => c.group === g.id).map((c) => (
           <div key={c.id} className="ai-row">
             <div className="grow"><span>{c.label}</span><small>{c.description}</small></div>
             <Segmented<Mode> label={c.label} value={mcp.modes[c.id]} onChange={(v) => save({ modes: { ...mcp.modes, [c.id]: v } })} options={modeOptions(c.max)} />
           </div>
-        ))}
+        ))])}
         <details className="ai-never">
           <summary>Never possible, whatever the switches say</summary>
           <ul>{NEVER.map((n) => <li key={n.id}>{n.text}</li>)}</ul>

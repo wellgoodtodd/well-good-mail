@@ -14,9 +14,16 @@ export interface AskRequest {
   accounts: { id: string; name: string }[];
   /** False for anything that reaches other people: those always ask. */
   canRemember: boolean;
+  /** A draft the AI wants to save, shown in full on the card. */
+  draft?: DraftPreview;
 }
-/** The person's answer: which of the accounts they allowed (none means refused). */
-export interface AskAnswer { allowed: string[] }
+/** The person's answer: which of the accounts they allowed (none means refused), and whether to open a draft to edit. */
+export interface AskAnswer { allowed: string[]; edit?: boolean }
+
+export interface DraftPreview { from: string; to: string[]; cc: string[]; subject: string; text: string; replyTo?: string }
+
+/** What the app needs to save a draft for the AI. */
+export interface DraftInput { accountId: string; to: { email: string; name?: string }[]; cc: { email: string; name?: string }[]; subject: string; text: string; replyToId?: string; replaceId?: string }
 
 /** Everything a tool may look at, passed in so the handlers stay testable. */
 export interface McpWorld {
@@ -32,6 +39,12 @@ export interface McpWorld {
   ask: (req: AskRequest) => Promise<AskAnswer>;
   /** True while the person has said "allow for an hour" for this. */
   granted: (capability: string, accountId?: string) => boolean;
+  /** Saves a draft (never sends it). Returns its id. */
+  makeDraft: (input: DraftInput) => Promise<{ id: string; savedToServer: boolean }>;
+  /** Opens a draft in Well Good Mail for the person to edit. */
+  openDraft: (id: string) => void;
+  /** Drafts this AI made earlier, by id, so it can replace one instead of piling up new ones. */
+  aiDraft: (id: string) => { accountId: string } | undefined;
   log: (text: string, outcome: 'done' | 'refused' | 'failed') => void;
   version: string;
   now: number;
@@ -69,7 +82,27 @@ const SCHEMAS: Record<string, object> = {
     },
   },
   list_reminders: { type: 'object', properties: {} },
+  create_draft: {
+    type: 'object',
+    properties: {
+      account: { type: 'string', description: 'The account id (from list_accounts) to write from. It must be set to Read and write.' },
+      to: { type: 'array', items: { type: 'string' }, description: 'Email addresses, like "sam@example.com" or "Sam Smith <sam@example.com>".' },
+      cc: { type: 'array', items: { type: 'string' }, description: 'Optional copies.' },
+      subject: { type: 'string', description: 'The subject line. Leave empty when replying to keep "Re:" and the thread.' },
+      body: { type: 'string', description: 'The text of the email. Blank lines start new paragraphs. Do not add a signature: the account\'s own is added.' },
+      reply_to: { type: 'string', description: 'Optional id of an email (from search_mail) to reply to, keeping the conversation together.' },
+      replace_draft: { type: 'string', description: 'Optional id of a draft you made earlier, to replace it with this version.' },
+    },
+    required: ['account', 'body'],
+  },
 };
+
+/** "Sam Smith <sam@x.com>" or "sam@x.com" to an address, or undefined if it isn't one. */
+export function parseAddress(s: string): { email: string; name?: string } | undefined {
+  const m = s.trim().match(/^(?:"?([^"<]*?)"?\s*<)?([^\s<>@]+@[^\s<>@]+\.[^\s<>@]+)>?$/);
+  if (!m) return undefined;
+  return { email: m[2].toLowerCase(), name: m[1]?.trim() || undefined };
+}
 
 const textOf = (m: Message) => visibleText(m.bodyHtml, m.bodyText, MAX_TEXT) || cleanPreview(m.snippet);
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -88,15 +121,17 @@ class Refused extends Error {}
  * are put to the person in one question, and any they untick or refuse are left out too. Refused only when nothing
  * is left. Returns the accounts to use and the names of any the person left out.
  */
-async function permitAccounts(w: McpWorld, tool: ToolSpec, wanted: string[], what: (names: string[]) => string): Promise<{ ids: string[]; leftOut: string[] }> {
+async function permitAccounts(w: McpWorld, tool: ToolSpec, wanted: string[], what: (names: string[]) => string, draft?: DraftPreview): Promise<{ ids: string[]; leftOut: string[]; edit?: boolean }> {
   const byId = (id: string) => w.accounts.find((a) => a.id === id);
   const verdicts = wanted.map((id) => ({ id, d: decide(w.settings, tool.capability, id, w.now) }));
   const open = verdicts.filter((v) => v.d.verdict === 'allow' || (v.d.verdict === 'ask' && w.granted(tool.capability, v.id))).map((v) => v.id);
   const toAsk = verdicts.filter((v) => v.d.verdict === 'ask' && !w.granted(tool.capability, v.id)).map((v) => v.id);
   let allowed = open;
   let leftOut: string[] = [];
+  let edit: boolean | undefined;
   if (toAsk.length) {
-    const answer = await w.ask({ capability: tool.capability, what: what(toAsk.map((id) => accName(byId(id)))), accounts: toAsk.map((id) => ({ id, name: accName(byId(id)) })), canRemember: !alwaysAsks(tool.capability) });
+    const answer = await w.ask({ capability: tool.capability, what: what(toAsk.map((id) => accName(byId(id)))), accounts: toAsk.map((id) => ({ id, name: accName(byId(id)) })), canRemember: !alwaysAsks(tool.capability), draft });
+    edit = answer.edit;
     allowed = [...open, ...toAsk.filter((id) => answer.allowed.includes(id))];
     leftOut = toAsk.filter((id) => !answer.allowed.includes(id)).map((id) => accName(byId(id)));
   }
@@ -104,7 +139,7 @@ async function permitAccounts(w: McpWorld, tool: ToolSpec, wanted: string[], wha
     const denied = verdicts.find((v) => v.d.verdict === 'deny');
     throw new Refused(toAsk.length ? 'The person said no.' : denied && denied.d.verdict === 'deny' ? denied.d.reason : 'No shared account allows this.');
   }
-  return { ids: allowed, leftOut };
+  return { ids: allowed, leftOut, edit };
 }
 
 /** For things that involve no account (the account list, reminders). */
@@ -194,6 +229,35 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       return {
         data: { events: events.map((e) => ({ title: e.title, start: iso(e.start), end: iso(e.end), allDay: e.allDay, calendar: e.calendarName, account: accName(byId(e.accountId)), location: e.location, meetingLink: e.meetingUrl, yourAnswer: e.myResponse, guests: e.guests?.map((g) => ({ email: g.email, name: g.name, answer: g.answer })) })), note: note(leftOut) },
         logText: `Looked at the calendar (${events.length} events)`,
+      };
+    }
+    case 'create_draft': {
+      const accountId = String(args.account || '');
+      const account = byId(accountId);
+      if (!account || !shared.includes(accountId)) throw new Refused('That account is not shared with the AI. Use an id from list_accounts.');
+      const to = (Array.isArray(args.to) ? args.to : args.to ? [args.to] : []).map((x) => parseAddress(String(x))).filter((x): x is { email: string; name?: string } => Boolean(x));
+      const cc = (Array.isArray(args.cc) ? args.cc : args.cc ? [args.cc] : []).map((x) => parseAddress(String(x))).filter((x): x is { email: string; name?: string } => Boolean(x));
+      const body = String(args.body || '').trim();
+      if (!body) throw new Error('Write the text of the email in body.');
+      const replyTo = typeof args.reply_to === 'string' ? w.messages[args.reply_to] : undefined;
+      if (args.reply_to && (!replyTo || replyTo.accountId !== accountId)) throw new Refused('The email to reply to is not in that account.');
+      const replace = typeof args.replace_draft === 'string' ? args.replace_draft : undefined;
+      if (replace && w.aiDraft(replace)?.accountId !== accountId) throw new Refused('That is not a draft an AI made in this account.');
+      if (!to.length && !replyTo) throw new Error('Say who it is to, or which email it replies to.');
+      const subject = String(args.subject || '').trim() || (replyTo ? `Re: ${replyTo.subject.replace(/^re:\s*/i, '')}` : '');
+      args.subject = subject || '(no subject)';
+      const preview: DraftPreview = { from: `${account.email} (${accName(account)})`, to: (to.length ? to : replyTo ? [replyTo.from] : []).map(who), cc: cc.map(who), subject: subject || '(no subject)', text: body.slice(0, 4000), replyTo: replyTo ? `${replyTo.subject}, from ${who(replyTo.from)}` : undefined };
+      const { edit } = await permitAccounts(w, tool, [accountId], () => `write a draft from ${accName(account)} to ${preview.to.join(', ') || 'nobody yet'}`, preview);
+      const saved = await w.makeDraft({ accountId, to, cc, subject, text: body, replyToId: replyTo?.id, replaceId: replace });
+      if (edit) w.openDraft(saved.id);
+      return {
+        data: {
+          saved: true,
+          draftId: saved.id,
+          account: accName(account),
+          where: `Saved as a draft in ${accName(account)}${saved.savedToServer ? ' (Drafts folder)' : ''}, and listed under AI drafts in Well Good Mail. Nothing was sent: the person sends it themselves.${edit ? ' They opened it to edit.' : ''}`,
+        },
+        logText: logLine(tool, { subject: subject || '(no subject)' }),
       };
     }
     case 'list_reminders': {

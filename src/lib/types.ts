@@ -245,6 +245,8 @@ export interface Draft {
   serverAccountId?: string;
   /** Provider message id of the server draft this was opened from. */
   serverDraftMessageId?: string;
+  /** Written by an AI app (its plain name), so it shows under AI drafts. */
+  byAi?: string;
 }
 
 export interface OutboxItem {

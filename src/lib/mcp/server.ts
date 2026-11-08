@@ -2,7 +2,13 @@
 // everything is decided here, with the person's settings.
 import { invoke, isTauri, notify } from '../platform';
 import { settings, useSettings } from '../settings';
-import { useMail, loadBody, toast } from '../mail';
+import { useMail, loadBody, toast, providerFor, openScreen } from '../mail';
+import { store } from '../db';
+import { createDraft, draftToOutgoing } from '../compose';
+import { composeContext, openDraft } from '../composeActions';
+import { showBanner } from '../banners';
+import { refreshAiDrafts } from './aiDrafts';
+import type { Draft } from '../types';
 import { searchMessages } from '../search';
 import { useUpdates } from '../updater';
 import { tidy, type Mode } from './permissions';
@@ -10,6 +16,7 @@ import { handleRpc, type AskRequest, type JsonRpc } from './handlers';
 import { logActivity, noteStatus, useActivity } from './activity';
 import { addAsk, askResume } from './approvals';
 import { appName } from './appNames';
+import { aiDraftsNow } from './aiDrafts';
 
 /** The self-test in Settings starts the connection the way Claude does. It isn't a real AI app, so it isn't logged as one. */
 export const SELF_TEST = 'well-good-mail-self-test';
@@ -38,7 +45,7 @@ async function callPerson(title: string, body: string) {
 /** Puts a question on the approval card, and applies "for an hour" or "always" if chosen. */
 async function askPerson(app: string, req: AskRequest) {
   void callPerson(`${app} is asking`, `It wants to ${req.what}. Answer in Well Good Mail.`);
-  const { allowed, remember } = await addAsk(app, req);
+  const { allowed, remember, edit } = await addAsk(app, req);
   if (allowed.length && remember === 'hour') {
     const until = Date.now() + 3600000;
     for (const id of req.accounts.length ? allowed : ['*']) grants.set(`${req.capability}|${id}`, until);
@@ -51,7 +58,51 @@ async function askPerson(app: string, req: AskRequest) {
     useSettings.getState().set({ mcp: tidy({ ...mcp, modes: { ...mcp.modes, [req.capability]: 'allow' }, overrides }) });
     toast({ text: 'Done. It won\'t ask about that again. Change it in Settings, AI connection.', ttl: 6000 });
   }
-  return { allowed };
+  return { allowed, edit };
+}
+
+const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** Plain text from the AI as email paragraphs. */
+const toHtml = (text: string) => text.split(/\n\s*\n/).map((p) => `<p>${escapeHtml(p.trim()).replace(/\n/g, '<br>')}</p>`).join('');
+
+/** Saves a draft the AI wrote: in the app, and in the account's own Drafts folder. Never sends it. */
+async function makeDraft(app: string, input: import('./handlers').DraftInput): Promise<{ id: string; savedToServer: boolean }> {
+  const mail = useMail.getState();
+  const account = mail.accounts.find((a) => a.id === input.accountId);
+  if (!account) throw new Error('That account is not in Well Good Mail.');
+  const source = input.replyToId ? mail.messages[input.replyToId] : undefined;
+  const ctx = composeContext();
+  const earlier = input.replaceId ? await store.getDraft(input.replaceId) : undefined;
+  const fromEmail = account.aliases.find((a) => a.isDefault)?.email || account.email;
+  let draft: Draft = createDraft(source ? 'reply' : 'new', source, ctx, {
+    ...(earlier ? { id: earlier.id, serverDraftId: earlier.serverDraftId, serverAccountId: earlier.serverAccountId } : {}),
+    fromEmail: source ? undefined as unknown as string : fromEmail,
+    fromAccountId: account.id,
+    ...(input.to.length ? { to: input.to } : {}),
+    ...(input.cc.length ? { cc: input.cc } : {}),
+    ...(input.subject ? { subject: input.subject } : {}),
+    html: toHtml(input.text),
+    byAi: app,
+    updatedAt: Date.now(),
+  });
+  if (!draft.fromEmail) draft = { ...draft, fromEmail };
+  await store.putDraft(draft);
+  let savedToServer = false;
+  try {
+    const { accountId, message } = draftToOutgoing(draft, source, ctx);
+    const p = providerFor(accountId);
+    if (p) {
+      const { draftId } = await p.saveDraft({ ...message, attachments: [] }, draft.serverDraftId);
+      draft = { ...draft, serverDraftId: draftId, serverAccountId: accountId };
+      await store.putDraft(draft);
+      savedToServer = true;
+    }
+  } catch (e) {
+    console.warn('AI draft not saved to the server yet', e);
+  }
+  void refreshAiDrafts();
+  showBanner({ title: `${app} wrote a draft`, body: draft.subject || '(no subject)', actionLabel: 'Open', run: () => void openDraft(draft.id) });
+  return { id: draft.id, savedToServer };
 }
 
 /** Pauses: the connection stays on, but the next request asks you to resume first. */
@@ -115,6 +166,9 @@ async function answer(rid: number, conn: number, body: string) {
     loadBody,
     ask: (req) => askPerson(app, req),
     granted: (capability, accountId) => (grants.get(`${capability}|${accountId ?? '*'}`) || 0) > Date.now(),
+    makeDraft: (input) => makeDraft(app, input),
+    openDraft: (id) => void openDraft(id),
+    aiDraft: (id) => { const d = aiDraftsNow().find((x) => x.id === id); return d && d.fromAccountId ? { accountId: d.fromAccountId } : undefined; },
     log: (text, outcome) => logActivity(text, outcome, app),
     version: useUpdates.getState().currentVersion || '',
     now: Date.now(),
@@ -181,6 +235,19 @@ export function startMcpWatch() {
   setInterval(checkIdle, 30000);
   setTimeout(noteUpdate, 10000);
   setTimeout(() => void moveToHelper(), 15000);
+  void refreshAiDrafts();
+  // Drafts you send or delete leave the AI drafts list.
+  window.addEventListener('focus', () => void refreshAiDrafts());
+  setInterval(() => void refreshAiDrafts(), 30000);
+  // Writing drafts is new: start it on Ask once, so the first drafts show on the card before you choose Always.
+  try {
+    if (localStorage.getItem('wgm-mcp-drafts-ask') !== '1') {
+      const mcp = tidy(settings().mcp);
+      useSettings.getState().set({ mcp: tidy({ ...mcp, modes: { ...mcp.modes, 'organise.draft': 'ask' } }) });
+      localStorage.setItem('wgm-mcp-drafts-ask', '1');
+    }
+  } catch { /* fine */ }
+  void openScreen;
 }
 
 /** Once: AI apps set up before the helper copy existed are pointed at it, so they survive updates. */

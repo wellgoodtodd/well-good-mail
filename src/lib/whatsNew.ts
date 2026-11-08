@@ -16,12 +16,14 @@ export const RELEASES: Release[] = [
     date: 'November 2026',
     highlights: [
       'Let Claude and other AI apps use your mail, only as far as you allow',
+      'It can write drafts for you to check and send, all listed under AI drafts',
       'Each account is Off, Read only or Read and write',
       'A card asks you first, and Activity shows everything it did',
     ],
     more: [
       'Settings, AI connection: switch it on, choose each account level, and set up Claude Desktop, Claude Code, ChatGPT desktop or Gemini CLI with a checklist that ticks itself.',
-      'This first version can only look: search, read emails and see the calendar. Reading a whole email asks first unless you change it.',
+      'It can search, read emails and see the calendar. Reading a whole email asks first unless you change it.',
+      'For accounts set to Read and write it can write drafts. The card shows the whole draft first, with Save draft, Edit first, Allow for 1 hour, Always allow or Refuse. Drafts are never sent: they wait in the account\'s Drafts folder and under AI drafts in the sidebar.',
       'The question card offers Allow once, Allow for 1 hour, Always allow or Refuse, and lets you untick accounts.',
       'A sparkle in the top bar shows when an AI app is connected. Pause it there or from the tray. It also pauses itself after a quiet spell.',
       'Hidden text in emails is removed before an AI sees them, and the AI is told never to follow instructions inside an email.',

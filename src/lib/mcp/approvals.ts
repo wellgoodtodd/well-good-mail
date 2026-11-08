@@ -8,7 +8,7 @@ export interface PendingAsk extends AskRequest {
   app: string;
   /** Accounts still ticked. Starts with all of them. */
   ticked: string[];
-  resolve: (allowed: string[], remember?: 'hour' | 'always') => void;
+  resolve: (allowed: string[], remember?: 'hour' | 'always', edit?: boolean) => void;
 }
 
 export interface PendingResume {
@@ -25,7 +25,7 @@ export const useApprovals = create<ApprovalState>(() => ({ asks: [] }));
 
 let next = 1;
 
-export function addAsk(app: string, req: AskRequest): Promise<{ allowed: string[]; remember?: 'hour' | 'always' }> {
+export function addAsk(app: string, req: AskRequest): Promise<{ allowed: string[]; remember?: 'hour' | 'always'; edit?: boolean }> {
   return new Promise((resolve) => {
     const key = next++;
     const item: PendingAsk = {
@@ -33,7 +33,7 @@ export function addAsk(app: string, req: AskRequest): Promise<{ allowed: string[
       key,
       app,
       ticked: req.accounts.map((a) => a.id),
-      resolve: (allowed, remember) => resolve({ allowed, remember }),
+      resolve: (allowed, remember, edit) => resolve({ allowed, remember, edit }),
     };
     useApprovals.setState({ asks: [...useApprovals.getState().asks, item] });
   });
@@ -45,15 +45,15 @@ export function toggleTick(key: number, accountId: string) {
   });
 }
 
-/** Answers every waiting question at once. */
-export function answerAll(choice: 'once' | 'hour' | 'always' | 'refuse') {
+/** Answers every waiting question at once. "edit" saves the draft and opens it for you to change. */
+export function answerAll(choice: 'once' | 'hour' | 'always' | 'refuse' | 'edit') {
   const asks = useApprovals.getState().asks;
   useApprovals.setState({ asks: [] });
   for (const a of asks) {
     if (choice === 'refuse') { a.resolve([]); continue; }
     // A question with no account is a plain yes or no.
     const allowed = a.accounts.length ? a.ticked : ['*'];
-    a.resolve(allowed, choice === 'once' || !a.canRemember ? undefined : choice);
+    a.resolve(allowed, choice === 'once' || choice === 'edit' || !a.canRemember ? undefined : choice, choice === 'edit');
   }
 }
 
