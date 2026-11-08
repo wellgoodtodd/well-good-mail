@@ -183,7 +183,33 @@ pub fn mcp_respond(rid: u64, body: String) -> Result<(), String> {
 /// The path of this program, for the setup line the AI app needs.
 #[tauri::command]
 pub fn mcp_exe_path() -> Result<String, String> {
-    std::env::current_exe().map(|p| p.to_string_lossy().to_string()).map_err(|e| e.to_string())
+    helper_exe().map(|p| p.to_string_lossy().to_string())
+}
+
+/// The program AI apps start. It is a copy of Well Good Mail kept in the app's data folder, so installing an update
+/// (which has to close every running copy in the install folder) leaves the AI app's connection alone; the copy then
+/// reconnects by itself. The copy is refreshed when the version changes, but only when nothing is using it.
+fn helper_exe() -> Result<PathBuf, String> {
+    let src = std::env::current_exe().map_err(|e| e.to_string())?;
+    let Some(dir) = std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("media.wellgood.mail").join("mcp")) else { return Ok(src) };
+    let dest = dir.join("well-good-mail-mcp.exe");
+    let stamp = dir.join("version.txt");
+    let version = env!("CARGO_PKG_VERSION");
+    if dest.exists() && std::fs::read_to_string(&stamp).ok().as_deref() == Some(version) {
+        return Ok(dest);
+    }
+    if std::fs::create_dir_all(&dir).is_ok() {
+        let tmp = dir.join("well-good-mail-mcp.new");
+        if std::fs::copy(&src, &tmp).is_ok() {
+            // Fails while an AI app is using the old copy. That is fine: the old copy still works, and this runs again next time.
+            if std::fs::rename(&tmp, &dest).is_ok() {
+                let _ = std::fs::write(&stamp, version);
+            } else {
+                let _ = std::fs::remove_file(&tmp);
+            }
+        }
+    }
+    Ok(if dest.exists() { dest } else { src })
 }
 
 const OFF_MESSAGE: &str = "Well Good Mail is not open, or its AI connection is switched off. Open Well Good Mail, then Settings, AI connection, and switch it on. Then ask again.";
@@ -277,7 +303,7 @@ pub fn passthrough() {
 pub async fn mcp_self_test() -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(|| {
         use std::process::{Command, Stdio};
-        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let exe = helper_exe()?;
         let mut child = Command::new(exe)
             .arg("--mcp")
             .stdin(Stdio::piped())
@@ -360,7 +386,7 @@ pub fn mcp_install(kind: String, remove: bool) -> Result<String, String> {
             return Err(format!("{} doesn't seem to be installed for this Windows user, so nothing was changed.", app_name));
         }
     }
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?.to_string_lossy().to_string();
+    let exe = helper_exe()?.to_string_lossy().to_string();
     let before = std::fs::read_to_string(&path).ok();
     if let Some(text) = &before {
         let mut backup = path.clone().into_os_string();

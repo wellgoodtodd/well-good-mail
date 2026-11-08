@@ -29,7 +29,9 @@ const HIDDEN_STYLE = /(display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\
 export function visibleText(html: string | undefined, text: string | undefined, max = 20000): string {
   if (html && typeof DOMParser !== 'undefined') {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    doc.querySelectorAll('style, script, head, title, template, noscript, [hidden], [aria-hidden="true"]').forEach((el) => el.remove());
+    doc.querySelectorAll('style, script, head, title, template, noscript, [hidden]').forEach((el) => el.remove());
+    // Pictures carry the message in many sale emails: keep what they say.
+    doc.querySelectorAll('img[alt]').forEach((img) => { const alt = (img.getAttribute('alt') || '').trim(); if (alt.length > 1) img.replaceWith(doc.createTextNode(` [Picture: ${alt}] `)); });
     doc.querySelectorAll('[style]').forEach((el) => { if (HIDDEN_STYLE.test(el.getAttribute('style') || '')) el.remove(); });
     // Keep line breaks between blocks so the text reads naturally.
     doc.querySelectorAll('br, p, div, li, tr, h1, h2, h3, h4, h5, h6').forEach((el) => el.append('\n'));

@@ -93,7 +93,7 @@ export function SettingsScreen() {
         ))}
         <div className="settings-foot">
           <button className={`side-item ${tab === 'updates' ? 'selected' : ''}`} onClick={() => useMail.setState({ settingsTab: 'updates' })}>
-            <span className="name">Updates</span>{alerts.tabs.updates ? <span className="attn-dot" title={alerts.tabs.updates} aria-label={alerts.tabs.updates} /> : null}
+            <span className="name" style={{ textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 600 }}>Updates</span>{alerts.tabs.updates ? <span className="attn-dot" title={alerts.tabs.updates} aria-label={alerts.tabs.updates} /> : null}
           </button>
           <div className="settings-version">Version {version || '...'}</div>
         </div>

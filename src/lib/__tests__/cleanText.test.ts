@@ -36,3 +36,13 @@ describe('AI app names', () => {
     expect(appName(undefined)).toBe('An AI app');
   });
 });
+
+describe('keeping real content', () => {
+  it('keeps content marked aria-hidden and says what pictures show', () => {
+    const html = '<div aria-hidden="true"><p>Early sale access starts now</p></div><img alt="40% off all bags" src="x.png"><img alt="" src="spacer.gif">';
+    const t = visibleText(html, undefined);
+    expect(t).toContain('Early sale access starts now');
+    expect(t).toContain('[Picture: 40% off all bags]');
+    expect(t).not.toContain('spacer');
+  });
+});

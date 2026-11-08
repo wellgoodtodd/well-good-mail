@@ -180,6 +180,17 @@ export function startMcpWatch() {
   useSettings.subscribe((s, prev) => { if (Boolean(s.mcp?.enabled) !== Boolean(prev.mcp?.enabled)) void syncMcp(); });
   setInterval(checkIdle, 30000);
   setTimeout(noteUpdate, 10000);
+  setTimeout(() => void moveToHelper(), 15000);
+}
+
+/** Once: AI apps set up before the helper copy existed are pointed at it, so they survive updates. */
+async function moveToHelper() {
+  if (!isTauri()) return;
+  try { if (localStorage.getItem('wgm-mcp-helper') === '1') return; } catch { return; }
+  for (const kind of ['claude-desktop', 'claude-code', 'codex', 'gemini']) {
+    try { if (await invoke<boolean>('mcp_installed', { kind })) await invoke('mcp_install', { kind, remove: false }); } catch { /* left as it was */ }
+  }
+  try { localStorage.setItem('wgm-mcp-helper', '1'); } catch { /* try again next time */ }
 }
 
 /** The setup text each AI app needs, pointing at this copy of Well Good Mail. */
