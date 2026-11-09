@@ -1265,3 +1265,15 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .ai-editor .ai-body:focus { outline: none; }
 .ai-rich { outline: none; min-height: 120px; }
 .ai-rich p { margin: 0 0 0.6em; }
+
+/* Dark mode: the signature blends into the email instead of sitting in a darker box. It's still drawn inverted (so a
+   signature made for white backgrounds reads properly), with a background picked to come out the same shade as the
+   area around it, a faint dashed line above, and slightly softer text. */
+[data-theme='dark'] .signature-preview { background: #f6f6f5; border-radius: 0; padding: 8px 0 0; border-top: 1px dashed #8a8a8a; opacity: 0.85; }
+[data-theme='dark'] .ai-editor .signature-preview { background: #e6e6e3; }
+
+/* Editing a scheduled email */
+.sched-banner { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--bg-selected); color: var(--text); font-size: 0.9em; border-bottom: 1px solid var(--border); }
+
+.set-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.set-title-row h1 { margin: 0 auto 0 0; }

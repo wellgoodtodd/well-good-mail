@@ -7,7 +7,8 @@ import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtension
 import { ColourPicker } from './ColourPicker';
 import { PALETTES, paletteById } from '../lib/palettes';
 import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount, syncWakes } from '../lib/mail';
-import { useSettings, type Settings as S } from '../lib/settings';
+import { useSettings, defaultSettings, type Settings as S } from '../lib/settings';
+import { undoSteps } from '../lib/history';
 import { allAliases } from '../lib/compose';
 import type { Account } from '../lib/types';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
@@ -447,9 +448,18 @@ function AppearanceTab() {
     s.set({ ...(k.mode === 'dark' ? { darkSkin: k.id } : { lightSkin: k.id }), ...(s.theme !== 'system' ? { theme: k.mode } : {}), accent: k.accent });
     applyPalette(s.colourBlindAccounts ? 'accessible' : `skin-${k.id}`);
   };
+  // Back to how the app first looked. One step in Undo; account colours are left as you set them.
+  const resetLook = () => {
+    const d = defaultSettings;
+    s.set({ theme: d.theme, accent: d.accent, density: d.density, textScale: d.textScale, darkSkin: d.darkSkin, lightSkin: d.lightSkin, colourBlindAccounts: d.colourBlindAccounts, panePosition: d.panePosition, previewLines: d.previewLines, threaded: d.threaded, newestFirstInThread: d.newestFirstInThread, badges: d.badges, unreadColour: d.unreadColour, showAccountStripe: d.showAccountStripe, accountIcons: d.accountIcons, senderPhotos: d.senderPhotos, toolbarOrder: d.toolbarOrder });
+    toast({ text: 'Appearance set back to the default. Account colours are unchanged.', undo: () => void undoSteps(1) });
+  };
   return (
     <>
-      <h1>Appearance</h1>
+      <div className="set-title-row">
+        <h1>Appearance</h1>
+        <button className="btn small" onClick={resetLook} title="Theme, colours, text size, layout and counts back to how they started">Reset to default</button>
+      </div>
       <section className="set-section">
         <h2>Colour theme</h2>
         <p className="hint">Each theme changes the whole look and brings its own account colours. Pick one, then change any colour you like.</p>

@@ -241,6 +241,8 @@ export interface Draft {
   includeQuote: boolean;
   followUpDays?: number;
   sendAt?: number;
+  /** Open in the editor while scheduled: it still goes at this time unless you send it now or move it back to drafts. */
+  scheduledAt?: number;
   updatedAt: number;
   /** Provider draft id once saved to the server. */
   serverDraftId?: string;

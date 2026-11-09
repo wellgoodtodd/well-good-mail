@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Icon } from './Icon';
 import { Dialog } from './ui';
 import { SendLaterPicker } from './SendLaterPicker';
-import { useMail, cancelSend, rescheduleSend } from '../lib/mail';
+import { useMail, cancelSend, rescheduleSend, editScheduled } from '../lib/mail';
 import { htmlToText } from '../lib/mcp/aiDrafts';
 import type { OutboxItem } from '../lib/types';
 
@@ -35,7 +35,7 @@ export function ScheduledViewer({ id, onClose }: { id: string; onClose: () => vo
       actions={<>
         <button className="btn ghost" title="Stops it being sent and puts it back in your drafts" onClick={() => { onClose(); void cancelSend(id, { reopen: false }); }}><Icon name="undo" size={14} /> Back to drafts</button>
         <span className="grow" />
-        <button className="btn" title="Takes it out of Scheduled and opens it, so you can change it and send it again" onClick={() => { onClose(); void cancelSend(id); }}>Open in editor</button>
+        <button className="btn" title="Change it and keep it scheduled for the same time" onClick={() => { onClose(); void editScheduled(id); }}>Open in editor</button>
         <button className="btn primary" onClick={() => setPicking(true)}><Icon name="clock" size={14} /> Change time</button>
       </>}
     >

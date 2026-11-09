@@ -36,6 +36,24 @@ export function rebuildIndex(messages: Message[]) {
   index.addAll(messages.map(toDoc));
 }
 
+/**
+ * Builds the search index a slice at a time between other work, so the app stays responsive while it fills.
+ * Searches work straight away; older mail turns up in them as the index catches up.
+ */
+let building = 0;
+export function rebuildIndexInBackground(messages: Message[], slice = 1500) {
+  const run = ++building;
+  index = new MiniSearch<Doc>({ fields: ['subject', 'from', 'to', 'body'], storeFields: [], searchOptions: SEARCH_OPTIONS });
+  let i = 0;
+  const step = () => {
+    if (run !== building) return; // a newer rebuild took over
+    const end = Math.min(messages.length, i + slice);
+    for (; i < end; i++) { const m = messages[i]; if (!index.has(m.id)) index.add(toDoc(m)); }
+    if (i < messages.length) setTimeout(step, 0);
+  };
+  setTimeout(step, 0);
+}
+
 export function indexMessages(messages: Message[]) {
   for (const m of messages) {
     if (index.has(m.id)) index.replace(toDoc(m));

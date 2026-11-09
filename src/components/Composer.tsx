@@ -10,7 +10,7 @@ import { FormatBar, promptLink, pasteAsQuote } from './FormatBar';
 import { editorExtensions, changeIndent } from './editorExtensions';
 import { Dialog, fileSize, sendLaterOptions, useMenu } from './ui';
 import { store } from '../lib/db';
-import { useMail, queueSend, providerFor, toast, broadcast } from '../lib/mail';
+import { useMail, queueSend, providerFor, toast, broadcast, unschedule } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { allAliases, findAlias, switchMode, draftSignature, draftToOutgoing, draftIsEmpty, pickFromForMessage, ATTACHMENT_LIMIT_BYTES, encodedSize } from '../lib/compose';
 import { labelAiDraft } from '../lib/mcp/aiDrafts';
@@ -222,7 +222,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
     sentRef.current = true;
     clearTimeout(serverSaveTimer.current);
     clearTimeout(localSaveTimer.current);
-    const final = { ...d, html: editor?.getHTML() || d.html };
+    const final = { ...d, html: editor?.getHTML() || d.html, scheduledAt: undefined };
     await queueSend(final, { sendAt });
     await close();
   }, [editor, close]);
@@ -245,7 +245,21 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
 
   const saveAndClose = useCallback(async () => {
     closingRef.current = true;
+    // A scheduled email being edited stays scheduled, with the changes, at the same time.
+    const sched = draftRef.current?.scheduledAt;
+    if (sched) { await send(sched > Date.now() + 60000 ? sched : undefined); return; }
     await keepDraft();
+    await close();
+  }, [keepDraft, close, send]);
+
+  /** "Back to drafts": no longer scheduled; kept as an ordinary draft with your changes. */
+  const backToDrafts = useCallback(async () => {
+    const d = draftRef.current;
+    if (!d) return;
+    await unschedule(d.id);
+    draftRef.current = { ...d, scheduledAt: undefined };
+    await keepDraft();
+    toast({ text: 'No longer scheduled. It\'s in your drafts.' });
     await close();
   }, [keepDraft, close]);
 
@@ -254,6 +268,13 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
     sentRef.current = true;
     clearTimeout(serverSaveTimer.current);
     clearTimeout(localSaveTimer.current);
+    if (d?.scheduledAt) {
+      // Throwing away changes to a scheduled email: the email itself stays scheduled as it was.
+      await store.deleteDraft(d.id);
+      toast({ text: 'Changes thrown away. It\'s still scheduled as before.' });
+      await close();
+      return;
+    }
     if (d) {
       await store.deleteDraft(d.id);
       if (d.serverDraftId && d.serverAccountId) providerFor(d.serverAccountId)?.deleteDraft(d.serverDraftId);
@@ -303,7 +324,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
       const st = useSettings.getState();
       const action = matchAction(e, st.keybindings, false, { inComposer: true });
       const hasSource = Boolean(draftRef.current.sourceMessageId);
-      if (action === 'send') { e.preventDefault(); e.stopPropagation(); send(); }
+      if (action === 'send') { e.preventDefault(); e.stopPropagation(); const at = draftRef.current.scheduledAt; send(at && at > Date.now() + 60000 ? at : undefined); }
       else if (action === 'reply' && hasSource) { e.preventDefault(); e.stopPropagation(); changeMode('reply'); }
       else if (action === 'replyAll' && hasSource) { e.preventDefault(); e.stopPropagation(); changeMode('replyAll'); }
       else if (action === 'forward' && hasSource) { e.preventDefault(); e.stopPropagation(); changeMode('forward'); }
@@ -372,11 +393,16 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
           <strong>{MODE_LABEL[draft.mode]}</strong>
         )}
         <span style={{ flex: 1 }} />
-        <button className="btn primary" onClick={() => send()} title="Send (Ctrl+Enter)" style={{ padding: '4px 10px' }}><Icon name="send" /> Send</button>
+        {draft.scheduledAt
+          ? <button className="btn primary" onClick={() => void saveAndClose()} title="Save your changes and keep the same send time" style={{ padding: '4px 10px' }}><Icon name="clock" /> Keep scheduled</button>
+          : <button className="btn primary" onClick={() => send()} title="Send (Ctrl+Enter)" style={{ padding: '4px 10px' }}><Icon name="send" /> Send</button>}
         {variant === 'inline' && <button className="icon-btn" title="Pop out into its own window" aria-label="Pop out" onClick={popOut}><Icon name="popout" /></button>}
         <button className="btn" onClick={saveAndClose} title="Close this and keep it as a draft" style={{ padding: '4px 10px' }}><Icon name="file" /> Save &amp; close</button>
       </div>
 
+      {draft.scheduledAt && (
+        <div className="sched-banner"><Icon name="clock" size={14} /> Scheduled for {new Date(draft.scheduledAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Keep scheduled saves your changes and keeps this time.</div>
+      )}
       <div className="comp-field">
         <label htmlFor={`from-${draft.id}`}>From</label>
         <span className="dot" style={{ background: fromAccount?.colour, marginTop: 10 }} />
@@ -470,14 +496,28 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
       )}
 
       <div className="comp-foot">
-        <div className="btn-group">
-          <button className="btn primary" onClick={() => send()} title="Send (Ctrl+Enter)"><Icon name="send" /> Send</button>
-          <button className="btn primary" aria-label="Send later" title="Send later" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
-            { heading: 'Send later' },
-            ...laterOptions.map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => send(o.at) })),
-            { label: 'Pick a date and time...', icon: 'calendar', onClick: () => setLaterOpen(true) },
-          ])}><Icon name="chevronDown" /></button>
-        </div>
+        {draft.scheduledAt ? (
+          <div className="btn-group">
+            <button className="btn primary" onClick={() => void saveAndClose()} title="Save your changes and keep the same send time"><Icon name="clock" /> Keep scheduled</button>
+            <button className="btn primary" aria-label="More sending choices" title="Send now, change the time, or back to drafts" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
+              { label: 'Send now', icon: 'send', onClick: () => send() },
+              { heading: 'Change time' },
+              ...laterOptions.map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => send(o.at) })),
+              { label: 'Pick a date and time...', icon: 'calendar', onClick: () => setLaterOpen(true) },
+              { divider: true },
+              { label: 'Back to drafts', icon: 'undo', onClick: () => void backToDrafts() },
+            ])}><Icon name="chevronDown" /></button>
+          </div>
+        ) : (
+          <div className="btn-group">
+            <button className="btn primary" onClick={() => send()} title="Send (Ctrl+Enter)"><Icon name="send" /> Send</button>
+            <button className="btn primary" aria-label="Send later" title="Send later" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
+              { heading: 'Send later' },
+              ...laterOptions.map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => send(o.at) })),
+              { label: 'Pick a date and time...', icon: 'calendar', onClick: () => setLaterOpen(true) },
+            ])}><Icon name="chevronDown" /></button>
+          </div>
+        )}
         <button className="btn" onClick={saveAndClose} title="Close this and keep it as a draft"><Icon name="file" /> Save &amp; close</button>
         <label className="check" style={{ padding: 0 }} title="Brings this back as a reminder if nobody replies">
           <Icon name="bell" size={14} />
@@ -506,7 +546,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
           <p style={{ color: 'var(--text-muted)' }}>I can upload {bigFiles.length > 1 ? 'them' : 'it'} to your Google Drive and put a link in the email instead. Anyone with the link can view.</p>
         </Dialog>
       )}
-      {laterOpen && <SendLaterPicker onClose={() => setLaterOpen(false)} onPick={(at) => { setLaterOpen(false); send(at); }} />}
+      {laterOpen && <SendLaterPicker initial={draft.scheduledAt} onClose={() => setLaterOpen(false)} onPick={(at) => { setLaterOpen(false); send(at); }} />}
       {menu.node}
     </div>
   );

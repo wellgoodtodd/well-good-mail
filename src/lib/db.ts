@@ -70,6 +70,10 @@ export const store = {
   async messages(): Promise<Message[]> {
     return (await db()).getAll('messages');
   },
+  /** Only mail dated on or after a time (by the date index), for a fast first screen. */
+  async messagesSince(since: number): Promise<Message[]> {
+    return (await db()).getAllFromIndex('messages', 'date', IDBKeyRange.lowerBound(since)) as Promise<Message[]>;
+  },
   /** One conversation, without loading the whole cache (for pop out windows). */
   async threadMessages(accountId: string, threadId: string): Promise<Message[]> {
     return ((await (await db()).getAllFromIndex('messages', 'threadId', threadId)) as Message[]).filter((m) => m.accountId === accountId);

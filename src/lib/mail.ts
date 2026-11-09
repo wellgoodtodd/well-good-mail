@@ -14,7 +14,7 @@ import type { MailProvider } from './providers/provider';
 import { buildReply, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from './invites';
 import { signInWithGoogle, signOutGoogle } from './auth/google';
 import { signInWithMicrosoft, signOutMicrosoft } from './auth/microsoft';
-import { indexMessages, rebuildIndex, removeFromIndex, searchMessages, toGmailQuery } from './search';
+import { indexMessages, rebuildIndex, removeFromIndex, searchMessages, toGmailQuery, rebuildIndexInBackground } from './search';
 import { inSystemFolder, threadKey } from './mailbox';
 import { showBanner } from './banners';
 import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout, invoke } from './platform';
@@ -211,7 +211,12 @@ function removeMessages(ids: string[]) {
   store.deleteMessages(ids);
 }
 
+let badgeTimer: ReturnType<typeof setTimeout> | undefined;
 function updateUnreadBadge() {
+  clearTimeout(badgeTimer);
+  badgeTimer = setTimeout(countUnreadBadge, 400);
+}
+function countUnreadBadge() {
   let n = 0;
   const leftOut = new Set(get().accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id));
   for (const m of Object.values(get().messages)) {
@@ -248,7 +253,9 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   if (initStarted) return;
   initStarted = true;
   // A pop out window (a reply, a draft, one email) only loads its own conversation, so it opens at once.
-  const loadMessages = opts.popout && opts.route ? popoutMessages(opts.route).catch(() => store.messages()) : store.messages();
+  // The main window shows the last month first; everything older follows straight after, in the background.
+  const RECENT = 31 * 86400000;
+  const loadMessages = opts.popout && opts.route ? popoutMessages(opts.route).catch(() => store.messages()) : store.messagesSince(Date.now() - RECENT).catch(() => store.messages());
   const [accounts, folders, messages, outbox, snoozes, followups, events, dismissed, contacts] = await Promise.all([
     store.accounts(), store.folders(), loadMessages, store.outbox(), store.snoozes(), store.followups(), store.events(), store.dismissed(), store.contacts(),
   ]);
@@ -261,12 +268,24 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   for (const [id, list] of Object.entries(byAcc)) providers.get(id)?.hydrate?.(list);
   const map: Record<string, Message> = {};
   messages.forEach((m) => (map[m.id] = m));
-  // Pop outs don't search, so they skip building the search index.
-  if (!opts.popout) rebuildIndex(messages);
   set({ ready: true, accounts, folders: byAcc, messages: map, outbox, snoozes, followups, events, dismissed, contacts });
-  updateUnreadBadge();
 
-  if (opts.popout) return;
+  if (opts.popout) { updateUnreadBadge(); return; }
+
+  // The rest of the cache, then the search index, without holding up the first screen.
+  await new Promise((r) => setTimeout(r, 50));
+  try {
+    const all = await store.messages();
+    const now = get().messages;
+    const merged: Record<string, Message> = { ...now };
+    for (const m of all) if (!(m.id in merged)) merged[m.id] = m;
+    set({ messages: merged });
+    rebuildIndexInBackground(Object.values(merged));
+  } catch (e) {
+    console.warn('Loading older mail failed', e);
+    rebuildIndexInBackground(messages);
+  }
+  updateUnreadBadge();
 
   // The browser preview can open straight into demo mode with ?demo=1 (used for the README screenshots).
   const demoLink = !isTauri() && typeof location !== 'undefined' && new URLSearchParams(location.search).get('demo') === '1';
@@ -1287,6 +1306,30 @@ export function broadcast(msg: unknown) {
     channel ||= new BroadcastChannel('wgm');
     channel.postMessage(msg);
   } catch { /* ignore */ }
+}
+
+/** Takes an email out of the outbox without touching any copy being edited (for "Back to drafts" from the editor). */
+export async function unschedule(id: string) {
+  await store.deleteOutbox(id);
+  set({ outbox: get().outbox.filter((o) => o.id !== id) });
+  unwake(id);
+}
+
+/**
+ * Opens a scheduled email in the editor and keeps it scheduled: the outbox still has it (so it goes on time if you
+ * leave it), and Keep scheduled in the editor saves your changes over it, at the same time.
+ */
+export async function editScheduled(id: string) {
+  const item = get().outbox.find((o) => o.id === id);
+  if (!item) return;
+  const draft = { ...item.draft, sendAt: undefined, scheduledAt: item.sendAt };
+  await store.putDraft(draft);
+  const source = draft.sourceMessageId ? get().messages[draft.sourceMessageId] : undefined;
+  if (source && !settings().popOutCompose) {
+    set({ screen: 'mail', selectedKey: threadKey(source), selectedKeys: [threadKey(source)], inlineDraftId: draft.id });
+  } else if (!(await openPopout(`compose/${draft.id}`, draft.subject || 'Email'))) {
+    set({ screen: 'mail', selectedKey: undefined, selectedKeys: [], inlineDraftId: draft.id });
+  }
 }
 
 export async function cancelSend(id: string, opts: { reopen?: boolean } = {}) {

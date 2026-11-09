@@ -3,7 +3,7 @@
 //
 // Every item has a "ref" (e.g. "all|inbox", "acc|<id>|junk", "acc|<id>|label|<labelId>",
 // "grp|<id>|sent") so it can be pinned to Favourites or hidden without moving it.
-import { createContext, useContext, useEffect, useMemo, useRef, useState, Fragment } from 'react';
+import { createContext, useContext, useDeferredValue, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { Icon, type IconName } from './Icon';
 import { useMenu, type MenuItem } from './ui';
 import { useSettings, type Settings } from '../lib/settings';
@@ -34,7 +34,8 @@ const FOLDER_BY_KEY = Object.fromEntries(FOLDERS.map((f) => [f.folder, f]));
 type Counts = Record<string, number>;
 
 function useCounts(): Counts {
-  const messages = useMail((s) => s.messages);
+  // Counted just after the list updates (not before), so archiving or deleting answers at once.
+  const messages = useDeferredValue(useMail((s) => s.messages));
   const snoozes = useMail((s) => s.snoozes);
   const accounts = useMail((s) => s.accounts);
   return useMemo(() => {
@@ -477,7 +478,7 @@ export function Sidebar({ width }: { width: number }) {
   const hiddenCals = useSettings((s) => s.hiddenCalendars);
   const aiDrafts = useAiDrafts((s) => s.list);
   const draftFilter = useAiDrafts((s) => s.filter);
-  const allMessages = useMail((st) => st.messages);
+  const allMessages = useDeferredValue(useMail((st) => st.messages));
   const [showHiddenSmart, setShowHiddenSmart] = useState(false);
   const scheduledCount = useMail((m) => m.outbox.filter((o) => o.kind === 'scheduled').length);
   // Unread count for each Smart Mailbox, worked out once per change rather than on every render.

@@ -159,7 +159,12 @@ pub fn run() {
             }
             show_main(app);
         }))
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Size and place are remembered; whether it's showing is not (that's decided at start, below).
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(tauri_plugin_window_state::StateFlags::all() & !tauri_plugin_window_state::StateFlags::VISIBLE)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(
@@ -244,10 +249,12 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Started by Windows at sign in: stay in the tray until opened.
-            if std::env::args().any(|a| a == "--hidden") {
+            // Started by Windows (at sign in, or to send a scheduled email): stay in the tray until opened.
+            // Otherwise show the window now. It starts hidden, so a tray start never flashes it.
+            if !std::env::args().any(|a| a == "--hidden") {
                 if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.hide();
+                    let _ = w.show();
+                    let _ = w.set_focus();
                 }
             }
             Ok(())

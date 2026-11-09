@@ -28,7 +28,8 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
     const leftOut = everywhere ? [] : accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id);
     const allowed = new Set(scopeAccountIds(view.scope, accounts.map((a) => a.id), groups, leftOut));
     const ctx = { vips: new Set(vips), snoozed: new Set(snoozes.map((s) => s.messageId)), smart, mine: myAddresses(accounts) };
-    const pool = view.mailbox.kind === 'search' ? hitIds.map((id) => messages[id]).filter(Boolean) : Object.values(messages);
+    const everything = Object.values(messages);
+    const pool = view.mailbox.kind === 'search' ? hitIds.map((id) => messages[id]).filter(Boolean) : everything;
     // A search that started in a folder stays in that folder (until you choose All mail).
     const within = view.mailbox.kind === 'search' ? view.mailbox.within : undefined;
     const fits = (m: Message) => !within || inMailbox(m, within, providerFor(m.accountId), ctx);
@@ -38,7 +39,7 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
     if (threaded && view.mailbox.kind !== 'search') {
       // The number on a conversation counts everything in it (yours too), matching what opens on click.
       const total = new Map<string, number>();
-      for (const m of Object.values(messages)) { const k = threadKey(m); total.set(k, (total.get(k) || 0) + 1); }
+      for (const m of everything) { const k = threadKey(m); total.set(k, (total.get(k) || 0) + 1); }
       for (const i of items) i.count = Math.max(i.count, total.get(threadKey(i.message)) || 1);
     }
     const f = filters;

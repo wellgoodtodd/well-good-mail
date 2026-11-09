@@ -5,7 +5,14 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 ## For the next 0.7 beta
 
 - **Out of office per account** (see below). Needs each Google and Microsoft account to sign in once more, so not started until Todd says.
+- **Appearance layout pass** (9 Nov): a lot of colour dots (theme, account colours, display, unread counts). Not a problem; tidy when there's time.
 - **Before live 0.7.0:** help, What's new and support pages for everything since beta 5; one tidy 0.7.0 release note; decide whether to test a Microsoft draft or say drafting is tested on Gmail.
+
+## Done in 0.7 beta 12
+
+Faster start: the last month's mail shows first, the rest of the cache loads straight after, and the search index builds in small pieces in the background instead of before anything shows. Archive, delete and read marks answer sooner: the list updates first and the sidebar counts follow, and the taskbar number counts once after a burst of changes. The window starts hidden and only shows when you open the app, so starts in the tray (sign in, a scheduled send) no longer flash it. Editing a scheduled email keeps it scheduled: a "Scheduled for ..." line on top, Keep scheduled (top and bottom, and Ctrl+Enter), with Send now, Change time and Back to drafts in its menu; throwing away changes leaves it scheduled as it was. Signature in dark mode blends in (no dark box). Settings, Appearance: Reset to default (one Undo step; account colours unchanged).
+
+Beta 11 checks done: signature menu, Gmail drafts with signatures, Send later picker, Back to drafts, closed-app scheduled send.
 
 ## Done in 0.7 beta 11
 
@@ -50,6 +57,8 @@ AI Drafts follows Gmail: any new draft made outside Well Good Mail comes in (No 
 - **Always allow note when an update resets a switch** to Ask: say so once, rather than quietly.
 
 ## Before 1.0
+
+- **Follow-up suggestions** (9 Nov 2026, idea): sent emails with no reply after a few days come back to the top of the Inbox with a slightly different look and a "Follow up?" label (Reply, Snooze, Dismiss), like Gmail's nudges. Off by default, days chosen in Settings. Builds on the follow-up reminders that already exist in the editor. Later, an AI app could draft the follow-up into AI Drafts.
 
 - **Smart Mailboxes (saved searches)**, agreed earlier as a pre-1.0 item, not started. Apple Mail style: a saved set of rules (from, to, words, account, unread, flagged, has attachments, date, drafted by AI) shown in the sidebar. AI draft groups could become Smart Mailboxes.
 - **Add to contacts** from the person card, once contacts can be written.
