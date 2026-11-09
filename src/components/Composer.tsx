@@ -589,6 +589,17 @@ export function cssToStyle(css: string): React.CSSProperties {
 
 function sanitizeQuote(html: string): string {
   // Quoted mail is untrusted: strip anything active and hold back remote images.
-  const clean = DOMPurify.sanitize(html, { FORBID_TAGS: ['style', 'form', 'input', 'button'], FORBID_ATTR: ['style'] });
-  return clean.replace(/<img[^>]+src="https?:[^"]*"[^>]*>/gi, '<span style="opacity:.6">[image]</span>');
+  // Pictures and media from the internet are left out entirely (however their address is written), so replying never
+  // tells a sender you opened their email.
+  const clean = DOMPurify.sanitize(html, { FORBID_TAGS: ['style', 'form', 'input', 'button', 'picture', 'source', 'video', 'audio', 'svg'], FORBID_ATTR: ['style', 'srcset', 'background', 'poster'], RETURN_DOM: true }) as HTMLElement;
+  clean.querySelectorAll('img').forEach((img) => {
+    const src = (img.getAttribute('src') || '').trim();
+    if (!/^(data:|cid:|blob:)/i.test(src)) {
+      const note = document.createElement('span');
+      note.style.opacity = '.6';
+      note.textContent = '[image]';
+      img.replaceWith(note);
+    }
+  });
+  return clean.innerHTML;
 }

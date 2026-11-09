@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Well Good Mail",
-  "version": "0.7.0",
+  "version": "0.7.1-beta.1",
   "identifier": "media.wellgood.mail",
   "build": {
     "frontendDist": "../dist",
@@ -25,7 +25,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: https: http:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://*.googleapis.com https://oauth2.googleapis.com https://graph.microsoft.com https://login.microsoftonline.com https://github.com https://objects.githubusercontent.com; frame-src 'self' blob: data: about:; media-src 'self' data: blob:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: https: http:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://*.googleapis.com https://oauth2.googleapis.com https://graph.microsoft.com https://login.microsoftonline.com https://github.com https://objects.githubusercontent.com; frame-src 'self' blob: data: about:; media-src 'self' data: blob:; base-uri 'none'; form-action 'none'; object-src 'none'"
     }
   },
   "bundle": {

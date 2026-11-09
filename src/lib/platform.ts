@@ -81,6 +81,15 @@ export async function saveFile(filename: string, data: Uint8Array, mimeType: str
 }
 
 /** Save several files into one folder, asking for the folder once. Returns how many were saved (0 if cancelled). */
+/** A safe file name from an email: just the last part, no characters Windows forbids, never a reserved name like CON. */
+export function safeFileName(name: string): string {
+  let n = (name || '').split(/[\\/]/).pop() || '';
+  n = n.replace(/[<>:"|?*\u0000-\u001f]/g, '_').replace(/[. ]+$/, '').trim();
+  if (!n || /^\.+$/.test(n)) n = 'attachment';
+  if (/^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i.test(n)) n = `_${n}`;
+  return n.slice(0, 180);
+}
+
 export async function saveFilesToFolder(files: { filename: string; data: Uint8Array; mimeType: string }[]): Promise<number> {
   if (!isTauri()) {
     for (const f of files) await saveFile(f.filename, f.data, f.mimeType);
@@ -94,10 +103,11 @@ export async function saveFilesToFolder(files: { filename: string; data: Uint8Ar
   let saved = 0;
   for (const f of files) {
     // Never overwrite something already in the folder: add (2), (3)... to the name instead.
-    const dot = f.filename.lastIndexOf('.');
-    const stem = dot > 0 ? f.filename.slice(0, dot) : f.filename;
-    const ext = dot > 0 ? f.filename.slice(dot) : '';
-    let name = f.filename;
+    const clean = safeFileName(f.filename);
+    const dot = clean.lastIndexOf('.');
+    const stem = dot > 0 ? clean.slice(0, dot) : clean;
+    const ext = dot > 0 ? clean.slice(dot) : '';
+    let name = clean;
     for (let n = 2; await exists(`${dir}${sep}${name}`); n++) name = `${stem} (${n})${ext}`;
     await writeFile(`${dir}${sep}${name}`, f.data);
     saved++;

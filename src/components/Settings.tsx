@@ -5,9 +5,10 @@ import { Icon } from './Icon';
 import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
-import { PALETTES, paletteById } from '../lib/palettes';
+import { PALETTES } from '../lib/palettes';
 import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount, syncWakes } from '../lib/mail';
 import { useSettings, defaultSettings, type Settings as S } from '../lib/settings';
+import { LEVEL_WORDS, tidy } from '../lib/mcp/permissions';
 import { undoSteps } from '../lib/history';
 import { allAliases } from '../lib/compose';
 import type { Account } from '../lib/types';
@@ -187,6 +188,28 @@ function AccountsTab() {
   const [confirm, setConfirm] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
   const sorted = [...accounts].sort((a, b) => a.order - b.order);
+  const [selId, setSelId] = useState<string | undefined>(undefined);
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  // The account shown on the right: the one you picked, else the first that needs attention, else the first.
+  const sel = sorted.find((a) => a.id === selId) || sorted.find((a) => wantsSignIn(a) || a.status === 'error') || sorted[0];
+  const mcp = tidy(s.mcp);
+  const events = useMail((st) => st.events);
+  const calNames = useMail((st) => st.calendarNames);
+  const kindName = (a: Account) => (a.kind === 'gmail' ? 'Google' : a.kind === 'microsoft' ? 'Microsoft 365' : a.kind === 'demo' ? 'Demo' : IMAP_PRESETS.find((p) => p.host === a.imap?.host)?.name || 'IMAP');
+  const statusWords = (a: Account) => (a.status === 'error' ? 'Problem syncing' : a.status === 'syncing' ? (a.syncDone ? `Syncing, ${a.syncDone.toLocaleString()}` : 'Syncing') : 'Connected');
+  const sigLine = (a: Account) => {
+    const own = a.aliases.find((x) => x.isDefault)?.email || a.email;
+    const html = own in s.signatures ? s.signatures[own] : a.aliases.find((x) => x.email === own)?.providerSignatureHtml || '';
+    const text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    return text ? (text.length > 42 ? `${text.slice(0, 42)}…` : text) : 'None';
+  };
+  const calLine = (a: Account) => {
+    const names = new Set<string>([...(calNames[a.id] || []), ...events.filter((e) => e.accountId === a.id).map((e) => e.calendarName)]);
+    s.hiddenCalendars.filter((k) => k.startsWith(`${a.id}|`)).forEach((k) => names.add(k.slice(a.id.length + 1)));
+    if (!names.size) return a.kind === 'imap' ? 'None (plain email account)' : 'None yet';
+    const hidden = [...names].filter((n) => s.hiddenCalendars.includes(`${a.id}|${n}`)).length;
+    return `${names.size - hidden} of ${names.size} shown`;
+  };
   // If an account says Syncing but nothing is really syncing, check it again every few seconds until it settles.
   useEffect(() => {
     const t = setInterval(() => {
@@ -194,14 +217,6 @@ function AccountsTab() {
     }, 4000);
     return () => clearInterval(t);
   }, []);
-  const move = (id: string, d: -1 | 1) => {
-    const ids = sorted.map((a) => a.id);
-    const i = ids.indexOf(id);
-    const j = i + d;
-    if (j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
-    reorderAccounts(ids);
-  };
   return (
     <>
       <h1>Accounts</h1>
@@ -212,41 +227,85 @@ function AccountsTab() {
           {demo ? <button className="btn" onClick={leaveDemo}>Leave demo mode and clear demo data</button> : <button className="btn" onClick={() => startDemo()}>Try demo mode</button>}
         </section>
       )}
-      <section className="set-section">
-        <h2>Your accounts</h2>
-        <p className="hint">All of these feed into All Inboxes. Rename them, pick a colour by clicking the dot, and change the order they appear in. Colour palettes are in Settings, then Appearance.</p>
-        {sorted.map((a, i) => (
-          <div className="acct-row" key={a.id}>
-            {/* Two lines on one grid: who the account is on top, its settings underneath, each lined up with the rows above and below. */}
-            <button className="icon-btn acct-dot" aria-label={`Colour for ${a.email}`} title="Change colour" onClick={(e) => setPicker({ accountId: a.id, anchor: { x: e.clientX, y: e.clientY + 12 } })}><span className="dot" style={{ background: a.colour, width: 16, height: 16 }} /></button>
-            <AccountName a={a} />
-            <div className="acct-info">
-              <div>{a.email}</div>
-              <div className="acct-status">
-                {a.kind === 'gmail' ? 'Google' : a.kind === 'microsoft' ? 'Microsoft 365' : a.kind === 'demo' ? 'Demo' : IMAP_PRESETS.find((p) => p.host === a.imap?.host)?.name || 'IMAP'}
-                {' · '}
-                {a.status === 'needs-signin' ? <span className="status-bad">Needs signing in again</span> : a.status === 'error' ? <span className="status-bad" title={a.error}>Problem syncing</span> : a.status === 'syncing' ? (a.syncDone ? `Syncing... ${a.syncDone.toLocaleString()} ${a.syncDone === 1 ? 'message' : 'messages'}` : 'Syncing...') : <span className="status-ok">Connected</span>}
-                {a.lastSync ? ` · checked ${new Date(a.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
+      <section className="set-section acct-section">
+        {/* Like Apple Mail: your accounts on the left, everything about the one you pick on the right. */}
+        <div className="acct-md">
+          <div className="acct-list" role="listbox" aria-label="Accounts">
+            {sorted.map((a) => {
+              const issue = wantsSignIn(a) || a.status === 'error';
+              return (
+                <button key={a.id} role="option" aria-selected={sel?.id === a.id} className={`acct-item ${sel?.id === a.id ? 'on' : ''} ${dropOn === a.id ? 'drop-before' : ''}`}
+                  onClick={() => setSelId(a.id)} draggable title="Drag to change the order"
+                  onDragStart={(e) => { e.dataTransfer.setData('text/wgm-account', a.id); e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragOver={(e) => { if (e.dataTransfer.types.includes('text/wgm-account')) { e.preventDefault(); setDropOn(a.id); } }}
+                  onDragLeave={() => setDropOn(null)}
+                  onDrop={(e) => { const from = e.dataTransfer.getData('text/wgm-account'); setDropOn(null); if (!from || from === a.id) return; e.preventDefault(); const ids = sorted.map((x) => x.id).filter((x) => x !== from); ids.splice(ids.indexOf(a.id), 0, from); reorderAccounts(ids); }}>
+                  <span className="dot" style={{ background: a.colour }} />
+                  <span className="acct-item-name">{a.label || a.email}</span>
+                  {issue && <span className="acct-warn" aria-label={wantsSignIn(a) ? 'Needs signing in' : 'Problem syncing'} title={wantsSignIn(a) ? 'Needs signing in' : 'Problem syncing'} />}
+                </button>
+              );
+            })}
+            <button className="acct-item add" onClick={(e) => addMenu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), addAccountItems())}><Icon name="plus" size={14} /> Add account</button>
+          </div>
+          {sel ? (
+            <div className="acct-detail">
+              <div className="acct-head">
+                <button className="acct-avatar" style={{ background: sel.colour }} aria-label={`Colour for ${sel.email}`} title="Change colour" onClick={(e) => setPicker({ accountId: sel.id, anchor: { x: e.clientX, y: e.clientY + 12 } })}>{(sel.label || sel.email).slice(0, 1).toUpperCase()}</button>
+                <div className="acct-head-text">
+                  <AccountName key={sel.id} a={sel} />
+                  <div className="acct-sub">{sel.email} · {kindName(sel)}</div>
+                </div>
+                {wantsSignIn(sel)
+                  ? <button className="btn primary small" onClick={() => reconnectAccount(sel.id)}>Sign in</button>
+                  : <span className={`acct-pill ${sel.status === 'error' ? 'bad' : sel.status === 'syncing' ? 'busy' : 'ok'}`} title={sel.status === 'error' ? sel.error : undefined}>{statusWords(sel)}</span>}
+              </div>
+
+              {sel.kind !== 'demo' && (
+                <>
+                  <div className="acct-group">Mail</div>
+                  {sorted.length > 1 && (
+                    <div className="acct-line">
+                      <span className="k">Show in All Inboxes</span>
+                      <span className="v">{sel.leaveOutOfAll ? 'Kept out' : 'Included'}</span>
+                      <input type="checkbox" role="switch" className="switch" aria-label="Show in All Inboxes" checked={!sel.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(sel.id, !e.target.checked)} />
+                    </div>
+                  )}
+                  <div className="acct-line">
+                    <span className="k">Keep mail from</span>
+                    <span className="v"><KeepMail a={sel} /></span>
+                    <span />
+                  </div>
+                  <div className="acct-line">
+                    <span className="k">Signature</span>
+                    <span className="v">{sigLine(sel)}</span>
+                    <button className="link-btn" onClick={() => openScreen('settings', 'signatures')}>Edit in Signatures</button>
+                  </div>
+
+                  <div className="acct-group">Calendar and AI</div>
+                  <div className="acct-line">
+                    <span className="k">Calendars</span>
+                    <span className="v">{calLine(sel)}</span>
+                    <button className="link-btn" onClick={() => document.getElementById('acct-calendars')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Choose</button>
+                  </div>
+                  <div className="acct-line">
+                    <span className="k">AI Connection</span>
+                    <span className="v">{mcp.enabled ? LEVEL_WORDS[mcp.accounts[sel.id] ?? 'off'] : 'Switched off'}</span>
+                    <button className="link-btn" onClick={() => openScreen('settings', 'ai')}>Open AI Connection</button>
+                  </div>
+                </>
+              )}
+
+              <div className="acct-foot">
+                <span>{sel.lastSync ? `Checked ${new Date(sel.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Not checked yet'} · <button className="link-btn" onClick={() => restartSync(sel.id)}>Resync</button></span>
+                <button className="link-btn danger" onClick={() => setConfirm(sel.id)}>Remove account</button>
               </div>
             </div>
-            <div className="acct-actions">
-              <button className="icon-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(a.id, -1)}><Icon name="chevronDown" className="rot180" /></button>
-              <button className="icon-btn" aria-label="Move down" disabled={i === sorted.length - 1} onClick={() => move(a.id, 1)}><Icon name="chevronDown" /></button>
-              {wantsSignIn(a) && <button className="btn primary" onClick={() => reconnectAccount(a.id)}>Sign in</button>}
-              <button className="btn ghost" onClick={() => restartSync(a.id)}>Resync</button>
-              <button className="btn ghost danger" onClick={() => setConfirm(a.id)}>Remove</button>
-            </div>
-            {a.kind !== 'demo' && sorted.length > 1 && (
-              <label className="acct-tick">
-                <input type="checkbox" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /> Show in All Inboxes
-              </label>
-            )}
-            {a.kind !== 'demo' && <div className="acct-keep"><KeepMail a={a} compact /></div>}
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn primary" onClick={(e) => addMenu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), addAccountItems())}><Icon name="plus" /> Add account <Icon name="chevronDown" size={14} /></button>
+          ) : (
+            <div className="acct-detail empty">Add an account to get started.</div>
+          )}
         </div>
+        <p className="hint acct-hint">Click the name to rename it and the coloured square to change its colour. Drag accounts in the list to change their order.</p>
         {!isTauri() && <p className="hint" style={{ marginTop: 10 }}>Signing in to real accounts works in the desktop app. This browser preview runs in demo mode.</p>}
         {isTauri() && !googleOn && <p className="hint" style={{ marginTop: 10 }}>Gmail isn't set up yet. The setup guide takes about 10 minutes.</p>}
         {isTauri() && (
@@ -256,18 +315,18 @@ function AccountsTab() {
           {googleOn && (
             <div className="set-card">
               <div className="tx"><strong>Google key</strong><span>Only needed if you have changed your Google Cloud project, or want to run the setup guide again. A new key means signing in to each account again.</span></div>
-              <button className="btn" onClick={() => openGuide('setup')}>Set up with a different key...</button>
+              <button className="btn" onClick={() => openGuide('setup')}>Set up with a different key…</button>
             </div>
         )}
           <div className="set-card">
             <div className="tx"><strong>Microsoft app ID</strong><span>Microsoft accounts sign in through a shared app that comes with Well Good Mail. Only change it if your organisation blocks it and you have registered your own.</span></div>
-            <button className="btn" onClick={() => openGuide('microsoft')}>Use my own ID...</button>
+            <button className="btn" onClick={() => openGuide('microsoft')}>Use my own ID…</button>
           </div>
           </details>
         )}
       </section>
       {accounts.some((a) => a.kind !== 'demo') && (
-        <section className="set-section">
+        <section className="set-section" id="acct-calendars">
           <h2>Calendars</h2>
           <p className="hint">Switch calendars on or off here, or from the Calendars button on the Reminders page and in the Coming up panel. It is the same list, so they always agree.</p>
           <CalendarList variant="cards" />
@@ -279,10 +338,6 @@ function AccountsTab() {
           ]} />
         </section>
       )}
-      <div className="set-card" style={{ marginTop: 0, marginBottom: 18, maxWidth: 760 }}>
-        <div className="tx"><strong>Colours and appearance</strong><span>Pick a colour theme, the account colour palettes, fonts and layout.</span></div>
-        <button className="btn" onClick={() => openScreen('settings', 'appearance')}>Open Appearance</button>
-      </div>
       {isTauri() && googleOn && keys.own && !s.googlePublished && (
         <section className="set-section">
           <div className="weekly-card">
@@ -336,7 +391,7 @@ function SignaturesTab() {
   const value = selected in s.signatures ? s.signatures[selected] : providerSig;
   return (
     <>
-      <h1>Signatures &amp; addresses</h1>
+      <h1>Signatures &amp; Addresses</h1>
       <section className="set-section">
         <h2>Default From address</h2>
         <p className="hint">Used for new emails from All Inboxes. Replies always go from whichever address the email was sent to.</p>
@@ -386,7 +441,7 @@ function GroupsTab() {
   const update = (id: string, patch: Partial<S['groups'][number]>) => set({ groups: groups.map((g) => (g.id === id ? { ...g, ...patch } : g)) });
   return (
     <>
-      <h1>Inbox groups</h1>
+      <h1>Inbox Groups</h1>
       <section className="set-section">
         <h2>Your groups</h2>
         <p className="hint">Make your own combined mailboxes, like "Work" for your studio and a side project. Each group gets its own Inbox, Sent and so on in the sidebar.</p>
@@ -410,31 +465,6 @@ function GroupsTab() {
 }
 
 // ---------- appearance ----------
-
-/** Shows how the account colours look in the sidebar and as the stripe on emails. Uses your own accounts when you have them. */
-function AccountPreview() {
-  const accounts = useMail((st) => st.accounts);
-  const stripe = useSettings((st) => st.showAccountStripe);
-  const palette = useSettings((st) => st.palette);
-  const real = [...accounts].sort((a, b) => a.order - b.order).slice(0, 5).map((a) => ({ name: a.label, colour: a.colour }));
-  const fake = ['Work', 'Personal', 'Studio', 'Club', 'Old mail'].map((name, i) => ({ name, colour: paletteById(palette).colours[i % 8] }));
-  const rows = real.length ? real : fake;
-  const mails = [['Isla Grant', 'Brand film: rough cut thoughts'], ['Ledger and Co', 'Q3 VAT return ready to review'], ['Frame.io', '3 new comments on Anthem_v4']];
-  return (
-    <div className="acct-preview" aria-label="Preview of your account colours">
-      <div className="ap-side">
-        {rows.map((r) => <div className="ap-row" key={r.name}><i style={{ background: r.colour }} /><span>{r.name}</span></div>)}
-      </div>
-      <div className="ap-list">
-        {mails.map(([from, subject], i) => (
-          <div className="ap-msg" key={from} style={{ borderLeftColor: stripe ? rows[i % rows.length].colour : 'transparent' }}>
-            <b>{from}</b><span>{subject}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function AppearanceTab() {
   const s = useSettings();
@@ -481,32 +511,47 @@ function AppearanceTab() {
             </button>
           ))}
         </div>
-        <Check checked={s.colourBlindAccounts} onChange={(v) => { s.set({ colourBlindAccounts: v }); applyPalette(v ? 'accessible' : `skin-${activeId}`); }}>Colour blind friendly account colours (works with any theme)</Check>
       </section>
+      {/* Every colour choice in one calm card, one row each, instead of separate rows of dots across the page. */}
       <section className="set-section">
-        <h2>Account colours</h2>
-        <p className="hint">Each account's colour shows in the sidebar and as a thin stripe on its emails in combined inboxes. Pick a palette to colour them all at once, or click any account's dot to choose one colour.</p>
-        <AccountPreview />
-        <div className="palette-list">
-          {PALETTES.map((p) => (
-            <button key={p.id} className={`palette-row ${palette === p.id ? 'on' : ''}`} onClick={() => applyPalette(p.id)}>
-              <span className="chips-preview">{p.colours.slice(0, Math.min(8, Math.max(5, accounts.length))).map((c) => <span key={c} style={{ background: c }} />)}</span>
-              <span>{p.name}</span>
-            </button>
-          ))}
+        <div className="set-h2-row"><h2>Colours</h2>{partReset('Colours', { accent: d0.accent, unreadColour: d0.unreadColour, colourBlindAccounts: d0.colourBlindAccounts, showAccountStripe: d0.showAccountStripe })}</div>
+        <div className="colour-rows">
+          <div className="colour-row">
+            <span className="k">Accent</span>
+            <span className="swatches">
+              {['#3B82F6', '#0A84FF', '#EEC32A', '#1EAB8F', '#A855F7', '#EF4444'].map((c) => (
+                <button key={c} className={`swatch ${s.accent.toLowerCase() === c.toLowerCase() ? 'on' : ''}`} style={{ background: c }} aria-label={`Accent ${c}`} onClick={() => s.set({ accent: c })} />
+              ))}
+              <input type="color" aria-label="Your own accent colour" title="Your own colour" value={s.accent} onChange={(e) => s.set({ accent: e.target.value })} />
+            </span>
+          </div>
+          <div className="colour-row">
+            <span className="k">Account colours</span>
+            <span className="swatches">
+              <select aria-label="Account colour palette" value={palette} onChange={(e) => applyPalette(e.target.value)}>
+                {!PALETTES.some((p) => p.id === palette) && <option value={palette}>Your own colours</option>}
+                {PALETTES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <span className="chips-preview">{[...accounts].sort((a, b) => a.order - b.order).slice(0, 8).map((a) => <span key={a.id} title={a.label} style={{ background: a.colour }} />)}</span>
+            </span>
+          </div>
+          <div className="colour-row">
+            <span className="k">Unread dot</span>
+            <span className="swatches">
+              {['', '#3B82F6', '#E5484D', '#1EAB8F', '#EEC32A'].map((c) => (
+                <button key={c || 'accent'} className={`swatch ${s.unreadColour === c ? 'on' : ''}`} style={{ background: c || s.accent }} aria-label={c ? `Unread colour ${c}` : 'Same as accent'} title={c ? c : 'Same as accent colour'} onClick={() => s.set({ unreadColour: c })} />
+              ))}
+            </span>
+          </div>
         </div>
+        <p className="hint">Click any account's dot in the sidebar, or its square in Settings, Accounts, to give it its own colour.</p>
+        <Check checked={s.colourBlindAccounts} onChange={(v) => { s.set({ colourBlindAccounts: v }); applyPalette(v ? 'accessible' : `skin-${activeId}`); }}>Colour blind friendly account colours (works with any theme)</Check>
         <Check checked={stripe} onChange={(v) => useSettings.getState().set({ showAccountStripe: v })}>Show the account colour stripe on each email</Check>
       </section>
       <section className="set-section">
-        <div className="set-h2-row"><h2>Display</h2>{partReset('Display', { theme: d0.theme, accent: d0.accent, textScale: d0.textScale, density: d0.density })}</div>
+        <div className="set-h2-row"><h2>Display</h2>{partReset('Display', { theme: d0.theme, textScale: d0.textScale, density: d0.density })}</div>
         <Row label="Theme">
           <Radio name="theme" value={s.theme} onChange={(v) => s.set({ theme: v })} options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'Follow Windows' }]} />
-        </Row>
-        <Row label="Accent colour" htmlFor="accent">
-          <input id="accent" type="color" value={s.accent} onChange={(e) => s.set({ accent: e.target.value })} />
-          {['#3B82F6', '#0A84FF', '#EEC32A', '#1EAB8F', '#A855F7', '#EF4444'].map((c) => (
-            <button key={c} className="icon-btn" aria-label={`Accent ${c}`} onClick={() => s.set({ accent: c })}><span className="dot" style={{ background: c, width: 16, height: 16 }} /></button>
-          ))}
         </Row>
         <Row label="Text size" htmlFor="scale">
           <input id="scale" type="range" min={0.85} max={1.3} step={0.05} value={s.textScale} onChange={(e) => s.set({ textScale: Number(e.target.value) })} />
@@ -517,7 +562,7 @@ function AppearanceTab() {
         </Row>
       </section>
       <section className="set-section">
-        <div className="set-h2-row"><h2>Unread counts</h2>{partReset('Unread counts', { badges: d0.badges, unreadColour: d0.unreadColour })}</div>
+        <div className="set-h2-row"><h2>Unread counts</h2>{partReset('Unread counts', { badges: d0.badges })}</div>
         <p className="hint">The numbers next to mailboxes in the sidebar. A collapsed account shows the total of everything underneath it. Right click any mailbox to hide just its count.</p>
         <Check checked={s.badges.enabled} onChange={(v) => s.set({ badges: { ...s.badges, enabled: v } })}>Show unread counts</Check>
         {s.badges.enabled && (
@@ -545,11 +590,6 @@ function AppearanceTab() {
             )}
           </>
         )}
-        <Row label="Unread dot in the list">
-          {['', '#3B82F6', '#E5484D', '#1EAB8F', '#EEC32A'].map((c) => (
-            <button key={c || 'accent'} className={`swatch ${s.unreadColour === c ? 'on' : ''}`} style={{ background: c || s.accent }} aria-label={c ? `Unread colour ${c}` : 'Same as accent'} title={c ? c : 'Same as accent colour'} onClick={() => s.set({ unreadColour: c })} />
-          ))}
-        </Row>
       </section>
       <section className="set-section">
         <div className="set-h2-row"><h2>Pictures</h2>{partReset('Pictures', { accountIcons: d0.accountIcons, senderPhotos: d0.senderPhotos })}</div>
@@ -582,7 +622,7 @@ function WritingTab() {
   const s = useSettings();
   return (
     <>
-      <h1>Fonts &amp; writing</h1>
+      <h1>Composing</h1>
       <section className="set-section">
         <h2>Fonts</h2>
         <Row label="Interface font" htmlFor="uifont">
@@ -847,7 +887,7 @@ function OfflineTab() {
   const opts = RANGE_OPTS;
   return (
     <>
-      <h1>Search &amp; storage</h1>
+      <h1>Search &amp; Storage</h1>
       <section className="set-section">
         <h2>Moving to another computer</h2>
         <Check checked={s.syncSettings} onChange={(v) => { s.set({ syncSettings: v }); if (v) enableSettingsSync(); }}>Keep my settings the same on every computer (uses a small file in your Google Drive)</Check>
@@ -1008,7 +1048,7 @@ function ShortcutsTab() {
 
   return (
     <>
-      <h1>Keyboard shortcuts</h1>
+      <h1>Keyboard Shortcuts</h1>
       <section className="set-section">
         <p className="hint">Based on Apple Mail, with Ctrl in place of Cmd. Click a shortcut to change it, or Add to give an action another one. Press Escape to cancel.</p>
         <Check checked={s.shortcuts === 'gmail'} onChange={(v) => s.set({ shortcuts: v ? 'gmail' : 'none' })}>Single key shortcuts (like E to archive, J and K to move), when you're not typing</Check>

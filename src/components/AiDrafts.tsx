@@ -25,8 +25,8 @@ import { undoSteps, record } from '../lib/history';
 import { useAiDrafts, saveDraftEverywhere, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, quickSave, quickSend, splitQuote, OUTSIDE_WRITER } from '../lib/mcp/aiDrafts';
 import type { Account, Address, Draft, Message } from '../lib/types';
 
-/** One line of plain text for the preview. */
-const preview = (html: string) => htmlToText(html.split(/gmail_quote|<blockquote/i)[0]).replace(/\s+/g, ' ').trim();
+/** One line of plain text for the preview, without a closing sign-off like "All the best," (it says nothing about the email). */
+const preview = (html: string) => htmlToText(html.split(/gmail_quote|<blockquote/i)[0]).replace(/\n\s*[^\n]{1,30},\s*$/, '').replace(/\s+/g, ' ').trim();
 
 type SortKey = 'newest' | 'oldest' | 'account' | 'group' | 'recipient';
 const SORTS: { key: SortKey; label: string }[] = [
@@ -301,7 +301,8 @@ export function AiDrafts() {
             )}
             <div className="ai-chips" role="toolbar" aria-label="Filter by group">
               {chip('all', 'All', counts.all)}
-              {groups.map((g) => chip(g.id, g.name, counts.byGroup[g.id] || 0, g.id))}
+              {/* Empty groups stay out of the way unless you are looking at one. */}
+              {groups.filter((g) => (counts.byGroup[g.id] || 0) > 0 || filter === g.id).map((g) => chip(g.id, g.name, counts.byGroup[g.id] || 0, g.id))}
               {counts.none > 0 && chip('none', 'No Group', counts.none)}
               <button className="ai-chip add" onClick={() => void newGroup()} title="Add a group"><Icon name="plus" size={13} /> New group</button>
             </div>

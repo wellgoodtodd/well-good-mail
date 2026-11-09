@@ -39,3 +39,15 @@ describe('reminders', () => {
     expect(dueReminders([future], [], new Set(), now)).toHaveLength(0);
   });
 });
+
+describe('remote pictures stay blocked however they are written (security review, Nov 2026)', () => {
+  const base2 = { allowRemote: false, blockTrackers: true, dark: false, inlineImages: {}, font: 'Rubik' };
+  it('catches spaces, // addresses, srcset, sources and style sheets', () => {
+    const r = renderEmail('<img src=" https://a.example/1.png" width="300"><img src="//b.example/2.png" width="300"><picture><source srcset="https://c.example/3.png"><img src="data:image/png;base64,AA"></picture><div style="background:url( \'https://d.example/4.png\' )">x</div><style>.y{background:url(https://e.example/5.png)} @import url(https://f.example/x.css);</style>', undefined, base2);
+    // Only what actually loads counts (a saved data-wgm-src for "Load pictures" is fine).
+    for (const host of ['a.example', 'b.example', 'c.example', 'd.example', 'e.example', 'f.example']) {
+      expect(r.html).not.toMatch(new RegExp(`\\s(?:src|srcset)="[^"]*${host}`));
+      expect(r.html).not.toMatch(new RegExp(`url\\([^)]*${host}`));
+    }
+  });
+});

@@ -64,12 +64,17 @@ async function askPerson(app: string, req: AskRequest) {
     for (const id of req.accounts.length ? allowed : ['*']) grants.set(`${req.capability}|${id}`, until);
   }
   if (allowed.length && remember === 'always') {
-    // "Always" moves the switch from Ask to Allow. An account with its own setting has that setting moved too.
+    // "Always" allows this for just the accounts ticked on the card (their own setting moves to Allow), so one click can't
+    // widen access for accounts the card didn't show. Something with no account (like reminders) moves the main switch.
     const mcp = tidy(settings().mcp);
-    const overrides = { ...mcp.overrides };
-    for (const id of allowed) if (overrides[id]?.[req.capability]) overrides[id] = { ...overrides[id], [req.capability]: 'allow' as Mode };
-    useSettings.getState().set({ mcp: tidy({ ...mcp, modes: { ...mcp.modes, [req.capability]: 'allow' }, overrides }) });
-    toast({ text: 'Done. It won\'t ask about that again. You can change it back any time in Settings, AI Connection.', ttl: 12000, action: { label: 'Open settings', run: () => openScreen('settings', 'ai') } });
+    if (req.accounts.length) {
+      const overrides = { ...mcp.overrides };
+      for (const id of allowed) overrides[id] = { ...(overrides[id] || {}), [req.capability]: 'allow' as Mode };
+      useSettings.getState().set({ mcp: tidy({ ...mcp, overrides }) });
+    } else {
+      useSettings.getState().set({ mcp: tidy({ ...mcp, modes: { ...mcp.modes, [req.capability]: 'allow' } }) });
+    }
+    toast({ text: req.accounts.length ? 'Done. It won\'t ask about that again for the accounts you ticked. Change it any time in Settings, AI Connection.' : 'Done. It won\'t ask about that again. You can change it back any time in Settings, AI Connection.', ttl: 12000, action: { label: 'Open settings', run: () => openScreen('settings', 'ai') } });
   }
   return { allowed, edit };
 }

@@ -13,7 +13,9 @@ fn task_name(id: &str) -> String {
 }
 
 fn powershell(script: &str) -> Result<(), String> {
-    let mut cmd = Command::new("powershell");
+    // Windows' own PowerShell by its full path, so a file called powershell.exe somewhere else can never stand in for it.
+    let system = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into());
+    let mut cmd = Command::new(format!("{}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", system));
     cmd.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script]);
     #[cfg(windows)]
     cmd.creation_flags(0x0800_0000); // no console window

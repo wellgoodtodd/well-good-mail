@@ -94,15 +94,23 @@ export function renderEmail(bodyHtml: string | undefined, bodyText: string | und
   let trackersBlocked = 0;
   let hasRemote = false;
 
+  // Anything that would fetch from the internet: "https:", "http:", or an address starting "//", even with spaces in front.
+  const isRemote = (v: string | null) => Boolean(v && /^\s*(?:https?:|\/\/)/i.test(v));
+  const remoteInList = (v: string | null) => Boolean(v && v.split(',').some((part) => isRemote(part.trim())));
+  // url(...) and image-set(...) in style that point at the internet, in any quoting.
+  const CSS_REMOTE = /url\(\s*(['"]?)\s*(?:https?:|\/\/)[^)]*\)/gi;
+  const CSS_IMPORT = /@import[^;]*;?/gi;
+
   doc.querySelectorAll('img').forEach((img) => {
-    const src = img.getAttribute('src') || '';
+    const src = (img.getAttribute('src') || '').trim();
+    if (!opts.allowRemote && remoteInList(img.getAttribute('srcset'))) { img.setAttribute('data-wgm-srcset', img.getAttribute('srcset') || ''); img.removeAttribute('srcset'); hasRemote = true; }
     if (src.startsWith('cid:')) {
       const data = opts.inlineImages[src.slice(4)];
       if (data) img.setAttribute('src', data);
       else img.setAttribute('data-wgm-cid', src.slice(4));
       return;
     }
-    if (!/^https?:/i.test(src)) return;
+    if (!isRemote(src)) return;
     hasRemote = true;
     if (opts.blockTrackers && isTracker(img)) {
       img.remove();
@@ -118,13 +126,25 @@ export function renderEmail(bodyHtml: string | undefined, bodyText: string | und
     }
   });
 
-  // Remote backgrounds in inline styles leak opens too.
-  doc.querySelectorAll('[style*="url("]').forEach((el) => {
-    if (!opts.allowRemote) {
-      el.setAttribute('style', (el.getAttribute('style') || '').replace(/url\((['"]?)https?:[^)]*\1\)/gi, 'none'));
-      hasRemote = true;
-    }
-  });
+  // Other ways an email can fetch a picture: <picture> sources, video posters, SVG images, and backgrounds in styles.
+  if (!opts.allowRemote) {
+    doc.querySelectorAll('source, video, audio, track').forEach((el) => {
+      for (const attr of ['src', 'srcset', 'poster']) if (isRemote(el.getAttribute(attr)) || (attr === 'srcset' && remoteInList(el.getAttribute(attr)))) { el.removeAttribute(attr); hasRemote = true; }
+    });
+    doc.querySelectorAll('image, use, feImage').forEach((el) => {
+      for (const attr of ['href', 'xlink:href', 'src']) if (isRemote(el.getAttribute(attr))) { el.removeAttribute(attr); hasRemote = true; }
+    });
+    doc.querySelectorAll('[style]').forEach((el) => {
+      const st = el.getAttribute('style') || '';
+      if (CSS_REMOTE.test(st)) { el.setAttribute('style', st.replace(CSS_REMOTE, 'none')); hasRemote = true; }
+      CSS_REMOTE.lastIndex = 0;
+    });
+    doc.querySelectorAll('style').forEach((el) => {
+      const css = el.textContent || '';
+      const next = css.replace(CSS_IMPORT, '').replace(CSS_REMOTE, 'none');
+      if (next !== css) { el.textContent = next; hasRemote = true; }
+    });
+  }
   doc.querySelectorAll('[background]').forEach((el) => {
     if (!opts.allowRemote) {
       el.removeAttribute('background');

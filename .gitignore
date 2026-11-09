@@ -10,3 +10,6 @@ secrets/
 # Cloudflare and Wrangler local files
 .cloudflare/
 .wrangler/
+
+# Private: security findings stay on this computer until they are fixed
+docs/security-review-*.md

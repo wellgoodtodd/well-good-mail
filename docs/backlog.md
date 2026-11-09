@@ -4,6 +4,22 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 ## After 0.7.0
 
+**In 0.7.1 beta 1 (10 Nov 2026):** design review fixes (contrast on the selected row and Allow buttons, editor fitting its pane, headings that match their tabs, softer greys made readable, even editor edges, empty group chips hidden, sign-off trimmed from previews); Settings, Accounts as a list with a calm detail column; Appearance with one Colours card; hardening: what an AI is shown, remote picture blocking, links opening in the browser, Always allow only for ticked accounts, safe attachment names, tighter content rules.
+
+**Security, still to do:** the remaining low items are in the private review on Todd's computer (not in this repository).
+
+**Design, still to do:** one height and corner for buttons, inputs and selects (30px, 7px; toolbars 26px); one page width and margin for full-page screens (AI Drafts, Scheduled, Settings).
+
+**Next batch, agreed 9 Nov 2026 (Todd: "have a go at all the next things"):**
+- Accessibility pass: keyboard only on every screen with visible focus, Windows Narrator check, contrast measured in both themes, follow Windows "show animations", Windows high contrast mode, and an Accessibility section in Settings.
+- Start-up click lag: load older mail, the search index and photos even more gently.
+- Out of office per account, and Add to contacts from the person card. Both need one more Google sign-in (vacation settings and contacts permission), and Microsoft too; add both to the Google project first, so it's one sign-in, not two.
+- Microsoft 365 and iCloud: real testing, including an AI draft on each.
+- Follow-up suggestions (see Before 1.0).
+- Settings, Accounts reimagined (mock-up: list and detail like Apple Mail, or one folding card per account), with calendars, Keep mail from, AI access and out of office per account in one place.
+- Appearance calmer: one Colours card (accent, account palette, unread colour as compact rows) instead of four rows of dots.
+- Worth running once: a security audit (gstack cso) given the AI Connection and email rendering, and a design review pass (gstack design-review) on Settings.
+
 - **Speed, still to look at** (from testing beta 14, 9 Nov): archive and delete are now instant; flag and read marks got the same treatment in 0.7.0 (check it). Clicks just after opening the app can still lag while older mail and the search index load and photos arrive; consider loading those even more gently. Check again with real use.
 
 ## For the next 0.7 beta
