@@ -1355,3 +1355,11 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .colour-row input[type="color"] { width: 30px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 7px; background: transparent; }
 .colour-row .chips-preview { display: inline-flex; gap: 4px; }
 .colour-row .chips-preview span { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+/* Accounts: line up the words, not the boxes. The drop-down sits 9px left (its padding and border) so its text starts
+   where the other values start, and the plus beside Add account takes the same column as the coloured dots. */
+.acct-line .v select { margin-left: -9px; }
+.acct-item { grid-template-columns: 14px minmax(0, 1fr) auto; }
+.acct-item .dot { justify-self: center; }
+.acct-item.add { grid-template-columns: 14px minmax(0, 1fr); }
+.acct-item.add svg { justify-self: center; }

@@ -6,6 +6,23 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 **In 0.7.1 beta 1 (10 Nov 2026):** design review fixes (contrast on the selected row and Allow buttons, editor fitting its pane, headings that match their tabs, softer greys made readable, even editor edges, empty group chips hidden, sign-off trimmed from previews); Settings, Accounts as a list with a calm detail column; Appearance with one Colours card; hardening: what an AI is shown, remote picture blocking, links opening in the browser, Always allow only for ticked accounts, safe attachment names, tighter content rules.
 
+**Attachments, asked for 10 Nov 2026 (next beta):**
+- Click an attachment that can't preview inside the app (Word, Excel, Pages and so on) and it opens straight away in its own app: Well Good Mail saves a copy in a private Previews folder (in the app's cache) and opens that. Changes made there aren't saved back to the email.
+- Settings: a default downloads folder (or "Ask each time"), used by Save and Save all.
+- Settings, Search & Storage: the Previews folder's size, Open folder and Clear previews, and previews older than 30 days cleared by themselves.
+- Needs a small Windows-side addition (write to the cache folder and open a file with its own app), kept to that folder only.
+
+**Settings, Accounts, round two (10 Nov 2026, mock-ups first, next beta):**
+- One bigger card per account: an easy-to-read summary at the top (every setting on one line each, no "Mail" / "Calendar and AI" breaks), and a panel underneath that shows whichever row you click.
+- Signature: a drop-down (like "WGM signature") that shows the whole signature, where you change the default. Also separate defaults for replies and forwards (for example a short one or none on forwards).
+- Calendars: clicking shows that account's calendars with their switches right there, plus the "alerts from hidden calendars" choice (that setting should live here too, not only on the old Calendars section).
+- AI Connection: that account's switches (Off, Ask, Allow for each thing) right there, with a link to the full AI Connection tab for everything else.
+- The separate Calendars section and the account card then become one place.
+
+**Noticed while testing 0.7.1 beta 1 (10 Nov):** the "ALL (Others)" folder in the sidebar wouldn't fold closed (or took a long time) while Drafts held a lot of drafts. Check folding speed with a big Drafts folder, and check nothing is pulling in more drafts than it should.
+
+**Suggested events, asked for 10 Nov 2026 (next beta, not built yet):** a card at the top of an open email when it mentions a future date and time (like "Monday 16th November at 7.30pm, online"): the title from the subject, date and time, Online with the link if there's a Zoom, Meet or Teams link, Add to calendar (same route as invitations), Not now, and a menu with Change details and Don't suggest from this sender. Read on this computer with a date-reading library, no AI or server. Only from people (not newsletters or receipts) and only when fairly sure; the phrase it found is lightly highlighted. A switch in Settings to turn it off. Mock-up shown 10 Nov.
+
 **Security, still to do:** the remaining low items are in the private review on Todd's computer (not in this repository).
 
 **Design, still to do:** one height and corner for buttons, inputs and selects (30px, 7px; toolbars 26px); one page width and margin for full-page screens (AI Drafts, Scheduled, Settings).

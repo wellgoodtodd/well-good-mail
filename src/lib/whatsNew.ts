@@ -12,6 +12,27 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.7.1',
+    date: 'November 2026',
+    highlights: [
+      'A tidier Settings, Accounts: your accounts on the left, everything about the one you pick on the right',
+      'A calmer Appearance page, with all the colour choices in one place',
+      'Easier to read, and safer with emails from strangers',
+    ],
+    more: [
+      'Settings, Accounts: an account that needs attention shows a small coral dot. Pick one to see its status, Show in All Inboxes, Keep mail from, signature, calendars and AI Connection access, each on one line. Rename it by clicking the name, change its colour by clicking the coloured square, and drag accounts in the list to change their order.',
+      'Settings, Appearance: one Colours section holds the accent, account colours and unread dot.',
+      'Better contrast on the selected email and the selected Allow buttons, clearer grey text in a few places, readable signature links in dark mode, and Settings headings that match their names in the list.',
+      'The editor fits its pane in narrow windows, and its edges line up.',
+      'AI Drafts hides groups with no drafts, and previews no longer end with your sign-off.',
+      'AI apps see even less of anything a sender has hidden in an email, and search results and calendar entries are marked as written by other people.',
+      'Remote pictures stay blocked however an email tries to load them, including in the quoted part of a reply.',
+      'Links in the app window, like those in a quoted reply, open in your browser.',
+      '"Always allow" on an AI question now covers only the accounts you ticked.',
+      'Attachment names are cleaned when saving several at once.',
+    ],
+  },
+  {
     version: '0.7.0',
     date: 'November 2026',
     highlights: [
