@@ -31,7 +31,7 @@ export async function pasteAsQuote(editor: Editor) {
   }
 }
 
-export function FormatBar({ editor, extra, defaultFont, defaultSize }: { editor: Editor | null; extra?: React.ReactNode; defaultFont: string; defaultSize: number }) {
+export function FormatBar({ editor, extra, end, basic, defaultFont, defaultSize }: { editor: Editor | null; extra?: React.ReactNode; end?: React.ReactNode; basic?: boolean; defaultFont: string; defaultSize: number }) {
   const [, rerender] = useReducer((x: number) => x + 1, 0);
   useEffect(() => {
     if (!editor) return;
@@ -50,6 +50,23 @@ export function FormatBar({ editor, extra, defaultFont, defaultSize }: { editor:
     </button>
   );
   const ts = editor.getAttributes('textStyle');
+
+  if (basic) {
+    // Cards: just the everyday ones.
+    return (
+      <div className="fmt-bar basic" role="toolbar" aria-label="Formatting">
+        {btn(null, 'Bold (Ctrl+B)', editor.isActive('bold'), () => editor.chain().focus().toggleBold().run(), <b>B</b>)}
+        {btn(null, 'Italic (Ctrl+I)', editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run(), <i>I</i>)}
+        {btn(null, 'Underline (Ctrl+U)', editor.isActive('underline'), () => editor.chain().focus().toggleUnderline().run(), <u>U</u>)}
+        <span className="sep" />
+        {btn('list', 'Bulleted list', editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run())}
+        {btn('listOrdered', 'Numbered list', editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run())}
+        {btn('link', 'Link (Ctrl+K)', editor.isActive('link'), () => promptLink(editor))}
+        {btn('eraser', 'Clear formatting', false, () => editor.chain().focus().unsetAllMarks().clearNodes().run())}
+        {end && <><span className="fmt-grow" />{end}</>}
+      </div>
+    );
+  }
 
   return (
     <div className="fmt-bar" role="toolbar" aria-label="Formatting">
@@ -83,6 +100,7 @@ export function FormatBar({ editor, extra, defaultFont, defaultSize }: { editor:
       {btn('link', 'Link (Ctrl+K)', editor.isActive('link'), () => promptLink(editor))}
       {btn('eraser', 'Clear formatting', false, () => editor.chain().focus().unsetAllMarks().clearNodes().run())}
       {extra}
+      {end && <><span className="fmt-grow" />{end}</>}
     </div>
   );
 }

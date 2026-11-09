@@ -5,13 +5,14 @@ import DOMPurify from 'dompurify';
 import { Icon } from './Icon';
 import { RecipientField } from './RecipientField';
 import { SendLaterPicker } from './SendLaterPicker';
+import { SignaturePicker } from './SignaturePicker';
 import { FormatBar, promptLink, pasteAsQuote } from './FormatBar';
 import { editorExtensions, changeIndent } from './editorExtensions';
 import { Dialog, fileSize, sendLaterOptions, useMenu } from './ui';
 import { store } from '../lib/db';
 import { useMail, queueSend, providerFor, toast, broadcast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
-import { allAliases, findAlias, switchMode, signatureFor, draftToOutgoing, draftIsEmpty, pickFromForMessage, ATTACHMENT_LIMIT_BYTES, encodedSize } from '../lib/compose';
+import { allAliases, findAlias, switchMode, draftSignature, draftToOutgoing, draftIsEmpty, pickFromForMessage, ATTACHMENT_LIMIT_BYTES, encodedSize } from '../lib/compose';
 import { labelAiDraft } from '../lib/mcp/aiDrafts';
 import { composeContext, writingStyle } from '../lib/composeActions';
 import { closeThisWindow, isPopout, isTauri, openPopout } from '../lib/platform';
@@ -338,7 +339,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
 
   if (!draft) return <div className="composer"><div className="empty">Loading draft...</div></div>;
 
-  const signature = signatureFor(draft.fromEmail, { ...composeContext() });
+  const signature = draftSignature(draft, { ...composeContext() });
   const fromHit = findAlias(accounts, draft.fromEmail, draft.fromAccountId);
   const fromAccount = fromHit?.account;
   const totalSize = draft.attachments.reduce((n, a) => n + a.size, 0);
@@ -415,6 +416,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
         editor={editor}
         defaultFont={s.writingFont}
         defaultSize={s.writingSize}
+        end={<SignaturePicker fromEmail={draft.fromEmail} value={draft.signatureOf} onChange={(v) => update({ signatureOf: v })} />}
         extra={
           <>
             <span className="sep" />
@@ -536,7 +538,7 @@ async function preSendChecks(d: Draft, bodyText: string): Promise<boolean> {
   return true;
 }
 
-function cssToStyle(css: string): React.CSSProperties {
+export function cssToStyle(css: string): React.CSSProperties {
   const out: Record<string, string> = {};
   css.split(';').forEach((rule) => {
     const [k, v] = rule.split(':');

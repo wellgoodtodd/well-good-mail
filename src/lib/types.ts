@@ -247,8 +247,10 @@ export interface Draft {
   serverAccountId?: string;
   /** Provider message id of the server draft this was opened from. */
   serverDraftMessageId?: string;
-  /** Written elsewhere with its own sign-off already in it, so no signature is added. */
+  /** Old: a guess that a draft already had a sign-off. No longer used; the signature choice below decides. */
   noSignature?: boolean;
+  /** Which signature goes on it: unset for the From address's own, '' for none, or another address's. */
+  signatureOf?: string;
   /** Written by an AI app (its plain name), so it shows under AI drafts. */
   byAi?: string;
   /** Which AI drafts group it is in (a group id from settings), if any. */

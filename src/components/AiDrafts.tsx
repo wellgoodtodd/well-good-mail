@@ -9,13 +9,20 @@ import { RecipientField } from './RecipientField';
 import { SendLaterPicker } from './SendLaterPicker';
 import { ScheduledViewer } from './Scheduled';
 import { useMail, providerFor, toast, cancelSend } from '../lib/mail';
+import { useEditor, EditorContent } from '@tiptap/react';
+import DOMPurify from 'dompurify';
+import { FormatBar } from './FormatBar';
+import { SignaturePicker } from './SignaturePicker';
+import { editorExtensions } from './editorExtensions';
+import { composeContext, writingStyle } from '../lib/composeActions';
 import { useSettings } from '../lib/settings';
 import { store } from '../lib/db';
 import { openDraft } from '../lib/composeActions';
-import { allAliases } from '../lib/compose';
+import { cssToStyle } from './Composer';
+import { allAliases, draftSignature } from '../lib/compose';
 import { askConfirm, askText } from '../lib/dialogs';
 import { undoSteps, record } from '../lib/history';
-import { useAiDrafts, saveDraftEverywhere, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, isSimple, quickSave, quickSend, OUTSIDE_WRITER } from '../lib/mcp/aiDrafts';
+import { useAiDrafts, saveDraftEverywhere, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, quickSave, quickSend, splitQuote, OUTSIDE_WRITER } from '../lib/mcp/aiDrafts';
 import type { Account, Address, Draft, Message } from '../lib/types';
 
 /** One line of plain text for the preview. */
@@ -38,16 +45,22 @@ const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numer
 const dayTime = (t: number) => new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const writerText = (d: Draft) => (d.byAi === OUTSIDE_WRITER ? 'Made in Gmail' : `Written by ${d.byAi}`);
 
-/** Names for addresses, from the mail on this computer. Worked out once each time the mail changes, not on every draft. */
-const nameCache = new WeakMap<object, Map<string, string>>();
-function namesFrom(messages: Record<string, Message>): Map<string, string> {
-  let out = nameCache.get(messages);
-  if (out) return out;
-  out = new Map();
-  const note = (a?: Address) => { if (a?.name && a.email && !a.name.includes('@')) out!.set(a.email.toLowerCase(), a.name); };
-  for (const m of Object.values(messages)) { note(m.from); m.to.forEach(note); m.cc.forEach(note); }
-  nameCache.set(messages, out);
-  return out;
+/**
+ * Names for addresses, from your contacts and then your mail. Each address is looked up once and remembered;
+ * the mail is only read when an address turns up that hasn't been seen before (one pass for all of them).
+ */
+const knownNames = new Map<string, string>();
+function namesFor(emails: string[], messages: Record<string, Message>, contacts: Address[]): Map<string, string> {
+  const missing = new Set(emails.map((e) => e.toLowerCase()).filter((e) => !knownNames.has(e)));
+  if (missing.size) {
+    for (const c of contacts) { const e = c.email.toLowerCase(); if (missing.has(e) && c.name && !c.name.includes('@')) { knownNames.set(e, c.name); missing.delete(e); } }
+  }
+  if (missing.size) {
+    const note = (a?: Address) => { const e = a?.email.toLowerCase(); if (e && missing.has(e) && a!.name && !a!.name.includes('@')) { knownNames.set(e, a!.name); missing.delete(e); } };
+    for (const m of Object.values(messages)) { note(m.from); m.to.forEach(note); m.cc.forEach(note); if (!missing.size) break; }
+    for (const e of missing) knownNames.set(e, ''); // no name anywhere: don't look again
+  }
+  return knownNames;
 }
 
 /** The account a draft belongs to, even if its link was lost: its own, the one it's saved in, then by address. */
@@ -109,7 +122,8 @@ export function AiDrafts() {
   }, []);
   const setSort = (k: SortKey) => { setSortState(k); writeLocal(SORT_KEY, k); };
 
-  const names = namesFrom(useMail.getState().messages);
+  const contacts = useMail((s) => s.contacts);
+  const names = useMemo(() => namesFor([...list.flatMap((d) => d.to.map((a) => a.email)), ...outbox.flatMap((o) => o.draft.to.map((a) => a.email))], useMail.getState().messages, contacts), [list, outbox, contacts]);
   const nameOf = (a: Address) => (a.name && !a.name.includes('@') ? a.name : names.get(a.email.toLowerCase()) || a.email);
   const whoFor = (d: Draft) => (d.to[0] ? nameOf(d.to[0]) + (d.to.length > 1 ? ` +${d.to.length - 1}` : '') : 'Nobody yet');
 
@@ -250,7 +264,7 @@ export function AiDrafts() {
               <div key={o.id} className="ai-scheduled-row" role="button" tabIndex={0} title="Read it, change its time or stop it going" onClick={() => setViewing(o.id)} onKeyDown={(e) => { if (e.key === 'Enter') setViewing(o.id); }}>
                 <time>{new Date(o.sendAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time>
                 <span className="ai-scheduled-what"><b>{whoFor(o.draft)}</b> · {o.draft.subject || '(no subject)'}</span>
-                <button className="btn ghost" onClick={(e) => { e.stopPropagation(); void cancelSend(o.id, { reopen: false }).then(refreshAiDrafts); }}>Don't send</button>
+                <button className="btn ghost" title="Stops it being sent and puts it back in AI Drafts" onClick={(e) => { e.stopPropagation(); void cancelSend(o.id, { reopen: false }).then(refreshAiDrafts); }}>Back to drafts</button>
               </div>
             ))}
           </div>
@@ -363,11 +377,12 @@ export function AiDrafts() {
   );
 }
 
-interface QuickForm { fromAccountId?: string; fromEmail: string; to: Address[]; cc: Address[]; bcc: Address[]; subject: string; text: string }
+interface QuickForm { fromAccountId?: string; fromEmail: string; to: Address[]; cc: Address[]; bcc: Address[]; subject: string; html: string; signatureOf?: string }
 
 /**
- * A draft opened on its card: a small editor with From, To, Cc, Bcc and Subject like the full one, and the message in
- * its own box. Changes save by themselves a moment after you stop typing, and when the card closes.
+ * A draft opened on its card: a small editor with From, To, Cc, Bcc and Subject like the full one, a basic formatting bar
+ * (with the signature at its right end), and the message in its own box. Changes save by themselves a moment after you
+ * stop typing, and when the card closes.
  */
 function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
   d: Draft;
@@ -379,8 +394,19 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
   const accounts = useMail((s) => s.accounts);
   const contacts = useMail((s) => s.contacts);
   const aliases = useMemo(() => allAliases(accounts), [accounts]);
-  const simple = isSimple(d.html);
-  const [form, setForm] = useState<QuickForm>(() => ({ fromAccountId: d.fromAccountId || acc?.id, fromEmail: d.fromEmail, to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, text: htmlToText(d.html) }));
+  // Only the reply itself is edited here; earlier emails quoted under it fold away and are kept as they are.
+  const parts = useMemo(() => splitQuote(d.html), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [showQuote, setShowQuote] = useState(false);
+  const [form, setForm] = useState<QuickForm>(() => ({ fromAccountId: d.fromAccountId || acc?.id, fromEmail: d.fromEmail, to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, html: parts.own, signatureOf: d.signatureOf }));
+  const writing = { font: useSettings((s) => s.writingFont), size: useSettings((s) => s.writingSize) };
+  const editor = useEditor({
+    extensions: editorExtensions(),
+    content: parts.own,
+    editorProps: { attributes: { spellcheck: 'true', lang: 'en-GB', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message', class: 'ai-rich' } },
+    onUpdate: ({ editor: ed }) => change({ html: ed.getHTML() }),
+    onBlur: () => void flush(),
+  });
+  const signature = draftSignature({ fromEmail: form.fromEmail, signatureOf: form.signatureOf }, composeContext());
   const [showCc, setShowCc] = useState(d.cc.length > 0);
   const [showBcc, setShowBcc] = useState(d.bcc.length > 0);
   const [saving, setSaving] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -395,7 +421,7 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
     dirty.current = false;
     setSaving('saving');
     const f = formRef.current;
-    await quickSave(d.id, { fromAccountId: f.fromAccountId, fromEmail: f.fromEmail, to: f.to, cc: f.cc, bcc: f.bcc, subject: f.subject, ...(simple ? { text: f.text } : {}) });
+    await quickSave(d.id, { fromAccountId: f.fromAccountId, fromEmail: f.fromEmail, to: f.to, cc: f.cc, bcc: f.bcc, subject: f.subject, html: f.html, signatureOf: f.signatureOf });
     setSaving('saved');
   };
   const change = (patch: Partial<QuickForm>) => {
@@ -451,13 +477,22 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
           <input id={`aisubj-${d.id}`} className="plain ai-subject-input" value={form.subject} onChange={(e) => change({ subject: e.target.value })} onBlur={() => void flush()} placeholder="Subject" />
         </div>
       </div>
-      {simple ? (
-        <textarea className="ai-body" aria-label="Message" value={form.text} onChange={(e) => change({ text: e.target.value })} onBlur={() => void flush()} rows={Math.min(18, Math.max(7, form.text.split('\n').length + 1))} />
-      ) : (
-        <div className="ai-body read" aria-label="Message">{form.text}</div>
+      <div className="ai-editor">
+        <FormatBar editor={editor} basic defaultFont={writing.font} defaultSize={writing.size}
+          end={<SignaturePicker fromEmail={form.fromEmail} value={form.signatureOf} onChange={(v) => change({ signatureOf: v })} />} />
+        <div className="ai-body" onClick={(e) => { if (e.target === e.currentTarget) editor?.commands.focus('end'); }}>
+          <div style={cssToStyle(writingStyle())}><EditorContent editor={editor} /></div>
+          {signature && <div className="signature-preview" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signature) }} />}
+        </div>
+      </div>
+      {parts.quote && (
+        <div className="ai-quote">
+          <button className="btn ghost" onClick={() => setShowQuote(!showQuote)}><Icon name={showQuote ? 'chevronDown' : 'chevronRight'} size={12} /> {showQuote ? 'Hide the earlier emails' : 'Show the earlier emails'}</button>
+          {showQuote && <div className="ai-quote-text">{htmlToText(parts.quote)}</div>}
+        </div>
       )}
       <div className="ai-quick-note ai-note-row">
-        <span>{simple ? (d.noSignature ? 'This draft already ends with your name, so no signature is added.' : 'Your signature is added when it\'s sent.') : 'This draft has formatting, so change the message in the editor.'} {writerText(d)}.</span>
+        <span>{writerText(d)}. For attachments and fonts, use Open in editor.</span>
         <span className={`ai-saved ${saving}`} aria-live="polite">{saving === 'saving' ? 'Saving...' : saving === 'saved' ? 'Saved' : ''}</span>
       </div>
       <div className="ai-quick-actions">

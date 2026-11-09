@@ -144,6 +144,12 @@ export function switchMode(draft: Draft, mode: ComposeMode, source: Message | un
   };
 }
 
+/** The signature a draft gets: its own choice, or the From address's. */
+export function draftSignature(draft: Pick<Draft, 'fromEmail' | 'signatureOf'>, ctx: ComposeContext): string {
+  if (draft.signatureOf === '') return '';
+  return signatureFor(draft.signatureOf || draft.fromEmail, ctx);
+}
+
 export function signatureFor(email: string, ctx: ComposeContext): string {
   if (email in ctx.signatures) return ctx.signatures[email];
   return findAlias(ctx.accounts, email)?.alias.providerSignatureHtml || '';
@@ -163,7 +169,7 @@ export interface SourceAttachment {
 export function draftToOutgoing(draft: Draft, source: Message | undefined, ctx: ComposeContext, sourceAttachments: SourceAttachment[] = []): { accountId: string; message: OutgoingMessage } {
   const hit = findAlias(ctx.accounts, draft.fromEmail, draft.fromAccountId);
   if (!hit) throw new Error(`No account can send as ${draft.fromEmail}`);
-  const signature = draft.noSignature ? '' : signatureFor(draft.fromEmail, ctx);
+  const signature = draftSignature(draft, ctx);
   const sigBlock = signature ? `<div class="wgm-signature">${signature}</div>` : '';
   const links = draft.driveLinks.length
     ? `<p>${draft.driveLinks.map((l) => `<a href="${escapeHtml(l.url)}">${escapeHtml(l.name)}</a> (Google Drive)`).join('<br>')}</p>`

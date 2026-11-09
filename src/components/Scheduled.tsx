@@ -33,7 +33,7 @@ export function ScheduledViewer({ id, onClose }: { id: string; onClose: () => vo
       title="Scheduled email"
       onClose={onClose}
       actions={<>
-        <button className="btn ghost ai-delete" onClick={() => { onClose(); void cancelSend(id, { reopen: false }); }}><Icon name="close" size={14} /> Don't send</button>
+        <button className="btn ghost" title="Stops it being sent and puts it back in your drafts" onClick={() => { onClose(); void cancelSend(id, { reopen: false }); }}><Icon name="undo" size={14} /> Back to drafts</button>
         <span className="grow" />
         <button className="btn" title="Takes it out of Scheduled and opens it, so you can change it and send it again" onClick={() => { onClose(); void cancelSend(id); }}>Open in editor</button>
         <button className="btn primary" onClick={() => setPicking(true)}><Icon name="clock" size={14} /> Change time</button>
@@ -61,7 +61,7 @@ export function ScheduledScreen() {
     <div className="screen ai-drafts" role="main">
       <div className="ai-drafts-inner">
         <h1>Scheduled</h1>
-        <p className="lead">Emails set to send later. Click one to read it, change its time or stop it going.</p>
+        <p className="lead">Emails set to send later. Click one to read it, change its time or put it back in your drafts.</p>
         {items.length === 0 ? (
           <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
             <Icon name="clock" size={24} />

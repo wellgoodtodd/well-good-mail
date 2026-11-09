@@ -29,13 +29,13 @@ export function parseDateTime(date: string, time: string): number | undefined {
 }
 
 /** One column of the time: the chosen number sits in the highlight, the others scroll past it. */
-function Wheel({ value, max, label, onChange }: { value: number; max: number; label: string; onChange: (v: number) => void }) {
+function Wheel({ value, max, label, onChange, onStep }: { value: number; max: number; label: string; onChange: (v: number) => void; onStep: (by: number) => void }) {
   const wrap = (v: number) => ((v % (max + 1)) + (max + 1)) % (max + 1);
   const [typed, setTyped] = useState<string | null>(null);
   return (
-    <div className="slp-wheel" aria-label={label} onWheel={(e) => { e.preventDefault(); onChange(wrap(value + (e.deltaY > 0 ? 1 : -1))); }}>
-      <button className="slp-step" aria-label={`Earlier ${label}`} onClick={() => onChange(wrap(value - 1))}><Icon name="chevronDown" size={12} className="rot180" /></button>
-      {[-2, -1].map((o) => <button key={o} className="slp-near" tabIndex={-1} onClick={() => onChange(wrap(value + o))}>{pad(wrap(value + o))}</button>)}
+    <div className="slp-wheel" aria-label={label} onWheel={(e) => { e.preventDefault(); onStep(e.deltaY > 0 ? 1 : -1); }}>
+      <button className="slp-step" aria-label={`Earlier ${label}`} onClick={() => onStep(-1)}><Icon name="chevronDown" size={12} className="rot180" /></button>
+      {[-2, -1].map((o) => <button key={o} className="slp-near" tabIndex={-1} onClick={() => onStep(o)}>{pad(wrap(value + o))}</button>)}
       <input
         className="slp-now"
         aria-label={label}
@@ -45,13 +45,13 @@ function Wheel({ value, max, label, onChange }: { value: number; max: number; la
         onChange={(e) => setTyped(e.target.value.replace(/\D/g, '').slice(0, 2))}
         onBlur={() => { if (typed !== null && typed !== '' && Number(typed) <= max) onChange(Number(typed)); setTyped(null); }}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowUp') { e.preventDefault(); onChange(wrap(value - 1)); }
-          if (e.key === 'ArrowDown') { e.preventDefault(); onChange(wrap(value + 1)); }
+          if (e.key === 'ArrowUp') { e.preventDefault(); onStep(-1); }
+          if (e.key === 'ArrowDown') { e.preventDefault(); onStep(1); }
           if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
         }}
       />
-      {[1, 2].map((o) => <button key={o} className="slp-near" tabIndex={-1} onClick={() => onChange(wrap(value + o))}>{pad(wrap(value + o))}</button>)}
-      <button className="slp-step" aria-label={`Later ${label}`} onClick={() => onChange(wrap(value + 1))}><Icon name="chevronDown" size={12} /></button>
+      {[1, 2].map((o) => <button key={o} className="slp-near" tabIndex={-1} onClick={() => onStep(o)}>{pad(wrap(value + o))}</button>)}
+      <button className="slp-step" aria-label={`Later ${label}`} onClick={() => onStep(1)}><Icon name="chevronDown" size={12} /></button>
     </div>
   );
 }
@@ -77,12 +77,15 @@ export function SendLaterPicker({ initial, title = 'Send later', confirmLabel = 
   }, [at]);
   const setPart = (fn: (x: Date) => void) => { const x = new Date(at); fn(x); setAt(x.getTime()); };
   const typedOk = parseDateTime(dateText, timeText);
-  const commitTyped = () => {
-    if (typedOk === undefined) return;
-    setAt(typedOk);
-    const x = new Date(typedOk);
+  const applyTyped = (date: string, time: string) => {
+    const t = parseDateTime(date, time);
+    if (t === undefined) return;
+    setAt(t);
+    const x = new Date(t);
     setMonth(new Date(x.getFullYear(), x.getMonth(), 1));
   };
+  const commitTyped = () => applyTyped(dateText, timeText);
+  const moveBy = (ms: number) => { const t = at + ms; setAt(t); const x = new Date(t); setMonth(new Date(x.getFullYear(), x.getMonth(), 1)); };
 
   const cells = useMemo(() => {
     const first = new Date(month);
@@ -91,7 +94,8 @@ export function SendLaterPicker({ initial, title = 'Send later', confirmLabel = 
   }, [month]);
   const today = new Date();
   const same = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  const past = at < Date.now() + 60000;
+  // A little leeway: anything more than about a minute away can be scheduled.
+  const past = at < Date.now() + 45000;
 
   return (
     <Dialog
@@ -99,14 +103,14 @@ export function SendLaterPicker({ initial, title = 'Send later', confirmLabel = 
       onClose={onClose}
       actions={<>
         <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn primary" disabled={past || (typedOk !== undefined && typedOk !== at)} onClick={() => onPick(at)}>{confirmLabel}</button>
+        <button className="btn primary" disabled={past} onClick={() => onPick(at)}>{confirmLabel}</button>
       </>}
     >
       <div className="slp">
         <div className="slp-typed">
-          <label><span>Date</span><input aria-label="Date" value={dateText} placeholder="dd/mm/yyyy" onChange={(e) => setDateText(e.target.value)} onBlur={commitTyped} onKeyDown={(e) => { if (e.key === 'Enter') commitTyped(); }} aria-invalid={typedOk === undefined} /></label>
-          <label><span>Time</span><input aria-label="Time" value={timeText} placeholder="hh:mm" onChange={(e) => setTimeText(e.target.value)} onBlur={commitTyped} onKeyDown={(e) => { if (e.key === 'Enter') commitTyped(); }} aria-invalid={typedOk === undefined} /></label>
-          <span className="slp-when">{new Date(at).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span>
+          <label><span>Date</span><input aria-label="Date" value={dateText} placeholder="dd/mm/yyyy" onChange={(e) => { setDateText(e.target.value); applyTyped(e.target.value, timeText); }} onBlur={commitTyped} onKeyDown={(e) => { if (e.key === 'Enter') commitTyped(); }} aria-invalid={typedOk === undefined} /></label>
+          <label><span>Time</span><input aria-label="Time" value={timeText} placeholder="hh:mm" onChange={(e) => { setTimeText(e.target.value); applyTyped(dateText, e.target.value); }} onBlur={commitTyped} onKeyDown={(e) => { if (e.key === 'Enter') commitTyped(); }} aria-invalid={typedOk === undefined} /></label>
+          <span className={`slp-when ${past ? 'warn' : ''}`}>{past ? 'Pick a time in the future' : new Date(at).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
         <div className="slp-body">
           <div className="slp-cal">
@@ -128,12 +132,11 @@ export function SendLaterPicker({ initial, title = 'Send later', confirmLabel = 
             </div>
           </div>
           <div className="slp-time">
-            <Wheel label="hour" value={d.getHours()} max={23} onChange={(v) => setPart((x) => x.setHours(v))} />
+            <Wheel label="hour" value={d.getHours()} max={23} onChange={(v) => setPart((x) => x.setHours(v))} onStep={(by) => moveBy(by * 3600000)} />
             <span className="slp-colon">:</span>
-            <Wheel label="minute" value={d.getMinutes()} max={59} onChange={(v) => setPart((x) => x.setMinutes(v))} />
+            <Wheel label="minute" value={d.getMinutes()} max={59} onChange={(v) => setPart((x) => x.setMinutes(v))} onStep={(by) => moveBy(by * 60000)} />
           </div>
         </div>
-        {past && <p className="slp-warn">Pick a time in the future.</p>}
         <p className="slp-note">
           {wake
             ? 'It goes at this time even if Well Good Mail is closed: Windows starts it, and wakes the PC from sleep if needed. It can\'t send while the PC is switched off.'

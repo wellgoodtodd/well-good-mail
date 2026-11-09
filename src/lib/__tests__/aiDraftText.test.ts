@@ -35,3 +35,15 @@ describe('AI draft labels and previews (beta 8)', () => {
     expect(htmlToText('<p>Hope you&#39;re well &amp; it&#x27;s fine</p>')).toBe("Hope you're well & it's fine");
   });
 });
+
+describe('replies on AI Drafts cards', () => {
+  it('splits the reply from the earlier emails quoted under it', async () => {
+    const { splitQuote, isSimple } = await import('../mcp/aiDrafts');
+    const html = '<div dir="ltr">Hi Karen,<br><br>Thanks both.<br><br>Best,<br>Todd</div><br><div class="gmail_quote"><div>On Fri, Todd wrote:</div><blockquote>Hi <b>Karen</b></blockquote></div>';
+    const { own, quote } = splitQuote(html);
+    expect(own).toBe('<div dir="ltr">Hi Karen,<br><br>Thanks both.<br><br>Best,<br>Todd</div><br>');
+    expect(quote.startsWith('<div class="gmail_quote">')).toBe(true);
+    expect(isSimple(own)).toBe(true);
+    expect(splitQuote('<p>No quote</p>')).toEqual({ own: '<p>No quote</p>', quote: '' });
+  });
+});

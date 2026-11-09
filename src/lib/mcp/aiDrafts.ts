@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { store } from '../db';
 import { settings, useSettings, type DraftGroup } from '../settings';
-import type { Draft } from '../types';
+import type { Draft, Message } from '../types';
 import { useMail, providerFor, queueSend, loadBody } from '../mail';
 import { draftToOutgoing, createDraft } from '../compose';
 import { composeContext } from '../composeActions';
@@ -18,6 +18,18 @@ export const htmlToText = (html: string) => html
   .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
   .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&amp;/g, '&')
   .replace(/\n{3,}/g, '\n\n').trim();
+/**
+ * A draft's own words and the earlier emails quoted under it (Gmail's "On ... wrote:" block, or a blockquote).
+ * The quote is kept exactly as it was when the words are changed.
+ */
+export function splitQuote(html: string): { own: string; quote: string } {
+  const at = (re: RegExp) => { const m = re.exec(html); return m ? m.index : -1; };
+  const marks = [at(/<div[^>]*class="[^"]*gmail_quote/i), at(/<blockquote/i)].filter((i) => i >= 0);
+  if (!marks.length) return { own: html, quote: '' };
+  const i = Math.min(...marks);
+  return { own: html.slice(0, i), quote: html.slice(i) };
+}
+
 /** True when a draft is only paragraphs and line breaks, so a text-only quick edit loses nothing. */
 export const isSimple = (html: string) => !/<(?!\/?(p|br|div)\b)[a-z]/i.test(html);
 
@@ -104,7 +116,20 @@ export async function syncServerDrafts(): Promise<number> {
       let server: { draftId: string; messageId: string }[];
       try { server = await p.listDrafts(); } catch { continue; }
       const mail = useMail.getState();
-      const byMessage = (providerId: string) => Object.values(mail.messages).find((x) => x.accountId === account.id && x.providerId === providerId);
+      // Built only when there's something to look up, in one pass over this account's mail.
+      let index: { byProvider: Map<string, Message>; latestInThread: Map<string, Message> } | undefined;
+      const look = () => {
+        if (index) return index;
+        const byProvider = new Map<string, Message>();
+        const latestInThread = new Map<string, Message>();
+        for (const x of Object.values(mail.messages)) {
+          if (x.accountId !== account.id) continue;
+          byProvider.set(x.providerId, x);
+          if (!x.isDraft) { const t = latestInThread.get(x.threadId); if (!t || x.date > t.date) latestInThread.set(x.threadId, x); }
+        }
+        return (index = { byProvider, latestInThread });
+      };
+      const byMessage = (providerId: string) => look().byProvider.get(providerId);
       const onServer = new Map(server.map((s) => [s.draftId, s.messageId]));
       const local = await store.drafts();
       const queued = new Set(mail.outbox.map((o) => o.id));
@@ -144,10 +169,8 @@ export async function syncServerDrafts(): Promise<number> {
         if (!m) continue; // Not synced to this computer yet; picked up next time.
         const full = (await loadBody(m.id)) || m;
         // A reply keeps its conversation: the newest email in the thread that isn't a draft.
-        const source = Object.values(mail.messages).filter((x) => x.accountId === account.id && x.threadId === full.threadId && !x.isDraft).sort((a, b) => b.date - a.date)[0];
+        const source = look().latestInThread.get(full.threadId);
         const html = full.bodyHtml || textToHtml(full.bodyText || '');
-        const ownName = (account.aliases.find((a) => a.email === full.from.email)?.name || account.displayName || '').split(' ')[0];
-        const tail = htmlToText(html.split(/gmail_quote|<blockquote/i)[0]).slice(-400);
         const draft = createDraft('new', undefined, composeContext(), {
           fromEmail: full.from.email || account.email,
           fromAccountId: account.id,
@@ -161,8 +184,6 @@ export async function syncServerDrafts(): Promise<number> {
           serverDraftMessageId: s.messageId,
           byAi: ai ? ai.writer || 'AI' : OUTSIDE_WRITER,
           group: ai?.group ? addGroup(ai.group) : undefined,
-          // Already signed off with a name: don't add the signature a second time.
-          noSignature: Boolean(ownName && tail.includes(ownName)),
           updatedAt: full.date,
           ...(source ? { mode: 'reply' as const, sourceMessageId: source.id, includeQuote: false } : {}),
         });
@@ -191,11 +212,13 @@ export function syncDraftsSoon() {
 }
 
 /** Changes made on an AI Drafts card: who it's from and to, the subject, and (for plain drafts) the text. */
-export async function quickSave(id: string, patch: Partial<Pick<Draft, 'fromAccountId' | 'fromEmail' | 'to' | 'cc' | 'bcc' | 'subject'>> & { text?: string }) {
+export async function quickSave(id: string, patch: Partial<Pick<Draft, 'fromAccountId' | 'fromEmail' | 'to' | 'cc' | 'bcc' | 'subject' | 'signatureOf'>> & { text?: string; html?: string }) {
   const d = await store.getDraft(id);
   if (!d) return;
-  const { text, ...rest } = patch;
-  await saveDraftEverywhere({ ...d, ...rest, ...(text !== undefined ? { html: textToHtml(text) } : {}), updatedAt: Date.now() });
+  const { text, html, ...rest } = patch;
+  // The words change; any earlier emails quoted underneath stay exactly as they were.
+  const own = html !== undefined ? html : text !== undefined ? textToHtml(text) : undefined;
+  await saveDraftEverywhere({ ...d, ...rest, ...(own !== undefined ? { html: own + splitQuote(d.html).quote } : {}), updatedAt: Date.now() });
   await refreshAiDrafts();
 }
 
