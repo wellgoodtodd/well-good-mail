@@ -82,6 +82,8 @@ interface MailState {
   backStack: Place[];
   /** Conversations just archived, deleted or moved: hidden from the list at once, before the full update runs. */
   goingKeys: string[];
+  /** Conversations just flagged or marked read or unread: shown that way at once, before the full update runs. */
+  lookKeys: Record<string, { unread?: boolean; flagged?: boolean }>;
   /** Places you went back from, for Forward. Cleared when you go somewhere new. */
   forwardStack: Place[];
   online: boolean;
@@ -132,6 +134,7 @@ export const useMail = create<MailState>(() => ({
   settingsTab: 'accounts',
   backStack: [],
   goingKeys: [],
+  lookKeys: {},
   forwardStack: [],
   online: typeof navigator === 'undefined' ? true : navigator.onLine,
   filters: NO_FILTERS,
@@ -889,12 +892,16 @@ function describeIds(ids: string[]): string {
 
 /** Marking as unread is recorded so it can be undone; marking as read happens by itself when you open an email, so it isn't. */
 export async function markRead(ids: string[], read = true, opts: { silent?: boolean } = {}) {
-  if (read) await modify(ids.filter((id) => get().messages[id]?.unread), none, () => ['UNREAD']);
+  const changing = read ? ids.filter((id) => get().messages[id]?.unread) : ids;
+  if (!changing.length) return;
+  const settle = await lookFirst(changing, { unread: !read });
+  if (read) await modify(changing, none, () => ['UNREAD']);
   else {
     const was = ids.filter((id) => !get().messages[id]?.unread);
     await modify(ids, () => ['UNREAD'], none);
     if (!opts.silent && was.length) record(`Mark as unread: ${describeIds(ids)}`, () => markRead(was, true, { silent: true }), () => markRead(ids, false, { silent: true }));
   }
+  settle();
 }
 
 export async function toggleFlag(ids: string[]) {
@@ -903,8 +910,10 @@ export async function toggleFlag(ids: string[]) {
   const on = () => modify(ids, flagId, none);
   const off = () => modify(ids, none, flagId);
   const before = new Map(ids.map((id) => [id, get().messages[id]?.flagged]));
+  const settle = await lookFirst(ids, { flagged: anyUnflagged });
   if (anyUnflagged) await on();
   else await off();
+  settle();
   const restore = async () => {
     // Put each email back as it was, not just flip them all.
     const was = ids.filter((id) => before.get(id));
@@ -912,7 +921,7 @@ export async function toggleFlag(ids: string[]) {
     if (was.length) await modify(was, flagId, none);
     if (wasNot.length) await modify(wasNot, none, flagId);
   };
-  record(`${anyUnflagged ? 'Star' : 'Remove star'}: ${describeIds(ids)}`, restore, anyUnflagged ? on : off);
+  record(`${anyUnflagged ? 'Flag' : 'Remove flag'}: ${describeIds(ids)}`, restore, anyUnflagged ? on : off);
 }
 
 /**
@@ -932,6 +941,21 @@ async function leaveScreenFirst(ids: string[]) {
   });
 }
 const clearGoing = () => { if (get().goingKeys.length) set({ goingKeys: [] }); };
+
+/** Shows a flag or read mark on the list at once, then lets the full update run after the screen has redrawn. */
+async function lookFirst(ids: string[], look: { unread?: boolean; flagged?: boolean }) {
+  const msgs = get().messages;
+  const keys = [...new Set(ids.map((id) => msgs[id]).filter(Boolean).map((m) => threadKey(m)))];
+  if (!keys.length) return () => undefined;
+  set({ lookKeys: { ...get().lookKeys, ...Object.fromEntries(keys.map((k) => [k, { ...get().lookKeys[k], ...look }])) } });
+  await new Promise<void>((r) => {
+    let done = false;
+    const go = () => { if (!done) { done = true; r(); } };
+    requestAnimationFrame(() => setTimeout(go, 0));
+    setTimeout(go, 120);
+  });
+  return () => { const next = { ...get().lookKeys }; keys.forEach((k) => delete next[k]); set({ lookKeys: next }); };
+}
 
 function afterRemoveFromView() {
   set({ selectedKey: undefined, selectedKeys: [], inlineDraftId: undefined });

@@ -17,7 +17,13 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
   const { items: listed, remote } = useViewList();
   // Just archived or deleted: gone from the list at once, while the rest catches up.
   const going = useMail((s) => s.goingKeys);
-  const items = useMemo(() => (going.length ? listed.filter((i) => !going.includes(threadKey(i.message))) : listed), [listed, going]);
+  // Just flagged or marked read or unread: shown that way at once.
+  const looks = useMail((s) => s.lookKeys);
+  const items = useMemo(() => {
+    const kept = going.length ? listed.filter((i) => !going.includes(threadKey(i.message))) : listed;
+    if (!Object.keys(looks).length) return kept;
+    return kept.map((i) => { const l = looks[threadKey(i.message)]; return l ? { ...i, unread: l.unread ?? i.unread, flagged: l.flagged ?? i.flagged } : i; });
+  }, [listed, going, looks]);
   const view = useMail((s) => s.view);
   const accounts = useMail((s) => s.accounts);
   const folders = useMail((s) => s.folders);

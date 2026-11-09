@@ -12,6 +12,10 @@ These use the built in demo mailbox, so there is no real mail in them.
 
 ![The inbox in light mode](docs/images/inbox-light.png)
 
+![AI Drafts, with a draft open to check and change before sending](docs/images/ai-drafts.png)
+
+![AI Drafts in light mode (the Paper theme)](docs/images/ai-drafts-light.png)
+
 ![The first-run guide that helps you make your own Google key](docs/images/setup-guide.png)
 
 ## What it does

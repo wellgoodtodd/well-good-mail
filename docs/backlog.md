@@ -2,11 +2,19 @@
 
 Things noted but not built yet. Newest first. Nothing here is promised for a date.
 
+## After 0.7.0
+
+- **Speed, still to look at** (from testing beta 14, 9 Nov): archive and delete are now instant; flag and read marks got the same treatment in 0.7.0 (check it). Clicks just after opening the app can still lag while older mail and the search index load and photos arrive; consider loading those even more gently. Check again with real use.
+
 ## For the next 0.7 beta
 
 - **Out of office per account** (see below). Needs each Google and Microsoft account to sign in once more, so not started until Todd says.
 - **Appearance layout pass** (9 Nov): a lot of colour dots (theme, account colours, display, unread counts). Not a problem; tidy when there's time.
 - **Before live 0.7.0:** help, What's new and support pages for everything since beta 5; one tidy 0.7.0 release note; decide whether to test a Microsoft draft or say drafting is tested on Gmail.
+
+## Released as 0.7.0 (9 Nov 2026)
+
+Everything below from beta 1 to beta 14, plus flag and read marks showing at once (like archive and delete) and fresh demo screenshots in the README. Beta 14 checks done: archive and delete fast, dark mode B, pop-outs follow light and dark.
 
 ## Done in 0.7 beta 14
 
