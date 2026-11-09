@@ -3,6 +3,7 @@ import { draftToOutgoing, type SourceAttachment } from './compose';
 import { addFollowup, getAttachmentData, providerFor, refreshAll, registerSender, useMail } from './mail';
 import { settings } from './settings';
 import { writingStyle } from './composeActions';
+import { aiLabelNames, DRAFTS_LABEL } from './mcp/aiDrafts';
 import type { OutboxItem } from './types';
 
 function ctx() {
@@ -27,6 +28,11 @@ async function sendItem(item: OutboxItem) {
     const p = providerFor(draft.serverAccountId);
     const id = draft.serverDraftId || (draft.serverDraftMessageId ? await p?.findDraftId?.(draft.serverDraftMessageId).catch(() => undefined) : undefined);
     if (p && id) await p.deleteDraft(id).catch(() => {});
+  }
+  // An AI draft keeps its group and writer once sent ("AI Drafts/Clients", "AI Writer/EA"), so you can see later where it came from.
+  if (draft.byAi && provider.labelByName) {
+    const names = aiLabelNames(draft).filter((n) => n !== DRAFTS_LABEL);
+    if (names.length) await provider.labelByName(sent.providerId, names).catch(() => {});
   }
   if (draft.followUpDays) {
     await addFollowup({

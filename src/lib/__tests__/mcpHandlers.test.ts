@@ -212,7 +212,7 @@ describe('filing drafts that are already there', () => {
   it('files drafts in a group, with who wrote them', async () => {
     const { w } = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'allow' } });
     asDraft(w);
-    w.fileDrafts = vi.fn(async (_a: string, ids: string[]) => ids.length);
+    w.fileDrafts = vi.fn(async (_a: string, ids: string[]) => ({ filed: ids.length, missing: [] }));
     const r = JSON.stringify(await handleRpc(w, call('file_drafts', { account: 'a', ids: ['m1', 'm2'], group: 'clients', writer: 'EA' })));
     expect(w.fileDrafts).toHaveBeenCalledWith('a', ['m1'], 'Clients', 'EA');
     expect(r).toContain('filed');
@@ -220,10 +220,10 @@ describe('filing drafts that are already there', () => {
   it('is refused for a read only account, and for emails that are not drafts', async () => {
     const ro = world({ accounts: { a: 'read' } });
     asDraft(ro.w);
-    ro.w.fileDrafts = vi.fn(async () => 1);
+    ro.w.fileDrafts = vi.fn(async () => ({ filed: 1, missing: [] }));
     expect(JSON.stringify(await handleRpc(ro.w, call('file_drafts', { account: 'a', ids: ['m1'] })))).toContain('Read only');
     const rw = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'allow' } });
-    rw.w.fileDrafts = vi.fn(async () => 1);
+    rw.w.fileDrafts = vi.fn(async () => ({ filed: 1, missing: [] }));
     expect(JSON.stringify(await handleRpc(rw.w, call('file_drafts', { account: 'a', ids: ['m1'] })))).toContain('isError');
     expect(rw.w.fileDrafts).not.toHaveBeenCalled();
   });
@@ -231,5 +231,15 @@ describe('filing drafts that are already there', () => {
     const { w } = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'allow' } });
     await handleRpc(w, call('create_draft', { account: 'a', to: ['sam@x.com'], body: 'Hi', writer: 'EA' }));
     expect(w.makeDraft).toHaveBeenCalledWith(expect.objectContaining({ writer: 'EA' }));
+  });
+});
+
+describe('sign-off for drafts', () => {
+  it('adds the sign-off, swapping a short one the AI wrote', async () => {
+    const { withSignOff } = await import('../mcp/handlers');
+    expect(withSignOff('Hi Sam,\n\nSee you Friday.', 'All the best,')).toBe('Hi Sam,\n\nSee you Friday.\n\nAll the best,');
+    expect(withSignOff('Hi Sam,\n\nSee you Friday.\n\nBest,', 'All the best,')).toBe('Hi Sam,\n\nSee you Friday.\n\nAll the best,');
+    expect(withSignOff('Hi Sam,\n\nAll the best,', 'All the best,')).toBe('Hi Sam,\n\nAll the best,');
+    expect(withSignOff('Hi Sam,\n\nSee you Friday.', '')).toBe('Hi Sam,\n\nSee you Friday.');
   });
 });

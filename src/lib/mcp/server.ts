@@ -7,12 +7,12 @@ import { store } from '../db';
 import { createDraft } from '../compose';
 import { composeContext, openDraft } from '../composeActions';
 import { showBanner } from '../banners';
-import { refreshAiDrafts, saveDraftEverywhere, importLabelledDrafts, fileServerDrafts } from './aiDrafts';
+import { refreshAiDrafts, saveDraftEverywhere, startDraftSync, fileServerDrafts } from './aiDrafts';
 import type { Draft } from '../types';
 import { searchMessages } from '../search';
 import { useUpdates } from '../updater';
 import { tidy, type Mode } from './permissions';
-import { handleRpc, type AskRequest, type JsonRpc } from './handlers';
+import { handleRpc, toolsSignature, type AskRequest, type JsonRpc } from './handlers';
 import { logActivity, noteStatus, useActivity } from './activity';
 import { addAsk, askResume } from './approvals';
 import { appName } from './appNames';
@@ -25,6 +25,8 @@ let listening = false;
 let running = false;
 /** Which app is on each connection, from its hello. */
 const apps = new Map<number, string>();
+/** What each connection was last shown by tools/list, to tell it when that changes. */
+const listed = new Map<number, string>();
 /** "Allow for an hour": capability|account -> until when. */
 const grants = new Map<string, number>();
 let lastRequestAt = Date.now();
@@ -132,7 +134,15 @@ async function answer(rid: number, conn: number, body: string) {
     }
   }
   const app = apps.get(conn) === SELF_TEST ? 'The self-test' : apps.get(conn) || 'An AI app';
-  const send = async (out: object | undefined) => { if (rid && out) await invoke('mcp_respond', { rid, body: JSON.stringify(out) }); };
+  // The tools changed since this app last looked (an update, a setting, or a connection that came back after
+  // Well Good Mail restarted): send the standard notice ahead of the answer, so it fetches the list again by itself.
+  let notice = '';
+  if (msg.method === 'tools/call') {
+    const now = toolsSignature(tidy(settings().mcp));
+    if (listed.get(conn) !== now) { notice = JSON.stringify({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' }) + '\n'; listed.set(conn, now); }
+  }
+  if (msg.method === 'tools/list') listed.set(conn, toolsSignature(tidy(settings().mcp)));
+  const send = async (out: object | undefined) => { if (rid && out) await invoke('mcp_respond', { rid, body: notice + JSON.stringify(out) }); };
 
   if (msg.method === 'tools/call' && apps.get(conn) !== SELF_TEST) {
     // Paused: ask before going on. Saying hello and listing tools never needs this.
@@ -157,6 +167,7 @@ async function answer(rid: number, conn: number, body: string) {
   const mail = useMail.getState();
   const out = await handleRpc({
     settings: tidy(settings().mcp),
+    signOff: settings().draftSignOff || '',
     accounts: mail.accounts,
     folders: mail.folders,
     draftGroups: settings().draftGroups || [],
@@ -185,7 +196,7 @@ async function listen() {
   await on<{ rid: number; conn?: number; body: string }>('mcp-request', (e) => { void answer(e.payload.rid, e.payload.conn ?? 0, e.payload.body); });
   await on('mcp-connected', () => useActivity.setState({ connected: useActivity.getState().connected + 1 }));
   await on<{ conn?: number }>('mcp-disconnected', (e) => {
-    if (e.payload?.conn !== undefined) apps.delete(e.payload.conn);
+    if (e.payload?.conn !== undefined) { apps.delete(e.payload.conn); listed.delete(e.payload.conn); }
     useActivity.setState({ connected: Math.max(0, useActivity.getState().connected - 1) });
   });
   await on('tray-mcp-pause', () => { if (useActivity.getState().paused) resumeMcp(); else pauseMcp(); });
@@ -225,9 +236,7 @@ function noteUpdate() {
   if (!version) return;
   let before: string | null = null;
   try { before = localStorage.getItem('wgm-mcp-version'); localStorage.setItem('wgm-mcp-version', version); } catch { return; }
-  if (before && before !== version && settings().mcp?.enabled && useActivity.getState().lastHello) {
-    toast({ text: `Well Good Mail was updated. Restart ${useActivity.getState().client || 'your AI app'} so it can connect again.`, ttl: 20000 });
-  }
+  if (before && before !== version && settings().mcp?.enabled) logActivity(`Updated to ${version}. Connected AI apps are told about any new tools when they next ask.`);
 }
 
 /** Starts watching the setting. Called once when the app opens. */
@@ -241,9 +250,8 @@ export function startMcpWatch() {
   // Drafts you send or delete leave the AI drafts list.
   window.addEventListener('focus', () => void refreshAiDrafts());
   setInterval(() => void refreshAiDrafts(), 30000);
-  // Drafts labelled "AI Drafts" in Gmail (by the EA, another computer, or filed later) show up here too.
-  setTimeout(() => void importLabelledDrafts(), 20000);
-  setInterval(() => void importLabelledDrafts(), 5 * 60000);
+  // Drafts made or changed outside Well Good Mail (the EA, Gmail on the web, a phone) show up here too.
+  startDraftSync();
   // Writing drafts is new: start it on Ask once, so the first drafts show on the card before you choose Always.
   try {
     if (localStorage.getItem('wgm-mcp-drafts-ask') !== '1') {

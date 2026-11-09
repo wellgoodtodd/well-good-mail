@@ -410,17 +410,23 @@ export class GmailProvider implements MailProvider {
     return { draftId: r.id, messageId: r.message?.id };
   }
 
-  /** Label names to ids, made on first use. Kept for the session. */
+  /** Label names to ids, made on first use. Kept for the session. Names are matched without case. */
   private labelIds = new Map<string, string>();
+  /** Label ids to their names exactly as written in Gmail ("AI Writer/EA", not "ai writer/ea"). */
+  private labelNames = new Map<string, string>();
+  private async loadLabels() {
+    const { labels } = await this.call<{ labels: { id: string; name: string }[] }>('/labels');
+    for (const l of labels) { this.labelIds.set(l.name.toLowerCase(), l.id); this.labelNames.set(l.id, l.name); }
+  }
   private async labelId(name: string): Promise<string> {
     const known = this.labelIds.get(name.toLowerCase());
     if (known) return known;
-    const { labels } = await this.call<{ labels: { id: string; name: string }[] }>('/labels');
-    for (const l of labels) this.labelIds.set(l.name.toLowerCase(), l.id);
+    await this.loadLabels();
     const found = this.labelIds.get(name.toLowerCase());
     if (found) return found;
     const made = await this.call<{ id: string }>('/labels', { method: 'POST', body: JSON.stringify({ name, labelListVisibility: 'labelShow', messageListVisibility: 'show' }) });
     this.labelIds.set(name.toLowerCase(), made.id);
+    this.labelNames.set(made.id, name);
     return made.id;
   }
 
@@ -431,21 +437,21 @@ export class GmailProvider implements MailProvider {
     await this.call(`/messages/${messageId}/modify`, { method: 'POST', body: JSON.stringify({ addLabelIds: ids }) });
   }
 
-  async draftsWithLabel(name: string) {
-    const id = this.labelIds.get(name.toLowerCase()) || await this.labelId(name).catch(() => '');
-    if (!id) return [];
-    const byId = new Map([...this.labelIds].map(([n, i]) => [i, n]));
-    const out: { draftId: string; messageId: string; labels: string[] }[] = [];
+  async listDrafts() {
+    const out: { draftId: string; messageId: string }[] = [];
     let pageToken: string | undefined;
     do {
-      const page: { drafts?: { id: string; message: { id: string } }[]; nextPageToken?: string } = await this.call(`/drafts?maxResults=200&q=${encodeURIComponent(`label:"${name}"`)}${pageToken ? `&pageToken=${pageToken}` : ''}`);
-      for (const d of page.drafts || []) {
-        const m = await this.call<{ labelIds?: string[] }>(`/messages/${d.message.id}?format=minimal`);
-        out.push({ draftId: d.id, messageId: d.message.id, labels: (m.labelIds || []).map((x) => byId.get(x) || x) });
-      }
+      const page: { drafts?: { id: string; message: { id: string } }[]; nextPageToken?: string } = await this.call(`/drafts?maxResults=500${pageToken ? `&pageToken=${pageToken}` : ''}`);
+      for (const d of page.drafts || []) out.push({ draftId: d.id, messageId: d.message.id });
       pageToken = page.nextPageToken;
     } while (pageToken);
     return out;
+  }
+
+  async messageInfo(messageId: string) {
+    const m = await this.call<{ labelIds?: string[]; internalDate?: string }>(`/messages/${messageId}?format=minimal`);
+    if ((m.labelIds || []).some((x) => x.startsWith('Label_') && !this.labelNames.has(x))) await this.loadLabels();
+    return { labels: (m.labelIds || []).map((x) => this.labelNames.get(x) || x), date: Number(m.internalDate) || 0 };
   }
 
   async deleteDraft(serverDraftId: string) {

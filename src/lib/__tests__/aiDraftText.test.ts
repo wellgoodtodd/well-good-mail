@@ -22,3 +22,16 @@ describe('AI draft quick edits', () => {
     expect(writerLabel('EA')).toBe('EA');
   });
 });
+
+describe('AI draft labels and previews (beta 8)', () => {
+  it('reads group and writer from Gmail labels, keeping their capitals', async () => {
+    const { readAiLabels } = await import('../mcp/aiDrafts');
+    expect(readAiLabels(['DRAFT', 'AI Drafts', 'AI Drafts/Clients', 'AI Writer/EA'])).toEqual({ group: 'Clients', writer: 'EA' });
+    expect(readAiLabels(['DRAFT', 'INBOX'])).toBeUndefined();
+    // The EA's older label named the writer, not a group.
+    expect(readAiLabels(['AI drafts/EA'])).toEqual({ writer: 'EA' });
+  });
+  it('turns HTML codes back into characters for previews', () => {
+    expect(htmlToText('<p>Hope you&#39;re well &amp; it&#x27;s fine</p>')).toBe("Hope you're well & it's fine");
+  });
+});

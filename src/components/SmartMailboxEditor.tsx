@@ -30,6 +30,9 @@ export function smartItems(b: SmartMailbox): MenuItem[] {
     { label: 'Rename', icon: 'compose', onClick: async () => { const v = (await askText('Rename Smart Mailbox', b.name, 'Rename'))?.trim(); if (v) save(boxes().map((x) => (x.id === b.id ? { ...x, name: v } : x))); } },
     { label: 'Duplicate', icon: 'layers', onClick: () => { const copy = { ...structuredClone(b), id: `sm${Date.now().toString(36)}`, name: `${b.name} copy` }; save([...boxes(), copy]); openSmartEditor(copy); } },
     { label: 'Mark all as read', icon: 'mailOpen', onClick: () => void markViewRead(viewOf(b.id)) },
+    b.hidden
+      ? { label: 'Show in sidebar', icon: 'eye', onClick: () => save(boxes().map((x) => (x.id === b.id ? { ...x, hidden: false } : x))) }
+      : { label: 'Hide', icon: 'imageOff', onClick: () => save(boxes().map((x) => (x.id === b.id ? { ...x, hidden: true } : x))) },
     { divider: true },
     {
       label: 'Delete', icon: 'trash', onClick: async () => {

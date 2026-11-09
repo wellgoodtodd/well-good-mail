@@ -168,7 +168,7 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
             {/* Under the latest email, as in Gmail and Outlook, so a long conversation needs no scrolling back up. */}
             {m.id === latest.id && !inlineDraftId && (
               <div className="thread-replies">
-                <button className="btn" onClick={() => startCompose('reply', latest)}><Icon name="reply" size={15} /> Reply</button>
+                <button className="btn primary" onClick={() => startCompose('reply', latest)}><Icon name="reply" size={15} /> Reply</button>
                 <button className="btn" onClick={() => startCompose('replyAll', latest)}><Icon name="replyAll" size={15} /> Reply All</button>
                 <button className="btn" onClick={() => startCompose('forward', latest)}><Icon name="forward" size={15} /> Forward</button>
               </div>

@@ -205,11 +205,11 @@ function sectionOrder(saved: string[] | undefined): string[] {
   SECTION_IDS.forEach((id, i) => { if (!out.includes(id)) out.splice(Math.min(i, out.length), 0, id); });
   return out;
 }
-/** Drops section `from` just above section `before`. */
-function moveSection(from: string, before: string) {
-  if (from === before) return;
+/** Drops section `from` just above section `target`, or just below it. */
+function moveSection(from: string, target: string, after = false) {
+  if (from === target) return;
   const cur = sectionOrder(useSettings.getState().sectionOrder).filter((x) => x !== from);
-  cur.splice(cur.indexOf(before), 0, from);
+  cur.splice(cur.indexOf(target) + (after ? 1 : 0), 0, from);
   useSettings.getState().set({ sectionOrder: cur });
 }
 function nudgeSection(id: string, by: -1 | 1) {
@@ -424,7 +424,7 @@ function Section({ id, title, children, defaultCollapsed = false, className = ''
     const { openMenu } = useContext(SideCtx);
     const label = useLabelName(id, title);
     const movable = SECTION_IDS.includes(id);
-    const [dropHere, setDropHere] = useState(false);
+    const [dropHere, setDropHere] = useState<'before' | 'after' | false>(false);
     const setCollapsed = (key: string, value: boolean) => useSettings.getState().set({ collapsed: { ...useSettings.getState().collapsed, [key]: value } });
     const isCollapsed = collapsed[id] ?? defaultCollapsed;
     return (
@@ -433,15 +433,15 @@ function Section({ id, title, children, defaultCollapsed = false, className = ''
           <div className="side-heading"><NameEdit value={label.name} onSave={label.save} onCancel={() => label.setEditing(false)} /></div>
         ) : (
           <button
-            className={`side-heading ${dropHere ? 'drop-before' : ''}`}
+            className={`side-heading ${dropHere === 'before' ? 'drop-before' : dropHere === 'after' ? 'drop-after' : ''}`}
             onClick={() => setCollapsed(id, !isCollapsed)}
             aria-expanded={!isCollapsed}
             draggable={movable}
             title={movable ? 'Drag to move this section, or right-click for more' : undefined}
             onDragStart={movable ? (e) => { e.dataTransfer.setData('text/wgm-section', id); e.dataTransfer.effectAllowed = 'move'; } : undefined}
-            onDragOver={movable ? (e) => { if (e.dataTransfer.types.includes('text/wgm-section')) { e.preventDefault(); setDropHere(true); } } : undefined}
+            onDragOver={movable ? (e) => { if (e.dataTransfer.types.includes('text/wgm-section')) { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setDropHere(e.clientY > r.top + r.height / 2 ? 'after' : 'before'); } } : undefined}
             onDragLeave={() => setDropHere(false)}
-            onDrop={movable ? (e) => { const from = e.dataTransfer.getData('text/wgm-section'); setDropHere(false); if (from) { e.preventDefault(); moveSection(from, id); } } : undefined}
+            onDrop={movable ? (e) => { const from = e.dataTransfer.getData('text/wgm-section'); const after = dropHere === 'after'; setDropHere(false); if (from) { e.preventDefault(); moveSection(from, id, after); } } : undefined}
             onContextMenu={id === 'sec:hidden' ? undefined : (e) => { e.preventDefault(); label.menu(openMenu, { x: e.clientX, y: e.clientY }, movable ? id : undefined); }}
           >
             <Icon name={isCollapsed ? 'chevronRight' : 'chevronDown'} size={12} /> {id === 'sec:hidden' ? title : label.name}
@@ -478,6 +478,7 @@ export function Sidebar({ width }: { width: number }) {
   const aiDrafts = useAiDrafts((s) => s.list);
   const draftFilter = useAiDrafts((s) => s.filter);
   const allMessages = useMail((st) => st.messages);
+  const [showHiddenSmart, setShowHiddenSmart] = useState(false);
   // Unread count for each Smart Mailbox, worked out once per change rather than on every render.
   const smartUnread = useMemo(() => {
     const boxes = s.smartMailboxes || [];
@@ -626,12 +627,12 @@ export function Sidebar({ width }: { width: number }) {
     ),
     'sec:smart': (
       <Section id="sec:smart" title="Smart Mailboxes">
-        {(s.smartMailboxes || []).map((b) => {
+        {(s.smartMailboxes || []).filter((b) => !b.hidden || showHiddenSmart).map((b) => {
           const v: View = { scope: { type: 'all' }, mailbox: { kind: 'smart', id: b.id } };
           const on = screen === 'mail' && sameView(view, v);
           return (
             <div className="side-row" key={b.id}>
-              <button className={`side-item ${on ? 'selected' : ''}`} onClick={() => setView(v)} title={`${b.name}. Drag to reorder.`}
+              <button className={`side-item ${on ? 'selected' : ''} ${b.hidden ? 'dim' : ''}`} onClick={() => setView(v)} title={`${b.name}${b.hidden ? ' (hidden)' : ''}. Drag to reorder.`}
                 draggable onDragStart={(e) => { e.dataTransfer.setData('text/wgm-smart', b.id); e.dataTransfer.effectAllowed = 'move'; }}
                 onDragOver={(e) => { if (e.dataTransfer.types.includes('text/wgm-smart')) e.preventDefault(); }}
                 onDrop={(e) => { const from = e.dataTransfer.getData('text/wgm-smart'); if (!from || from === b.id) return; e.preventDefault(); const list = (s.smartMailboxes || []).filter((x) => x.id !== from); const moved = (s.smartMailboxes || []).find((x) => x.id === from); if (!moved) return; list.splice(list.findIndex((x) => x.id === b.id), 0, moved); s.set({ smartMailboxes: list }); }}
@@ -642,6 +643,11 @@ export function Sidebar({ width }: { width: number }) {
             </div>
           );
         })}
+        {(s.smartMailboxes || []).some((b) => b.hidden) && (
+          <div className="side-row">
+            <button className="side-item dim" onClick={() => setShowHiddenSmart(!showHiddenSmart)}><Icon name={showHiddenSmart ? 'chevronDown' : 'eye'} /><span className="name">{showHiddenSmart ? 'Hide hidden ones' : `Show hidden (${(s.smartMailboxes || []).filter((b) => b.hidden).length})`}</span></button>
+          </div>
+        )}
         <div className="side-row">
           <button className="side-item dim" onClick={() => openSmartEditor()}><Icon name="plus" /><span className="name">New Smart Mailbox</span></button>
         </div>

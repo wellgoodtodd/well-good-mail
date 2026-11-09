@@ -203,30 +203,31 @@ function AccountsTab() {
         <p className="hint">All of these feed into All Inboxes. Rename them, pick a colour by clicking the dot, and change the order they appear in. Colour palettes are in Settings, then Appearance.</p>
         {sorted.map((a, i) => (
           <div className="acct-row" key={a.id}>
-            <button className="icon-btn" aria-label={`Colour for ${a.email}`} title="Change colour" onClick={(e) => setPicker({ accountId: a.id, anchor: { x: e.clientX, y: e.clientY + 12 } })}><span className="dot" style={{ background: a.colour, width: 16, height: 16 }} /></button>
-            <div className="acct-namecol">
-              <input className="label-input" value={a.label} aria-label={`Name for ${a.email}`} onChange={(e) => updateAccount(a.id, { label: e.target.value })} />
-              {a.kind !== 'demo' && sorted.length > 1 && (
-                <label className="acct-tick">
-                  <input type="checkbox" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /> Show in All Inboxes
-                </label>
-              )}
-            </div>
-            <div className="grow">
+            {/* Two lines on one grid: who the account is on top, its settings underneath, each lined up with the rows above and below. */}
+            <button className="icon-btn acct-dot" aria-label={`Colour for ${a.email}`} title="Change colour" onClick={(e) => setPicker({ accountId: a.id, anchor: { x: e.clientX, y: e.clientY + 12 } })}><span className="dot" style={{ background: a.colour, width: 16, height: 16 }} /></button>
+            <input className="label-input acct-name" value={a.label} aria-label={`Name for ${a.email}`} onChange={(e) => updateAccount(a.id, { label: e.target.value })} />
+            <div className="acct-info">
               <div>{a.email}</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>
+              <div className="acct-status">
                 {a.kind === 'gmail' ? 'Google' : a.kind === 'microsoft' ? 'Microsoft 365' : a.kind === 'demo' ? 'Demo' : IMAP_PRESETS.find((p) => p.host === a.imap?.host)?.name || 'IMAP'}
                 {' · '}
                 {a.status === 'needs-signin' ? <span className="status-bad">Needs signing in again</span> : a.status === 'error' ? <span className="status-bad" title={a.error}>Problem syncing</span> : a.status === 'syncing' ? (a.syncDone ? `Syncing... ${a.syncDone.toLocaleString()} ${a.syncDone === 1 ? 'message' : 'messages'}` : 'Syncing...') : <span className="status-ok">Connected</span>}
                 {a.lastSync ? ` · checked ${new Date(a.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
               </div>
-              {a.kind !== 'demo' && <KeepMail a={a} compact />}
             </div>
-            <button className="icon-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(a.id, -1)}><Icon name="chevronDown" className="rot180" /></button>
-            <button className="icon-btn" aria-label="Move down" disabled={i === sorted.length - 1} onClick={() => move(a.id, 1)}><Icon name="chevronDown" /></button>
-            {wantsSignIn(a) && <button className="btn primary" onClick={() => reconnectAccount(a.id)}>Sign in</button>}
-            <button className="btn ghost" onClick={() => restartSync(a.id)}>Resync</button>
-            <button className="btn ghost danger" onClick={() => setConfirm(a.id)}>Remove</button>
+            <div className="acct-actions">
+              <button className="icon-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(a.id, -1)}><Icon name="chevronDown" className="rot180" /></button>
+              <button className="icon-btn" aria-label="Move down" disabled={i === sorted.length - 1} onClick={() => move(a.id, 1)}><Icon name="chevronDown" /></button>
+              {wantsSignIn(a) && <button className="btn primary" onClick={() => reconnectAccount(a.id)}>Sign in</button>}
+              <button className="btn ghost" onClick={() => restartSync(a.id)}>Resync</button>
+              <button className="btn ghost danger" onClick={() => setConfirm(a.id)}>Remove</button>
+            </div>
+            {a.kind !== 'demo' && sorted.length > 1 && (
+              <label className="acct-tick">
+                <input type="checkbox" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /> Show in All Inboxes
+              </label>
+            )}
+            {a.kind !== 'demo' && <div className="acct-keep"><KeepMail a={a} compact /></div>}
           </div>
         ))}
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>

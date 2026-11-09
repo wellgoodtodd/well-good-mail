@@ -6,7 +6,7 @@ import { Icon } from './Icon';
 import { RecipientField } from './RecipientField';
 import { FormatBar, promptLink, pasteAsQuote } from './FormatBar';
 import { editorExtensions, changeIndent } from './editorExtensions';
-import { Dialog, fileSize, useMenu } from './ui';
+import { Dialog, fileSize, sendLaterOptions, useMenu } from './ui';
 import { store } from '../lib/db';
 import { useMail, queueSend, providerFor, toast, broadcast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
@@ -343,16 +343,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   const fromAccount = fromHit?.account;
   const totalSize = draft.attachments.reduce((n, a) => n + a.size, 0);
   const writingCss = writingStyle();
-  const laterOptions = (() => {
-    const t = new Date(); t.setDate(t.getDate() + 1); t.setHours(8, 0, 0, 0);
-    const mon = new Date(); mon.setDate(mon.getDate() + ((8 - mon.getDay()) % 7 || 7)); mon.setHours(8, 0, 0, 0);
-    const later = new Date(Date.now() + 3 * 3600000); later.setMinutes(0, 0, 0);
-    return [
-      { label: `Later today (${later.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})`, at: later.getTime() },
-      { label: 'Tomorrow morning (08:00)', at: t.getTime() },
-      { label: 'Monday morning (08:00)', at: mon.getTime() },
-    ];
-  })();
+  const laterOptions = sendLaterOptions();
 
   return (
     <div

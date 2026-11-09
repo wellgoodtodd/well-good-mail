@@ -11,6 +11,8 @@ import { CAPABILITIES, IDLE_CHOICES, NEVER, LEVEL_WORDS, effectiveMode, tidy, ty
 import { READY, TOOLS } from '../lib/mcp/tools';
 import { setupText, pauseMcp, resumeMcp } from '../lib/mcp/server';
 import { useActivity, clearActivity } from '../lib/mcp/activity';
+import { groupColour, nextGroupColour, moveGroup, DRAFTS_LABEL } from '../lib/mcp/aiDrafts';
+import { groupItems, newGroup } from './AiDrafts';
 
 type AppId = Parameters<typeof setupText>[0];
 
@@ -219,6 +221,8 @@ export function AiConnectionTab() {
   const allLevel = levels.length && levels.every((l) => l === levels[0]) ? levels[0] : undefined;
   const caps = readyCaps();
   const unseen = activity.entries.length - (activity.seen ?? activity.entries.length);
+  const groups = useSettings((s) => s.draftGroups) || [];
+  const signOff = useSettings((s) => s.draftSignOff) || '';
 
   const loadInstalled = () => {
     if (!isTauri()) return;
@@ -370,6 +374,31 @@ export function AiConnectionTab() {
           <summary>Never possible, whatever the switches say</summary>
           <ul>{NEVER.map((n) => <li key={n.id}>{n.text}</li>)}</ul>
         </details>
+      </section>
+
+      <section className="set-section">
+        <h2>Drafting</h2>
+        <p className="hint">Sent to every AI app with its drafting rules. Your signature is always added when a draft is sent.</p>
+        <div className="ai-row">
+          <span className="ai-dot-space" aria-hidden="true" />
+          <div className="grow"><span>Sign-off</span><small>How drafts end, on their own line before your signature. Leave it empty to let the AI choose.</small></div>
+          <input className="label-input ai-signoff" aria-label="Sign-off for drafts" placeholder="All the best," value={signOff} maxLength={40} onChange={(e) => set({ draftSignOff: e.target.value })} />
+        </div>
+        <div className="ai-group">Draft groups</div>
+        {groups.map((g, i) => (
+          <div key={g.id} className="ai-row">
+            <button className="ai-dot ai-dot-btn" style={{ background: groupColour(g) }} aria-label={`Change colour for ${g.name}`} title="Change colour" onClick={() => nextGroupColour(g.id)} />
+            <div className="grow"><span>{g.name}</span><small>Gmail label: {DRAFTS_LABEL}/{g.name}</small></div>
+            <button className="icon-btn" aria-label={`Move ${g.name} up`} disabled={i === 0} onClick={() => moveGroup(g.id, -1)}><Icon name="chevronDown" className="rot180" /></button>
+            <button className="icon-btn" aria-label={`Move ${g.name} down`} disabled={i === groups.length - 1} onClick={() => moveGroup(g.id, 1)}><Icon name="chevronDown" /></button>
+            <button className="icon-btn" aria-label={`More for ${g.name}`} onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), groupItems(g.id, g.name), 'right')}><Icon name="more" /></button>
+          </div>
+        ))}
+        <div className="ai-row">
+          <span className="ai-dot add" aria-hidden="true" />
+          <div className="grow"><span>New group</span><small>Groups show as chips on AI Drafts and in the sidebar, and become Gmail labels.</small></div>
+          <button className="btn small" onClick={() => void newGroup()}>Add</button>
+        </div>
       </section>
 
       <section className="set-section">

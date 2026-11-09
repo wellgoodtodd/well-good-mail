@@ -11,24 +11,41 @@ import { useMenu } from './ui';
 
 export function AiApprovalCard() {
   const { asks, resume } = useApprovals();
-  if (resume) {
-    return (
-      <div className="ev-scrim ai-scrim">
-        <div className="ev-pop ai-card" role="alertdialog" aria-modal="true" aria-label={`${resume.app} wants to use Well Good Mail again`}>
-          <div className="ai-card-head"><Icon name="sparkle" size={18} /><h2>{resume.app} wants to use Well Good Mail again</h2></div>
-          <p className="ai-card-sub">The AI Connection is paused. If you weren't expecting this, choose Not now and look at Activity in Settings, AI Connection.</p>
-          <div className="ai-card-actions">
-            <button className="btn" onClick={() => answerResume('no')}>Not now</button>
-            <span className="grow" />
-            <button className="btn" onClick={() => answerResume('today')}>Resume, don't pause today</button>
-            <button className="btn primary" onClick={() => answerResume('resume')}>Resume</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (resume) return <ResumeCard app={resume.app} />;
   if (!asks.length) return null;
   return <AskCard asks={asks} />;
+}
+
+function ResumeCard({ app }: { app: string }) {
+  const [held, setHeld] = useState(typingNow);
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (held) return;
+    const t = setTimeout(() => setArmed(true), 700);
+    return () => clearTimeout(t);
+  }, [held]);
+  if (held) {
+    return (
+      <button className="ai-held" onClick={() => setHeld(false)}>
+        <Icon name="sparkle" size={16} /><span><b>{app} wants to use Well Good Mail again</b><small>Show when you're ready</small></span>
+      </button>
+    );
+  }
+  const go = (k: Parameters<typeof answerResume>[0]) => () => { if (armed) answerResume(k); };
+  return (
+    <div className="ev-scrim ai-scrim">
+      <div className="ev-pop ai-card" role="alertdialog" aria-modal="true" aria-label={`${app} wants to use Well Good Mail again`}>
+        <div className="ai-card-head"><Icon name="sparkle" size={18} /><h2>{app} wants to use Well Good Mail again</h2></div>
+        <p className="ai-card-sub">The AI Connection is paused. If you weren't expecting this, choose Not now and look at Activity in Settings, AI Connection.</p>
+        <div className="ai-card-actions">
+          <button className="btn" onClick={go('no')}>Not now</button>
+          <span className="grow" />
+          <button className="btn" onClick={go('today')}>Resume, don't pause today</button>
+          <button className="btn primary" onClick={go('resume')}>Resume</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const HINT_KEY = 'wgm-ai-remember-hint';

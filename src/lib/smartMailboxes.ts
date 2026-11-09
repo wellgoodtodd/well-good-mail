@@ -23,6 +23,8 @@ export interface SmartMailbox {
   rules: SmartRule[];
   /** Bin and Junk are left out unless this is on (or a rule asks for them by name). */
   includeBinJunk?: boolean;
+  /** Kept, but not shown in the sidebar until "Show hidden" is opened. */
+  hidden?: boolean;
 }
 
 export interface SmartContext {

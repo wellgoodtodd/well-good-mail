@@ -14,7 +14,8 @@ export const textToHtml = (text: string) => text.split(/\n\s*\n/).map((p) => `<p
 /** Draft HTML back to plain text for a quick edit. */
 export const htmlToText = (html: string) => html
   .replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>\s*/gi, '\n\n').replace(/<\/div>\s*/gi, '\n').replace(/<[^>]+>/g, '')
-  .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+  .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+  .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&amp;/g, '&')
   .replace(/\n{3,}/g, '\n\n').trim();
 /** True when a draft is only paragraphs and line breaks, so a text-only quick edit loses nothing. */
 export const isSimple = (html: string) => !/<(?!\/?(p|br|div)\b)[a-z]/i.test(html);
@@ -26,7 +27,9 @@ export const DRAFTS_LABEL = 'AI Drafts';
 export const writerLabel = (byAi: string) => (/^claude/i.test(byAi) ? 'Claude' : byAi.trim().slice(0, 30) || 'AI');
 export function aiLabelNames(d: Draft): string[] {
   const g = (settings().draftGroups || []).find((x) => x.id === d.group);
-  return [DRAFTS_LABEL, ...(g ? [`${DRAFTS_LABEL}/${g.name}`] : []), `${WRITER_PREFIX}${writerLabel(d.byAi || 'AI')}`];
+  // Drafts made in Gmail itself may be the person's own, so they get no "AI Writer" label.
+  const writer = d.byAi === OUTSIDE_WRITER ? [] : [`${WRITER_PREFIX}${writerLabel(d.byAi || 'AI')}`];
+  return [DRAFTS_LABEL, ...(g ? [`${DRAFTS_LABEL}/${g.name}`] : []), ...writer];
 }
 
 /** Gmail: puts the AI labels on a draft's message, so it shows as an AI draft on other devices too. Never throws. */
@@ -56,63 +59,134 @@ export async function saveDraftEverywhere(draft: Draft): Promise<Draft> {
   return draft;
 }
 
+/** Who an outside draft is marked as: made in Gmail itself (on the web, a phone, or an assistant's fallback). */
+export const OUTSIDE_WRITER = 'Gmail';
+/** Drafts looked at and left out (older than when outside drafts started coming in), so they aren't fetched again. */
+const passedOver = new Set<string>();
+let syncing = false;
+let lastSync = 0;
+
+/** The group and writer an AI draft's Gmail labels give it, or undefined when it has no "AI Drafts" label. */
+export function readAiLabels(labels: string[]): { group?: string; writer?: string } | undefined {
+  const base = DRAFTS_LABEL.toLowerCase();
+  const isAi = labels.some((l) => l.toLowerCase() === base || l.toLowerCase().startsWith(base + '/'));
+  if (!isAi) return undefined;
+  const sub = labels.find((l) => l.toLowerCase().startsWith(base + '/'))?.slice(DRAFTS_LABEL.length + 1);
+  const writer = labels.find((l) => l.toLowerCase().startsWith(WRITER_PREFIX.toLowerCase()))?.slice(WRITER_PREFIX.length);
+  // An older label like "AI drafts/EA" named who wrote it, not a group.
+  if (sub && !writer) return { writer: sub };
+  return { group: sub, writer };
+}
+
 /**
- * Gmail drafts carrying the "AI Drafts" label that this computer doesn't know yet (written by the EA through Gmail,
- * on another computer, or filed by an AI later) become AI drafts here, in their group and with their writer.
+ * Keeps AI Drafts in step with each Gmail account's Drafts folder:
+ * - drafts labelled "AI Drafts" (by the EA, another computer, or filed later) come in with their group and writer;
+ * - any other new draft made outside Well Good Mail comes in too, in No Group, marked as from Gmail;
+ * - a draft sent or deleted elsewhere leaves, and one changed elsewhere shows the new version.
+ * Runs every two minutes, when the window comes forward, and when AI Drafts opens.
  */
-export async function importLabelledDrafts(): Promise<number> {
-  const mail = useMail.getState();
-  const local = await store.drafts();
-  const knownServer = new Set(local.flatMap((d) => [d.serverDraftId, d.serverDraftMessageId]).filter(Boolean) as string[]);
-  let added = 0;
-  for (const account of mail.accounts) {
-    const p = providerFor(account.id);
-    if (!p?.draftsWithLabel) continue;
-    let found: { draftId: string; messageId: string; labels: string[] }[] = [];
-    try { found = await p.draftsWithLabel(DRAFTS_LABEL); } catch { continue; }
-    for (const f of found) {
-      const already = local.find((d) => d.serverDraftId === f.draftId || d.serverDraftMessageId === f.messageId);
-      const groupName = f.labels.find((l) => l.toLowerCase().startsWith(DRAFTS_LABEL.toLowerCase() + '/'))?.slice(DRAFTS_LABEL.length + 1);
-      const writer = f.labels.find((l) => l.toLowerCase().startsWith(WRITER_PREFIX.toLowerCase()))?.slice(WRITER_PREFIX.length) || 'AI';
-      const group = groupName ? addGroup(groupName) : undefined;
-      if (already) {
-        // Known here already: just follow a group changed elsewhere.
-        if (group && already.group !== group) await store.putDraft({ ...already, group });
-        continue;
-      }
-      if (knownServer.has(f.draftId) || knownServer.has(f.messageId)) continue;
-      const m = Object.values(mail.messages).find((x) => x.accountId === account.id && x.providerId === f.messageId);
-      if (!m) continue; // Not synced to this computer yet; picked up next time.
-      const full = (await loadBody(m.id)) || m;
-      // A reply keeps its conversation: the newest email in the thread that isn't a draft.
-      const source = Object.values(mail.messages).filter((x) => x.accountId === account.id && x.threadId === full.threadId && !x.isDraft).sort((a, b) => b.date - a.date)[0];
-      const html = full.bodyHtml || (full.bodyText || '').replace(/\n/g, '<br>');
-      const ownName = (account.aliases.find((a) => a.email === full.from.email)?.name || '').split(' ')[0];
-      const tail = htmlToText(html.split(/gmail_quote|<blockquote/i)[0]).slice(-400);
-      const draft = createDraft('new', undefined, composeContext(), {
-        fromEmail: full.from.email,
-        fromAccountId: account.id,
-        to: full.to,
-        cc: full.cc,
-        bcc: full.bcc,
-        subject: full.subject === '(no subject)' ? '' : full.subject,
-        html,
-        serverDraftId: f.draftId,
-        serverAccountId: account.id,
-        serverDraftMessageId: f.messageId,
-        byAi: writer,
-        group,
-        // Already signed off with a name: don't add the signature a second time.
-        noSignature: Boolean(ownName && tail.includes(ownName)),
-        updatedAt: full.date,
-        ...(source ? { mode: 'reply' as const, sourceMessageId: source.id, includeQuote: false } : {}),
-      });
-      await store.putDraft(draft);
-      added++;
+export async function syncServerDrafts(): Promise<number> {
+  if (syncing) return 0;
+  syncing = true;
+  lastSync = Date.now();
+  let changed = 0;
+  try {
+    let since = settings().outsideDraftsSince;
+    if (!since) {
+      // The first time: bring in outside drafts from the last day, then everything new from here on.
+      since = Date.now() - 24 * 3600000;
+      useSettings.getState().set({ outsideDraftsSince: since });
     }
+    for (const account of useMail.getState().accounts) {
+      const p = providerFor(account.id);
+      if (!p?.listDrafts || !p.messageInfo) continue;
+      let server: { draftId: string; messageId: string }[];
+      try { server = await p.listDrafts(); } catch { continue; }
+      const mail = useMail.getState();
+      const byMessage = (providerId: string) => Object.values(mail.messages).find((x) => x.accountId === account.id && x.providerId === providerId);
+      const onServer = new Map(server.map((s) => [s.draftId, s.messageId]));
+      const local = await store.drafts();
+      const queued = new Set(mail.outbox.map((o) => o.id));
+
+      for (const d of local) {
+        if (!d.byAi || d.serverAccountId !== account.id || !d.serverDraftId || queued.has(d.id)) continue;
+        // Just saved here: give Gmail a moment before reading anything into its absence.
+        if (Date.now() - d.updatedAt < 120000) continue;
+        const now = onServer.get(d.serverDraftId);
+        if (now === undefined) {
+          // Sent or deleted elsewhere.
+          await store.deleteDraft(d.id);
+          changed++;
+          continue;
+        }
+        let next = d;
+        if (!mail.accounts.some((a) => a.id === d.fromAccountId)) next = { ...next, fromAccountId: account.id };
+        if (d.serverDraftMessageId && now !== d.serverDraftMessageId) {
+          // Changed elsewhere (Gmail on the web, a phone). Take that version once it has synced here.
+          const m = byMessage(now);
+          if (m && m.date > d.updatedAt) {
+            const full = (await loadBody(m.id)) || m;
+            next = { ...next, subject: full.subject === '(no subject)' ? '' : full.subject, to: full.to, cc: full.cc, bcc: full.bcc, html: full.bodyHtml || textToHtml(full.bodyText || ''), serverDraftMessageId: now, updatedAt: m.date };
+          }
+        }
+        if (next !== d) { await store.putDraft(next); changed++; }
+      }
+
+      const known = new Set([...local, ...mail.outbox.map((o) => o.draft)].flatMap((d) => [d.serverDraftId, d.serverDraftMessageId]).filter(Boolean) as string[]);
+      for (const s of server) {
+        if (known.has(s.draftId) || known.has(s.messageId) || passedOver.has(s.messageId)) continue;
+        let info: { labels: string[]; date: number };
+        try { info = await p.messageInfo(s.messageId); } catch { continue; }
+        const ai = readAiLabels(info.labels);
+        if (!ai && info.date < since) { passedOver.add(s.messageId); continue; }
+        const m = byMessage(s.messageId);
+        if (!m) continue; // Not synced to this computer yet; picked up next time.
+        const full = (await loadBody(m.id)) || m;
+        // A reply keeps its conversation: the newest email in the thread that isn't a draft.
+        const source = Object.values(mail.messages).filter((x) => x.accountId === account.id && x.threadId === full.threadId && !x.isDraft).sort((a, b) => b.date - a.date)[0];
+        const html = full.bodyHtml || textToHtml(full.bodyText || '');
+        const ownName = (account.aliases.find((a) => a.email === full.from.email)?.name || account.displayName || '').split(' ')[0];
+        const tail = htmlToText(html.split(/gmail_quote|<blockquote/i)[0]).slice(-400);
+        const draft = createDraft('new', undefined, composeContext(), {
+          fromEmail: full.from.email || account.email,
+          fromAccountId: account.id,
+          to: full.to,
+          cc: full.cc,
+          bcc: full.bcc,
+          subject: full.subject === '(no subject)' ? '' : full.subject,
+          html,
+          serverDraftId: s.draftId,
+          serverAccountId: account.id,
+          serverDraftMessageId: s.messageId,
+          byAi: ai ? ai.writer || 'AI' : OUTSIDE_WRITER,
+          group: ai?.group ? addGroup(ai.group) : undefined,
+          // Already signed off with a name: don't add the signature a second time.
+          noSignature: Boolean(ownName && tail.includes(ownName)),
+          updatedAt: full.date,
+          ...(source ? { mode: 'reply' as const, sourceMessageId: source.id, includeQuote: false } : {}),
+        });
+        await store.putDraft(draft);
+        known.add(s.draftId);
+        changed++;
+      }
+    }
+  } finally {
+    syncing = false;
   }
-  if (added) await refreshAiDrafts();
-  return added;
+  if (changed) await refreshAiDrafts();
+  return changed;
+}
+
+/** Starts the draft sync: soon after opening, every two minutes, and when the window comes forward. */
+export function startDraftSync() {
+  setTimeout(() => void syncServerDrafts(), 15000);
+  setInterval(() => void syncServerDrafts(), 2 * 60000);
+  window.addEventListener('focus', () => { if (Date.now() - lastSync > 30000) void syncServerDrafts(); });
+}
+
+/** When AI Drafts opens: a fresh look, unless one ran in the last half minute. */
+export function syncDraftsSoon() {
+  if (Date.now() - lastSync > 30000) void syncServerDrafts();
 }
 
 /** A quick text-only change from the AI Drafts screen. */
@@ -123,12 +197,12 @@ export async function quickSave(id: string, subject: string, text: string) {
   await refreshAiDrafts();
 }
 
-/** Sends a draft straight from the AI Drafts screen, through the usual undo-send delay. */
-export async function quickSend(id: string, subject?: string, text?: string) {
+/** Sends a draft straight from the AI Drafts screen: now (through the usual undo-send delay) or at a later time. */
+export async function quickSend(id: string, subject?: string, text?: string, at?: number) {
   const d = await store.getDraft(id);
   if (!d) return;
   const final = subject === undefined ? d : { ...d, subject, html: textToHtml(text || ''), updatedAt: Date.now() };
-  await queueSend(final);
+  await queueSend(final, at ? { sendAt: at } : {});
   await refreshAiDrafts();
 }
 
@@ -200,6 +274,16 @@ export function renameGroup(id: string, name: string) {
   if (clean) saveGroups(groups().map((g) => (g.id === id ? { ...g, name: clean } : g)));
 }
 
+/** Moves a group up or down the list (the order of the chips and the sidebar). */
+export function moveGroup(id: string, by: -1 | 1) {
+  const list = [...groups()];
+  const i = list.findIndex((g) => g.id === id);
+  const j = i + by;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  saveGroups(list);
+}
+
 /** Removes a group. Its drafts stay, in no group. */
 export async function deleteGroup(id: string) {
   saveGroups(groups().filter((g) => g.id !== id));
@@ -212,17 +296,19 @@ export async function deleteGroup(id: string) {
 }
 
 /** Labels drafts already in a Gmail account as AI drafts (with a group and writer), then brings them in. */
-export async function fileServerDrafts(accountId: string, ids: string[], groupName: string | undefined, writer: string): Promise<number> {
+export async function fileServerDrafts(accountId: string, ids: string[], groupName: string | undefined, writer: string): Promise<{ filed: number; missing: string[] }> {
   const p = providerFor(accountId);
   if (!p?.labelByName) throw new Error('Filing drafts this way needs a Gmail account for now.');
   const names = [DRAFTS_LABEL, ...(groupName ? [`${DRAFTS_LABEL}/${groupName}`] : []), `${WRITER_PREFIX}${writerLabel(writer)}`];
   const messages = useMail.getState().messages;
   let n = 0;
+  const missing: string[] = [];
+  // Only drafts still in Gmail: one replaced or deleted there can't be filed.
+  const live = p.listDrafts ? new Set((await p.listDrafts()).map((d) => d.messageId)) : undefined;
   for (const id of ids) {
     const m = messages[id];
-    if (!m) continue;
-    await p.labelByName(m.providerId, names);
-    n++;
+    if (!m || (live && !live.has(m.providerId))) { missing.push(id); continue; }
+    try { await p.labelByName(m.providerId, names); n++; } catch { missing.push(id); }
   }
   // Drafts this computer already knows follow the new group straight away.
   const group = groupName ? addGroup(groupName) : undefined;
@@ -230,7 +316,7 @@ export async function fileServerDrafts(accountId: string, ids: string[], groupNa
     const hit = ids.some((id) => messages[id]?.providerId && messages[id]?.providerId === d.serverDraftMessageId);
     if (hit) await store.putDraft({ ...d, byAi: d.byAi || writer, group: group ?? d.group });
   }
-  await importLabelledDrafts();
+  await syncServerDrafts();
   await refreshAiDrafts();
-  return n;
+  return { filed: n, missing };
 }

@@ -86,6 +86,10 @@ export interface Settings {
   smartMailboxes: SmartMailbox[];
   /** Your order for the sidebar sections (ids like "sec:mailboxes"). Empty means the usual order. */
   sectionOrder: string[];
+  /** How AI drafts end, before the signature (like "All the best,"). Sent with the drafting rules. Empty: the AI chooses. */
+  draftSignOff?: string;
+  /** Drafts made outside Well Good Mail from this time on are brought into AI Drafts. Set the first time it runs. */
+  outsideDraftsSince?: number;
 
   newMailAlerts: 'all' | 'important' | 'off';
   alertSound: boolean;

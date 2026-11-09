@@ -218,6 +218,22 @@ export function initials(name: string): string {
   return ((parts[0]?.[0] || '?') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 
+/** The quick Send later choices (the editor's Send arrow, and AI Drafts). */
+export function sendLaterOptions(): { label: string; at: number }[] {
+  const t = new Date(); t.setDate(t.getDate() + 1); t.setHours(8, 0, 0, 0);
+  const mon = new Date(); mon.setDate(mon.getDate() + ((8 - mon.getDay()) % 7 || 7)); mon.setHours(8, 0, 0, 0);
+  const later = new Date(Date.now() + 3 * 3600000); later.setMinutes(0, 0, 0);
+  const opts = [{ label: `Later today (${later.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})`, at: later.getTime() }];
+  if (later.getDate() !== new Date().getDate()) opts.length = 0;
+  const evening = new Date(); evening.setHours(18, 0, 0, 0);
+  if (Date.now() < evening.getTime() - 3600000) opts.push({ label: 'This evening (18:00)', at: evening.getTime() });
+  opts.push(
+    { label: `Tomorrow morning (${t.toLocaleDateString('en-GB', { weekday: 'short' })} 08:00)`, at: t.getTime() },
+    { label: 'Monday morning (08:00)', at: mon.getTime() },
+  );
+  return opts;
+}
+
 export function snoozeOptions(): { label: string; at: number }[] {
   const now = new Date();
   const at = (d: Date, h: number, m = 0) => { const x = new Date(d); x.setHours(h, m, 0, 0); return x.getTime(); };

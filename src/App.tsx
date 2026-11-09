@@ -24,7 +24,7 @@ import { backupDue, haveOwnKeys } from './lib/backup';
 import {
   useMail, initMail, refreshAll, runSearch, dismissToast, archive, trash, toggleFlag, markRead, selectedMessageIds, selectThread, startDemo,
   markSpam, snooze, markViewRead, openScreen,
-  adoptOutboxItem, messagesInThread, reloadMessagesFromDb, toast, reconnectAccount, goBack,
+  adoptOutboxItem, messagesInThread, reloadMessagesFromDb, toast, reconnectAccount, goBack, goForward,
 } from './lib/mail';
 import { startCompose, popoutMessage } from './lib/composeActions';
 import { useViewList } from './lib/useList';
@@ -146,10 +146,16 @@ function Welcome() {
   );
 }
 
-/** Back to where you were before jumping to another screen, mailbox or search. */
+/** Back to where you were before jumping to another screen, mailbox or search, and Forward again. */
 function BackButton() {
   const can = useMail((s) => s.backStack.length > 0);
-  return <button className="icon-btn" title="Back (Alt+Left)" aria-label="Back" onClick={goBack} disabled={!can}><Icon name="chevronLeft" /></button>;
+  const canForward = useMail((s) => s.forwardStack.length > 0);
+  return (
+    <>
+      <button className="icon-btn" title="Back (Alt+Left)" aria-label="Back" onClick={goBack} disabled={!can}><Icon name="chevronLeft" /></button>
+      <button className="icon-btn" title="Forward (Alt+Right)" aria-label="Forward" onClick={goForward} disabled={!canForward}><Icon name="chevronRight" /></button>
+    </>
+  );
 }
 
 function SearchBox() {
@@ -252,10 +258,16 @@ function useShortcuts() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [keys]);
-  // Back, like a browser: Alt+Left, or the mouse's back button.
+  // Back and Forward, like a browser: Alt+Left and Alt+Right, or the mouse's side buttons.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goBack(); } };
-    const onMouse = (e: MouseEvent) => { if (e.button === 3) { e.preventDefault(); goBack(); } };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goBack(); }
+      if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goForward(); }
+    };
+    const onMouse = (e: MouseEvent) => {
+      if (e.button === 3) { e.preventDefault(); goBack(); }
+      if (e.button === 4) { e.preventDefault(); goForward(); }
+    };
     window.addEventListener('keydown', onKey);
     window.addEventListener('mouseup', onMouse);
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('mouseup', onMouse); };

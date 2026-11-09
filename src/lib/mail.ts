@@ -80,6 +80,8 @@ interface MailState {
   settingsTab: string;
   /** Where you were before, newest last, for the Back button. */
   backStack: Place[];
+  /** Places you went back from, for Forward. Cleared when you go somewhere new. */
+  forwardStack: Place[];
   online: boolean;
   filters: ListFilters;
 }
@@ -127,6 +129,7 @@ export const useMail = create<MailState>(() => ({
   screen: 'mail',
   settingsTab: 'accounts',
   backStack: [],
+  forwardStack: [],
   online: typeof navigator === 'undefined' ? true : navigator.onLine,
   filters: NO_FILTERS,
 }));
@@ -630,15 +633,26 @@ function remember(next: Partial<Place>) {
   const here: Place = { screen: s.screen, view: s.view, settingsTab: s.settingsTab, selectedKey: s.selectedKey };
   const there: Place = { ...here, ...next };
   if (samePlace(here, there)) return;
-  set({ backStack: [...s.backStack, here].slice(-30) });
+  set({ backStack: [...s.backStack, here].slice(-30), forwardStack: [] });
 }
+
+const placeNow = (): Place => { const s = get(); return { screen: s.screen, view: s.view, settingsTab: s.settingsTab, selectedKey: s.selectedKey }; };
+const goTo = (place: Place) => ({ screen: place.screen, view: place.view, settingsTab: place.settingsTab, selectedKey: place.selectedKey, selectedKeys: place.selectedKey ? [place.selectedKey] : [], inlineDraftId: undefined });
 
 /** Back to where you were: the screen, the mailbox and the email that was open. */
 export function goBack() {
   const stack = get().backStack;
   const place = stack[stack.length - 1];
   if (!place) return;
-  set({ backStack: stack.slice(0, -1), screen: place.screen, view: place.view, settingsTab: place.settingsTab, selectedKey: place.selectedKey, selectedKeys: place.selectedKey ? [place.selectedKey] : [], inlineDraftId: undefined });
+  set({ backStack: stack.slice(0, -1), forwardStack: [...get().forwardStack, placeNow()].slice(-30), ...goTo(place) });
+}
+
+/** Forward again, after going back. */
+export function goForward() {
+  const stack = get().forwardStack;
+  const place = stack[stack.length - 1];
+  if (!place) return;
+  set({ forwardStack: stack.slice(0, -1), backStack: [...get().backStack, placeNow()].slice(-30), ...goTo(place) });
 }
 
 export function setView(view: View) {
@@ -1225,13 +1239,17 @@ export function broadcast(msg: unknown) {
   } catch { /* ignore */ }
 }
 
-export async function cancelSend(id: string) {
+export async function cancelSend(id: string, opts: { reopen?: boolean } = {}) {
   const item = get().outbox.find((o) => o.id === id);
   if (!item) return;
   await store.deleteOutbox(id);
   set({ outbox: get().outbox.filter((o) => o.id !== id) });
   const draft = { ...item.draft, sendAt: undefined };
   await store.putDraft(draft);
+  if (opts.reopen === false) {
+    toast({ text: 'Not sending it. It\'s back in your drafts.', ttl: 3000 });
+    return;
+  }
   const source = draft.sourceMessageId ? get().messages[draft.sourceMessageId] : undefined;
   if (source && !settings().popOutCompose) {
     set({ screen: 'mail', selectedKey: threadKey(source), selectedKeys: [threadKey(source)], inlineDraftId: draft.id });

@@ -362,15 +362,25 @@ a { color: var(--accent-text, var(--accent)); }
 .radio-list label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
 .radio-list .sub { color: var(--text-muted); font-size: 0.9em; }
 .check { display: flex; gap: 10px; align-items: center; cursor: pointer; padding: 6px 0; }
-.acct-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.acct-row { display: grid; grid-template-columns: 28px 170px minmax(0, 1fr) auto; grid-template-areas: "dot name info actions" ". tick keep ."; column-gap: 12px; row-gap: 6px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.acct-row .acct-dot { grid-area: dot; justify-self: center; }
+.acct-row .acct-name { grid-area: name; width: 100%; box-sizing: border-box; }
+.acct-row .acct-info { grid-area: info; min-width: 0; }
+.acct-row .acct-info > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-row .acct-status { color: var(--text-muted); font-size: 0.88em; }
+.acct-row .acct-actions { grid-area: actions; display: flex; align-items: center; gap: 4px; }
+.acct-row .acct-tick { grid-area: tick; }
+.acct-row .acct-keep { grid-area: keep; }
+.acct-row .acct-keep .keep-mail { margin-top: 0; }
+@media (max-width: 720px) {
+  .acct-row { grid-template-columns: 28px minmax(0, 1fr); grid-template-areas: "dot name" ". info" ". tick" ". keep" ". actions"; }
+}
 .acct-row:last-child { border-bottom: 0; }
-.acct-row .grow { flex: 1 1 200px; min-width: 0; }
-.acct-namecol { display: flex; flex-direction: column; gap: 5px; flex: none; }
 .acct-tick { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85em; color: var(--text-muted); cursor: pointer; }
 .keep-mail { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.88em; color: var(--text-muted); }
 .keep-mail select { font: inherit; font-size: 13px; color: var(--text); height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); cursor: pointer; }
 .keep-mail select:hover { border-color: var(--border-strong); }
-.acct-row input.label-input { height: 28px; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; background: var(--bg-input); width: 160px; }
+.acct-row input.label-input { height: 30px; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; background: var(--bg-input); }
 .status-ok { color: var(--success); }
 .status-bad { color: var(--danger); }
 .sig-editor { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -1115,4 +1125,49 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .ai-pill-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .grp-tag { display: inline-flex; }
 .side-heading.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+.side-heading.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
 .ai-draft-detail .ai-draft-row b { min-width: 40px; }
+
+/* AI Drafts as a workspace: two-line rows (group pill, who and subject, date / preview and actions), sort, ticks, Scheduled */
+.ai-drafts-tools { display: flex; gap: 8px; align-items: center; margin: 4px 0 10px; }
+.ai-drafts-tools .ai-drafts-search { flex: 1; margin: 0; }
+.ai-sort { height: 34px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ai-list .ai-draft-item { display: grid; grid-template-columns: 4px 16px 96px minmax(0, 1fr) auto; grid-template-areas: "bar pick pill l1 date" "bar pick pill l2 acts"; column-gap: 12px; row-gap: 2px; align-items: center; padding: 9px 12px 9px 10px; }
+.ai-list .ai-draft-item .bar { grid-area: bar; align-self: stretch; width: 4px; }
+.ai-list .ai-draft-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ai-pick { grid-area: pick; margin: 0; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+.ai-list .ai-group-pill { grid-area: pill; width: 96px; }
+.ai-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ai-line1 { grid-area: l1; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.ai-line1 b { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.ai-line1 .sep { color: var(--text-muted); flex: none; }
+.ai-line1 .subj { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ai-new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+.ai-list .ai-draft-item > time { grid-area: date; justify-self: end; color: var(--text-muted); font-size: 0.85em; white-space: nowrap; }
+.ai-line2 { grid-area: l2; color: var(--text-muted); font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ai-row-acts { grid-area: acts; display: flex; justify-content: flex-end; gap: 2px; }
+.ai-row-acts .icon-btn { width: 26px; height: 22px; }
+.ai-delete, .btn.ai-delete, .ai-row-acts .icon-btn.ai-delete { color: #e0673f; }
+.ai-draft-wrap.picked { background: var(--bg-selected); }
+/* The folded-open draft lines up with the who-and-subject column above it. */
+.ai-list .ai-draft-detail { padding: 2px 12px 14px 162px; }
+.ai-quick-actions .btn-group { display: inline-flex; }
+.ai-bulk { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin-bottom: 10px; border: 1px solid var(--accent); border-radius: 8px; background: var(--bg-selected); }
+.ai-bulk .grow { flex: 1; }
+.ai-bulk .btn { display: inline-flex; align-items: center; gap: 6px; }
+.ai-bulk-count { font-weight: 600; }
+.ai-scheduled { margin-bottom: 12px; }
+.ai-scheduled-head { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 600; color: var(--text-muted); font-size: 0.9em; }
+.ai-scheduled-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 6px 14px; border-top: 1px solid var(--border); }
+.ai-scheduled-row time { color: var(--text-muted); font-size: 0.88em; }
+.ai-scheduled-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-keys { color: var(--text-muted); font-size: 12px; margin: 8px 2px 0; }
+@media (max-width: 720px) {
+  .ai-list .ai-draft-item { grid-template-columns: 4px 16px minmax(0, 1fr) auto; grid-template-areas: "bar pick l1 date" "bar pick l2 acts" "bar pick pill ."; }
+  .ai-list .ai-draft-detail { padding-left: 42px; }
+}
+
+/* AI Connection, Drafting: sign-off and draft groups */
+.ai-signoff { width: 180px; height: 30px; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; background: var(--bg-input); color: var(--text); font: inherit; }
+.ai-dot-btn { border: 0; padding: 0; cursor: pointer; }
+.ai-dot-btn:hover { outline: 2px solid var(--border-strong, var(--border)); outline-offset: 2px; }
