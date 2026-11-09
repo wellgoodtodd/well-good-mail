@@ -448,6 +448,13 @@ function AppearanceTab() {
     s.set({ ...(k.mode === 'dark' ? { darkSkin: k.id } : { lightSkin: k.id }), ...(s.theme !== 'system' ? { theme: k.mode } : {}), accent: k.accent });
     applyPalette(s.colourBlindAccounts ? 'accessible' : `skin-${k.id}`);
   };
+  // One section back to how it started (one Undo step).
+  const resetPart = (what: string, patch: Partial<S>) => {
+    s.set(patch);
+    toast({ text: `${what} set back to the default.`, undo: () => void undoSteps(1) });
+  };
+  const d0 = defaultSettings;
+  const partReset = (what: string, patch: Partial<S>) => <button className="link-btn set-reset" onClick={() => resetPart(what, patch)} title={`Set ${what.toLowerCase()} back to the default`}>Reset</button>;
   // Back to how the app first looked. One step in Undo; account colours are left as you set them.
   const resetLook = () => {
     const d = defaultSettings;
@@ -461,7 +468,7 @@ function AppearanceTab() {
         <button className="btn small" onClick={resetLook} title="Theme, colours, text size, layout and counts back to how they started">Reset to default</button>
       </div>
       <section className="set-section">
-        <h2>Colour theme</h2>
+        <div className="set-h2-row"><h2>Colour theme</h2>{partReset('Colour theme', { theme: d0.theme, accent: d0.accent, darkSkin: d0.darkSkin, lightSkin: d0.lightSkin, colourBlindAccounts: d0.colourBlindAccounts })}</div>
         <p className="hint">Each theme changes the whole look and brings its own account colours. Pick one, then change any colour you like.</p>
         <div className="skin-grid">
           {SKINS.map((k) => (
@@ -491,7 +498,7 @@ function AppearanceTab() {
         <Check checked={stripe} onChange={(v) => useSettings.getState().set({ showAccountStripe: v })}>Show the account colour stripe on each email</Check>
       </section>
       <section className="set-section">
-        <h2>Display</h2>
+        <div className="set-h2-row"><h2>Display</h2>{partReset('Display', { theme: d0.theme, accent: d0.accent, textScale: d0.textScale, density: d0.density })}</div>
         <Row label="Theme">
           <Radio name="theme" value={s.theme} onChange={(v) => s.set({ theme: v })} options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'Follow Windows' }]} />
         </Row>
@@ -510,7 +517,7 @@ function AppearanceTab() {
         </Row>
       </section>
       <section className="set-section">
-        <h2>Unread counts</h2>
+        <div className="set-h2-row"><h2>Unread counts</h2>{partReset('Unread counts', { badges: d0.badges, unreadColour: d0.unreadColour })}</div>
         <p className="hint">The numbers next to mailboxes in the sidebar. A collapsed account shows the total of everything underneath it. Right click any mailbox to hide just its count.</p>
         <Check checked={s.badges.enabled} onChange={(v) => s.set({ badges: { ...s.badges, enabled: v } })}>Show unread counts</Check>
         {s.badges.enabled && (
@@ -545,12 +552,12 @@ function AppearanceTab() {
         </Row>
       </section>
       <section className="set-section">
-        <h2>Pictures</h2>
+        <div className="set-h2-row"><h2>Pictures</h2>{partReset('Pictures', { accountIcons: d0.accountIcons, senderPhotos: d0.senderPhotos })}</div>
         <Check checked={s.accountIcons} onChange={(v) => { s.set({ accountIcons: v }); if (v) refreshAccountPhotos(); }}>Use each Google account's profile picture in the sidebar instead of its coloured dot</Check>
         <Check checked={s.senderPhotos} onChange={(v) => s.set({ senderPhotos: v })}>Show a small photo or initials beside each message in the list</Check>
       </section>
       <section className="set-section">
-        <h2>Layout</h2>
+        <div className="set-h2-row"><h2>Layout</h2>{partReset('Layout', { panePosition: d0.panePosition, previewLines: d0.previewLines, threaded: d0.threaded, newestFirstInThread: d0.newestFirstInThread, sidebarVisible: d0.sidebarVisible, toolbarOrder: d0.toolbarOrder })}</div>
         <Row label="Reading pane">
           <Radio name="pane" value={s.panePosition} onChange={(v) => s.set({ panePosition: v })} options={[{ value: 'right', label: 'On the right' }, { value: 'bottom', label: 'Below the list' }, { value: 'off', label: 'Off (open emails in their own window)' }]} />
         </Row>

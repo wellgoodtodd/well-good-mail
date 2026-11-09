@@ -8,6 +8,12 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 - **Appearance layout pass** (9 Nov): a lot of colour dots (theme, account colours, display, unread counts). Not a problem; tidy when there's time.
 - **Before live 0.7.0:** help, What's new and support pages for everything since beta 5; one tidy 0.7.0 release note; decide whether to test a Microsoft draft or say drafting is tested on Gmail.
 
+## Done in 0.7 beta 13
+
+Archive, read marks, stars, junk and moving to a folder no longer wait for Gmail before the screen moves on (the pause and the spinning refresh icon); the mail list is worked out once per change instead of twice. Dark mode: the parts you type in (fields, formatting bar, message) are a lighter, raised shade on a darker card, and the signature shares that shade; the full editor's writing area is raised a little too. Appearance: a small Reset beside each section, as well as Reset to default at the top.
+
+Beta 12 checks done: fast start, old-mail search soon after opening, no flash on a tray start, editing a scheduled email (Keep scheduled, its menu, Save and close), signature blends in, Reset to default.
+
 ## Done in 0.7 beta 12
 
 Faster start: the last month's mail shows first, the rest of the cache loads straight after, and the search index builds in small pieces in the background instead of before anything shows. Archive, delete and read marks answer sooner: the list updates first and the sidebar counts follow, and the taskbar number counts once after a burst of changes. The window starts hidden and only shows when you open the app, so starts in the tray (sign in, a scheduled send) no longer flash it. Editing a scheduled email keeps it scheduled: a "Scheduled for ..." line on top, Keep scheduled (top and bottom, and Ctrl+Enter), with Send now, Change time and Back to drafts in its menu; throwing away changes leaves it scheduled as it was. Signature in dark mode blends in (no dark box). Settings, Appearance: Reset to default (one Undo step; account colours unchanged).

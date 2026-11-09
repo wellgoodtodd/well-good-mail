@@ -1277,3 +1277,19 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 
 .set-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .set-title-row h1 { margin: 0 auto 0 0; }
+
+/* A small Reset beside each Appearance heading */
+.set-h2-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.set-h2-row h2 { margin-right: auto; }
+.set-reset { font-size: 0.85em; color: var(--text-muted); }
+.set-reset:hover { color: var(--accent); }
+
+/* Dark mode: the parts you type in are a lighter, raised shade on a darker card, and the signature shares that shade.
+   (The signature is drawn inverted so ones made for white backgrounds read properly; its background is picked to come
+   out the same as the box around it.) */
+[data-theme='dark'] .ai-cards .ai-draft-wrap.open { background: #222225; }
+[data-theme='dark'] .ai-fields, [data-theme='dark'] .ai-editor, [data-theme='dark'] .ai-editor .ai-body, [data-theme='dark'] .ai-editor .fmt-bar { background: #323237; }
+[data-theme='dark'] .ai-fields, [data-theme='dark'] .ai-editor { border-color: #45454c; }
+[data-theme='dark'] .ai-editor .signature-preview { background: #dcdcd9; }
+[data-theme='dark'] .composer .editor-wrap { background: #2a2a2d; }
+[data-theme='dark'] .composer .editor-wrap .signature-preview { background: #e5e5e2; }

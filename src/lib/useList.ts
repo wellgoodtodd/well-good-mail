@@ -6,6 +6,9 @@ import { useSettings } from './settings';
 import type { Message } from './types';
 import { buildList, inMailbox, scopeAccountIds, threadKey, type ListItem } from './mailbox';
 
+/** The last list worked out, and what it was worked out from. A second caller with the same inputs gets it straight back. */
+let last: { deps: unknown[]; out: { items: ListItem[]; remote: ListItem[] } } | undefined;
+
 export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
   const messages = useMail((s) => s.messages);
   const view = useMail((s) => s.view);
@@ -22,7 +25,15 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
   const query = view.mailbox.kind === 'search' ? view.mailbox.query : '';
   const hitIds = useMemo(() => (query ? localSearch(query).map((m) => m.id) : []), [query]);
 
+  const deps = [messages, view, hitIds, accounts, snoozes, remoteResults, groups, vips, threaded, filters, smart];
   return useMemo(() => {
+    if (last && last.deps.length === deps.length && last.deps.every((d, i) => d === deps[i])) return last.out;
+    const out = work();
+    last = { deps, out };
+    return out;
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function work(): { items: ListItem[]; remote: ListItem[] } {
     // Accounts left out of All Inboxes stay out of the combined views, but a search still looks everywhere.
     const everywhere = view.mailbox.kind === 'search' || view.mailbox.kind === 'smart';
     const leftOut = everywhere ? [] : accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id);
@@ -64,5 +75,5 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
     }
     const remote = view.mailbox.kind === 'search' ? buildList(remoteResults.filter((m) => allowed.has(m.accountId) && fits(m)), false) : [];
     return { items, remote };
-  }, [messages, view, hitIds, accounts, snoozes, remoteResults, groups, vips, threaded, filters, smart]);
+  }
 }

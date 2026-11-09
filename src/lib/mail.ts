@@ -844,7 +844,9 @@ async function modify(ids: string[], addFn: (p: MailProvider) => string[], remov
       return { ...m, labels, unread: labels.includes('UNREAD'), flagged: labels.includes('STARRED') || labels.includes('FLAGGED') };
     });
   }
-  await Promise.all(
+  // The account is told in the background: whatever asked for this (archive, read, star, move) carries on at once.
+  // If it fails, a message says so and the account syncs again to put things right.
+  void Promise.all(
     [...groups].map(async ([accId, msgs]) => {
       const p = providers.get(accId)!;
       try {
@@ -918,8 +920,9 @@ export async function archive(ids: string[], opts: { silent?: boolean; markRead?
   if (!ids.length) return;
   const remove = (p: MailProvider) => [p.systemFolderId('inbox') || '', ...(opts.markRead ? ['UNREAD'] : [])];
   const archiveId = (p: MailProvider) => (p.systemFolderId('archive') ? [p.systemFolderId('archive')!] : []);
-  await modify(ids, archiveId, remove);
-  if (!opts.silent) {
+  const saving = modify(ids, archiveId, remove);
+  if (opts.silent) { await saving; return; }
+  {
     afterRemoveFromView();
     const id = record(`Archive: ${describeIds(ids)}`, () => modify(ids, sys('inbox'), archiveId), () => archive(ids, { silent: true, markRead: opts.markRead }));
     toast({ text: ids.length > 1 ? `${ids.length} emails archived` : 'Archived', undo: () => undoEntry(id) });
