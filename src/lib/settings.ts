@@ -382,3 +382,9 @@ export function isQuietNow(s: Settings, now = new Date()): boolean {
   const to = th * 60 + tm;
   return from <= to ? mins >= from && mins < to : mins >= from || mins < to;
 }
+
+// Another Well Good Mail window (a pop-out, or the main window) changed a setting, such as light or dark:
+// pick it up here too, so every window matches.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => { if (e.key === 'wgm-settings') void useSettings.persist.rehydrate(); });
+}

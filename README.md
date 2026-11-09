@@ -1,6 +1,6 @@
 # Well Good Mail
 
-An email app for Windows, inspired by Apple Mail: all your accounts in one combined inbox, with a clean three column layout and none of the clutter. It is not a copy of Apple Mail, just the same feel, for people on Windows. Gmail is set up and working today. Microsoft 365 is in early testing, and other providers (iCloud, Yahoo and any IMAP mailbox) are planned. It runs entirely on your own computer. There is no server of its own, and nothing is sent anywhere except between your PC and Google.
+An email app for Windows, inspired by Apple Mail: all your accounts in one combined inbox, with a clean three column layout and none of the clutter. It is not a copy of Apple Mail, just the same feel, for people on Windows. Gmail is set up and working today. Microsoft 365, iCloud, Yahoo and other IMAP mailboxes can be added too, and are less tested so far. It runs entirely on your own computer. There is no server of its own, and your mail only travels between your PC and your mail provider.
 
 **Status: alpha.** It is a personal project that works for its maker and is shared in case it is useful to someone else. It comes as it is, with no support promised. Please keep your own backups of anything important.
 
@@ -16,14 +16,15 @@ These use the built in demo mailbox, so there is no real mail in them.
 
 ## What it does
 
-- Combined inboxes, custom groups and your own sidebar folders
+- Combined inboxes, custom groups, Smart Mailboxes (saved rules) and your own sidebar folders
 - Three resizable columns; reply inline or pop any email or draft out into its own window
 - Switch between Reply, Reply All and Forward without losing what you have written
-- Undo send, send later, snooze, follow up reminders, templates, mute and one click unsubscribe
-- Gmail aliases and signatures pulled in automatically
+- Undo send and undo for almost everything else, send later (even with the app closed), snooze, follow up reminders, templates, mute and one click unsubscribe
+- Gmail aliases and signatures pulled in automatically, with a signature menu on every email
+- An optional AI Connection: let Claude or another AI app on your computer search your mail and write drafts, only for the accounts and actions you allow. It never sends anything, and drafts wait under AI Drafts for you to check and send
 - Images and trackers blocked until you allow them
 - Offline reading and fast search across every account
-- Light and dark mode, attachment preview, and a Help page inside the app
+- Light and dark mode, calendar reminders and meeting banners, attachment preview, and a Help page inside the app
 
 ## Install
 
@@ -43,7 +44,7 @@ See [SETUP.md](SETUP.md).
 
 ## Privacy
 
-Your mail stays on your own computer. Well Good Mail talks only to your mail provider (Google, Microsoft, Apple or the mail server you set up) and to GitHub, to check for updates. It has no server of its own, collects nothing about you and has no tracking. Passwords and sign-in keys are kept in Windows Credential Manager. You can delete everything the app stores by uninstalling it and removing its folder in your user profile.
+Your mail stays on your own computer. Well Good Mail talks only to your mail provider (Google, Microsoft, Apple or the mail server you set up) and to GitHub, to check for updates. The AI Connection is off until you switch it on, and then only AI apps on your own computer can connect, to the accounts you choose. It has no server of its own, collects nothing about you and has no tracking. Passwords and sign-in keys are kept in Windows Credential Manager. You can delete everything the app stores by uninstalling it and removing its folder in your user profile.
 
 ## Licence
 

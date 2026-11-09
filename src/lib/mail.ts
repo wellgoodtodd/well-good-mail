@@ -80,6 +80,8 @@ interface MailState {
   settingsTab: string;
   /** Where you were before, newest last, for the Back button. */
   backStack: Place[];
+  /** Conversations just archived, deleted or moved: hidden from the list at once, before the full update runs. */
+  goingKeys: string[];
   /** Places you went back from, for Forward. Cleared when you go somewhere new. */
   forwardStack: Place[];
   online: boolean;
@@ -129,6 +131,7 @@ export const useMail = create<MailState>(() => ({
   screen: 'mail',
   settingsTab: 'accounts',
   backStack: [],
+  goingKeys: [],
   forwardStack: [],
   online: typeof navigator === 'undefined' ? true : navigator.onLine,
   filters: NO_FILTERS,
@@ -912,6 +915,24 @@ export async function toggleFlag(ids: string[]) {
   record(`${anyUnflagged ? 'Star' : 'Remove star'}: ${describeIds(ids)}`, restore, anyUnflagged ? on : off);
 }
 
+/**
+ * Takes conversations off the screen straight away (and closes the open one), then waits for the screen to redraw
+ * before the heavier work of updating every count and list. So an archive or delete looks instant however big the mailbox.
+ */
+async function leaveScreenFirst(ids: string[]) {
+  const msgs = get().messages;
+  const keys = [...new Set(ids.map((id) => msgs[id]).filter(Boolean).map((m) => threadKey(m)))];
+  const sel = get().selectedKey;
+  set({ goingKeys: keys, ...(sel && keys.includes(sel) ? { selectedKey: undefined, selectedKeys: [], inlineDraftId: undefined } : {}) });
+  await new Promise<void>((r) => {
+    let done = false;
+    const go = () => { if (!done) { done = true; r(); } };
+    requestAnimationFrame(() => setTimeout(go, 0));
+    setTimeout(go, 120);
+  });
+}
+const clearGoing = () => { if (get().goingKeys.length) set({ goingKeys: [] }); };
+
 function afterRemoveFromView() {
   set({ selectedKey: undefined, selectedKeys: [], inlineDraftId: undefined });
 }
@@ -920,10 +941,12 @@ export async function archive(ids: string[], opts: { silent?: boolean; markRead?
   if (!ids.length) return;
   const remove = (p: MailProvider) => [p.systemFolderId('inbox') || '', ...(opts.markRead ? ['UNREAD'] : [])];
   const archiveId = (p: MailProvider) => (p.systemFolderId('archive') ? [p.systemFolderId('archive')!] : []);
+  if (!opts.silent) await leaveScreenFirst(ids);
   const saving = modify(ids, archiveId, remove);
   if (opts.silent) { await saving; return; }
   {
     afterRemoveFromView();
+    clearGoing();
     const id = record(`Archive: ${describeIds(ids)}`, () => modify(ids, sys('inbox'), archiveId), () => archive(ids, { silent: true, markRead: opts.markRead }));
     toast({ text: ids.length > 1 ? `${ids.length} emails archived` : 'Archived', undo: () => undoEntry(id) });
   }
@@ -931,6 +954,7 @@ export async function archive(ids: string[], opts: { silent?: boolean; markRead?
 
 export async function trash(ids: string[], opts: { silent?: boolean } = {}) {
   if (!ids.length) return;
+  if (!opts.silent) await leaveScreenFirst(ids);
   const groups = groupByAccount(ids);
   for (const [accId, msgs] of groups) {
     const p = providers.get(accId)!;
@@ -941,6 +965,7 @@ export async function trash(ids: string[], opts: { silent?: boolean } = {}) {
   }
   if (opts.silent) return;
   afterRemoveFromView();
+  clearGoing();
   const label = describeIds(ids);
   const id = record(`Move to Bin: ${label}`, () => restoreFromBin(ids), () => trash(ids, { silent: true }));
   toast({ text: ids.length > 1 ? `${ids.length} emails moved to Bin` : 'Moved to Bin', undo: () => undoEntry(id) });

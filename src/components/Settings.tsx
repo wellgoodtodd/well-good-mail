@@ -465,7 +465,7 @@ function AppearanceTab() {
     <>
       <div className="set-title-row">
         <h1>Appearance</h1>
-        <button className="btn small" onClick={resetLook} title="Theme, colours, text size, layout and counts back to how they started">Reset to default</button>
+        <button className="btn small" onClick={resetLook} title="Theme, colours, text size, layout and counts back to how they started">Reset to defaults</button>
       </div>
       <section className="set-section">
         <div className="set-h2-row"><h2>Colour theme</h2>{partReset('Colour theme', { theme: d0.theme, accent: d0.accent, darkSkin: d0.darkSkin, lightSkin: d0.lightSkin, colourBlindAccounts: d0.colourBlindAccounts })}</div>

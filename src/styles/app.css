@@ -1293,3 +1293,15 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 [data-theme='dark'] .ai-editor .signature-preview { background: #dcdcd9; }
 [data-theme='dark'] .composer .editor-wrap { background: #2a2a2d; }
 [data-theme='dark'] .composer .editor-wrap .signature-preview { background: #e5e5e2; }
+
+/* Dark mode, Todd's choice (B): darker inset boxes for everything you type in, with the formatting bar as its own
+   lighter band so the break between bar and message is clear. The signature is drawn to match the dark message box. */
+[data-theme='dark'] .ai-cards .ai-draft-wrap.open { background: #2c2c30; }
+[data-theme='dark'] .ai-fields { background: #1b1b1e; border-color: #3a3a40; }
+[data-theme='dark'] .ai-editor { background: #1b1b1e; border-color: #3a3a40; }
+[data-theme='dark'] .ai-editor .ai-body { background: #1b1b1e; }
+[data-theme='dark'] .ai-editor .fmt-bar { background: #38383e; border-bottom: 1px solid #4a4a52; }
+[data-theme='dark'] .ai-editor .signature-preview { background: #f7f7f6; }
+[data-theme='dark'] .composer .fmt-bar { background: #38383e; border-top: 1px solid #4a4a52; border-bottom: 1px solid #4a4a52; }
+[data-theme='dark'] .composer .editor-wrap { background: #1b1b1e; }
+[data-theme='dark'] .composer .editor-wrap .signature-preview { background: #f7f7f6; }

@@ -14,7 +14,10 @@ import { popoutMessage, editServerDraft } from '../lib/composeActions';
 import { myAddresses } from '../lib/compose';
 
 export function MessageList({ style }: { style: React.CSSProperties }) {
-  const { items, remote } = useViewList();
+  const { items: listed, remote } = useViewList();
+  // Just archived or deleted: gone from the list at once, while the rest catches up.
+  const going = useMail((s) => s.goingKeys);
+  const items = useMemo(() => (going.length ? listed.filter((i) => !going.includes(threadKey(i.message))) : listed), [listed, going]);
   const view = useMail((s) => s.view);
   const accounts = useMail((s) => s.accounts);
   const folders = useMail((s) => s.folders);

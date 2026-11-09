@@ -8,6 +8,12 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 - **Appearance layout pass** (9 Nov): a lot of colour dots (theme, account colours, display, unread counts). Not a problem; tidy when there's time.
 - **Before live 0.7.0:** help, What's new and support pages for everything since beta 5; one tidy 0.7.0 release note; decide whether to test a Microsoft draft or say drafting is tested on Gmail.
 
+## Done in 0.7 beta 14
+
+Archive and delete take the email off the list (and close it) straight away, then update the counts and the rest. Pop-out windows follow light and dark (and every other setting) when the main window changes them. Dark mode, Todd's choice: darker inset boxes for everything you type in, the formatting bar as its own lighter band, the signature matching the message. "Reset to defaults". What's new, Help and the README written for 0.7.0.
+
+Beta 13 checks done: scheduled editing, Reset to default and per-section resets, light mode.
+
 ## Done in 0.7 beta 13
 
 Archive, read marks, stars, junk and moving to a folder no longer wait for Gmail before the screen moves on (the pause and the spinning refresh icon); the mail list is worked out once per change instead of twice. Dark mode: the parts you type in (fields, formatting bar, message) are a lighter, raised shade on a darker card, and the signature shares that shade; the full editor's writing area is raised a little too. Appearance: a small Reset beside each section, as well as Reset to default at the top.
