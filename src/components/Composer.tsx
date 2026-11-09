@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import DOMPurify from 'dompurify';
 import { Icon } from './Icon';
 import { RecipientField } from './RecipientField';
+import { SendLaterPicker } from './SendLaterPicker';
 import { FormatBar, promptLink, pasteAsQuote } from './FormatBar';
 import { editorExtensions, changeIndent } from './editorExtensions';
 import { Dialog, fileSize, sendLaterOptions, useMenu } from './ui';
@@ -46,7 +47,6 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   const [bigFiles, setBigFiles] = useState<File[] | null>(null);
   const [uploading, setUploading] = useState(false);
   const [laterOpen, setLaterOpen] = useState(false);
-  const [laterValue, setLaterValue] = useState('');
   const accounts = useMail((s) => s.accounts);
   const contacts = useMail((s) => s.contacts);
   const messages = useMail((s) => s.messages);
@@ -504,19 +504,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
           <p style={{ color: 'var(--text-muted)' }}>I can upload {bigFiles.length > 1 ? 'them' : 'it'} to your Google Drive and put a link in the email instead. Anyone with the link can view.</p>
         </Dialog>
       )}
-      {laterOpen && (
-        <Dialog
-          title="Send later"
-          onClose={() => setLaterOpen(false)}
-          actions={<>
-            <button className="btn" onClick={() => setLaterOpen(false)}>Cancel</button>
-            <button className="btn primary" disabled={!laterValue} onClick={() => { setLaterOpen(false); send(new Date(laterValue).getTime()); }}>Schedule</button>
-          </>}
-        >
-          <label className="set-row"><span className="label">Date and time</span><input type="datetime-local" value={laterValue} onChange={(e) => setLaterValue(e.target.value)} /></label>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9em' }}>Well Good Mail needs to be running (it can sit in the tray). If your PC is off, it sends as soon as the app opens.</p>
-        </Dialog>
-      )}
+      {laterOpen && <SendLaterPicker onClose={() => setLaterOpen(false)} onPick={(at) => { setLaterOpen(false); send(at); }} />}
       {menu.node}
     </div>
   );

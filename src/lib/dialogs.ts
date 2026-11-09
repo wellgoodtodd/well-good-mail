@@ -11,14 +11,16 @@ interface Pending {
   value?: string;
   /** Shows a "Don't warn me again" box; called if ticked when confirming. */
   onOptOut?: () => void;
+  /** The tick box wording (default "Don't warn me about this again"). */
+  optOutLabel?: string;
   resolve: (v: string | boolean | null) => void;
 }
 
 export const useDialogs = create<{ pending: Pending | null }>(() => ({ pending: null }));
 
-export function askConfirm(title: string, message?: string, confirmLabel = 'OK', opts: { onOptOut?: () => void; cancelLabel?: string } = {}): Promise<boolean> {
+export function askConfirm(title: string, message?: string, confirmLabel = 'OK', opts: { onOptOut?: () => void; optOutLabel?: string; cancelLabel?: string } = {}): Promise<boolean> {
   return new Promise((resolve) => {
-    useDialogs.setState({ pending: { kind: 'confirm', title, message, confirmLabel, cancelLabel: opts.cancelLabel, onOptOut: opts.onOptOut, resolve: (v) => resolve(Boolean(v)) } });
+    useDialogs.setState({ pending: { kind: 'confirm', title, message, confirmLabel, cancelLabel: opts.cancelLabel, onOptOut: opts.onOptOut, optOutLabel: opts.optOutLabel, resolve: (v) => resolve(Boolean(v)) } });
   });
 }
 

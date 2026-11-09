@@ -52,7 +52,7 @@ export function DialogHost() {
       {pending.onOptOut && (
         <label className="check" style={{ marginTop: 6 }}>
           <input id="dialog-optout" type="checkbox" checked={optOut} onChange={(e) => setOptOut(e.target.checked)} />
-          <span>Don't warn me about this again</span>
+          <span>{pending.optOutLabel || 'Don\'t warn me about this again'}</span>
         </label>
       )}
       {pending.kind === 'text' && (

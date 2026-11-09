@@ -1176,3 +1176,70 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .ai-signoff { width: 180px; height: 30px; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; background: var(--bg-input); color: var(--text); font: inherit; }
 .ai-dot-btn { border: 0; padding: 0; cursor: pointer; }
 .ai-dot-btn:hover { outline: 2px solid var(--border-strong, var(--border)); outline-offset: 2px; }
+
+/* AI Drafts, beta 10: the tick box's target is the whole left strip; an open card has a one-line top and a small editor */
+.ai-cards .ai-draft-item { grid-template-columns: 16px minmax(0, 1fr) 150px; }
+.ai-pick-zone { grid-area: pick; align-self: stretch; display: flex; align-items: center; margin: -12px -6px -12px -12px; padding: 0 6px 0 12px; cursor: pointer; }
+.ai-cards .ai-draft-item.slim { grid-template-columns: 16px minmax(0, 1fr) auto auto 14px; grid-template-areas: "pick title tag date chev"; padding-top: 10px; padding-bottom: 10px; }
+.ai-cards .ai-draft-item.slim .ai-pick-zone { margin-top: -10px; margin-bottom: -10px; }
+.ai-cards .ai-draft-item.slim > time { grid-area: date; }
+.ai-cards .ai-draft-item.slim .ai-tag { grid-area: tag; }
+.ai-slim-title { grid-area: title; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
+.ai-slim-title b { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.ai-slim-title .sep { color: var(--text-muted); flex: none; }
+.ai-slim-title .subj { overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); min-width: 0; }
+.ai-slim-chev { grid-area: chev; color: var(--text-muted); }
+.ai-cards .ai-draft-detail { display: grid; gap: 8px; padding: 12px 14px 14px 40px; }
+.ai-fields { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); overflow: hidden; }
+.ai-fields .comp-field:last-child { border-bottom: 0; }
+.ai-fields .ai-subject-input { font-weight: 600; }
+.ai-body { width: 100%; box-sizing: border-box; min-height: 150px; border: 1px solid var(--border-strong, var(--border)); border-radius: 8px; background: var(--bg-input); color: var(--text); font: inherit; line-height: 1.6; padding: 10px 12px; resize: vertical; }
+.ai-body:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.ai-body.read { white-space: pre-wrap; min-height: 0; background: var(--bg-elev, var(--bg)); }
+.ai-note-row { display: flex; gap: 12px; justify-content: space-between; }
+.ai-saved { flex: none; color: var(--text-muted); }
+.ai-saved.saved { color: var(--success, var(--text-muted)); }
+.ai-scheduled-row { cursor: pointer; }
+.ai-scheduled-row:hover { background: var(--bg-hover); }
+
+/* Scheduled: the list, and one email read in full */
+.sched-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who time" "subj acc" "prev prev"; gap: 3px 12px; padding: 12px 14px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.sched-item:hover { background: var(--bg-hover); }
+.sched-who { grid-area: who; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sched-item time { grid-area: time; justify-self: end; color: var(--text-muted); font-size: 0.85em; }
+.sched-subj { grid-area: subj; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sched-acc { grid-area: acc; justify-self: end; color: var(--text-muted); font-size: 0.85em; }
+.sched-prev { grid-area: prev; color: var(--text-muted); font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sched-view { display: grid; gap: 4px; min-width: min(560px, 80vw); }
+.sched-body { margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; white-space: pre-wrap; line-height: 1.55; max-height: 50vh; overflow: auto; }
+.dialog .actions .grow { flex: 1; }
+
+/* Send later picker: typed date and time, a calendar, and a time that scrolls past a fixed highlight */
+.slp { display: grid; gap: 12px; }
+.slp-typed { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.slp-typed label { display: grid; gap: 4px; font-size: 0.85em; color: var(--text-muted); }
+.slp-typed input { width: 120px; height: 30px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); color: var(--text); padding: 0 8px; font: inherit; font-size: 1.05em; }
+.slp-typed input[aria-invalid="true"] { border-color: var(--danger); }
+.slp-when { color: var(--text-muted); font-size: 0.9em; padding-bottom: 6px; }
+.slp-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: start; }
+.slp-month { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.slp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.slp-dow { text-align: center; font-size: 0.78em; color: var(--text-muted); padding: 2px 0 4px; }
+.slp-day { height: 32px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+.slp-day:hover:not(:disabled) { background: var(--bg-hover); }
+.slp-day.other { color: var(--text-muted); }
+.slp-day.today { box-shadow: inset 0 0 0 1px var(--border-strong, var(--border)); }
+.slp-day.on { background: var(--accent); color: #fff; }
+.slp-day:disabled { opacity: 0.35; cursor: default; }
+.slp-time { display: flex; align-items: center; gap: 6px; padding-top: 30px; }
+.slp-colon { font-size: 1.4em; font-weight: 600; }
+.slp-wheel { display: grid; justify-items: center; gap: 1px; user-select: none; }
+.slp-near { width: 48px; height: 26px; border: 0; background: transparent; color: var(--text-muted); font: inherit; cursor: pointer; border-radius: 6px; }
+.slp-near:hover { background: var(--bg-hover); color: var(--text); }
+.slp-now { width: 48px; height: 36px; text-align: center; border: 2px solid var(--accent); border-radius: 8px; background: var(--bg-selected); color: var(--text); font: inherit; font-size: 1.25em; font-weight: 600; }
+.slp-step { width: 48px; height: 20px; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; display: grid; place-items: center; }
+.slp-warn { color: var(--danger); margin: 0; font-size: 0.9em; }
+.slp-note { color: var(--text-muted); margin: 0; font-size: 0.88em; }
+@media (max-width: 720px) { .slp-body { grid-template-columns: 1fr; } .slp-time { padding-top: 0; justify-content: center; } }
+.dialog:has(.slp) { width: min(600px, 94vw); max-width: 94vw; }
+.dialog:has(.sched-view) { width: min(640px, 94vw); max-width: 94vw; }

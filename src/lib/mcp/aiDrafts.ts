@@ -52,7 +52,7 @@ export async function saveDraftEverywhere(draft: Draft): Promise<Draft> {
       const { draftId, messageId } = await p.saveDraft({ ...message, attachments: [] }, draft.serverDraftId);
       draft = { ...draft, serverDraftId: draftId, serverAccountId: accountId, ...(messageId ? { serverDraftMessageId: messageId } : {}) };
       await store.putDraft(draft);
-      await labelAiDraft(draft, accountId, messageId);
+      void labelAiDraft(draft, accountId, messageId);
     }
   } catch (e) {
     console.warn('Draft not saved to the server yet', e);
@@ -190,11 +190,12 @@ export function syncDraftsSoon() {
   if (Date.now() - lastSync > 30000) void syncServerDrafts();
 }
 
-/** A quick text-only change from the AI Drafts screen. */
-export async function quickSave(id: string, subject: string, text: string) {
+/** Changes made on an AI Drafts card: who it's from and to, the subject, and (for plain drafts) the text. */
+export async function quickSave(id: string, patch: Partial<Pick<Draft, 'fromAccountId' | 'fromEmail' | 'to' | 'cc' | 'bcc' | 'subject'>> & { text?: string }) {
   const d = await store.getDraft(id);
   if (!d) return;
-  await saveDraftEverywhere({ ...d, subject, html: textToHtml(text), updatedAt: Date.now() });
+  const { text, ...rest } = patch;
+  await saveDraftEverywhere({ ...d, ...rest, ...(text !== undefined ? { html: textToHtml(text) } : {}), updatedAt: Date.now() });
   await refreshAiDrafts();
 }
 

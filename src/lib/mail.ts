@@ -17,7 +17,7 @@ import { signInWithMicrosoft, signOutMicrosoft } from './auth/microsoft';
 import { indexMessages, rebuildIndex, removeFromIndex, searchMessages, toGmailQuery } from './search';
 import { inSystemFolder, threadKey } from './mailbox';
 import { showBanner } from './banners';
-import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout } from './platform';
+import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout, invoke } from './platform';
 import { myAddresses } from './compose';
 import { bytesToBase64 } from './mime';
 import { paletteById, colourFor } from './palettes';
@@ -76,7 +76,7 @@ interface MailState {
   toasts: Toast[];
   /** Draft open inline in the reading pane. */
   inlineDraftId?: string;
-  screen: 'mail' | 'reminders' | 'settings' | 'help' | 'aidrafts';
+  screen: 'mail' | 'reminders' | 'settings' | 'help' | 'aidrafts' | 'scheduled';
   settingsTab: string;
   /** Where you were before, newest last, for the Back button. */
   backStack: Place[];
@@ -1212,6 +1212,33 @@ export function registerSender(fn: (item: OutboxItem) => Promise<void>) {
   sendImpl = fn;
 }
 
+/** Local time as Windows wants it for a scheduled task: "2026-11-10T00:05:00". */
+const localIso = (t: number) => { const d = new Date(t); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:00`; };
+/** Asks Windows to start Well Good Mail at a scheduled email's time, if that's switched on. */
+function wakeFor(item: OutboxItem) {
+  if (!isTauri() || item.kind !== 'scheduled' || !settings().wakeToSend) return;
+  void invoke('schedule_wake', { id: item.id, at: localIso(item.sendAt) }).catch((e) => console.warn('Wake-up not set', e));
+}
+function unwake(id: string) {
+  if (!isTauri()) return;
+  void invoke('cancel_wake', { id }).catch(() => undefined);
+}
+/** After the setting changes: every scheduled email gets a wake-up, or none does. */
+export function syncWakes() {
+  for (const o of get().outbox) { if (o.kind === 'scheduled') { if (settings().wakeToSend) wakeFor(o); else unwake(o.id); } }
+}
+
+/** A scheduled email goes at a different time. */
+export async function rescheduleSend(id: string, at: number) {
+  const item = get().outbox.find((o) => o.id === id);
+  if (!item) return;
+  const next: OutboxItem = { ...item, sendAt: at, kind: 'scheduled' };
+  await store.putOutbox(next);
+  set({ outbox: get().outbox.map((o) => (o.id === id ? next : o)) });
+  wakeFor(next);
+  toast({ text: `Now scheduled for ${new Date(at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` });
+}
+
 export async function queueSend(draft: Draft, opts: { sendAt?: number } = {}) {
   const undo = settings().undoSendSeconds;
   const scheduled = Boolean(opts.sendAt && opts.sendAt > Date.now() + 30000);
@@ -1223,6 +1250,7 @@ export async function queueSend(draft: Draft, opts: { sendAt?: number } = {}) {
   };
   await store.putOutbox(item);
   await store.deleteDraft(draft.id);
+  wakeFor(item);
   if (isPopout()) {
     // The main window does the actual sending, so closing this window is fine.
     broadcast({ type: 'outbox-changed', id: item.id });
@@ -1266,6 +1294,7 @@ export async function cancelSend(id: string, opts: { reopen?: boolean } = {}) {
   if (!item) return;
   await store.deleteOutbox(id);
   set({ outbox: get().outbox.filter((o) => o.id !== id) });
+  unwake(id);
   const draft = { ...item.draft, sendAt: undefined };
   await store.putDraft(draft);
   if (opts.reopen === false) {
@@ -1290,6 +1319,7 @@ export async function flushOutbox() {
     try {
       await sendImpl(item);
       await store.deleteOutbox(item.id);
+      if (item.kind === 'scheduled') unwake(item.id);
       set({ outbox: get().outbox.filter((o) => o.id !== item.id) });
       toast({ text: item.kind === 'scheduled' ? `Scheduled email sent: ${item.draft.subject || '(no subject)'}` : 'Sent', ttl: 3000 });
     } catch (e) {

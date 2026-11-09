@@ -8,6 +8,7 @@ import { useApprovals, answerAll, toggleTick, answerResume } from '../lib/mcp/ap
 import { useActivity } from '../lib/mcp/activity';
 import { pauseMcp, resumeMcp } from '../lib/mcp/server';
 import { useMenu } from './ui';
+import { Person } from './Person';
 
 export function AiApprovalCard() {
   const { asks, resume } = useApprovals();
@@ -49,6 +50,12 @@ function ResumeCard({ app }: { app: string }) {
 }
 
 const HINT_KEY = 'wgm-ai-remember-hint';
+/** "Sam Smith <sam@example.com>" as a name you can click for the person card, or right-click. */
+const people = (list: string[]) => list.map((s, i) => {
+  const m = s.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
+  const a = m ? { name: m[1].trim() || undefined, email: m[2].trim() } : { email: s.trim() };
+  return <span key={s + i}>{i > 0 && ', '}<Person a={a}>{a.name ? `${a.name} <${a.email}>` : a.email}</Person></span>;
+});
 const typingNow = () => {
   const el = document.activeElement as HTMLElement | null;
   return Boolean(el && (el.isContentEditable || el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes((el as HTMLInputElement).type))));
@@ -93,8 +100,8 @@ function AskCard({ asks }: { asks: ReturnType<typeof useApprovals.getState>['ask
               {a.draft && (
                 <div className="ai-draft">
                   <div className="ai-draft-row"><b>From</b><span>{a.draft.from}</span></div>
-                  <div className="ai-draft-row"><b>To</b><span>{a.draft.to.join(', ') || '(nobody yet)'}</span></div>
-                  {a.draft.cc.length > 0 && <div className="ai-draft-row"><b>Cc</b><span>{a.draft.cc.join(', ')}</span></div>}
+                  <div className="ai-draft-row"><b>To</b><span>{a.draft.to.length ? people(a.draft.to) : '(nobody yet)'}</span></div>
+                  {a.draft.cc.length > 0 && <div className="ai-draft-row"><b>Cc</b><span>{people(a.draft.cc)}</span></div>}
                   <div className="ai-draft-row"><b>Subject</b><span>{a.draft.subject}</span></div>
                   {a.draft.group && <div className="ai-draft-row"><b>Group</b><span>{a.draft.group}</span></div>}
                   {a.draft.replyTo && <div className="ai-draft-row"><b>Replies to</b><span>{a.draft.replyTo}</span></div>}

@@ -479,6 +479,7 @@ export function Sidebar({ width }: { width: number }) {
   const draftFilter = useAiDrafts((s) => s.filter);
   const allMessages = useMail((st) => st.messages);
   const [showHiddenSmart, setShowHiddenSmart] = useState(false);
+  const scheduledCount = useMail((m) => m.outbox.filter((o) => o.kind === 'scheduled').length);
   // Unread count for each Smart Mailbox, worked out once per change rather than on every render.
   const smartUnread = useMemo(() => {
     const boxes = s.smartMailboxes || [];
@@ -757,6 +758,11 @@ s.groups.length > 0 && (
 
       </div>
       <div className="side-footer">
+        <div className="side-row">
+          <button className={`side-item ${screen === 'scheduled' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'scheduled' ? 'mail' : 'scheduled')}>
+            <Icon name="clock" /><span className="name">Scheduled</span>{scheduledCount ? <span className="count">{scheduledCount}</span> : null}
+          </button>
+        </div>
         <div className="side-row">
           <button className={`side-item ${screen === 'reminders' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'reminders' ? 'mail' : 'reminders')}>
             <Icon name="bell" /><span className="name">Reminders</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}

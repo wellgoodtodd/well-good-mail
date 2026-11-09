@@ -1,6 +1,7 @@
 // Actually sending a queued email once its undo window has passed.
 import { draftToOutgoing, type SourceAttachment } from './compose';
-import { addFollowup, getAttachmentData, providerFor, refreshAll, registerSender, useMail } from './mail';
+import { addFollowup, flushOutbox, getAttachmentData, providerFor, refreshAll, registerSender, useMail } from './mail';
+import { isTauri } from './platform';
 import { settings } from './settings';
 import { writingStyle } from './composeActions';
 import { aiLabelNames, DRAFTS_LABEL } from './mcp/aiDrafts';
@@ -49,3 +50,6 @@ async function sendItem(item: OutboxItem) {
 }
 
 registerSender(sendItem);
+
+// Windows started Well Good Mail again for a scheduled email while it was already running: send what's due now.
+if (isTauri()) void import('@tauri-apps/api/event').then(({ listen }) => listen('send-due', () => { void flushOutbox(); })).catch(() => undefined);

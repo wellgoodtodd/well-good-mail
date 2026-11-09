@@ -41,6 +41,7 @@ import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from '.
 import { startMcpWatch } from './lib/mcp/server';
 import { AiApprovalCard, AiStatusButton } from './components/AiApproval';
 import { AiDrafts } from './components/AiDrafts';
+import { ScheduledScreen } from './components/Scheduled';
 import './lib/sender';
 import { DialogHost } from './components/DialogHost';
 import { SmartMailboxEditor } from './components/SmartMailboxEditor';
@@ -213,7 +214,9 @@ function useShortcuts() {
       if (typing && st.inlineDraftId && el?.closest('.composer')) return; // the composer handles its own
       const action = matchAction(e, s.keybindings, s.shortcuts === 'gmail');
       if (!action) return;
-      if (typing && (action === 'undo' || action === 'redo')) return;
+      const textBox = Boolean(el && (el.isContentEditable || el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && ['text', 'search', 'email', 'url', 'tel', 'password', 'number', ''].includes((el as HTMLInputElement).type))));
+      if (textBox && (action === 'undo' || action === 'redo')) return;
+      if (typing && !textBox && (action === 'undo' || action === 'redo')) (el as HTMLElement).blur();
       const sel = st.selectedKey;
       const latest = sel ? messagesInThread(sel).slice(-1)[0] : undefined;
       const ids = selectedMessageIds();
@@ -476,7 +479,7 @@ function MainWindow() {
             <div className="content">
               {selectedKey || inlineDraftId ? <ReadingPane onBack={() => useMail.setState({ selectedKey: undefined, selectedKeys: [], inlineDraftId: undefined })} /> : <MessageList style={{ flex: 1, width: '100%', borderRight: 0 }} />}
             </div>
-          ) : screen === 'reminders' ? <Reminders /> : screen === 'help' ? <Help /> : screen === 'aidrafts' ? <AiDrafts /> : <SettingsScreen />}
+          ) : screen === 'reminders' ? <Reminders /> : screen === 'help' ? <Help /> : screen === 'aidrafts' ? <AiDrafts /> : screen === 'scheduled' ? <ScheduledScreen /> : <SettingsScreen />}
           {s.comingUpOpen && screen !== 'reminders' && <ComingUpPanel />}
         </div>
       ) : (
@@ -503,6 +506,8 @@ function MainWindow() {
             <Help />
           ) : screen === 'aidrafts' ? (
             <AiDrafts />
+          ) : screen === 'scheduled' ? (
+            <ScheduledScreen />
           ) : (
             <SettingsScreen />
           )}

@@ -8,6 +8,7 @@ mod dav;
 mod imapmail;
 mod mcp;
 mod pdf;
+mod wake;
 
 /// For main(): the pass-through mode an AI app starts with `--mcp`.
 pub use mcp::passthrough as mcp_passthrough;
@@ -150,7 +151,12 @@ fn show_main(app: &AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // Started by a scheduled email's wake-up while already running: just send what is due, don't show the window.
+            if args.iter().any(|a| a == "--send-due") {
+                let _ = app.emit("send-due", ());
+                return;
+            }
             show_main(app);
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
@@ -194,7 +200,9 @@ pub fn run() {
             mcp::mcp_exe_path,
             mcp::mcp_install,
             mcp::mcp_installed,
-            mcp::mcp_self_test
+            mcp::mcp_self_test,
+            wake::schedule_wake,
+            wake::cancel_wake
         ])
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;

@@ -1,12 +1,13 @@
 // Making and changing a Smart Mailbox: a name, "all" or "any", and rule rows like Apple Mail. Shows how many
 // emails match as you go. Also the menu for a Smart Mailbox in the sidebar.
+import { askUndoable } from './AiDrafts';
 import { useMemo, useState } from 'react';
 import { create } from 'zustand';
 import { Icon } from './Icon';
 import { Dialog, type MenuItem } from './ui';
 import { useMail, providerFor, setView, toast, markViewRead } from '../lib/mail';
 import { useSettings, settings } from '../lib/settings';
-import { askConfirm, askText } from '../lib/dialogs';
+import { askText } from '../lib/dialogs';
 import { myAddresses } from '../lib/compose';
 import { matchSmart, newSmartMailbox, type SmartField, type SmartMailbox, type SmartRule } from '../lib/smartMailboxes';
 import type { SystemFolder, View } from '../lib/types';
@@ -36,7 +37,7 @@ export function smartItems(b: SmartMailbox): MenuItem[] {
     { divider: true },
     {
       label: 'Delete', icon: 'trash', onClick: async () => {
-        if (!(await askConfirm(`Delete the Smart Mailbox ${b.name}?`, 'Only the saved rules go. No emails are moved or deleted.', 'Delete'))) return;
+        if (!(await askUndoable('deleteSmart', `Delete the Smart Mailbox ${b.name}?`, 'Only the saved rules go. No emails are moved or deleted.', 'Delete'))) return;
         save(boxes().filter((x) => x.id !== b.id));
         const v = useMail.getState().view;
         if (v.mailbox.kind === 'smart' && v.mailbox.id === b.id) setView({ scope: { type: 'all' }, mailbox: { kind: 'system', folder: 'inbox' } });

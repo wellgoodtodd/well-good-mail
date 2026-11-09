@@ -6,7 +6,7 @@ import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
 import { PALETTES, paletteById } from '../lib/palettes';
-import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount } from '../lib/mail';
+import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount, syncWakes } from '../lib/mail';
 import { useSettings, type Settings as S } from '../lib/settings';
 import { allAliases } from '../lib/compose';
 import type { Account } from '../lib/types';
@@ -117,6 +117,19 @@ export function SettingsScreen() {
   );
 }
 
+/** An account's name: typing is instant, and it's saved (as one Undo step) after a short pause or when you leave the box. */
+function AccountName({ a }: { a: Account }) {
+  const [value, setValue] = useState(a.label);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => { setValue(a.label); }, [a.label]);
+  const commit = (v: string) => { window.clearTimeout(timer.current); if (v !== a.label) editAccount(a.id, { label: v }, 'name'); };
+  return (
+    <input className="label-input acct-name" value={value} aria-label={`Name for ${a.email}`}
+      onChange={(e) => { const v = e.target.value; setValue(v); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => commit(v), 600); }}
+      onBlur={() => commit(value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }} />
+  );
+}
+
 function Row({ label, children, htmlFor }: { label: string; children: React.ReactNode; htmlFor?: string }) {
   return <div className="set-row"><label htmlFor={htmlFor}>{label}</label>{children}</div>;
 }
@@ -205,7 +218,7 @@ function AccountsTab() {
           <div className="acct-row" key={a.id}>
             {/* Two lines on one grid: who the account is on top, its settings underneath, each lined up with the rows above and below. */}
             <button className="icon-btn acct-dot" aria-label={`Colour for ${a.email}`} title="Change colour" onClick={(e) => setPicker({ accountId: a.id, anchor: { x: e.clientX, y: e.clientY + 12 } })}><span className="dot" style={{ background: a.colour, width: 16, height: 16 }} /></button>
-            <input className="label-input acct-name" value={a.label} aria-label={`Name for ${a.email}`} onChange={(e) => editAccount(a.id, { label: e.target.value }, 'name')} />
+            <AccountName a={a} />
             <div className="acct-info">
               <div>{a.email}</div>
               <div className="acct-status">
@@ -578,6 +591,12 @@ function WritingTab() {
         <Row label="Undo send window" htmlFor="undo">
           <select id="undo" value={s.undoSendSeconds} onChange={(e) => s.set({ undoSendSeconds: Number(e.target.value) as S['undoSendSeconds'] })}>
             {[0, 10, 20, 30, 60].map((n) => <option key={n} value={n}>{n === 0 ? 'Off' : `${n} seconds`}</option>)}
+          </select>
+        </Row>
+        <Row label="Scheduled email when the app is closed" htmlFor="wake">
+          <select id="wake" value={s.wakeToSend ? 'wake' : 'wait'} onChange={(e) => { s.set({ wakeToSend: e.target.value === 'wake' }); syncWakes(); }}>
+            <option value="wake">Start Well Good Mail and send it (wakes the PC from sleep)</option>
+            <option value="wait">Wait until Well Good Mail is open</option>
           </select>
         </Row>
         <Row label="Closing an unsent email" htmlFor="closeunsent">

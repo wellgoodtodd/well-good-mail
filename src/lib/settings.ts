@@ -122,7 +122,9 @@ export interface Settings {
   /** Sidebar items tucked away in the Hidden section. */
   hiddenItems: string[];
   /** Pre send checks, each of which can be switched off. */
-  warnings: { noSubject: boolean; missingAttachment: boolean; manyRecipients: boolean; fromMismatch: boolean };
+  warnings: { noSubject: boolean; missingAttachment: boolean; manyRecipients: boolean; fromMismatch: boolean; deleteDraft?: boolean; deleteGroup?: boolean; deleteSmart?: boolean };
+  /** Scheduled email when the app is closed: Windows starts Well Good Mail at the send time (waking the PC from sleep). */
+  wakeToSend: boolean;
 
   shortcuts: 'gmail' | 'none';
   /** Custom key combos by action id; missing = default. */
@@ -245,7 +247,8 @@ export const defaultSettings: Settings = {
   hiddenFolders: [],
   favourites: ['all|inbox', 'all|vip', 'all|flagged'],
   hiddenItems: [],
-  warnings: { noSubject: true, missingAttachment: true, manyRecipients: true, fromMismatch: true },
+  warnings: { noSubject: true, missingAttachment: true, manyRecipients: true, fromMismatch: true, deleteDraft: true, deleteGroup: true, deleteSmart: true },
+  wakeToSend: true,
 
   shortcuts: 'gmail',
   keybindings: {},
