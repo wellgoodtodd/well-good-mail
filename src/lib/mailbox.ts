@@ -1,6 +1,7 @@
 // Which messages belong in which mailbox, threads and unread counts.
 import type { AccountGroup, MailboxRef, Message, Scope, SystemFolder, View } from './types';
 import type { MailProvider } from './providers/provider';
+import { matchSmart, type SmartMailbox } from './smartMailboxes';
 
 export type ProviderLookup = (accountId: string) => MailProvider | undefined;
 
@@ -42,7 +43,7 @@ export function inMailbox(
   m: Message,
   mailbox: MailboxRef,
   provider: MailProvider | undefined,
-  ctx: { vips: Set<string>; snoozed: Set<string> },
+  ctx: { vips: Set<string>; snoozed: Set<string>; smart?: SmartMailbox[]; mine?: Set<string> },
 ): boolean {
   switch (mailbox.kind) {
     case 'system':
@@ -53,6 +54,10 @@ export function inMailbox(
       return ctx.vips.has(m.from.email.toLowerCase()) && inSystemFolder(m, 'inbox', provider);
     case 'snoozed':
       return ctx.snoozed.has(m.id);
+    case 'smart': {
+      const box = ctx.smart?.find((b) => b.id === mailbox.id);
+      return box ? matchSmart(m, box, provider, ctx) : false;
+    }
     case 'search':
       return true;
   }
@@ -101,7 +106,7 @@ export function buildList(messages: Message[], threaded: boolean): ListItem[] {
   return items.sort((a, b) => b.message.date - a.message.date);
 }
 
-export function viewTitle(view: View, accountLabel: (id: string) => string, groupName: (id: string) => string, labelName: (acc: string, id: string) => string): string {
+export function viewTitle(view: View, accountLabel: (id: string) => string, groupName: (id: string) => string, labelName: (acc: string, id: string) => string, smartName?: (id: string) => string | undefined): string {
   const mb = view.mailbox;
   const folderNames: Record<SystemFolder, string> = {
     inbox: 'Inbox', drafts: 'Drafts', sent: 'Sent', junk: 'Junk', bin: 'Bin', archive: 'Archive', flagged: 'Flagged',
@@ -112,6 +117,7 @@ export function viewTitle(view: View, accountLabel: (id: string) => string, grou
   if (mb.kind === 'search') return `Search: ${mb.query}`;
   if (mb.kind === 'vip') return 'Important';
   if (mb.kind === 'snoozed') return 'Snoozed';
+  if (mb.kind === 'smart') return smartName?.(mb.id) || 'Smart Mailbox';
   if (mb.kind === 'label') return labelName(mb.accountId, mb.labelId);
   if (view.scope.type === 'all') return allNames[mb.folder];
   const prefix = view.scope.type === 'account' ? accountLabel(view.scope.accountId) : groupName(view.scope.groupId);

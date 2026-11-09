@@ -1,5 +1,5 @@
 // Right column: the open conversation, with reply inline underneath.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { toolsThatFit } from '../lib/toolbarFit';
 import { Icon } from './Icon';
 import { MessageView } from './MessageView';
@@ -158,13 +158,22 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
           {isMuted && <span><Icon name="mute" size={12} /> Muted</span>}
         </div>
         {(newestFirst ? [...thread].reverse() : thread).map((m) => (
-          <MessageView
-            key={m.id}
-            message={m}
-            isLatest={m.id === latest.id}
-            expanded={expanded.has(m.id)}
-            onToggle={() => setExpanded((s) => { const n = new Set(s); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); return n; })}
-          />
+          <Fragment key={m.id}>
+            <MessageView
+              message={m}
+              isLatest={m.id === latest.id}
+              expanded={expanded.has(m.id)}
+              onToggle={() => setExpanded((s) => { const n = new Set(s); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); return n; })}
+            />
+            {/* Under the latest email, as in Gmail and Outlook, so a long conversation needs no scrolling back up. */}
+            {m.id === latest.id && !inlineDraftId && (
+              <div className="thread-replies">
+                <button className="btn" onClick={() => startCompose('reply', latest)}><Icon name="reply" size={15} /> Reply</button>
+                <button className="btn" onClick={() => startCompose('replyAll', latest)}><Icon name="replyAll" size={15} /> Reply All</button>
+                <button className="btn" onClick={() => startCompose('forward', latest)}><Icon name="forward" size={15} /> Forward</button>
+              </div>
+            )}
+          </Fragment>
         ))}
         {inlineDraftId && <Composer draftId={inlineDraftId} variant="inline" />}
       </div>

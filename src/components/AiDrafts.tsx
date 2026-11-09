@@ -8,7 +8,8 @@ import { useSettings } from '../lib/settings';
 import { store } from '../lib/db';
 import { openDraft } from '../lib/composeActions';
 import { askConfirm, askText } from '../lib/dialogs';
-import { useAiDrafts, refreshAiDrafts, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts } from '../lib/mcp/aiDrafts';
+import { useAiDrafts, refreshAiDrafts, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, isSimple, quickSave, quickSend } from '../lib/mcp/aiDrafts';
+import type { Draft } from '../lib/types';
 
 const plain = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
 
@@ -22,6 +23,7 @@ export async function newGroup(): Promise<string | undefined> {
 export function groupItems(id: string, name: string): MenuItem[] {
   return [
     { heading: name },
+    { label: 'Change colour', icon: 'tag', onClick: () => nextGroupColour(id) },
     { label: 'Rename', icon: 'compose', onClick: async () => { const v = await askText('Rename group', name, 'Rename'); if (v) renameGroup(id, v); } },
     { label: 'Delete group', icon: 'trash', onClick: async () => { if (await askConfirm(`Delete the group ${name}?`, 'The drafts in it stay, in no group.', 'Delete group')) await deleteGroup(id); } },
   ];
@@ -34,6 +36,7 @@ export function AiDrafts() {
   const accounts = useMail((s) => s.accounts);
   const menu = useMenu();
   const [query, setQuery] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => { void refreshAiDrafts(); }, []);
 
   const counts = groupCounts(list, groups);
@@ -59,7 +62,7 @@ export function AiDrafts() {
   const moveMenu = (r: DOMRect, id: string, current?: string) => menu.open(r, [
     { heading: 'Move to group' },
     ...groups.map((g) => ({ label: g.name, icon: 'tag' as const, active: g.id === current, onClick: () => void setDraftGroup(id, g.id) })),
-    { label: 'No group', icon: 'close', active: !current || !known.has(current), onClick: () => void setDraftGroup(id, undefined) },
+    { label: 'No Group', icon: 'close', active: !current || !known.has(current), onClick: () => void setDraftGroup(id, undefined) },
     { divider: true },
     { label: 'New group...', icon: 'plus', onClick: async () => { const g = await newGroup(); if (g) await setDraftGroup(id, g); } },
   ]);
@@ -67,25 +70,25 @@ export function AiDrafts() {
   const chip = (value: string, label: string, n: number, id?: string) => (
     <button key={value} className={`ai-chip ${filter === value ? 'on' : ''}`} aria-pressed={filter === value} onClick={() => setDraftFilter(value)}
       onContextMenu={id ? (e) => { e.preventDefault(); menu.open({ x: e.clientX, y: e.clientY }, groupItems(id, label)); } : undefined}>
-      {label} <span>{n}</span>
+      {id && <i className="ai-dot" style={{ background: groupColour(groups.find((g) => g.id === id)) }} />}{label} <span>{n}</span>
     </button>
   );
 
   return (
     <div className="screen ai-drafts" role="main">
       <div className="ai-drafts-inner">
-        <h1>AI drafts</h1>
+        <h1>AI Drafts</h1>
         <p className="lead">Drafts written by Claude or another AI app. Nothing here has been sent. Open one to check it, change it and send it yourself.</p>
         {list.length > 0 && (
           <>
             <div className="ai-drafts-search">
               <Icon name="search" size={15} />
-              <input type="search" placeholder="Search AI drafts" aria-label="Search AI drafts" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <input type="search" placeholder="Search AI Drafts" aria-label="Search AI Drafts" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
             <div className="ai-chips" role="toolbar" aria-label="Filter by group">
               {chip('all', 'All', counts.all)}
               {groups.map((g) => chip(g.id, g.name, counts.byGroup[g.id] || 0, g.id))}
-              {counts.none > 0 && chip('none', 'No group', counts.none)}
+              {counts.none > 0 && chip('none', 'No Group', counts.none)}
               <button className="ai-chip add" onClick={() => void newGroup()} title="Add a group"><Icon name="plus" size={13} /> New group</button>
             </div>
           </>
@@ -105,7 +108,8 @@ export function AiDrafts() {
               const acc = accounts.find((a) => a.id === d.fromAccountId);
               const g = groups.find((x) => x.id === d.group);
               return (
-                <div key={d.id} className="ai-draft-item" role="button" tabIndex={0} onClick={() => void openDraft(d.id)} onKeyDown={(e) => { if (e.key === 'Enter') void openDraft(d.id); }}>
+                <div key={d.id} className={`ai-draft-wrap ${openId === d.id ? 'open' : ''}`}>
+                <div className="ai-draft-item" role="button" tabIndex={0} aria-expanded={openId === d.id} onClick={() => setOpenId(openId === d.id ? null : d.id)} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(openId === d.id ? null : d.id); }}>
                   <span className="bar" style={{ background: acc?.colour || 'var(--border)' }} title={acc?.label} />
                   <div className="grow">
                     <div className="ai-draft-top">
@@ -116,10 +120,11 @@ export function AiDrafts() {
                     <div className="ai-draft-snip">{plain(d.html).slice(0, 160)}</div>
                   </div>
                   <button className={`ai-group-pill ${g ? '' : 'empty'}`} title="Move to another group" onClick={(e) => { e.stopPropagation(); moveMenu((e.currentTarget as HTMLElement).getBoundingClientRect(), d.id, d.group); }}>
-                    {g ? g.name : 'Add to group'} <Icon name="chevronDown" size={11} />
+                    <span className="ai-pill-name">{g && <i className="ai-dot" style={{ background: groupColour(g) }} />}{g ? g.name : 'Add to group'}</span> <Icon name="chevronDown" size={11} />
                   </button>
-                  <button className="btn small" onClick={(e) => { e.stopPropagation(); void openDraft(d.id); }}>Open</button>
-                  <button className="icon-btn" aria-label={`Delete draft ${d.subject}`} title="Delete draft" onClick={(e) => { e.stopPropagation(); void remove(d.id); }}><Icon name="trash" size={15} /></button>
+                  <Icon name={openId === d.id ? 'chevronDown' : 'chevronRight'} size={14} className="ai-draft-chev" />
+                </div>
+                {openId === d.id && <DraftDetail d={d} onDelete={() => void remove(d.id)} onDone={() => setOpenId(null)} />}
                 </div>
               );
             })}
@@ -127,6 +132,52 @@ export function AiDrafts() {
         )}
       </div>
       {menu.node}
+    </div>
+  );
+}
+
+/** A draft folded open: read it in full, make quick text changes, then send it or open the full editor. */
+function DraftDetail({ d, onDelete, onDone }: { d: Draft; onDelete: () => void; onDone: () => void }) {
+  const simple = isSimple(d.html);
+  const startText = useMemo(() => htmlToText(d.html), [d.html]);
+  const [subject, setSubject] = useState(d.subject);
+  const [text, setText] = useState(startText);
+  const [busy, setBusy] = useState(false);
+  const changed = subject !== d.subject || text !== startText;
+  const noOne = d.to.length + d.cc.length + d.bcc.length === 0;
+  const who = (list: { email: string; name?: string }[]) => list.map((a) => (a.name ? `${a.name} <${a.email}>` : a.email)).join(', ');
+  const send = async () => {
+    setBusy(true);
+    try { await quickSend(d.id, changed ? subject : undefined, changed ? text : undefined); onDone(); } finally { setBusy(false); }
+  };
+  const save = async () => {
+    setBusy(true);
+    try { await quickSave(d.id, subject, text); toast({ text: 'Draft saved', ttl: 2000 }); } finally { setBusy(false); }
+  };
+  return (
+    <div className="ai-draft-detail" onClick={(e) => e.stopPropagation()}>
+      <div className="ai-draft-row"><b>To</b><span>{who(d.to) || 'Nobody yet'}</span></div>
+      {d.cc.length > 0 && <div className="ai-draft-row"><b>Cc</b><span>{who(d.cc)}</span></div>}
+      {simple ? (
+        <>
+          <input className="ai-quick-subject" aria-label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" />
+          <textarea className="ai-quick-text" aria-label="Email text" value={text} onChange={(e) => setText(e.target.value)} rows={Math.min(16, Math.max(6, text.split('\n').length + 1))} />
+          <div className="ai-quick-note">Your signature is added when it is sent. For attachments or formatting, use Open in editor.</div>
+        </>
+      ) : (
+        <>
+          <div className="ai-draft-row"><b>Subject</b><span>{d.subject || '(no subject)'}</span></div>
+          <div className="ai-quick-read">{startText}</div>
+          <div className="ai-quick-note">This draft has formatting, so change it in the editor.</div>
+        </>
+      )}
+      <div className="ai-quick-actions">
+        <button className="icon-btn" aria-label="Delete draft" title="Delete draft" onClick={onDelete}><Icon name="trash" size={15} /></button>
+        <span className="grow" />
+        <button className="btn" onClick={() => void openDraft(d.id)}>Open in editor</button>
+        {simple && changed && <button className="btn" disabled={busy} onClick={() => void save()}>Save changes</button>}
+        <button className="btn primary" disabled={busy || noOne} title={noOne ? 'Add who it goes to in the editor first' : undefined} onClick={() => void send()}><Icon name="send" size={14} /> Send</button>
+      </div>
     </div>
   );
 }

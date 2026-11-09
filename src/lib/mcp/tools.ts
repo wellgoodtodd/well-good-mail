@@ -23,6 +23,7 @@ export const TOOLS: ToolSpec[] = [
   { name: 'list_events', capability: 'read.calendar', perAccount: true, description: 'Calendar events between two dates, with video meeting links.', log: 'Looked at the calendar' },
   { name: 'list_reminders', capability: 'read.calendar', perAccount: false, description: 'Reminders and follow ups that are waiting.', log: 'Looked at reminders' },
   { name: 'find_contact', capability: 'read.contacts', perAccount: true, description: 'Look up a person in the address books.', log: 'Looked up the contact "{query}"' },
+  { name: 'file_drafts', capability: 'organise.draft', perAccount: true, description: 'File drafts already in an account (found with search_mail, folder "drafts") under AI Drafts, in a group, with who wrote them. Gmail accounts get matching labels. Nothing is sent.', log: 'Filed {count} drafts under AI Drafts' },
   { name: 'create_draft', capability: 'organise.draft', perAccount: true, description: 'Make a draft email or reply for the person to read, change and send themselves. It is never sent.', log: 'Wrote a draft "{subject}"' },
   { name: 'set_flags', capability: 'organise.flag', perAccount: true, description: 'Mark emails read, unread or flagged.', log: 'Changed marks on {count} emails' },
   { name: 'file_messages', capability: 'organise.file', perAccount: true, description: 'Archive emails, move them to a folder or label them.', log: 'Filed {count} emails' },
@@ -38,7 +39,7 @@ export const TOOLS: ToolSpec[] = [
 export const toolByName = (name: string) => TOOLS.find((t) => t.name === name);
 
 /** The tools switched on so far. The first version can only look; the rest come in later betas. */
-export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'list_events', 'list_reminders', 'create_draft']);
+export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'list_events', 'list_reminders', 'create_draft', 'file_drafts']);
 
 /** Fills the log line from the arguments, never printing more than a short piece of anything. */
 export function logLine(tool: ToolSpec, args: Record<string, unknown>): string {

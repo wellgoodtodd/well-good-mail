@@ -11,6 +11,7 @@ import { store } from '../lib/db';
 import { useMail, queueSend, providerFor, toast, broadcast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { allAliases, findAlias, switchMode, signatureFor, draftToOutgoing, draftIsEmpty, pickFromForMessage, ATTACHMENT_LIMIT_BYTES, encodedSize } from '../lib/compose';
+import { labelAiDraft } from '../lib/mcp/aiDrafts';
 import { composeContext, writingStyle } from '../lib/composeActions';
 import { closeThisWindow, isPopout, isTauri, openPopout } from '../lib/platform';
 import { trackOpen, trackClosed } from '../lib/openDrafts';
@@ -84,9 +85,11 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
         await providerFor(d.serverAccountId)?.deleteDraft(d.serverDraftId);
         d = { ...d, serverDraftId: undefined };
       }
-      const { draftId: serverDraftId } = await p.saveDraft({ ...message, attachments: message.attachments.slice(0, 20) }, d.serverDraftId);
+      const { draftId: serverDraftId, messageId } = await p.saveDraft({ ...message, attachments: message.attachments.slice(0, 20) }, d.serverDraftId);
       if (sentRef.current) return;
-      const next = { ...(draftRef.current || d), serverDraftId, serverAccountId: accountId };
+      const next = { ...(draftRef.current || d), serverDraftId, serverAccountId: accountId, ...(messageId ? { serverDraftMessageId: messageId } : {}) };
+      // Gmail gives a saved draft a new copy each time, so an AI draft's labels go on again.
+      void labelAiDraft(next, accountId, messageId);
       draftRef.current = next;
       setDraft(next);
       await store.putDraft(next);

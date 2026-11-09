@@ -1,6 +1,7 @@
 // Middle column: conversations with sender, subject and preview lines.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
+import { openSmartEditor } from './SmartMailboxEditor';
 import { listTime, useMenu, snoozeOptions, avatarColour, initials, type MenuItem } from './ui';
 import { setFilters, activeFilterCount, NO_FILTERS, type ListFilters } from '../lib/mail';
 import type { Account, Message } from '../lib/types';
@@ -71,11 +72,13 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
   const showStripe = useSettings((s) => s.showAccountStripe);
   const showAccount = showStripe && view.scope.type !== 'account' && accounts.length > 1;
 
+  const smartBoxes = useSettings((s) => s.smartMailboxes);
   const title = viewTitle(
     view,
     (id) => accounts.find((a) => a.id === id)?.label || '',
     (id) => groups.find((g) => g.id === id)?.name || 'Group',
     (acc, id) => folders[acc]?.find((f) => f.id === id)?.name || 'Label',
+    (id) => smartBoxes.find((b) => b.id === id)?.name,
   );
   const unread = items.filter((i) => i.unread).length;
   const shownBox = view.mailbox.kind === 'search' ? view.mailbox.within : view.mailbox;
@@ -287,11 +290,12 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
         <div className="search-scope" role="group" aria-label="Where to search">
           {view.mailbox.within && (
             <button className="on" aria-pressed>
-              In {viewTitle({ scope: view.scope, mailbox: view.mailbox.within }, (id) => accounts.find((a) => a.id === id)?.label || '', (id) => groups.find((g) => g.id === id)?.name || 'Group', (acc, id) => folders[acc]?.find((f) => f.id === id)?.name || 'Label')}
+              In {viewTitle({ scope: view.scope, mailbox: view.mailbox.within }, (id) => accounts.find((a) => a.id === id)?.label || '', (id) => groups.find((g) => g.id === id)?.name || 'Group', (acc, id) => folders[acc]?.find((f) => f.id === id)?.name || 'Label', (id) => smartBoxes.find((b) => b.id === id)?.name)}
             </button>
           )}
           <button className={view.mailbox.within ? '' : 'on'} aria-pressed={!view.mailbox.within} onClick={() => runSearch(view.mailbox.kind === 'search' ? view.mailbox.query : '', { everywhere: true })}>All mail</button>
           {!view.mailbox.within && <span className="hint">Drafts are marked in coral.</span>}
+          <button className="search-save" title="Keep this search in the sidebar" onClick={() => openSmartEditor(undefined, view.mailbox.kind === 'search' ? view.mailbox.query : '')}><Icon name="filter" size={13} /> Save as Smart Mailbox</button>
         </div>
       )}
       <div className="rows" ref={listRef} onScroll={onListScroll} tabIndex={0} role="list" aria-label={title}>

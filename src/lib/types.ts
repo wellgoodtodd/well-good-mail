@@ -195,6 +195,8 @@ export type MailboxRef =
   | { kind: 'label'; accountId: string; labelId: string }
   | { kind: 'vip' }
   | { kind: 'snoozed' }
+  /** A Smart Mailbox: saved rules, from settings. */
+  | { kind: 'smart'; id: string }
   /** `within` is the mailbox the search started in; leave it out to search all mail. */
   | { kind: 'search'; query: string; within?: Exclude<MailboxRef, { kind: 'search' }> };
 
@@ -245,6 +247,8 @@ export interface Draft {
   serverAccountId?: string;
   /** Provider message id of the server draft this was opened from. */
   serverDraftMessageId?: string;
+  /** Written elsewhere with its own sign-off already in it, so no signature is added. */
+  noSignature?: boolean;
   /** Written by an AI app (its plain name), so it shows under AI drafts. */
   byAi?: string;
   /** Which AI drafts group it is in (a group id from settings), if any. */

@@ -206,3 +206,30 @@ describe('writing drafts', () => {
     expect(r).toContain('Clients');
   });
 });
+
+describe('filing drafts that are already there', () => {
+  const asDraft = (w: McpWorld) => { (w.messages as Record<string, Message>).m1 = { ...w.messages.m1, isDraft: true } as Message; };
+  it('files drafts in a group, with who wrote them', async () => {
+    const { w } = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'allow' } });
+    asDraft(w);
+    w.fileDrafts = vi.fn(async (_a: string, ids: string[]) => ids.length);
+    const r = JSON.stringify(await handleRpc(w, call('file_drafts', { account: 'a', ids: ['m1', 'm2'], group: 'clients', writer: 'EA' })));
+    expect(w.fileDrafts).toHaveBeenCalledWith('a', ['m1'], 'Clients', 'EA');
+    expect(r).toContain('filed');
+  });
+  it('is refused for a read only account, and for emails that are not drafts', async () => {
+    const ro = world({ accounts: { a: 'read' } });
+    asDraft(ro.w);
+    ro.w.fileDrafts = vi.fn(async () => 1);
+    expect(JSON.stringify(await handleRpc(ro.w, call('file_drafts', { account: 'a', ids: ['m1'] })))).toContain('Read only');
+    const rw = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'allow' } });
+    rw.w.fileDrafts = vi.fn(async () => 1);
+    expect(JSON.stringify(await handleRpc(rw.w, call('file_drafts', { account: 'a', ids: ['m1'] })))).toContain('isError');
+    expect(rw.w.fileDrafts).not.toHaveBeenCalled();
+  });
+  it('passes a writer name through when writing a draft', async () => {
+    const { w } = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'allow' } });
+    await handleRpc(w, call('create_draft', { account: 'a', to: ['sam@x.com'], body: 'Hi', writer: 'EA' }));
+    expect(w.makeDraft).toHaveBeenCalledWith(expect.objectContaining({ writer: 'EA' }));
+  });
+});

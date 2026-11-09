@@ -405,9 +405,47 @@ export class GmailProvider implements MailProvider {
     const raw = base64UrlEncode(new TextEncoder().encode(buildRawMessage(msg)));
     const body = JSON.stringify({ message: { raw, threadId: msg.threadId } });
     const r = serverDraftId
-      ? await this.call<{ id: string }>(`/drafts/${serverDraftId}`, { method: 'PUT', body })
-      : await this.call<{ id: string }>('/drafts', { method: 'POST', body });
-    return { draftId: r.id };
+      ? await this.call<{ id: string; message?: { id: string } }>(`/drafts/${serverDraftId}`, { method: 'PUT', body })
+      : await this.call<{ id: string; message?: { id: string } }>('/drafts', { method: 'POST', body });
+    return { draftId: r.id, messageId: r.message?.id };
+  }
+
+  /** Label names to ids, made on first use. Kept for the session. */
+  private labelIds = new Map<string, string>();
+  private async labelId(name: string): Promise<string> {
+    const known = this.labelIds.get(name.toLowerCase());
+    if (known) return known;
+    const { labels } = await this.call<{ labels: { id: string; name: string }[] }>('/labels');
+    for (const l of labels) this.labelIds.set(l.name.toLowerCase(), l.id);
+    const found = this.labelIds.get(name.toLowerCase());
+    if (found) return found;
+    const made = await this.call<{ id: string }>('/labels', { method: 'POST', body: JSON.stringify({ name, labelListVisibility: 'labelShow', messageListVisibility: 'show' }) });
+    this.labelIds.set(name.toLowerCase(), made.id);
+    return made.id;
+  }
+
+  async labelByName(messageId: string, names: string[]) {
+    // Parents first, so "AI Drafts/Clients" sits under "AI Drafts" in Gmail.
+    const ids: string[] = [];
+    for (const n of names) ids.push(await this.labelId(n));
+    await this.call(`/messages/${messageId}/modify`, { method: 'POST', body: JSON.stringify({ addLabelIds: ids }) });
+  }
+
+  async draftsWithLabel(name: string) {
+    const id = this.labelIds.get(name.toLowerCase()) || await this.labelId(name).catch(() => '');
+    if (!id) return [];
+    const byId = new Map([...this.labelIds].map(([n, i]) => [i, n]));
+    const out: { draftId: string; messageId: string; labels: string[] }[] = [];
+    let pageToken: string | undefined;
+    do {
+      const page: { drafts?: { id: string; message: { id: string } }[]; nextPageToken?: string } = await this.call(`/drafts?maxResults=200&q=${encodeURIComponent(`label:"${name}"`)}${pageToken ? `&pageToken=${pageToken}` : ''}`);
+      for (const d of page.drafts || []) {
+        const m = await this.call<{ labelIds?: string[] }>(`/messages/${d.message.id}?format=minimal`);
+        out.push({ draftId: d.id, messageId: d.message.id, labels: (m.labelIds || []).map((x) => byId.get(x) || x) });
+      }
+      pageToken = page.nextPageToken;
+    } while (pageToken);
+    return out;
   }
 
   async deleteDraft(serverDraftId: string) {

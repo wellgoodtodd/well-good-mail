@@ -5,6 +5,22 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 ## For the next 0.7 beta
 
 - **AI draft groups on other devices** (noted 9 Nov 2026). Groups and the "written by AI" mark live on this PC only. Mirror them as Gmail labels (like "AI drafts/Clients"), which never travel with a sent email. A hidden header was ruled out: it would go out with the email when sent.
+- **Reorder sidebar sections** (noted 9 Nov 2026): Favourites, Mailboxes, Accounts, Groups, AI drafts in any order. Drag a section heading (a grip shows on hover), plus right-click a heading for Move up, Move down and Reset order, so it also works without dragging. Order saved in settings.
+- **Out of office per account** (noted 9 Nov 2026). Sets the account's own auto-reply so it works with the PC off: Gmail vacation responder (needs the gmail.settings.basic scope, so each Google account signs in once more), Microsoft automatic replies (MailboxSettings.ReadWrite, same), iCloud and IMAP have no way in, so a button opens their web settings. Dates, message, contacts only or everyone. One "all accounts" switch too, and a quiet banner while it's on.
+- **Pick up AI drafts made through the Gmail connector** (noted 9 Nov 2026). Todd's Cowork EA falls back to Gmail when Well Good Mail is closed and labels drafts "AI drafts/<group>". Show those under AI drafts in the right group, and add the account's signature if the draft has none.
+- **Smart Mailboxes** built (not yet in a beta): sidebar section, rule-row editor with live count, Save as Smart Mailbox from a search, Make a Smart Mailbox for a person. Later: B-style quick pills, drag to reorder, counts option (unread or all).
+- **"AI Connection"** with a capital C, like the other Settings tabs (noted 9 Nov 2026).
+- **"What it can do": one row to set them all** (Off, Ask, Allow), like All accounts. Allow only goes as far as each switch's ceiling, so sending still asks.
+- **Closing the person card shouldn't also fold the email** (noted 9 Nov 2026). A click away that lands on the message header folds it. The click that closes the card should only close it.
+- **Reply, Reply all and Forward under the latest message** in a conversation, as Gmail and Outlook do, as well as at the top.
+- **Settings, Accounts rows are busy again** (9 Nov). Todd prefers today's columns over both mock-ups. Keep them, put the "Show in All Inboxes" tick box under the name (a tick box, not a switch), and make Keep mail from a proper, readable drop-down rather than the small grey one.
+- **AI drafts: preview, quick edit and send in place** (9 Nov). Click a draft to fold it open and see the whole email. Quick text-only changes there, then Send. "Open in editor" (renamed from Open) for attachments or bigger changes.
+- **Opening a draft is slow** (9 Nov): blank for a few seconds before it loads. Check whether it waits on the server or on the sync.
+- **A Back button** (9 Nov). After jumping to another screen (the sparkle to Settings, a group, a search), one click takes you back to where you were. A back arrow in the top bar, plus Alt+Left and the mouse back button.
+- **Capitals for names of places** (9 Nov): "AI Drafts" in the sidebar and on its screen, "All AI Drafts", "No Group", "AI Connection". Rule written in CLAUDE.md; sweep every screen for it.
+- **A gentle colour for each AI Drafts group** (9 Nov): a small coloured dot on the group's pill, its chip and its sidebar tag, chosen from a soft palette and changeable from the group's menu. Nothing louder than the account colours.
+- **Smart Mailboxes: drag to reorder in the sidebar, and hide or show** like other sidebar items (9 Nov). Todd doesn't use rules much; the standard editor is enough for now.
+- **AI Drafts quick send** (9 Nov), defaults unless Todd says otherwise: Send from the folded-open card goes through the usual undo-send delay; quick edit is text only; it's on AI Drafts only, not the main Drafts folder; a sent draft leaves AI Drafts (it's in Sent).
 - **Test Edit first** on the approval card (not tried yet in beta 5).
 - **Always allow note when an update resets a switch** to Ask: say so once, rather than quietly.
 
@@ -14,6 +30,12 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 - **Add to contacts** from the person card, once contacts can be written.
 - **Settings, Updates is getting busy** (noted 8 Nov 2026). Split Updates from Startup and window.
 - **AI connection, tidying.** Mark read, archive, snooze, reminders, bin, then invitations and send (always ask). See `docs/mcp-and-agents.md`.
+
+## Done in 0.7 beta 7
+
+Smart Mailboxes (sidebar section, rule-row editor with live count, save a search, one for a person, drag to reorder); sidebar sections reorder by dragging a heading or right-click Move up/down; capitals for place names; AI Connection set-all row; person card click-away no longer folds the email; Reply, Reply All and Forward under the latest email; account rows tidied (tick box under the name, proper Keep mail from drop-down); a Back button (top bar, Alt+Left, mouse back button); AI Drafts fold open with quick text edit, Save changes, Send (undo delay) and Open in editor; gentle group colours; Gmail labels on AI drafts ("AI Drafts", "AI Drafts/<group>", "AI Writer/<writer>"), re-applied when a draft is saved again; labelled Gmail drafts from elsewhere (the EA, other computers) brought into AI Drafts every 5 minutes, keeping their conversation and skipping a second signature; a writer name on create_draft and a new file_drafts tool; drafting rules sent to every AI app when it connects; pop-out windows load only their own conversation, so replies and drafts open faster.
+
+Still to do from the list: hiding a Smart Mailbox; out of office (needs another Google and Microsoft sign-in); label the 17 EA drafts since 1 September (with file_drafts once beta 7 is in).
 
 ## Done in 0.7 beta 6
 

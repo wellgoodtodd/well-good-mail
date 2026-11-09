@@ -6,6 +6,8 @@ import { useMenu, avatarColour, initials, type MenuItem } from './ui';
 import { runSearch, toast } from '../lib/mail';
 import { startCompose } from '../lib/composeActions';
 import type { Address } from '../lib/types';
+import { openSmartEditor } from './SmartMailboxEditor';
+import { newSmartMailbox } from '../lib/smartMailboxes';
 
 const copy = (text: string, what: string) => {
   navigator.clipboard?.writeText(text).then(() => toast({ text: `${what} copied`, ttl: 2000 })).catch(() => toast({ text: 'Couldn\'t copy' }));
@@ -24,6 +26,7 @@ export function personItems(a: Address, extra: MenuItem[] = []): MenuItem[] {
     { divider: true },
     { label: `New email to ${a.name?.split(' ')[0] || a.email}`, icon: 'compose', onClick: () => void startCompose('new', undefined, { extra: { to: [a] } }) },
     { label: 'Show emails with them', icon: 'search', onClick: () => void runSearch(a.email, { everywhere: true }) },
+    { label: 'Make a Smart Mailbox for them', icon: 'filter', onClick: () => openSmartEditor({ ...newSmartMailbox(who), rules: [{ field: 'from', value: a.email }] }, '', true) },
     ...(extra.length ? [{ divider: true as const }, ...extra] : []),
   ];
 }
@@ -54,7 +57,14 @@ export function Person({ a, children, className }: { a: Address; children?: Reac
 export function PersonCard({ a, anchor, onClose }: { a: Address; anchor: DOMRect; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
+    const away = (e: MouseEvent) => {
+      if (ref.current?.contains(e.target as Node)) return;
+      // The click that closes the card only closes it: it doesn't also fold the email or open something under it.
+      const swallow = (ev: MouseEvent) => { ev.stopPropagation(); ev.preventDefault(); };
+      document.addEventListener('click', swallow, { capture: true, once: true });
+      setTimeout(() => document.removeEventListener('click', swallow, { capture: true }), 400);
+      onClose();
+    };
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     const t = setTimeout(() => document.addEventListener('mousedown', away), 0);
     document.addEventListener('keydown', esc);

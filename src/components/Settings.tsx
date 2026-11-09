@@ -40,7 +40,7 @@ const TABS = [
   ['privacy', 'Privacy'],
   ['offline', 'Search & Storage'],
   ['shortcuts', 'Keyboard Shortcuts'],
-  ['ai', 'AI connection'],
+  ['ai', 'AI Connection'],
   ['updates', 'Updates'],
   ['diagnostics', 'Diagnostics'],
 ] as const;
@@ -204,7 +204,14 @@ function AccountsTab() {
         {sorted.map((a, i) => (
           <div className="acct-row" key={a.id}>
             <button className="icon-btn" aria-label={`Colour for ${a.email}`} title="Change colour" onClick={(e) => setPicker({ accountId: a.id, anchor: { x: e.clientX, y: e.clientY + 12 } })}><span className="dot" style={{ background: a.colour, width: 16, height: 16 }} /></button>
-            <input className="label-input" value={a.label} aria-label={`Name for ${a.email}`} onChange={(e) => updateAccount(a.id, { label: e.target.value })} />
+            <div className="acct-namecol">
+              <input className="label-input" value={a.label} aria-label={`Name for ${a.email}`} onChange={(e) => updateAccount(a.id, { label: e.target.value })} />
+              {a.kind !== 'demo' && sorted.length > 1 && (
+                <label className="acct-tick">
+                  <input type="checkbox" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /> Show in All Inboxes
+                </label>
+              )}
+            </div>
             <div className="grow">
               <div>{a.email}</div>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>
@@ -213,11 +220,6 @@ function AccountsTab() {
                 {a.status === 'needs-signin' ? <span className="status-bad">Needs signing in again</span> : a.status === 'error' ? <span className="status-bad" title={a.error}>Problem syncing</span> : a.status === 'syncing' ? (a.syncDone ? `Syncing... ${a.syncDone.toLocaleString()} ${a.syncDone === 1 ? 'message' : 'messages'}` : 'Syncing...') : <span className="status-ok">Connected</span>}
                 {a.lastSync ? ` · checked ${new Date(a.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}
               </div>
-              {a.kind !== 'demo' && sorted.length > 1 && (
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: '0.88em', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /> Show in All Inboxes
-                </label>
-              )}
               {a.kind !== 'demo' && <KeepMail a={a} compact />}
             </div>
             <button className="icon-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(a.id, -1)}><Icon name="chevronDown" className="rot180" /></button>

@@ -78,6 +78,8 @@ interface MailState {
   inlineDraftId?: string;
   screen: 'mail' | 'reminders' | 'settings' | 'help' | 'aidrafts';
   settingsTab: string;
+  /** Where you were before, newest last, for the Back button. */
+  backStack: Place[];
   online: boolean;
   filters: ListFilters;
 }
@@ -124,6 +126,7 @@ export const useMail = create<MailState>(() => ({
   toasts: [],
   screen: 'mail',
   settingsTab: 'accounts',
+  backStack: [],
   online: typeof navigator === 'undefined' ? true : navigator.onLine,
   filters: NO_FILTERS,
 }));
@@ -225,11 +228,26 @@ let pollTimer: ReturnType<typeof setInterval> | undefined;
 let minuteTimer: ReturnType<typeof setInterval> | undefined;
 
 let initStarted = false;
-export async function initMail(opts: { popout?: boolean } = {}) {
+/** The mail a pop out window needs: just its conversation, not the whole cache. */
+async function popoutMessages(route: string): Promise<Message[]> {
+  const [kind, ...rest] = route.split('/');
+  const id = decodeURIComponent(rest.join('/'));
+  if (kind === 'compose') {
+    const d = await store.getDraft(id);
+    const src = d?.sourceMessageId ? await store.getMessage(d.sourceMessageId) : undefined;
+    return src ? store.threadMessages(src.accountId, src.threadId) : [];
+  }
+  const cut = id.indexOf('|');
+  return cut > 0 ? store.threadMessages(id.slice(0, cut), id.slice(cut + 1)) : [];
+}
+
+export async function initMail(opts: { popout?: boolean; route?: string } = {}) {
   if (initStarted) return;
   initStarted = true;
+  // A pop out window (a reply, a draft, one email) only loads its own conversation, so it opens at once.
+  const loadMessages = opts.popout && opts.route ? popoutMessages(opts.route).catch(() => store.messages()) : store.messages();
   const [accounts, folders, messages, outbox, snoozes, followups, events, dismissed, contacts] = await Promise.all([
-    store.accounts(), store.folders(), store.messages(), store.outbox(), store.snoozes(), store.followups(), store.events(), store.dismissed(), store.contacts(),
+    store.accounts(), store.folders(), loadMessages, store.outbox(), store.snoozes(), store.followups(), store.events(), store.dismissed(), store.contacts(),
   ]);
   accounts.sort((a, b) => a.order - b.order);
   // A sync that was running when the app last closed is not running now, so don't show it as syncing.
@@ -240,7 +258,8 @@ export async function initMail(opts: { popout?: boolean } = {}) {
   for (const [id, list] of Object.entries(byAcc)) providers.get(id)?.hydrate?.(list);
   const map: Record<string, Message> = {};
   messages.forEach((m) => (map[m.id] = m));
-  rebuildIndex(messages);
+  // Pop outs don't search, so they skip building the search index.
+  if (!opts.popout) rebuildIndex(messages);
   set({ ready: true, accounts, folders: byAcc, messages: map, outbox, snoozes, followups, events, dismissed, contacts });
   updateUnreadBadge();
 
@@ -601,7 +620,29 @@ function notifyNewMail(msgs: Message[]) {
 
 // ---------- views & selection ----------
 
+/** A place you can go back to: the screen, the mailbox and the email that was open. */
+export interface Place { screen: MailState['screen']; view: View; settingsTab: string; selectedKey?: string }
+const samePlace = (a: Place, b: Place) => a.screen === b.screen && (a.screen === 'settings' ? a.settingsTab === b.settingsTab : a.screen !== 'mail' || JSON.stringify(a.view) === JSON.stringify(b.view));
+
+/** Notes where you are now, before going somewhere else. */
+function remember(next: Partial<Place>) {
+  const s = get();
+  const here: Place = { screen: s.screen, view: s.view, settingsTab: s.settingsTab, selectedKey: s.selectedKey };
+  const there: Place = { ...here, ...next };
+  if (samePlace(here, there)) return;
+  set({ backStack: [...s.backStack, here].slice(-30) });
+}
+
+/** Back to where you were: the screen, the mailbox and the email that was open. */
+export function goBack() {
+  const stack = get().backStack;
+  const place = stack[stack.length - 1];
+  if (!place) return;
+  set({ backStack: stack.slice(0, -1), screen: place.screen, view: place.view, settingsTab: place.settingsTab, selectedKey: place.selectedKey, selectedKeys: place.selectedKey ? [place.selectedKey] : [], inlineDraftId: undefined });
+}
+
 export function setView(view: View) {
+  remember({ screen: 'mail', view });
   set({ view, selectedKey: undefined, selectedKeys: [], screen: 'mail', inlineDraftId: undefined });
 }
 
@@ -623,6 +664,7 @@ export function messagesInThread(key: string): Message[] {
 }
 
 export function openScreen(screen: MailState['screen'], settingsTab?: string) {
+  remember({ screen, ...(settingsTab ? { settingsTab } : {}) });
   set({ screen, ...(settingsTab ? { settingsTab } : {}) });
 }
 
@@ -990,6 +1032,7 @@ export async function runSearch(query: string, opts: { everywhere?: boolean } = 
     return;
   }
   const within = opts.everywhere ? undefined : cur.kind === 'search' ? cur.within : cur;
+  if (cur.kind !== 'search') remember({ screen: 'mail', view: { scope: get().view.scope, mailbox: { kind: 'search', query: q, within } } });
   set({ searchQuery: q, view: { scope: get().view.scope, mailbox: { kind: 'search', query: q, within } }, selectedKey: undefined, selectedKeys: [], screen: 'mail', remoteResults: [] });
   const seq = ++searchSeq;
   if (!get().online) return;
@@ -1249,8 +1292,10 @@ export function inboxUnreadFor(accountIds: string[] | 'all', folder: SystemFolde
 /** Marks everything unread in a mailbox as read. */
 export async function markViewRead(view: View) {
   const { inMailbox, scopeAccountIds } = await import('./mailbox');
-  const allowed = new Set(scopeAccountIds(view.scope, get().accounts.map((a) => a.id), settings().groups, get().accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id)));
-  const ctx = { vips: new Set(settings().vips), snoozed: new Set(get().snoozes.map((s) => s.messageId)) };
+  const everywhere = view.mailbox.kind === 'search' || view.mailbox.kind === 'smart';
+  const allowed = new Set(scopeAccountIds(view.scope, get().accounts.map((a) => a.id), settings().groups, everywhere ? [] : get().accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id)));
+  const { myAddresses } = await import('./compose');
+  const ctx = { vips: new Set(settings().vips), snoozed: new Set(get().snoozes.map((s) => s.messageId)), smart: settings().smartMailboxes, mine: myAddresses(get().accounts) };
   const ids = Object.values(get().messages)
     .filter((m) => m.unread && allowed.has(m.accountId) && inMailbox(m, view.mailbox, providers.get(m.accountId), ctx))
     .map((m) => m.id);

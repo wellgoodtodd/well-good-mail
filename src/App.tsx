@@ -24,7 +24,7 @@ import { backupDue, haveOwnKeys } from './lib/backup';
 import {
   useMail, initMail, refreshAll, runSearch, dismissToast, archive, trash, toggleFlag, markRead, selectedMessageIds, selectThread, startDemo,
   markSpam, snooze, markViewRead, openScreen,
-  adoptOutboxItem, messagesInThread, reloadMessagesFromDb, toast, reconnectAccount,
+  adoptOutboxItem, messagesInThread, reloadMessagesFromDb, toast, reconnectAccount, goBack,
 } from './lib/mail';
 import { startCompose, popoutMessage } from './lib/composeActions';
 import { useViewList } from './lib/useList';
@@ -43,6 +43,7 @@ import { AiApprovalCard, AiStatusButton } from './components/AiApproval';
 import { AiDrafts } from './components/AiDrafts';
 import './lib/sender';
 import { DialogHost } from './components/DialogHost';
+import { SmartMailboxEditor } from './components/SmartMailboxEditor';
 import { useDialogs, askConfirm } from './lib/dialogs';
 import { matchAction, type ShortcutAction } from './lib/shortcuts';
 
@@ -145,15 +146,22 @@ function Welcome() {
   );
 }
 
+/** Back to where you were before jumping to another screen, mailbox or search. */
+function BackButton() {
+  const can = useMail((s) => s.backStack.length > 0);
+  return <button className="icon-btn" title="Back (Alt+Left)" aria-label="Back" onClick={goBack} disabled={!can}><Icon name="chevronLeft" /></button>;
+}
+
 function SearchBox() {
   const query = useMail((s) => s.searchQuery);
   const view = useMail((s) => s.view);
   const accounts = useMail((s) => s.accounts);
   const folders = useMail((s) => s.folders);
   const groups = useSettings((s) => s.groups);
+  const smartBoxes = useSettings((s) => s.smartMailboxes) || [];
   // The box says where it will look: the mailbox you are in, or all mail once a search is open.
   const here: View = view.mailbox.kind === 'search' ? { scope: view.scope, mailbox: view.mailbox.within || view.mailbox } : view;
-  const where = view.mailbox.kind === 'search' && !view.mailbox.within ? 'all mail' : viewTitle(here, (id) => accounts.find((a) => a.id === id)?.label || '', (id) => groups.find((g) => g.id === id)?.name || 'Group', (acc, id) => folders[acc]?.find((f) => f.id === id)?.name || 'Label');
+  const where = view.mailbox.kind === 'search' && !view.mailbox.within ? 'all mail' : viewTitle(here, (id) => accounts.find((a) => a.id === id)?.label || '', (id) => groups.find((g) => g.id === id)?.name || 'Group', (acc, id) => folders[acc]?.find((f) => f.id === id)?.name || 'Label', (id) => smartBoxes.find((b) => b.id === id)?.name);
   const [text, setText] = useState(query);
   useEffect(() => setText(query), [query]);
   useEffect(() => {
@@ -244,6 +252,14 @@ function useShortcuts() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [keys]);
+  // Back, like a browser: Alt+Left, or the mouse's back button.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goBack(); } };
+    const onMouse = (e: MouseEvent) => { if (e.button === 3) { e.preventDefault(); goBack(); } };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('mouseup', onMouse);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('mouseup', onMouse); };
+  }, []);
 }
 
 function MainWindow() {
@@ -400,6 +416,7 @@ function MainWindow() {
       <header className={`toolbar ${beta ? 'beta' : ''}`}>
         <button className="icon-btn" title="Menu" aria-label="Menu" onClick={(e) => appMenu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), appMenuItems())}><Icon name="menu" /></button>
         <button className={`icon-btn ${s.sidebarVisible ? '' : 'active'}`} title="Show or hide sidebar (Ctrl+Shift+S)" aria-label="Toggle sidebar" onClick={() => (narrow ? setMobileNav(!mobileNav) : s.set({ sidebarVisible: !s.sidebarVisible }))}><Icon name="sidebar" /></button>
+        <BackButton />
         <button className="icon-btn" title="Check for new mail (F5)" aria-label="Check for new mail" onClick={() => refreshAll()} disabled={!accounts.length}>
           <span style={{ display: 'inline-flex', animation: syncing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span>
         </button>
@@ -482,6 +499,7 @@ function MainWindow() {
       {appMenu.node}
       <DialogHost />
       <AiApprovalCard />
+      <SmartMailboxEditor />
       <WhatsNew />
       <CommandPalette />
       <Toasts />
@@ -514,7 +532,7 @@ export default function App() {
   useTheme();
   const popout = isPopout();
   useEffect(() => {
-    initMail({ popout });
+    initMail({ popout, route: popout ? location.hash.replace('#/popout/', '') : undefined });
   }, [popout]);
   // The browser's own right click menu (Back, Refresh, Save as...) isn't useful here. Text boxes keep theirs for copy and paste.
   useEffect(() => {

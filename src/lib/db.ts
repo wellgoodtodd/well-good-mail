@@ -70,6 +70,10 @@ export const store = {
   async messages(): Promise<Message[]> {
     return (await db()).getAll('messages');
   },
+  /** One conversation, without loading the whole cache (for pop out windows). */
+  async threadMessages(accountId: string, threadId: string): Promise<Message[]> {
+    return ((await (await db()).getAllFromIndex('messages', 'threadId', threadId)) as Message[]).filter((m) => m.accountId === accountId);
+  },
   async putMessages(msgs: Message[]) {
     if (!msgs.length) return;
     const d = await db();

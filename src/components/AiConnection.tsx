@@ -133,7 +133,7 @@ function SetupDialog({ initial, onClose, onChanged }: { initial: AppId; onClose:
   const steps: { title: string; detail: string; done: boolean; action?: ReactNode; extra?: ReactNode }[] = [
     {
       title: 'Switch the connection on and share an account',
-      detail: mcp.enabled && anyShared ? 'Done.' : !mcp.enabled ? 'Switch it on here.' : 'Set at least one account to Read only on the AI connection page.',
+      detail: mcp.enabled && anyShared ? 'Done.' : !mcp.enabled ? 'Switch it on here.' : 'Set at least one account to Read only on the AI Connection page.',
       done: mcp.enabled && anyShared,
       action: !mcp.enabled ? <button className="btn small primary" onClick={() => set({ mcp: tidy({ ...mcp, enabled: true }) })}>Switch on</button> : undefined,
     },
@@ -243,7 +243,7 @@ export function AiConnectionTab() {
 
   return (
     <>
-      <h1>AI connection</h1>
+      <h1>AI Connection</h1>
       <section className="set-section">
         <div className="ai-row">
           <div className="grow"><strong>Let AI apps use Well Good Mail</strong><span className="hint">Off until you switch it on. Only apps on this computer can connect, and only to the accounts you choose. Switching it off cuts every connection at once.</span></div>
@@ -341,6 +341,17 @@ export function AiConnectionTab() {
       <section className="set-section">
         <h2>What it can do</h2>
         <p className="hint">For every shared account, unless you customise one above. Writing applies only to accounts set to Read and write. Ask means it asks you each time. Tidying, invitations and sending come later, each with its own switch.</p>
+        {(() => {
+          // One row to set every switch at once. Allow only goes as far as each switch allows, so sending still asks.
+          const values = new Set(caps.map((c) => mcp.modes[c.id]));
+          const all = values.size === 1 ? [...values][0] : undefined;
+          return (
+            <div className="ai-row ai-all">
+              <div className="grow"><strong>All switches</strong><small>{all ? `All set to ${all === 'off' ? 'Off' : all === 'ask' ? 'Ask' : 'Allow, as far as each one can go'}` : 'Mixed. Set them all at once, then change any below.'}</small></div>
+              <Segmented<Mode> label="Set every switch" value={all} options={modeOptions('allow')} onChange={(v) => save({ modes: { ...mcp.modes, ...Object.fromEntries(caps.map((c) => [c.id, v])) } })} />
+            </div>
+          );
+        })()}
         {GROUPS.filter((g) => caps.some((c) => c.group === g.id)).map((g) => [
           <div key={g.id} className="ai-group">{g.label}</div>,
           ...caps.filter((c) => c.group === g.id).map((c) => (

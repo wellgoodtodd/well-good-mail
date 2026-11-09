@@ -2,12 +2,12 @@
 // everything is decided here, with the person's settings.
 import { invoke, isTauri, notify } from '../platform';
 import { settings, useSettings } from '../settings';
-import { useMail, loadBody, toast, providerFor, openScreen } from '../mail';
+import { useMail, loadBody, toast, openScreen } from '../mail';
 import { store } from '../db';
-import { createDraft, draftToOutgoing } from '../compose';
+import { createDraft } from '../compose';
 import { composeContext, openDraft } from '../composeActions';
 import { showBanner } from '../banners';
-import { refreshAiDrafts } from './aiDrafts';
+import { refreshAiDrafts, saveDraftEverywhere, importLabelledDrafts, fileServerDrafts } from './aiDrafts';
 import type { Draft } from '../types';
 import { searchMessages } from '../search';
 import { useUpdates } from '../updater';
@@ -67,7 +67,7 @@ async function askPerson(app: string, req: AskRequest) {
     const overrides = { ...mcp.overrides };
     for (const id of allowed) if (overrides[id]?.[req.capability]) overrides[id] = { ...overrides[id], [req.capability]: 'allow' as Mode };
     useSettings.getState().set({ mcp: tidy({ ...mcp, modes: { ...mcp.modes, [req.capability]: 'allow' }, overrides }) });
-    toast({ text: 'Done. It won\'t ask about that again. You can change it back any time in Settings, AI connection.', ttl: 12000, action: { label: 'Open settings', run: () => openScreen('settings', 'ai') } });
+    toast({ text: 'Done. It won\'t ask about that again. You can change it back any time in Settings, AI Connection.', ttl: 12000, action: { label: 'Open settings', run: () => openScreen('settings', 'ai') } });
   }
   return { allowed, edit };
 }
@@ -98,20 +98,8 @@ async function makeDraft(app: string, input: import('./handlers').DraftInput): P
     updatedAt: Date.now(),
   });
   if (!draft.fromEmail) draft = { ...draft, fromEmail };
-  await store.putDraft(draft);
-  let savedToServer = false;
-  try {
-    const { accountId, message } = draftToOutgoing(draft, source, ctx);
-    const p = providerFor(accountId);
-    if (p) {
-      const { draftId } = await p.saveDraft({ ...message, attachments: [] }, draft.serverDraftId);
-      draft = { ...draft, serverDraftId: draftId, serverAccountId: accountId };
-      await store.putDraft(draft);
-      savedToServer = true;
-    }
-  } catch (e) {
-    console.warn('AI draft not saved to the server yet', e);
-  }
+  draft = await saveDraftEverywhere(draft);
+  const savedToServer = Boolean(draft.serverDraftId);
   void refreshAiDrafts();
   showBanner({ title: `${app} wrote a draft`, body: draft.subject || '(no subject)', actionLabel: 'Open', run: () => void openDraft(draft.id) });
   return { id: draft.id, savedToServer };
@@ -149,11 +137,11 @@ async function answer(rid: number, conn: number, body: string) {
   if (msg.method === 'tools/call' && apps.get(conn) !== SELF_TEST) {
     // Paused: ask before going on. Saying hello and listing tools never needs this.
     if (useActivity.getState().paused) {
-      void callPerson(`${app} wants to use Well Good Mail again`, 'The AI connection is paused. Answer in Well Good Mail.');
+      void callPerson(`${app} wants to use Well Good Mail again`, 'The AI Connection is paused. Answer in Well Good Mail.');
       const choice = await askResume(app);
       if (choice === 'no') {
         logActivity('Asked to use the paused connection', 'refused', app);
-        return send({ jsonrpc: '2.0', id: msg.id ?? null, result: { isError: true, content: [{ type: 'text', text: 'The AI connection is paused in Well Good Mail, and the person chose not to resume it now.' }] } });
+        return send({ jsonrpc: '2.0', id: msg.id ?? null, result: { isError: true, content: [{ type: 'text', text: 'The AI Connection is paused in Well Good Mail, and the person chose not to resume it now.' }] } });
       }
       if (choice === 'today') {
         const midnight = new Date(); midnight.setHours(24, 0, 0, 0);
@@ -179,7 +167,8 @@ async function answer(rid: number, conn: number, body: string) {
     loadBody,
     ask: (req) => askPerson(app, req),
     granted: (capability, accountId) => (grants.get(`${capability}|${accountId ?? '*'}`) || 0) > Date.now(),
-    makeDraft: (input) => makeDraft(app, input),
+    makeDraft: (input) => makeDraft(input.writer || app, input),
+    fileDrafts: (accountId, ids, group, writer) => fileServerDrafts(accountId, ids, group, writer || app),
     openDraft: (id) => void openDraft(id),
     aiDraft: (id) => { const d = aiDraftsNow().find((x) => x.id === id); return d && d.fromAccountId ? { accountId: d.fromAccountId } : undefined; },
     log: (text, outcome) => logActivity(text, outcome, app),
@@ -252,6 +241,9 @@ export function startMcpWatch() {
   // Drafts you send or delete leave the AI drafts list.
   window.addEventListener('focus', () => void refreshAiDrafts());
   setInterval(() => void refreshAiDrafts(), 30000);
+  // Drafts labelled "AI Drafts" in Gmail (by the EA, another computer, or filed later) show up here too.
+  setTimeout(() => void importLabelledDrafts(), 20000);
+  setInterval(() => void importLabelledDrafts(), 5 * 60000);
   // Writing drafts is new: start it on Ask once, so the first drafts show on the card before you choose Always.
   try {
     if (localStorage.getItem('wgm-mcp-drafts-ask') !== '1') {

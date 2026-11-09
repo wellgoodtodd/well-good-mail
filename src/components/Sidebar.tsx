@@ -3,7 +3,7 @@
 //
 // Every item has a "ref" (e.g. "all|inbox", "acc|<id>|junk", "acc|<id>|label|<labelId>",
 // "grp|<id>|sent") so it can be pinned to Favourites or hidden without moving it.
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { Icon, type IconName } from './Icon';
 import { useMenu, type MenuItem } from './ui';
 import { useSettings, type Settings } from '../lib/settings';
@@ -14,8 +14,11 @@ import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
 import { inSystemFolder } from '../lib/mailbox';
 import { dueReminders, alertMute } from '../lib/reminders';
-import { useAiDrafts, groupCounts, setDraftFilter } from '../lib/mcp/aiDrafts';
+import { useAiDrafts, groupCounts, setDraftFilter, groupColour } from '../lib/mcp/aiDrafts';
 import { groupItems, newGroup } from './AiDrafts';
+import { openSmartEditor, smartItems } from './SmartMailboxEditor';
+import { matchSmart } from '../lib/smartMailboxes';
+import { myAddresses } from '../lib/compose';
 import type { Account, AccountGroup, Folder, Scope, SystemFolder, View } from '../lib/types';
 
 const FOLDERS: { folder: SystemFolder; icon: IconName; name: string; all: string }[] = [
@@ -193,6 +196,31 @@ function NameEdit({ value, onSave, onCancel }: { value: string; onSave: (v: stri
 }
 
 /** For headings and rows that are only a label (no mail behind them): a name you can change and reset. */
+/** The sidebar sections that can be moved, in their usual order. */
+const SECTION_IDS = ['sec:favourites', 'sec:mailboxes', 'sec:smart', 'sec:groups', 'sec:accounts', 'sec:aidrafts'];
+/** Your order, with any section it doesn't mention yet in its usual place. */
+function sectionOrder(saved: string[] | undefined): string[] {
+  const mine = (saved || []).filter((id) => SECTION_IDS.includes(id));
+  const out = [...mine];
+  SECTION_IDS.forEach((id, i) => { if (!out.includes(id)) out.splice(Math.min(i, out.length), 0, id); });
+  return out;
+}
+/** Drops section `from` just above section `before`. */
+function moveSection(from: string, before: string) {
+  if (from === before) return;
+  const cur = sectionOrder(useSettings.getState().sectionOrder).filter((x) => x !== from);
+  cur.splice(cur.indexOf(before), 0, from);
+  useSettings.getState().set({ sectionOrder: cur });
+}
+function nudgeSection(id: string, by: -1 | 1) {
+  const cur = sectionOrder(useSettings.getState().sectionOrder);
+  const i = cur.indexOf(id);
+  const j = i + by;
+  if (j < 0 || j >= cur.length) return;
+  [cur[i], cur[j]] = [cur[j], cur[i]];
+  useSettings.getState().set({ sectionOrder: cur });
+}
+
 function useLabelName(id: string, fallback: string) {
   const custom = useSettings((st) => st.sidebarNames[id]);
   const [editing, setEditing] = useState(false);
@@ -203,9 +231,15 @@ function useLabelName(id: string, fallback: string) {
     useSettings.getState().set({ sidebarNames: names });
     setEditing(false);
   };
-  const menu = (openMenu: SideCtxValue['openMenu'], at: { x: number; y: number }) => openMenu(at, [
+  const menu = (openMenu: SideCtxValue['openMenu'], at: { x: number; y: number }, section?: string) => openMenu(at, [
     { label: 'Rename...', icon: 'compose', onClick: () => setEditing(true) },
     ...(custom ? [{ label: 'Reset name', icon: 'undo' as const, onClick: () => save('') }] : []),
+    ...(section ? [
+      { divider: true as const },
+      { label: 'Move up', icon: 'chevronDown' as const, onClick: () => nudgeSection(section, -1) },
+      { label: 'Move down', icon: 'chevronDown' as const, onClick: () => nudgeSection(section, 1) },
+      { label: 'Reset section order', icon: 'undo' as const, onClick: () => useSettings.getState().set({ sectionOrder: [] }) },
+    ] : []),
   ]);
   return { name: custom || fallback, editing, setEditing, save, menu };
 }
@@ -389,6 +423,8 @@ function Section({ id, title, children, defaultCollapsed = false, className = ''
     const collapsed = useSettings((st) => st.collapsed);
     const { openMenu } = useContext(SideCtx);
     const label = useLabelName(id, title);
+    const movable = SECTION_IDS.includes(id);
+    const [dropHere, setDropHere] = useState(false);
     const setCollapsed = (key: string, value: boolean) => useSettings.getState().set({ collapsed: { ...useSettings.getState().collapsed, [key]: value } });
     const isCollapsed = collapsed[id] ?? defaultCollapsed;
     return (
@@ -396,7 +432,18 @@ function Section({ id, title, children, defaultCollapsed = false, className = ''
         {label.editing ? (
           <div className="side-heading"><NameEdit value={label.name} onSave={label.save} onCancel={() => label.setEditing(false)} /></div>
         ) : (
-          <button className="side-heading" onClick={() => setCollapsed(id, !isCollapsed)} aria-expanded={!isCollapsed} onContextMenu={id === 'sec:hidden' ? undefined : (e) => { e.preventDefault(); label.menu(openMenu, { x: e.clientX, y: e.clientY }); }}>
+          <button
+            className={`side-heading ${dropHere ? 'drop-before' : ''}`}
+            onClick={() => setCollapsed(id, !isCollapsed)}
+            aria-expanded={!isCollapsed}
+            draggable={movable}
+            title={movable ? 'Drag to move this section, or right-click for more' : undefined}
+            onDragStart={movable ? (e) => { e.dataTransfer.setData('text/wgm-section', id); e.dataTransfer.effectAllowed = 'move'; } : undefined}
+            onDragOver={movable ? (e) => { if (e.dataTransfer.types.includes('text/wgm-section')) { e.preventDefault(); setDropHere(true); } } : undefined}
+            onDragLeave={() => setDropHere(false)}
+            onDrop={movable ? (e) => { const from = e.dataTransfer.getData('text/wgm-section'); setDropHere(false); if (from) { e.preventDefault(); moveSection(from, id); } } : undefined}
+            onContextMenu={id === 'sec:hidden' ? undefined : (e) => { e.preventDefault(); label.menu(openMenu, { x: e.clientX, y: e.clientY }, movable ? id : undefined); }}
+          >
             <Icon name={isCollapsed ? 'chevronRight' : 'chevronDown'} size={12} /> {id === 'sec:hidden' ? title : label.name}
           </button>
         )}
@@ -430,6 +477,20 @@ export function Sidebar({ width }: { width: number }) {
   const hiddenCals = useSettings((s) => s.hiddenCalendars);
   const aiDrafts = useAiDrafts((s) => s.list);
   const draftFilter = useAiDrafts((s) => s.filter);
+  const allMessages = useMail((st) => st.messages);
+  // Unread count for each Smart Mailbox, worked out once per change rather than on every render.
+  const smartUnread = useMemo(() => {
+    const boxes = s.smartMailboxes || [];
+    if (!boxes.length) return {} as Record<string, number>;
+    const ctx = { vips: new Set(s.vips), mine: myAddresses(accounts) };
+    const out: Record<string, number> = {};
+    for (const b of boxes) out[b.id] = 0;
+    for (const m of Object.values(allMessages)) {
+      if (!m.unread) continue;
+      for (const b of boxes) if (matchSmart(m, b, providerFor(m.accountId), ctx)) out[b.id]++;
+    }
+    return out;
+  }, [allMessages, s.smartMailboxes, s.vips, accounts]);
   const aiOn = useSettings((s) => Boolean(s.mcp?.enabled));
   const alertsMode = useSettings((s) => s.hiddenCalendarsAlerts);
   const reminderCount = useMemo(() => dueReminders(events, followups, dismissed, Date.now(), alertMute({ hiddenCalendars: hiddenCals, hiddenCalendarsAlerts: alertsMode })).length, [events, followups, dismissed, hiddenCals, alertsMode]);
@@ -529,20 +590,16 @@ export function Sidebar({ width }: { width: number }) {
   const accountRef = (a: Account) => `acc|${a.id}`;
   const allInboxOpen = !(collapsed['all-inboxes'] ?? false);
 
-  return (
-    <SideCtx.Provider value={{ view, screen, favDrop, menuFor, open, openMenu: menu.open, pickColour, renaming, startRename: setRenaming, finishRename }}>
-    <nav className="sidebar" style={{ width }} aria-label="Mailboxes" onClick={(e) => { if (screen !== 'mail' && e.target === e.currentTarget) openScreen('mail'); }}>
-      <div className="side-scroll" onClick={(e) => { if (screen !== 'mail' && (e.target as HTMLElement).closest('.side-row, .side-heading, button') === null) openScreen('mail'); }} onContextMenu={(e) => {
-        if ((e.target as HTMLElement).closest('.side-row, .side-heading')) return;
-        e.preventDefault();
-        menu.open({ x: e.clientX, y: e.clientY }, [{ label: 'New folder...', icon: 'folder', onClick: newFolder }]);
-      }}>
+  // Each section by its id, so they can be shown in the order you choose (drag a heading, or right-click it).
+  const blocks: Record<string, React.ReactNode> = {
+    'sec:favourites': (
       <Section id="sec:favourites" title="Favourites" className={favDrop !== null ? 'drop-target' : ''} onDragOver={favDragOver} onDrop={favDropHandler} onDragLeave={() => setFavDrop(null)}>
         {favList.map((f, i) => <Item key={f.ref} d={f} inFavourites favIndex={i} showContext />)}
         {favDrop === favList.length && <div className="drop-line" />}
         {!favList.length && <div className="side-empty">Right click anything below, or drag it here, to pin it.</div>}
       </Section>
-
+    ),
+    'sec:mailboxes': (
       <Section id="sec:mailboxes" title="Mailboxes">
         {onShelf('all|inbox') && (
           <Item
@@ -566,8 +623,32 @@ export function Sidebar({ width }: { width: number }) {
           return <CustomFolder key={f.id} folder={f} rows={rows} onNew={newFolder} forceOpen={inside} />;
         })}
       </Section>
-
-      {s.groups.length > 0 && (
+    ),
+    'sec:smart': (
+      <Section id="sec:smart" title="Smart Mailboxes">
+        {(s.smartMailboxes || []).map((b) => {
+          const v: View = { scope: { type: 'all' }, mailbox: { kind: 'smart', id: b.id } };
+          const on = screen === 'mail' && sameView(view, v);
+          return (
+            <div className="side-row" key={b.id}>
+              <button className={`side-item ${on ? 'selected' : ''}`} onClick={() => setView(v)} title={`${b.name}. Drag to reorder.`}
+                draggable onDragStart={(e) => { e.dataTransfer.setData('text/wgm-smart', b.id); e.dataTransfer.effectAllowed = 'move'; }}
+                onDragOver={(e) => { if (e.dataTransfer.types.includes('text/wgm-smart')) e.preventDefault(); }}
+                onDrop={(e) => { const from = e.dataTransfer.getData('text/wgm-smart'); if (!from || from === b.id) return; e.preventDefault(); const list = (s.smartMailboxes || []).filter((x) => x.id !== from); const moved = (s.smartMailboxes || []).find((x) => x.id === from); if (!moved) return; list.splice(list.findIndex((x) => x.id === b.id), 0, moved); s.set({ smartMailboxes: list }); }}
+                onContextMenu={(e) => { e.preventDefault(); menu.open({ x: e.clientX, y: e.clientY }, smartItems(b)); }}>
+                <Icon name="filter" /><span className="name">{b.name}</span>{smartUnread[b.id] ? <span className="count">{smartUnread[b.id]}</span> : null}
+              </button>
+              <button className="side-more" aria-label={`Options for ${b.name}`} onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), smartItems(b), 'right')}><Icon name="more" size={14} /></button>
+            </div>
+          );
+        })}
+        <div className="side-row">
+          <button className="side-item dim" onClick={() => openSmartEditor()}><Icon name="plus" /><span className="name">New Smart Mailbox</span></button>
+        </div>
+      </Section>
+    ),
+    'sec:groups': (
+s.groups.length > 0 && (
         <Section id="sec:groups" title="Groups">
           {s.groups.filter((g) => onShelf(`grp|${g.id}`)).map((g) => {
             const gOpen = !(collapsed[`grp:${g.id}`] ?? false);
@@ -580,8 +661,9 @@ export function Sidebar({ width }: { width: number }) {
             );
           })}
         </Section>
-      )}
-
+      )
+    ),
+    'sec:accounts': (
       <Section id="sec:accounts" title="Accounts">
         {sorted.filter((a) => onShelf(accountRef(a))).map((a) => {
           // Accounts start collapsed; All Inboxes covers day to day.
@@ -610,8 +692,9 @@ export function Sidebar({ width }: { width: number }) {
           </button>
         </div>
       </Section>
-
-      {(aiDrafts.length > 0 || aiOn) && (() => {
+    ),
+    'sec:aidrafts': (
+(aiDrafts.length > 0 || aiOn) && (() => {
         // AI drafts, with its groups one level down. Click a group to see only those drafts; right-click to rename or delete it.
         const groups = s.draftGroups || [];
         const n = groupCounts(aiDrafts, groups);
@@ -619,24 +702,24 @@ export function Sidebar({ width }: { width: number }) {
         const go = (f: string) => { setDraftFilter(f); openScreen('aidrafts'); };
         const on = (f: string) => screen === 'aidrafts' && filter === f;
         return (
-          <Section id="sec:aidrafts" title="AI drafts">
+          <Section id="sec:aidrafts" title="AI Drafts">
             <div className="side-row">
               <button className={`side-item ${on('all') ? 'selected' : ''}`} onClick={() => go('all')} title="Drafts written by AI apps">
-                <Icon name="sparkle" /><span className="name">All AI drafts</span>{n.all ? <span className="count">{n.all}</span> : null}
+                <Icon name="sparkle" /><span className="name">All AI Drafts</span>{n.all ? <span className="count">{n.all}</span> : null}
               </button>
             </div>
             {groups.map((g) => (
               <div className="side-row" key={g.id}>
                 <button className={`side-item child ${on(g.id) ? 'selected' : ''}`} onClick={() => go(g.id)}
                   onContextMenu={(e) => { e.preventDefault(); menu.open({ x: e.clientX, y: e.clientY }, groupItems(g.id, g.name)); }}>
-                  <Icon name="tag" /><span className="name">{g.name}</span>{n.byGroup[g.id] ? <span className="count">{n.byGroup[g.id]}</span> : null}
+                  <span className="grp-tag" style={{ color: groupColour(g) }}><Icon name="tag" /></span><span className="name">{g.name}</span>{n.byGroup[g.id] ? <span className="count">{n.byGroup[g.id]}</span> : null}
                 </button>
               </div>
             ))}
             {n.none > 0 && (
               <div className="side-row">
                 <button className={`side-item child ${on('none') ? 'selected' : ''}`} onClick={() => go('none')}>
-                  <Icon name="file" /><span className="name">No group</span><span className="count">{n.none}</span>
+                  <Icon name="file" /><span className="name">No Group</span><span className="count">{n.none}</span>
                 </button>
               </div>
             )}
@@ -645,7 +728,20 @@ export function Sidebar({ width }: { width: number }) {
             </div>
           </Section>
         );
-      })()}
+      })()
+    ),
+  };
+  const order = sectionOrder(s.sectionOrder);
+
+  return (
+    <SideCtx.Provider value={{ view, screen, favDrop, menuFor, open, openMenu: menu.open, pickColour, renaming, startRename: setRenaming, finishRename }}>
+    <nav className="sidebar" style={{ width }} aria-label="Mailboxes" onClick={(e) => { if (screen !== 'mail' && e.target === e.currentTarget) openScreen('mail'); }}>
+      <div className="side-scroll" onClick={(e) => { if (screen !== 'mail' && (e.target as HTMLElement).closest('.side-row, .side-heading, button') === null) openScreen('mail'); }} onContextMenu={(e) => {
+        if ((e.target as HTMLElement).closest('.side-row, .side-heading')) return;
+        e.preventDefault();
+        menu.open({ x: e.clientX, y: e.clientY }, [{ label: 'New folder...', icon: 'folder', onClick: newFolder }]);
+      }}>
+      {order.map((id) => <Fragment key={id}>{blocks[id]}</Fragment>)}
 
       {s.hiddenItems.length > 0 && (
         <Section id="sec:hidden" title={`Hidden (${s.hiddenItems.length})`} defaultCollapsed>

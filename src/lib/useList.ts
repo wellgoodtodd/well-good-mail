@@ -16,6 +16,7 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
   const vips = useSettings((s) => s.vips);
   const threaded = useSettings((s) => s.threaded);
   const filters = useMail((s) => s.filters);
+  const smart = useSettings((s) => s.smartMailboxes);
 
   // The search itself only reruns when the words change, not on every sync batch or read mark.
   const query = view.mailbox.kind === 'search' ? view.mailbox.query : '';
@@ -23,9 +24,10 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
 
   return useMemo(() => {
     // Accounts left out of All Inboxes stay out of the combined views, but a search still looks everywhere.
-    const leftOut = view.mailbox.kind === 'search' ? [] : accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id);
+    const everywhere = view.mailbox.kind === 'search' || view.mailbox.kind === 'smart';
+    const leftOut = everywhere ? [] : accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id);
     const allowed = new Set(scopeAccountIds(view.scope, accounts.map((a) => a.id), groups, leftOut));
-    const ctx = { vips: new Set(vips), snoozed: new Set(snoozes.map((s) => s.messageId)) };
+    const ctx = { vips: new Set(vips), snoozed: new Set(snoozes.map((s) => s.messageId)), smart, mine: myAddresses(accounts) };
     const pool = view.mailbox.kind === 'search' ? hitIds.map((id) => messages[id]).filter(Boolean) : Object.values(messages);
     // A search that started in a folder stays in that folder (until you choose All mail).
     const within = view.mailbox.kind === 'search' ? view.mailbox.within : undefined;
@@ -61,5 +63,5 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
     }
     const remote = view.mailbox.kind === 'search' ? buildList(remoteResults.filter((m) => allowed.has(m.accountId) && fits(m)), false) : [];
     return { items, remote };
-  }, [messages, view, hitIds, accounts, snoozes, remoteResults, groups, vips, threaded, filters]);
+  }, [messages, view, hitIds, accounts, snoozes, remoteResults, groups, vips, threaded, filters, smart]);
 }

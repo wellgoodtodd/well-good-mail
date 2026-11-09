@@ -144,6 +144,8 @@ a { color: var(--accent-text, var(--accent)); }
 .search-scope button { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); font-size: 0.88em; color: var(--text-muted); }
 .search-scope button.on { background: var(--bg-hover); color: var(--text); border-color: var(--border-strong, var(--border)); }
 .search-scope .hint { font-size: 0.82em; color: var(--text-muted); margin-left: auto; }
+.search-scope .search-save { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+.search-scope .hint + .search-save { margin-left: 6px; }
 .side-item .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .side-item .count { font-size: 0.86em; color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
 .side-item.selected .count { color: var(--text); }
@@ -363,8 +365,11 @@ a { color: var(--accent-text, var(--accent)); }
 .acct-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .acct-row:last-child { border-bottom: 0; }
 .acct-row .grow { flex: 1 1 200px; min-width: 0; }
-.keep-mail { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.88em; color: var(--text-muted); }
-.keep-mail select { font-size: 1em; padding: 2px 6px; }
+.acct-namecol { display: flex; flex-direction: column; gap: 5px; flex: none; }
+.acct-tick { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85em; color: var(--text-muted); cursor: pointer; }
+.keep-mail { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.88em; color: var(--text-muted); }
+.keep-mail select { font: inherit; font-size: 13px; color: var(--text); height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); cursor: pointer; }
+.keep-mail select:hover { border-color: var(--border-strong); }
 .acct-row input.label-input { height: 28px; border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; background: var(--bg-input); width: 160px; }
 .status-ok { color: var(--success); }
 .status-bad { color: var(--danger); }
@@ -1069,3 +1074,45 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .ai-group-pill { flex: none; width: 112px; justify-content: space-between; display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-subtle); color: var(--text-muted); font: inherit; font-size: 0.82em; cursor: pointer; white-space: nowrap; }
 .ai-group-pill:hover { color: var(--text); border-color: var(--border-strong); }
 .ai-group-pill.empty { background: transparent; border-style: dashed; }
+
+/* Smart Mailbox editor: name, all or any, and rule rows */
+.smart-editor { display: grid; gap: 10px; min-width: min(560px, 80vw); }
+.smart-name { display: grid; grid-template-columns: 60px 1fr; align-items: center; gap: 10px; }
+.smart-name span { color: var(--text-muted); }
+.smart-name input, .smart-rule input, .smart-rule select, .smart-match select { height: 30px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); color: var(--text); padding: 0 8px; font: inherit; }
+.smart-name input[aria-invalid="true"] { border-color: var(--danger); }
+.smart-error { color: var(--danger); font-size: 0.85em; margin: -4px 0 0 70px; }
+.smart-match { display: flex; align-items: center; gap: 6px; color: var(--text-muted); }
+.smart-rules { display: grid; gap: 6px; }
+.smart-rule { display: grid; grid-template-columns: 128px 132px 1fr 28px 28px; gap: 6px; align-items: center; }
+.smart-rule .icon-btn { width: 28px; height: 28px; font-size: 16px; }
+.smart-fill { display: block; }
+.smart-check { display: flex; align-items: center; gap: 8px; }
+.smart-count { color: var(--text-muted); font-size: 0.88em; }
+.dialog .actions .grow { flex: 1; }
+.dialog:has(.smart-editor) { width: auto; max-width: 92vw; }
+.smart-editor .hint { color: var(--text-muted); font-size: 12.5px; margin: 0; }
+
+/* Reply, Reply All and Forward under the latest email in a conversation */
+.thread-replies { display: flex; gap: 8px; margin: 4px 16px 18px; flex-wrap: wrap; }
+.thread-replies .btn { display: inline-flex; align-items: center; gap: 6px; }
+
+/* AI Drafts: a draft folds open for reading, quick edits and Send */
+.ai-draft-wrap { border-top: 1px solid var(--border); }
+.ai-draft-wrap:first-child { border-top: 0; }
+.ai-draft-wrap .ai-draft-item { border-top: 0; }
+.ai-draft-wrap.open { background: var(--bg-subtle); }
+.ai-draft-chev { color: var(--text-muted); flex: none; }
+.ai-draft-detail { padding: 4px 16px 14px 32px; display: grid; gap: 8px; }
+.ai-quick-subject, .ai-quick-text { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); color: var(--text); font: inherit; padding: 7px 10px; }
+.ai-quick-text { resize: vertical; line-height: 1.5; }
+.ai-quick-read { white-space: pre-wrap; line-height: 1.5; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev); }
+.ai-quick-note { font-size: 12.5px; color: var(--text-muted); }
+.ai-quick-actions { display: flex; align-items: center; gap: 8px; }
+.ai-quick-actions .grow { flex: 1; }
+.ai-quick-actions .btn.primary { display: inline-flex; align-items: center; gap: 6px; }
+.ai-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.ai-pill-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.grp-tag { display: inline-flex; }
+.side-heading.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+.ai-draft-detail .ai-draft-row b { min-width: 40px; }

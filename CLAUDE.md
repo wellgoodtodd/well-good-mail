@@ -2,6 +2,8 @@
 
 A Windows mail app in the style of Apple Mail: combined inboxes, calm reminders, simple. UK English in all interface text, and no em dashes.
 
+Capitals (agreed 9 Nov 2026): names of places and features take a capital on each main word, like Apple Mail: sidebar sections and items, screen titles and Settings tabs ("All Inboxes", "Smart Mailboxes", "AI Drafts", "AI Connection", "No Group"). Buttons, menu actions, labels and sentences use ordinary sentence case ("New group", "Save draft", "Show in All Inboxes", where the place name inside keeps its capitals).
+
 ## Stack
 
 - Tauri 2 shell (`src-tauri/`): OAuth loopback listener, Windows Credential Manager (keyring), tray, autostart, notifications, updater, single instance.

@@ -163,7 +163,7 @@ export interface SourceAttachment {
 export function draftToOutgoing(draft: Draft, source: Message | undefined, ctx: ComposeContext, sourceAttachments: SourceAttachment[] = []): { accountId: string; message: OutgoingMessage } {
   const hit = findAlias(ctx.accounts, draft.fromEmail, draft.fromAccountId);
   if (!hit) throw new Error(`No account can send as ${draft.fromEmail}`);
-  const signature = signatureFor(draft.fromEmail, ctx);
+  const signature = draft.noSignature ? '' : signatureFor(draft.fromEmail, ctx);
   const sigBlock = signature ? `<div class="wgm-signature">${signature}</div>` : '';
   const links = draft.driveLinks.length
     ? `<p>${draft.driveLinks.map((l) => `<a href="${escapeHtml(l.url)}">${escapeHtml(l.name)}</a> (Google Drive)`).join('<br>')}</p>`

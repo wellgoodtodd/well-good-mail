@@ -9,7 +9,8 @@ export type ReminderMode = 'never' | 'daily' | 'important' | 'all';
 export type ImagePolicy = 'block' | 'known' | 'always';
 export type PanePosition = 'right' | 'bottom' | 'off';
 
-export interface DraftGroup { id: string; name: string }
+import type { SmartMailbox } from './smartMailboxes';
+export interface DraftGroup { id: string; name: string; colour?: string }
 
 export interface Settings {
   theme: ThemeSetting;
@@ -81,6 +82,10 @@ export interface Settings {
   mcp: McpSettings;
   /** Groups for AI drafts, shown under AI drafts in the sidebar. The id stays the same when a group is renamed. */
   draftGroups: DraftGroup[];
+  /** Smart Mailboxes: saved rules shown in the sidebar. */
+  smartMailboxes: SmartMailbox[];
+  /** Your order for the sidebar sections (ids like "sec:mailboxes"). Empty means the usual order. */
+  sectionOrder: string[];
 
   newMailAlerts: 'all' | 'important' | 'off';
   alertSound: boolean;
@@ -198,11 +203,13 @@ export const defaultSettings: Settings = {
   hiddenCalendars: [],
   hiddenCalendarsAlerts: 'meetings',
   mcp: defaultMcp(),
+  smartMailboxes: [],
+  sectionOrder: [],
   draftGroups: [
-    { id: 'clients', name: 'Clients' },
-    { id: 'prospects', name: 'Prospects' },
-    { id: 'personal', name: 'Personal' },
-    { id: 'admin', name: 'Admin' },
+    { id: 'clients', name: 'Clients', colour: '#5b8def' },
+    { id: 'prospects', name: 'Prospects', colour: '#3fae7a' },
+    { id: 'personal', name: 'Personal', colour: '#c46ad8' },
+    { id: 'admin', name: 'Admin', colour: '#d9a23a' },
   ],
 
   newMailAlerts: 'important',
