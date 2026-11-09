@@ -156,7 +156,7 @@ async function answer(rid: number, conn: number, body: string) {
       if (choice === 'today') {
         const midnight = new Date(); midnight.setHours(24, 0, 0, 0);
         const mcp = tidy(settings().mcp);
-        useSettings.getState().set({ mcp: { ...mcp, noPauseUntil: midnight.getTime() } });
+        useSettings.getState().set({ mcp: { ...mcp, noPauseUntil: midnight.getTime() } }, { quiet: true });
       }
       resumeMcp();
     }
@@ -256,7 +256,7 @@ export function startMcpWatch() {
   try {
     if (localStorage.getItem('wgm-mcp-drafts-ask') !== '1') {
       const mcp = tidy(settings().mcp);
-      useSettings.getState().set({ mcp: tidy({ ...mcp, modes: { ...mcp.modes, 'organise.draft': 'ask' } }) });
+      useSettings.getState().set({ mcp: tidy({ ...mcp, modes: { ...mcp.modes, 'organise.draft': 'ask' } }) }, { quiet: true });
       localStorage.setItem('wgm-mcp-drafts-ask', '1');
     }
   } catch { /* fine */ }

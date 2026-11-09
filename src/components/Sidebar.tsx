@@ -8,7 +8,7 @@ import { Icon, type IconName } from './Icon';
 import { useMenu, type MenuItem } from './ui';
 import { useSettings, type Settings } from '../lib/settings';
 import { useSettingsAlerts } from '../lib/alerts';
-import { useMail, setView, openScreen, providerFor, archive, trash, markSpam, moveToInbox, moveToLabel, idsForKeys, reconnectAccount, markViewRead, toast, syncAccount, updateAccount } from '../lib/mail';
+import { useMail, setView, openScreen, providerFor, archive, trash, markSpam, moveToInbox, moveToLabel, idsForKeys, reconnectAccount, markViewRead, toast, syncAccount, editAccount } from '../lib/mail';
 import { ColourPicker } from './ColourPicker';
 import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
@@ -542,7 +542,7 @@ export function Sidebar({ width }: { width: number }) {
     const name = value.trim();
     const parts = item.ref.split('|');
     if (item.account) {
-      if (name) updateAccount(item.account.id, { label: name });
+      if (name) editAccount(item.account.id, { label: name }, 'name');
     } else if (parts[0] === 'grp' && parts.length === 2) {
       if (name) s.set({ groups: s.groups.map((g) => (g.id === parts[1] ? { ...g, name } : g)) });
     } else {
@@ -778,7 +778,7 @@ s.groups.length > 0 && (
         <ColourPicker
           anchor={picker.anchor}
           value={accounts.find((a) => a.id === picker.accountId)?.colour || '#888888'}
-          onPick={(c) => updateAccount(picker.accountId, { colour: c })}
+          onPick={(c) => editAccount(picker.accountId, { colour: c }, 'colour')}
           onClose={() => setPicker(null)}
         />
       )}

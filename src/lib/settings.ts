@@ -1,4 +1,5 @@
 // User settings, saved locally. Defaults match the spec.
+import { record, useHistory } from './history';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AccountGroup, Template } from './types';
@@ -264,8 +265,44 @@ export const defaultSettings: Settings = {
   demoMode: false,
 };
 
+/** Changes that happen by themselves, or are too small to be worth a step in Undo (dragging a divider, folding a section). */
+const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'demoMode', 'googlePublished', 'sidebarVisible']);
+/** Friendly names for the Undo menu. Anything else is just "settings". */
+const SETTING_NAMES: Record<string, string> = {
+  theme: 'appearance', accent: 'accent colour', density: 'density', textScale: 'text size', palette: 'account colours', darkSkin: 'dark look', lightSkin: 'light look',
+  interfaceFont: 'font', writingFont: 'writing font', writingSize: 'writing size', readingFont: 'reading font', signatures: 'signatures', defaultFromEmail: 'default address',
+  smartMailboxes: 'Smart Mailboxes', draftGroups: 'draft groups', draftSignOff: 'sign-off', mcp: 'AI Connection', sectionOrder: 'sidebar order', favourites: 'Favourites',
+  hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders',
+  mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
+  quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders',
+};
+let lastStep: { id: string; keys: string; at: number } | null = null;
+
+/** Puts a settings change in Undo. Quick changes to the same thing (typing a name, dragging a slider) are one step. */
+function noteChange(before: Partial<Settings>, after: Partial<Settings>) {
+  const keys = Object.keys(after).filter((k) => !NOT_UNDOABLE.has(k) && JSON.stringify((before as Record<string, unknown>)[k]) !== JSON.stringify((after as Record<string, unknown>)[k]));
+  if (!keys.length) return;
+  const was = Object.fromEntries(keys.map((k) => [k, (before as Record<string, unknown>)[k]])) as Partial<Settings>;
+  const now = Object.fromEntries(keys.map((k) => [k, (after as Record<string, unknown>)[k]])) as Partial<Settings>;
+  const sig = keys.sort().join(',');
+  const past = useHistory.getState().past;
+  const top = past[past.length - 1];
+  if (lastStep && top && top.id === lastStep.id && lastStep.keys === sig && Date.now() - lastStep.at < 2500) {
+    // Same thing again straight away: keep the first "before", move "after" on.
+    lastStep.at = Date.now();
+    useHistory.setState((s) => ({ past: s.past.map((e) => (e.id === top.id ? { ...e, redo: () => { useSettings.setState(now); } } : e)) }));
+    return;
+  }
+  const names = [...new Set(keys.map((k) => SETTING_NAMES[k] || 'settings'))];
+  const label = `Change ${names.slice(0, 2).join(' and ')}`;
+  const id = record(label, () => { useSettings.setState(was); }, () => { useSettings.setState(now); });
+  lastStep = { id, keys: sig, at: Date.now() };
+}
+
 interface SettingsStore extends Settings {
-  set: (patch: Partial<Settings>) => void;
+  /** Changes settings. Each change can be undone, unless it's marked quiet (changes the app makes by itself). */
+  set: (patch: Partial<Settings>, opts?: { quiet?: boolean }) => void;
   toggleIn: (key: 'vips' | 'blockedSenders' | 'mutedThreads' | 'trustedSenders' | 'importantEvents' | 'hiddenFolders', value: string) => void;
   reset: () => void;
   pin: (ref: string, index?: number) => void;
@@ -278,21 +315,25 @@ export const useSettings = create<SettingsStore>()(
   persist(
     (set, get) => ({
       ...defaultSettings,
-      set: (patch) => set(patch),
+      set: (patch, opts) => {
+        const before = get();
+        set(patch);
+        if (!opts?.quiet) noteChange(before, patch);
+      },
       toggleIn: (key, value) => {
         const list = get()[key] as string[];
         const v = value.toLowerCase();
-        set({ [key]: list.includes(v) ? list.filter((x) => x !== v) : [...list, v] } as Partial<Settings>);
+        get().set({ [key]: list.includes(v) ? list.filter((x) => x !== v) : [...list, v] } as Partial<Settings>);
       },
-      reset: () => set(defaultSettings),
+      reset: () => get().set(defaultSettings),
       pin: (ref, index) => {
         const list = get().favourites.filter((r) => r !== ref);
         list.splice(index ?? list.length, 0, ref);
-        set({ favourites: list, hiddenItems: get().hiddenItems.filter((r) => r !== ref) });
+        get().set({ favourites: list, hiddenItems: get().hiddenItems.filter((r) => r !== ref) });
       },
-      unpin: (ref) => set({ favourites: get().favourites.filter((r) => r !== ref) }),
-      hide: (ref) => set({ hiddenItems: [...new Set([...get().hiddenItems, ref])], favourites: get().favourites.filter((r) => r !== ref), customFolders: get().customFolders.map((f) => ({ ...f, items: f.items.filter((r) => r !== ref) })) }),
-      unhide: (ref) => set({ hiddenItems: get().hiddenItems.filter((r) => r !== ref) }),
+      unpin: (ref) => get().set({ favourites: get().favourites.filter((r) => r !== ref) }),
+      hide: (ref) => get().set({ hiddenItems: [...new Set([...get().hiddenItems, ref])], favourites: get().favourites.filter((r) => r !== ref), customFolders: get().customFolders.map((f) => ({ ...f, items: f.items.filter((r) => r !== ref) })) }),
+      unhide: (ref) => get().set({ hiddenItems: get().hiddenItems.filter((r) => r !== ref) }),
     }),
     {
       name: 'wgm-settings',

@@ -7,7 +7,7 @@ import { GmailProvider } from './providers/gmail';
 import { MicrosoftProvider } from './providers/microsoft';
 import { ImapProvider } from './providers/imap';
 import { openImapGuide } from './guide';
-import { record, undoEntry } from './history';
+import { record, undoEntry, useHistory } from './history';
 import { removeImapPassword, saveImapPassword, testImap, type ImapSettings } from './auth/imap';
 import { DemoProvider, DEMO_ACCOUNTS, resetDemo } from './providers/demo';
 import type { MailProvider } from './providers/provider';
@@ -333,7 +333,7 @@ async function addAccount(kind: Account['kind'], email: string, displayName: str
   providers.set(account.id, makeProvider(account));
   set({ accounts: [...get().accounts, account] });
   await store.putAccount(account);
-  if (!settings().defaultFromEmail) useSettings.getState().set({ defaultFromEmail: email });
+  if (!settings().defaultFromEmail) useSettings.getState().set({ defaultFromEmail: email }, { quiet: true });
   await syncAccount(account.id, { full: true });
   refreshContacts();
   refreshEvents();
@@ -417,7 +417,7 @@ export async function removeAccount(id: string) {
   rebuildIndex(Object.values(messages));
   set({ accounts: get().accounts.filter((x) => x.id !== id), messages, folders, view: { scope: { type: 'all' }, mailbox: { kind: 'system', folder: 'inbox' } } });
   const s = settings();
-  useSettings.getState().set({ groups: s.groups.map((g) => ({ ...g, accountIds: g.accountIds.filter((x) => x !== id) })) });
+  useSettings.getState().set({ groups: s.groups.map((g) => ({ ...g, accountIds: g.accountIds.filter((x) => x !== id) })) }, { quiet: true });
   updateUnreadBadge();
 }
 
@@ -426,10 +426,32 @@ export function updateAccount(id: string, patch: Partial<Account>) {
   if (a) saveAccount({ ...a, ...patch });
 }
 
+let lastAccountStep: { id: string; key: string; at: number } | null = null;
+/**
+ * An account change you made (its name, colour, alerts, All Inboxes), with a step in Undo.
+ * Typing a name is one step, not one per letter.
+ */
+export function editAccount(id: string, patch: Partial<Account>, what: string) {
+  const a = get().accounts.find((x) => x.id === id);
+  if (!a) return;
+  const was = Object.fromEntries(Object.keys(patch).map((k) => [k, (a as unknown as Record<string, unknown>)[k]])) as Partial<Account>;
+  updateAccount(id, patch);
+  if (Object.keys(patch).includes('leaveOutOfAll')) updateUnreadBadge();
+  const key = `${id}|${Object.keys(patch).sort().join(',')}`;
+  const past = useHistory.getState().past;
+  const top = past[past.length - 1];
+  if (lastAccountStep && top?.id === lastAccountStep.id && lastAccountStep.key === key && Date.now() - lastAccountStep.at < 2500) {
+    lastAccountStep.at = Date.now();
+    useHistory.setState((s) => ({ past: s.past.map((e) => (e.id === top.id ? { ...e, redo: () => { updateAccount(id, patch); updateUnreadBadge(); } } : e)) }));
+    return;
+  }
+  const stepId = record(`Change ${what} for ${a.label || a.email}`, () => { updateAccount(id, was); updateUnreadBadge(); }, () => { updateAccount(id, patch); updateUnreadBadge(); });
+  lastAccountStep = { id: stepId, key, at: Date.now() };
+}
+
 /** Keeps an account's mail out of All Inboxes (or puts it back). It stays in the sidebar on its own. */
 export function setLeaveOutOfAll(id: string, on: boolean) {
-  updateAccount(id, { leaveOutOfAll: on });
-  updateUnreadBadge();
+  editAccount(id, { leaveOutOfAll: on }, 'Show in All Inboxes');
 }
 
 export function reorderAccounts(ids: string[]) {
@@ -440,7 +462,7 @@ export function reorderAccounts(ids: string[]) {
 
 export async function startDemo() {
   resetDemo();
-  useSettings.getState().set({ demoMode: true, defaultFromEmail: 'alex@studio.example', vips: ['isla@glencorrie.example', 'mum@family.example'] });
+  useSettings.getState().set({ demoMode: true, defaultFromEmail: 'alex@studio.example', vips: ['isla@glencorrie.example', 'mum@family.example'] }, { quiet: true });
   for (const [i, d] of DEMO_ACCOUNTS.entries()) {
     const account: Account = { ...d, order: i, status: 'ok', retentionDays: 365, notify: 'all' };
     providers.set(account.id, makeProvider(account));
@@ -462,7 +484,7 @@ export async function leaveDemo() {
     await store.deleteAccount(a.id);
   }
   await store.wipe();
-  useSettings.getState().set({ demoMode: false, groups: [], vips: [], defaultFromEmail: '' });
+  useSettings.getState().set({ demoMode: false, groups: [], vips: [], defaultFromEmail: '' }, { quiet: true });
   location.reload();
 }
 

@@ -5,7 +5,13 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 ## For the next 0.7 beta
 
 - **Out of office per account** (see below). Needs each Google and Microsoft account to sign in once more, so not started until Todd says.
-- **To try in beta 8:** Test 7 (made in Gmail) appears in No Group marked "Made in Gmail"; Test 3, 4 and 5 are gone; deleting Test 6 in Gmail removes it from AI Drafts within two minutes (or when the window comes forward); Claude picks up new tools without a restart.
+- **Before live 0.7.0:** help, What's new and support pages for everything since beta 5; one tidy 0.7.0 release note; decide whether to test a Microsoft draft or say drafting is tested on Gmail.
+
+## Done in 0.7 beta 9
+
+AI Drafts as separate cards (who and date / subject and actions / preview and group tag on the right); the selection bar takes the search bar's place so nothing moves; names instead of addresses; opening a draft in the editor folds its card away. Undo for everything: every settings change (quick changes to the same thing are one step; changes the app makes itself stay out), deleting AI drafts (saved again, here and in Gmail), moving drafts between groups, deleting a group, and account names, colours, alerts and Show in All Inboxes. Ctrl+Z in a text box undoes the typing. Still not undoable: removing an account (it asks first) and Keep mail from (it restarts the sync).
+
+Beta 8 checks done: Test 7 came in from Gmail, Test 6 left AI Drafts after it was deleted in Gmail.
 
 ## Done in 0.7 beta 8
 

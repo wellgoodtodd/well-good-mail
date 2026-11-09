@@ -213,6 +213,7 @@ function useShortcuts() {
       if (typing && st.inlineDraftId && el?.closest('.composer')) return; // the composer handles its own
       const action = matchAction(e, s.keybindings, s.shortcuts === 'gmail');
       if (!action) return;
+      if (typing && (action === 'undo' || action === 'redo')) return;
       const sel = st.selectedKey;
       const latest = sel ? messagesInThread(sel).slice(-1)[0] : undefined;
       const ids = selectedMessageIds();

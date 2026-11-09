@@ -10,7 +10,8 @@ import { useSettings } from '../lib/settings';
 import { store } from '../lib/db';
 import { openDraft } from '../lib/composeActions';
 import { askConfirm, askText } from '../lib/dialogs';
-import { useAiDrafts, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, isSimple, quickSave, quickSend, OUTSIDE_WRITER } from '../lib/mcp/aiDrafts';
+import { undoSteps, record } from '../lib/history';
+import { useAiDrafts, saveDraftEverywhere, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, isSimple, quickSave, quickSend, OUTSIDE_WRITER } from '../lib/mcp/aiDrafts';
 import type { Account, Draft } from '../lib/types';
 
 /** One line of plain text for the preview. */
@@ -31,7 +32,6 @@ const writeLocal = (k: string, v: string) => { try { localStorage.setItem(k, v);
 
 const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 const dayTime = (t: number) => new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-const firstTo = (d: Draft) => d.to[0] ? (d.to[0].name || d.to[0].email) + (d.to.length > 1 ? ` +${d.to.length - 1}` : '') : 'Nobody yet';
 const writerText = (d: Draft) => (d.byAi === OUTSIDE_WRITER ? 'Made in Gmail' : `Written by ${d.byAi}`);
 
 /** The account a draft belongs to, even if its link was lost: its own, the one it's saved in, then by address. */
@@ -82,6 +82,15 @@ export function AiDrafts() {
   }, []);
   const setSort = (k: SortKey) => { setSortState(k); writeLocal(SORT_KEY, k); };
 
+  const names = useMemo(() => {
+    const out = new Map<string, string>();
+    const note = (a?: { email: string; name?: string }) => { if (a?.name && a.email && !a.name.includes('@')) out.set(a.email.toLowerCase(), a.name); };
+    for (const m of Object.values(useMail.getState().messages)) { note(m.from); m.to.forEach(note); m.cc.forEach(note); }
+    return out;
+  }, [list]);
+  const nameOf = (a: { email: string; name?: string }) => (a.name && !a.name.includes('@') ? a.name : names.get(a.email.toLowerCase()) || a.email);
+  const whoFor = (d: Draft) => (d.to[0] ? nameOf(d.to[0]) + (d.to.length > 1 ? ` +${d.to.length - 1}` : '') : 'Nobody yet');
+
   const counts = groupCounts(list, groups);
   const known = new Set(groups.map((g) => g.id));
   const groupName = (d: Draft) => groups.find((g) => g.id === d.group)?.name || '￿';
@@ -98,10 +107,10 @@ export function AiDrafts() {
       case 'oldest': return out.sort((a, b) => a.updatedAt - b.updatedAt);
       case 'account': return out.sort(by((d) => draftAccount(d, accounts)?.label || d.fromEmail));
       case 'group': return out.sort(by(groupName));
-      case 'recipient': return out.sort(by(firstTo));
+      case 'recipient': return out.sort(by(whoFor));
       default: return out.sort(newest);
     }
-  }, [list, filter, query, groups, sort, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [list, filter, query, groups, sort, accounts, names]); // eslint-disable-line react-hooks/exhaustive-deps
   const scheduled = outbox.filter((o) => o.kind === 'scheduled' && o.draft.byAi).sort((a, b) => a.sendAt - b.sendAt);
 
   // Ticks only count for drafts still on screen.
@@ -109,12 +118,20 @@ export function AiDrafts() {
   const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const clearTicks = () => setPicked(new Set());
 
-  const remove = async (ids: string[]) => {
-    const ds = list.filter((x) => ids.includes(x.id));
+  const remove = async (ids: string[], opts: { quiet?: boolean } = {}): Promise<void> => {
+    const ds = (await Promise.all(ids.map((id) => store.getDraft(id)))).filter(Boolean) as Draft[];
     if (!ds.length) return;
     const one = ds.length === 1;
+    if (opts.quiet) {
+      for (const d of ds) {
+        try { if (d.serverDraftId && d.serverAccountId) await providerFor(d.serverAccountId)?.deleteDraft(d.serverDraftId); } catch { /* gone already */ }
+        await store.deleteDraft(d.id);
+      }
+      await refreshAiDrafts();
+      return;
+    }
     const ok = await askConfirm(one ? 'Delete this draft?' : `Delete ${ds.length} drafts?`,
-      one ? `"${ds[0].subject || '(no subject)'}" will be removed from Well Good Mail and from the account's Drafts folder. This can't be undone.` : 'They will be removed from Well Good Mail and from the accounts\' Drafts folders. This can\'t be undone.',
+      one ? `"${ds[0].subject || '(no subject)'}" will be removed from Well Good Mail and from the account's Drafts folder. You can undo this straight after.` : 'They will be removed from Well Good Mail and from the accounts\' Drafts folders. You can undo this straight after.',
       one ? 'Delete draft' : 'Delete drafts');
     if (!ok) return;
     for (const d of ds) {
@@ -123,7 +140,13 @@ export function AiDrafts() {
     }
     clearTicks();
     await refreshAiDrafts();
-    toast({ text: one ? 'Draft deleted' : `${ds.length} drafts deleted`, ttl: 2500 });
+    // Undo saves them again, here and in the account's Drafts folder (as new drafts there).
+    const bring = async () => {
+      for (const d of ds) await saveDraftEverywhere({ ...d, serverDraftId: undefined, serverDraftMessageId: undefined, updatedAt: Date.now() });
+      await refreshAiDrafts();
+    };
+    record(one ? `Delete draft: ${ds[0].subject || '(no subject)'}` : `Delete ${ds.length} drafts`, bring, () => remove(ds.map((d) => d.id), { quiet: true }));
+    toast({ text: one ? 'Draft deleted' : `${ds.length} drafts deleted`, ttl: 6000, undo: () => void undoSteps(1) });
   };
 
   const sendLater = async (ids: string[], at: number, edits?: { subject: string; text: string }) => {
@@ -157,6 +180,9 @@ export function AiDrafts() {
     </button>
   );
 
+  // The editor and the quick edit never show the same draft at once: the card folds away, and shows any changes when opened again.
+  const toEditor = (id: string) => { if (openId === id) setOpenId(null); void openDraft(id); };
+
   // Keyboard, when a row has focus (not while typing in a quick edit).
   const onRowKey = (e: React.KeyboardEvent, d: Draft) => {
     if (e.target !== e.currentTarget) return;
@@ -165,7 +191,7 @@ export function AiDrafts() {
     if (e.key === 'ArrowDown') { e.preventDefault(); go(i + 1); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); go(i - 1); }
     else if (e.key === 'Enter') { e.preventDefault(); setOpenId(openId === d.id ? null : d.id); }
-    else if (e.key === 'e' || e.key === 'E') { e.preventDefault(); void openDraft(d.id); }
+    else if (e.key === 'e' || e.key === 'E') { e.preventDefault(); toEditor(d.id); }
     else if (e.key === 'x' || e.key === 'X') { e.preventDefault(); toggle(d.id); }
     else if (e.key === 'Delete') { e.preventDefault(); void remove(ticked.length ? ticked : [d.id]); }
   };
@@ -183,7 +209,7 @@ export function AiDrafts() {
             {scheduled.map((o) => (
               <div key={o.id} className="ai-scheduled-row">
                 <time>{new Date(o.sendAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time>
-                <span className="ai-scheduled-what"><b>{firstTo(o.draft)}</b> · {o.draft.subject || '(no subject)'}</span>
+                <span className="ai-scheduled-what"><b>{whoFor(o.draft)}</b> · {o.draft.subject || '(no subject)'}</span>
                 <button className="btn ghost" onClick={() => void cancelSend(o.id, { reopen: false }).then(refreshAiDrafts)}>Cancel</button>
               </div>
             ))}
@@ -192,16 +218,33 @@ export function AiDrafts() {
 
         {list.length > 0 && (
           <>
-            <div className="ai-drafts-tools">
-              <div className="ai-drafts-search">
-                <Icon name="search" size={15} />
-                <input type="search" placeholder="Search AI Drafts" aria-label="Search AI Drafts" value={query} onChange={(e) => setQuery(e.target.value)} />
+            {/* Ticking a draft swaps the search bar for the selection bar, in the same space, so the list never moves. */}
+            {ticked.length > 0 ? (
+              <div className="ai-bulk" role="toolbar" aria-label="Selected drafts">
+                <span className="ai-bulk-count">{ticked.length} selected</span>
+                {ticked.length < shown.length && <button className="btn ghost" onClick={() => setPicked(new Set(shown.map((d) => d.id)))}>Select all</button>}
+                <span className="grow" />
+                <button className="btn" onClick={(e) => groupMenu((e.currentTarget as HTMLElement).getBoundingClientRect(), ticked)}><Icon name="tag" size={14} /> Change group</button>
+                <button className="btn" onClick={(e) => {
+                  const blocked = list.filter((d) => ticked.includes(d.id) && !canSend(d));
+                  if (blocked.length) { toast({ text: `${blocked.length === 1 ? 'One draft has' : `${blocked.length} drafts have`} nobody to send to yet. Untick ${blocked.length === 1 ? 'it' : 'them'} or add recipients first.`, ttl: 5000 }); return; }
+                  menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), laterItems(ticked));
+                }}><Icon name="clock" size={14} /> Send later</button>
+                <button className="btn ai-delete" onClick={() => void remove(ticked)}><Icon name="trash" size={14} /> Delete</button>
+                <button className="btn" onClick={clearTicks}>Done</button>
               </div>
-              <button className="btn ghost ai-sort" aria-label={`Sort: ${sortLabel}`} onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
-                { heading: 'Sort' },
-                ...SORTS.map((s) => ({ label: s.label, icon: 'list' as const, active: s.key === sort, onClick: () => setSort(s.key) })),
-              ], 'right')}>{sortLabel} <Icon name="chevronDown" size={12} /></button>
-            </div>
+            ) : (
+              <div className="ai-drafts-tools">
+                <div className="ai-drafts-search">
+                  <Icon name="search" size={15} />
+                  <input type="search" placeholder="Search AI Drafts" aria-label="Search AI Drafts" value={query} onChange={(e) => setQuery(e.target.value)} />
+                </div>
+                <button className="btn ghost ai-sort" aria-label={`Sort: ${sortLabel}`} onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
+                  { heading: 'Sort' },
+                  ...SORTS.map((s) => ({ label: s.label, icon: 'list' as const, active: s.key === sort, onClick: () => setSort(s.key) })),
+                ], 'right')}>{sortLabel} <Icon name="chevronDown" size={12} /></button>
+              </div>
+            )}
             <div className="ai-chips" role="toolbar" aria-label="Filter by group">
               {chip('all', 'All', counts.all)}
               {groups.map((g) => chip(g.id, g.name, counts.byGroup[g.id] || 0, g.id))}
@@ -209,23 +252,6 @@ export function AiDrafts() {
               <button className="ai-chip add" onClick={() => void newGroup()} title="Add a group"><Icon name="plus" size={13} /> New group</button>
             </div>
           </>
-        )}
-
-        {ticked.length > 0 && (
-          <div className="ai-bulk" role="toolbar" aria-label="Selected drafts">
-            <span className="ai-bulk-count">{ticked.length} selected</span>
-            {ticked.length < shown.length
-              ? <button className="btn ghost" onClick={() => setPicked(new Set(shown.map((d) => d.id)))}>Select all</button>
-              : <button className="btn ghost" onClick={clearTicks}>Clear</button>}
-            <span className="grow" />
-            <button className="btn" onClick={(e) => groupMenu((e.currentTarget as HTMLElement).getBoundingClientRect(), ticked)}><Icon name="tag" size={14} /> Change group</button>
-            <button className="btn" onClick={(e) => {
-              const blocked = list.filter((d) => ticked.includes(d.id) && !canSend(d));
-              if (blocked.length) { toast({ text: `${blocked.length === 1 ? 'One draft has' : `${blocked.length} drafts have`} nobody to send to yet. Untick ${blocked.length === 1 ? 'it' : 'them'} or add recipients first.`, ttl: 5000 }); return; }
-              menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), laterItems(ticked));
-            }}><Icon name="clock" size={14} /> Send later</button>
-            <button className="btn ai-delete" onClick={() => void remove(ticked)}><Icon name="trash" size={14} /> Delete</button>
-          </div>
         )}
 
         {list.length === 0 ? (
@@ -238,14 +264,15 @@ export function AiDrafts() {
             {query ? `No AI drafts match "${query}".` : 'No drafts in this group yet.'}
           </div>
         ) : (
-          <div className="card ai-list">
+          <div className="ai-cards">
             {shown.map((d) => {
               const acc = draftAccount(d, accounts);
               const g = groups.find((x) => x.id === d.group);
               const open = openId === d.id;
               const isNew = seenBefore > 0 && d.updatedAt > seenBefore;
               return (
-                <div key={d.id} className={`ai-draft-wrap ${open ? 'open' : ''} ${picked.has(d.id) ? 'picked' : ''}`}>
+                // One card per draft. The account's colour runs down its left edge.
+                <div key={d.id} className={`ai-draft-wrap ${open ? 'open' : ''} ${picked.has(d.id) ? 'picked' : ''}`} style={{ borderLeftColor: acc?.colour || 'var(--border)' }}>
                   <div
                     className="ai-draft-item"
                     ref={(el) => { if (el) rows.current.set(d.id, el); else rows.current.delete(d.id); }}
@@ -256,20 +283,20 @@ export function AiDrafts() {
                     onClick={() => setOpenId(open ? null : d.id)}
                     onKeyDown={(e) => onRowKey(e, d)}
                   >
-                    <span className="bar" style={{ background: acc?.colour || 'var(--border)' }} />
                     <input type="checkbox" className="ai-pick" aria-label={`Select ${d.subject || 'draft'}`} checked={picked.has(d.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggle(d.id)} />
-                    <button className={`ai-group-pill ${g ? '' : 'empty'}`} title={g ? `${g.name}: move to another group` : 'Add to a group'} onClick={(e) => { e.stopPropagation(); groupMenu((e.currentTarget as HTMLElement).getBoundingClientRect(), [d.id], d.group); }}>
-                      <span className="ai-pill-name">{g && <i className="ai-dot" style={{ background: groupColour(g) }} />}<span className="ai-pill-text">{g ? g.name : 'Add to group'}</span></span>
-                    </button>
-                    <div className="ai-line1">{isNew && <i className="ai-new-dot" title="New since you last looked" />}<b>{firstTo(d)}</b><span className="sep">·</span><span className="subj">{d.subject || '(no subject)'}</span></div>
+                    <div className="ai-who">{isNew && <i className="ai-new-dot" title="New since you last looked" />}<span>{whoFor(d)}</span></div>
                     <time>{open ? dayTime(d.updatedAt) : day(d.updatedAt)}</time>
-                    <div className="ai-line2">{preview(d.html) || '(empty)'}</div>
+                    <div className="ai-subj">{d.subject || '(no subject)'}</div>
                     <div className="ai-row-acts" onClick={(e) => e.stopPropagation()}>
                       <button className="icon-btn" aria-label="Send now" title="Send now (right-click to send later)" onClick={() => sendNow(d)}
                         onContextMenu={(e) => { e.preventDefault(); if (canSend(d)) menu.open({ x: e.clientX, y: e.clientY }, laterItems([d.id])); }}><Icon name="send" size={15} /></button>
-                      <button className="icon-btn" aria-label="Open in editor" title="Open in editor" onClick={() => void openDraft(d.id)}><Icon name="compose" size={15} /></button>
+                      <button className="icon-btn" aria-label="Open in editor" title="Open in editor" onClick={() => toEditor(d.id)}><Icon name="compose" size={15} /></button>
                       <button className="icon-btn ai-delete" aria-label="Delete draft" title="Delete draft" onClick={() => void remove([d.id])}><Icon name="trash" size={15} /></button>
                     </div>
+                    <div className="ai-prev">{preview(d.html) || '(empty)'}</div>
+                    <button className={`ai-tag ${g ? '' : 'empty'}`} title={g ? `${g.name}: move to another group` : 'Add to a group'} onClick={(e) => { e.stopPropagation(); groupMenu((e.currentTarget as HTMLElement).getBoundingClientRect(), [d.id], d.group); }}>
+                      {g ? <><i className="ai-dot" style={{ background: groupColour(g) }} /><span>{g.name}</span></> : <><Icon name="plus" size={11} /><span>Add to group</span></>}
+                    </button>
                   </div>
                   {open && <DraftDetail d={d} acc={acc} onDelete={() => void remove([d.id])} onDone={() => setOpenId(null)} laterMenu={(r, edits) => menu.open(r, laterItems([d.id], edits))} />}
                 </div>
@@ -346,7 +373,7 @@ function DraftDetail({ d, acc, onDelete, onDone, laterMenu }: {
           <button className="btn primary" disabled={busy || noOne} title={noOne ? 'Add who it goes to in the editor first' : 'Send now'} onClick={() => void send()}><Icon name="send" size={14} /> Send</button>
           <button className="btn primary" disabled={busy || noOne} aria-label="Send later" title="Send later" onClick={(e) => laterMenu((e.currentTarget as HTMLElement).getBoundingClientRect(), edits)}><Icon name="chevronDown" size={12} /></button>
         </div>
-        <button className="btn" onClick={() => void openDraft(d.id)}>Open in editor</button>
+        <button className="btn" onClick={() => { onDone(); void openDraft(d.id); }}>Open in editor</button>
         {simple && changed && <button className="btn" disabled={busy} onClick={() => void save()}>Save changes</button>}
         <span className="grow" />
         <button className="btn ghost ai-delete" onClick={onDelete}><Icon name="trash" size={14} /> Delete draft</button>

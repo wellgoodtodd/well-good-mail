@@ -1132,27 +1132,33 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .ai-drafts-tools { display: flex; gap: 8px; align-items: center; margin: 4px 0 10px; }
 .ai-drafts-tools .ai-drafts-search { flex: 1; margin: 0; }
 .ai-sort { height: 34px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.ai-list .ai-draft-item { display: grid; grid-template-columns: 4px 16px 96px minmax(0, 1fr) auto; grid-template-areas: "bar pick pill l1 date" "bar pick pill l2 acts"; column-gap: 12px; row-gap: 2px; align-items: center; padding: 9px 12px 9px 10px; }
-.ai-list .ai-draft-item .bar { grid-area: bar; align-self: stretch; width: 4px; }
-.ai-list .ai-draft-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Each draft is its own card: who and date / subject and actions / preview and group, with room between cards. */
+.ai-cards { display: grid; gap: 8px; }
+.ai-cards .ai-draft-wrap { border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px; background: var(--bg-elev, var(--bg)); overflow: hidden; }
+.ai-cards .ai-draft-wrap:first-child { border-top: 1px solid var(--border); }
+.ai-cards .ai-draft-wrap.open { background: var(--bg-elev, var(--bg)); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12); }
+.ai-cards .ai-draft-wrap.picked { background: var(--bg-selected); }
+.ai-cards .ai-draft-item { display: grid; grid-template-columns: 16px minmax(0, 1fr) 150px; grid-template-areas: "pick who date" "pick subj acts" "pick prev tag"; column-gap: 12px; row-gap: 3px; align-items: center; padding: 12px 14px 12px 12px; border-top: 0; }
+.ai-cards .ai-draft-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
 .ai-pick { grid-area: pick; margin: 0; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
-.ai-list .ai-group-pill { grid-area: pill; width: 96px; }
-.ai-pill-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.ai-line1 { grid-area: l1; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; }
-.ai-line1 b { flex: none; max-width: 45%; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-.ai-line1 .sep { color: var(--text-muted); flex: none; }
-.ai-line1 .subj { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ai-who { grid-area: who; display: flex; align-items: center; gap: 6px; min-width: 0; font-weight: 600; font-size: 1.02em; }
+.ai-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-subj { grid-area: subj; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ai-prev { grid-area: prev; color: var(--text-muted); font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .ai-new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
-.ai-list .ai-draft-item > time { grid-area: date; justify-self: end; color: var(--text-muted); font-size: 0.85em; white-space: nowrap; }
-.ai-line2 { grid-area: l2; color: var(--text-muted); font-size: 0.9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.ai-row-acts { grid-area: acts; display: flex; justify-content: flex-end; gap: 2px; }
-.ai-row-acts .icon-btn { width: 26px; height: 22px; }
+.ai-cards .ai-draft-item > time { grid-area: date; justify-self: end; color: var(--text-muted); font-size: 0.85em; white-space: nowrap; }
+.ai-row-acts { grid-area: acts; display: flex; justify-content: flex-end; gap: 4px; }
+.ai-row-acts .icon-btn { width: 26px; height: 24px; }
+.ai-tag { grid-area: tag; justify-self: end; display: inline-flex; align-items: center; gap: 6px; max-width: 150px; height: 22px; padding: 0 4px; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.85em; cursor: pointer; }
+.ai-tag span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-tag:hover { background: var(--bg-hover); color: var(--text); }
+.ai-tag.empty { opacity: 0.75; }
 .ai-delete, .btn.ai-delete, .ai-row-acts .icon-btn.ai-delete { color: #e0673f; }
-.ai-draft-wrap.picked { background: var(--bg-selected); }
-/* The folded-open draft lines up with the who-and-subject column above it. */
-.ai-list .ai-draft-detail { padding: 2px 12px 14px 162px; }
+/* The folded-open draft lines up with the text column above it. */
+.ai-cards .ai-draft-detail { padding: 4px 14px 14px 40px; border-top: 1px solid var(--border); padding-top: 12px; }
 .ai-quick-actions .btn-group { display: inline-flex; }
-.ai-bulk { display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin-bottom: 10px; border: 1px solid var(--accent); border-radius: 8px; background: var(--bg-selected); }
+.ai-bulk { display: flex; align-items: center; gap: 8px; height: 34px; box-sizing: border-box; padding: 0 6px 0 12px; margin: 4px 0 10px; border: 1px solid var(--accent); border-radius: 8px; background: var(--bg-selected); }
+.ai-bulk .btn { height: 26px; }
 .ai-bulk .grow { flex: 1; }
 .ai-bulk .btn { display: inline-flex; align-items: center; gap: 6px; }
 .ai-bulk-count { font-weight: 600; }
@@ -1163,8 +1169,7 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .ai-scheduled-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-keys { color: var(--text-muted); font-size: 12px; margin: 8px 2px 0; }
 @media (max-width: 720px) {
-  .ai-list .ai-draft-item { grid-template-columns: 4px 16px minmax(0, 1fr) auto; grid-template-areas: "bar pick l1 date" "bar pick l2 acts" "bar pick pill ."; }
-  .ai-list .ai-draft-detail { padding-left: 42px; }
+  .ai-cards .ai-draft-item { grid-template-columns: 16px minmax(0, 1fr) 110px; }
 }
 
 /* AI Connection, Drafting: sign-off and draft groups */

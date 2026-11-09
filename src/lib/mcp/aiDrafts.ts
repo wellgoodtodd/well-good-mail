@@ -7,6 +7,7 @@ import type { Draft } from '../types';
 import { useMail, providerFor, queueSend, loadBody } from '../mail';
 import { draftToOutgoing, createDraft } from '../compose';
 import { composeContext } from '../composeActions';
+import { record } from '../history';
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 /** Plain text from the AI or a quick edit, as email paragraphs. */
@@ -236,9 +237,14 @@ export function groupCounts(list: Draft[], groups: DraftGroup[]): { all: number;
 }
 
 /** Moves a draft into a group (or out of all groups). On Gmail the draft is saved again so its labels follow. */
-export async function setDraftGroup(id: string, group: string | undefined) {
+export async function setDraftGroup(id: string, group: string | undefined, opts: { silent?: boolean } = {}) {
   const d = await store.getDraft(id);
   if (!d) return;
+  if (!opts.silent && d.group !== group) {
+    const was = d.group;
+    const name = (settings().draftGroups || []).find((g) => g.id === group)?.name || 'No Group';
+    record(`Move draft to ${name}`, () => setDraftGroup(id, was, { silent: true }), () => setDraftGroup(id, group, { silent: true }));
+  }
   const next = { ...d, group };
   await store.putDraft(next);
   await refreshAiDrafts();
@@ -284,13 +290,21 @@ export function moveGroup(id: string, by: -1 | 1) {
   saveGroups(list);
 }
 
-/** Removes a group. Its drafts stay, in no group. */
+/** Removes a group. Its drafts stay, in no group. Undo puts the group and its drafts back. */
 export async function deleteGroup(id: string) {
-  saveGroups(groups().filter((g) => g.id !== id));
-  for (const d of aiDraftsNow().filter((x) => x.group === id)) {
-    const full = await store.getDraft(d.id);
+  const before = groups();
+  const members = aiDraftsNow().filter((x) => x.group === id).map((d) => d.id);
+  useSettings.getState().set({ draftGroups: before.filter((g) => g.id !== id) }, { quiet: true });
+  for (const did of members) {
+    const full = await store.getDraft(did);
     if (full) await store.putDraft({ ...full, group: undefined });
   }
+  const gone = before.find((g) => g.id === id);
+  record(`Delete group ${gone?.name || ''}`.trim(), async () => {
+    useSettings.getState().set({ draftGroups: before }, { quiet: true });
+    for (const did of members) { const full = await store.getDraft(did); if (full) await store.putDraft({ ...full, group: id }); }
+    await refreshAiDrafts();
+  }, () => deleteGroup(id));
   if (useAiDrafts.getState().filter === id) setDraftFilter('all');
   await refreshAiDrafts();
 }

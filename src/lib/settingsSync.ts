@@ -58,7 +58,7 @@ export async function pullSettings(): Promise<void> {
     applying = true;
     const patch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(remote)) if (!PER_DEVICE.has(k) && k in useSettings.getState()) patch[k] = v;
-    useSettings.getState().set(patch);
+    useSettings.getState().set(patch, { quiet: true });
     setStamp(f.modifiedTime);
   } catch (e) {
     console.warn('Settings sync (pull) failed', e);

@@ -6,7 +6,7 @@ import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
 import { PALETTES, paletteById } from '../lib/palettes';
-import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync } from '../lib/mail';
+import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount } from '../lib/mail';
 import { useSettings, type Settings as S } from '../lib/settings';
 import { allAliases } from '../lib/compose';
 import type { Account } from '../lib/types';
@@ -205,7 +205,7 @@ function AccountsTab() {
           <div className="acct-row" key={a.id}>
             {/* Two lines on one grid: who the account is on top, its settings underneath, each lined up with the rows above and below. */}
             <button className="icon-btn acct-dot" aria-label={`Colour for ${a.email}`} title="Change colour" onClick={(e) => setPicker({ accountId: a.id, anchor: { x: e.clientX, y: e.clientY + 12 } })}><span className="dot" style={{ background: a.colour, width: 16, height: 16 }} /></button>
-            <input className="label-input acct-name" value={a.label} aria-label={`Name for ${a.email}`} onChange={(e) => updateAccount(a.id, { label: e.target.value })} />
+            <input className="label-input acct-name" value={a.label} aria-label={`Name for ${a.email}`} onChange={(e) => editAccount(a.id, { label: e.target.value }, 'name')} />
             <div className="acct-info">
               <div>{a.email}</div>
               <div className="acct-status">
@@ -285,7 +285,7 @@ function AccountsTab() {
         </section>
       )}
       {addMenu.node}
-      {picker && <ColourPicker anchor={picker.anchor} value={accounts.find((x) => x.id === picker.accountId)?.colour || '#888888'} onPick={(c) => updateAccount(picker.accountId, { colour: c })} onClose={() => setPicker(null)} />}
+      {picker && <ColourPicker anchor={picker.anchor} value={accounts.find((x) => x.id === picker.accountId)?.colour || '#888888'} onPick={(c) => editAccount(picker.accountId, { colour: c }, 'colour')} onClose={() => setPicker(null)} />}
       {confirm && (
         <Dialog title="Remove account?" onClose={() => setConfirm(null)} actions={<>
           <button className="btn" onClick={() => setConfirm(null)}>Cancel</button>
@@ -749,7 +749,7 @@ function NotificationsTab() {
         <h2>Per account</h2>
         {accounts.map((a) => (
           <Row key={a.id} label={a.label}>
-            <select aria-label={`Alerts for ${a.email}`} value={a.notify} onChange={(e) => updateAccount(a.id, { notify: e.target.value as typeof a.notify })}>
+            <select aria-label={`Alerts for ${a.email}`} value={a.notify} onChange={(e) => editAccount(a.id, { notify: e.target.value as typeof a.notify }, 'alerts')}>
               <option value="all">Follow the setting above</option>
               <option value="important">Important senders only</option>
               <option value="off">Never</option>
