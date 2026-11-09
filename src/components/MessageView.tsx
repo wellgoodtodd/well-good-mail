@@ -1,6 +1,7 @@
 // One email inside the reading pane: sender, image banner, body, attachments.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
+import { Person } from './Person';
 import { EmailFrame } from './EmailFrame';
 import { InviteCard } from './InviteCard';
 import { AttachmentPeek, AttachmentPreview, previewKind } from './AttachmentPreview';
@@ -174,12 +175,12 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
         <span className="avatar" style={{ background: avatarColour(sender) }}>{initials(name)}</span>
         <div className="msg-who" onClick={onToggle} title="Click to fold this message away">
           <div className="name">
-            {message.isDraft && <span className="draft-tag">Draft</span>}{name} <span className="addr">&lt;{message.from.email}&gt;</span>
+            {message.isDraft && <span className="draft-tag">Draft</span>}<Person a={message.from}>{name} <span className="addr">&lt;{message.from.email}&gt;</span></Person>
             {vips.includes(sender) && <span title="Important sender" style={{ color: '#f0a020', marginLeft: 6 }}><Icon name="star" size={12} /></span>}
           </div>
           <div className="to">
-            To: {message.to.map((a) => a.name || a.email).join(', ') || '(undisclosed)'}
-            {message.cc.length > 0 && <> · Cc: {message.cc.map((a) => a.name || a.email).join(', ')}</>}
+            To: {message.to.length ? message.to.map((a, i) => <span key={a.email + i}>{i > 0 && ', '}<Person a={a} /></span>) : '(undisclosed)'}
+            {message.cc.length > 0 && <> · Cc: {message.cc.map((a, i) => <span key={a.email + i}>{i > 0 && ', '}<Person a={a} /></span>)}</>}
           </div>
         </div>
         <div className="msg-date">

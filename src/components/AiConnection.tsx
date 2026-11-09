@@ -78,6 +78,7 @@ const GROUPS: { id: string; label: string }[] = [
 /** Switches for what the AI can actually do so far. */
 const readyCaps = () => CAPABILITIES.filter((c) => TOOLS.some((t) => READY.has(t.name) && t.capability === c.id));
 
+const MODE_WORDS: Record<Mode, string> = { off: 'off', ask: 'asks', allow: 'allowed' };
 const modeOptions = (max: Mode) => [{ value: 'off' as Mode, label: 'Off' }, { value: 'ask' as Mode, label: 'Ask' }, { value: 'allow' as Mode, label: 'Allow', disabled: max !== 'allow' }];
 
 /** The pop-up that walks you through connecting one AI app, ticking itself as each step happens. */
@@ -344,7 +345,13 @@ export function AiConnectionTab() {
           <div key={g.id} className="ai-group">{g.label}</div>,
           ...caps.filter((c) => c.group === g.id).map((c) => (
           <div key={c.id} className="ai-row">
-            <div className="grow"><span>{c.label}</span><small>{c.description}</small></div>
+            <div className="grow"><span>{c.label}</span><small>{c.description}</small>
+              {(() => {
+                // Say so when an account follows its own setting, so this switch never looks like it is being ignored.
+                const own = ordered.filter((a) => (mcp.accounts[a.id] ?? 'off') !== 'off' && mcp.overrides[a.id]?.[c.id] !== undefined && mcp.overrides[a.id][c.id] !== mcp.modes[c.id]);
+                return own.length ? <small className="ai-differs">Except {own.map((a) => `${a.label || a.email} (${MODE_WORDS[mcp.overrides[a.id][c.id]]})`).join(', ')}, set under Accounts</small> : null;
+              })()}
+            </div>
             <Segmented<Mode> label={c.label} value={mcp.modes[c.id]} onChange={(v) => save({ modes: { ...mcp.modes, [c.id]: v } })} options={modeOptions(c.max)} />
           </div>
         ))])}

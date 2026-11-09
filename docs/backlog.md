@@ -4,8 +4,20 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 ## For the next 0.7 beta
 
-- **Settings, Updates is getting busy** (noted 8 Nov 2026). Split it in two: "Updates" (version, status, Check now, test version card, download in the background, tell me about test versions) and "Startup and window" (start with Windows, the close button quits, and anything else about how the app runs). The last two are not about updates.
-- **AI connection, writing.** Drafts (never sent), the approval card, then tidying. See `docs/mcp-and-agents.md`.
+- **AI draft groups on other devices** (noted 9 Nov 2026). Groups and the "written by AI" mark live on this PC only. Mirror them as Gmail labels (like "AI drafts/Clients"), which never travel with a sent email. A hidden header was ruled out: it would go out with the email when sent.
+- **Test Edit first** on the approval card (not tried yet in beta 5).
+- **Always allow note when an update resets a switch** to Ask: say so once, rather than quietly.
+
+## Before 1.0
+
+- **Smart Mailboxes (saved searches)**, agreed earlier as a pre-1.0 item, not started. Apple Mail style: a saved set of rules (from, to, words, account, unread, flagged, has attachments, date, drafted by AI) shown in the sidebar. AI draft groups could become Smart Mailboxes.
+- **Add to contacts** from the person card, once contacts can be written.
+- **Settings, Updates is getting busy** (noted 8 Nov 2026). Split Updates from Startup and window.
+- **AI connection, tidying.** Mark read, archive, snooze, reminders, bin, then invitations and send (always ask). See `docs/mcp-and-agents.md`.
+
+## Done in 0.7 beta 6
+
+AI draft groups in the sidebar and on the AI drafts screen (search, chips, move, new, rename, delete), the sparkle status line (click for settings, right-click to pause), question cards that wait while you type and ignore stray clicks, the Always allow note, the draft tool always listed with a clear refusal for Read only accounts, no AI sign-offs, sidebar folder names for the AI, the person card and right-click menu, Cc and Bcc toggles, Keep mail from per account, range changes that restart the sync (it used to be ignored while a sync ran), big syncs easing off while you use the app, and the dash on partly-on calendar switches.
 
 ## Later
 

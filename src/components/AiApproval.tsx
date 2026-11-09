@@ -28,7 +28,39 @@ export function AiApprovalCard() {
     );
   }
   if (!asks.length) return null;
+  return <AskCard asks={asks} />;
+}
+
+const HINT_KEY = 'wgm-ai-remember-hint';
+const typingNow = () => {
+  const el = document.activeElement as HTMLElement | null;
+  return Boolean(el && (el.isContentEditable || el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes((el as HTMLInputElement).type))));
+};
+
+function AskCard({ asks }: { asks: ReturnType<typeof useApprovals.getState>['asks'] }) {
+  // Typing when it arrives: wait as a small notice, so no key or click meant for the draft answers it.
+  const [held, setHeld] = useState(typingNow);
+  // A short pause before the buttons work, so a click that was already on its way can't answer it.
+  const [armed, setArmed] = useState(false);
+  const [hint, setHint] = useState(() => { try { return localStorage.getItem(HINT_KEY) !== '1'; } catch { return true; } });
+  const first = asks[0].key;
+  useEffect(() => {
+    if (held) return;
+    setArmed(false);
+    const t = setTimeout(() => setArmed(true), 700);
+    return () => clearTimeout(t);
+  }, [first, held]);
   const app = asks.every((a) => a.app === asks[0].app) ? asks[0].app : 'Your AI apps';
+  if (held) {
+    return (
+      <button className="ai-held" onClick={() => setHeld(false)}>
+        <Icon name="sparkle" size={16} /><span><b>{app} is asking</b><small>Show when you're ready</small></span>
+      </button>
+    );
+  }
+  // Clicks in the first moment are ignored, without greying the buttons.
+  const go = (k: Parameters<typeof answerAll>[0]) => () => { if (armed) answerAll(k); };
+  const later = () => { try { localStorage.setItem(HINT_KEY, '1'); } catch { /* fine */ } setHint(false); };
   const canRemember = asks.every((a) => a.canRemember);
   const nothingTicked = asks.every((a) => a.accounts.length > 0 && a.ticked.length === 0);
   const allDrafts = asks.every((a) => a.draft);
@@ -47,6 +79,7 @@ export function AiApprovalCard() {
                   <div className="ai-draft-row"><b>To</b><span>{a.draft.to.join(', ') || '(nobody yet)'}</span></div>
                   {a.draft.cc.length > 0 && <div className="ai-draft-row"><b>Cc</b><span>{a.draft.cc.join(', ')}</span></div>}
                   <div className="ai-draft-row"><b>Subject</b><span>{a.draft.subject}</span></div>
+                  {a.draft.group && <div className="ai-draft-row"><b>Group</b><span>{a.draft.group}</span></div>}
                   {a.draft.replyTo && <div className="ai-draft-row"><b>Replies to</b><span>{a.draft.replyTo}</span></div>}
                   <div className="ai-draft-body">{a.draft.text}</div>
                   <div className="ai-draft-note">Your signature for this account is added. It is saved as a draft and never sent: you send it yourself.</div>
@@ -63,13 +96,19 @@ export function AiApprovalCard() {
           ))}
         </ul>
         {!canRemember && <p className="ai-card-sub">This reaches other people, so it always asks.</p>}
+        {canRemember && hint && (
+          <p className="ai-card-hint">
+            Always allow stops it asking about this. You can change it back any time in Settings, AI connection.
+            <button className="link-btn" onClick={later}>Got it, don't show again</button>
+          </p>
+        )}
         <div className="ai-card-actions">
-          <button className="btn" onClick={() => answerAll('refuse')}>Refuse</button>
+          <button className="btn" onClick={go('refuse')}>Refuse</button>
           <span className="grow" />
-          {oneDraft && <button className="btn" onClick={() => answerAll('edit')} title="Save it and open it in Well Good Mail to change">Edit first</button>}
-          {canRemember && <button className="btn" disabled={nothingTicked} onClick={() => answerAll('always')} title="Stop asking about this. Change it back in Settings, AI connection.">Always allow</button>}
-          {canRemember && <button className="btn" disabled={nothingTicked} onClick={() => answerAll('hour')}>Allow for 1 hour</button>}
-          <button className="btn primary" disabled={nothingTicked} onClick={() => answerAll('once')}>{allDrafts ? (asks.length > 1 ? 'Save drafts' : 'Save draft') : 'Allow once'}</button>
+          {oneDraft && <button className="btn" onClick={go('edit')} title="Save it and open it in Well Good Mail to change">Edit first</button>}
+          {canRemember && <button className="btn" disabled={nothingTicked} onClick={go('always')} title="Stop asking about this. Change it back in Settings, AI connection.">Always allow</button>}
+          {canRemember && <button className="btn" disabled={nothingTicked} onClick={go('hour')}>Allow for 1 hour</button>}
+          <button className="btn primary" disabled={nothingTicked} onClick={go('once')}>{allDrafts ? (asks.length > 1 ? 'Save drafts' : 'Save draft') : 'Allow once'}</button>
         </div>
       </div>
     </div>
@@ -79,9 +118,14 @@ export function AiApprovalCard() {
 /** The small sign in the top bar while the AI connection is on: lit when an app is connected, dimmed when paused. */
 export function AiStatusButton() {
   const enabled = useSettings((s) => s.mcp?.enabled);
-  const { connected, paused, client, entries } = useActivity();
+  const { connected, paused, client, entries, lastHello, lastCall } = useActivity();
+  const { asks, resume } = useApprovals();
   const menu = useMenu();
   const [pulse, setPulse] = useState(false);
+  // "Used 3 min ago" moves on by itself.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
+  useEffect(() => setNow(Date.now()), [lastCall, connected, paused]);
   const last = useRef(entries[0]?.at);
   // A short glow when the AI does something.
   useEffect(() => {
@@ -93,22 +137,42 @@ export function AiStatusButton() {
     }
   }, [entries]);
   if (!enabled) return null;
-  const label = paused ? 'AI connection paused' : connected ? `AI connected${client ? `: ${client}` : ''}` : 'AI connection on, nothing connected';
+  const { text, tone } = aiStatus({ connected, paused, client, lastHello, lastCall, waiting: asks.length > 0 || Boolean(resume) }, now);
+  const quick = (r: DOMRect) => menu.open(r, [
+    { heading: text },
+    paused ? { label: 'Resume', icon: 'check', onClick: () => resumeMcp() } : { label: 'Pause', icon: 'clock', onClick: () => pauseMcp() },
+    { label: 'AI connection settings', icon: 'settings', onClick: () => openScreen('settings', 'ai') },
+  ], 'right');
   return (
     <>
+      {/* Click: settings. Right-click: the quick menu with Pause or Resume. Hover: one line saying where things stand. */}
       <button
-        className={`icon-btn ai-status-btn ${connected && !paused ? 'on' : ''} ${paused ? 'paused' : ''} ${pulse ? 'pulse' : ''}`}
-        title={label}
-        aria-label={label}
-        onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
-          { heading: label },
-          paused ? { label: 'Resume', icon: 'check', onClick: () => resumeMcp() } : { label: 'Pause', icon: 'clock', onClick: () => pauseMcp() },
-          { label: 'AI connection settings', icon: 'settings', onClick: () => openScreen('settings', 'ai') },
-        ], 'right')}
+        className={`icon-btn ai-status-btn tone-${tone} ${pulse ? 'pulse' : ''}`}
+        aria-label={`${text}. Click for AI connection settings, right-click to pause or resume.`}
+        onClick={() => openScreen('settings', 'ai')}
+        onContextMenu={(e) => { e.preventDefault(); quick((e.currentTarget as HTMLElement).getBoundingClientRect()); }}
       >
         <Icon name="sparkle" />
+        <span className="ai-tip" role="tooltip"><i className={`ai-tip-dot tone-${tone}`} />{text}</span>
       </button>
       {menu.node}
     </>
   );
+}
+
+type Tone = 'off' | 'live' | 'quiet' | 'attention';
+const ago = (ms: number) => {
+  const m = Math.round(ms / 60000);
+  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+};
+
+/** One line for the top bar, and a colour: grey not connected, green in use, soft when quiet, amber when it needs you. */
+export function aiStatus(s: { connected: number; paused?: boolean; client?: string; lastHello?: number; lastCall?: number; waiting: boolean }, now: number): { text: string; tone: Tone } {
+  if (s.waiting) return { text: 'Waiting for your answer', tone: 'attention' };
+  if (s.paused) return { text: 'Paused. Right-click to resume', tone: 'attention' };
+  if (!s.lastHello) return { text: 'On, but no AI app is set up yet', tone: 'off' };
+  if (!s.connected) return { text: 'On. No AI app is connected right now', tone: 'off' };
+  const who = s.client || 'an AI app';
+  if (s.lastCall && now - s.lastCall < 5 * 60000) return { text: `Connected: ${who}, used ${ago(now - s.lastCall)}`, tone: 'live' };
+  return { text: `Connected: ${who}, quiet${s.lastCall ? ` since ${ago(now - s.lastCall)}` : ''}`, tone: 'quiet' };
 }

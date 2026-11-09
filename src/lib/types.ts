@@ -247,6 +247,8 @@ export interface Draft {
   serverDraftMessageId?: string;
   /** Written by an AI app (its plain name), so it shows under AI drafts. */
   byAi?: string;
+  /** Which AI drafts group it is in (a group id from settings), if any. */
+  group?: string;
 }
 
 export interface OutboxItem {

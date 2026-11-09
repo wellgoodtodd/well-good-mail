@@ -3,6 +3,8 @@ import { useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { parseAddressList } from '../lib/mime';
 import type { Address } from '../lib/types';
+import { useMenu } from './ui';
+import { PersonCard, personItems } from './Person';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,6 +19,8 @@ export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFo
   const [text, setText] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const menu = useMenu();
+  const [card, setCard] = useState<{ a: Address; at: DOMRect } | null>(null);
   const id = `rcpt-${label.toLowerCase()}`;
 
   const suggestions = useMemo(() => {
@@ -41,11 +45,15 @@ export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFo
       <label htmlFor={id}>{label}</label>
       <div className="chips" onClick={() => inputRef.current?.focus()}>
         {value.map((a) => (
-          <span key={a.email} className={`chip ${EMAIL_RE.test(a.email) ? '' : 'invalid'}`} title={a.email}>
+          <span key={a.email} className={`chip ${EMAIL_RE.test(a.email) ? '' : 'invalid'}`} title={EMAIL_RE.test(a.email) ? a.email : `${a.email} doesn't look like an email address`}
+            onClick={(e) => { e.stopPropagation(); setCard({ a, at: (e.currentTarget as HTMLElement).getBoundingClientRect() }); }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); menu.open({ x: e.clientX, y: e.clientY }, personItems(a, [{ label: 'Remove', icon: 'close', onClick: () => onRemove(a.email) }])); }}>
             {a.name || a.email}
             <button aria-label={`Remove ${a.email}`} onClick={(e) => { e.stopPropagation(); onRemove(a.email); }}><Icon name="close" size={12} /></button>
           </span>
         ))}
+        {card && <PersonCard a={card.a} anchor={card.at} onClose={() => setCard(null)} />}
+        {menu.node}
         <input
           id={id}
           ref={inputRef}

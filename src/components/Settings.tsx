@@ -6,9 +6,10 @@ import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
 import { PALETTES, paletteById } from '../lib/palettes';
-import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast } from '../lib/mail';
+import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync } from '../lib/mail';
 import { useSettings, type Settings as S } from '../lib/settings';
 import { allAliases } from '../lib/compose';
+import type { Account } from '../lib/types';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
 import { SKINS, type Skin } from '../lib/skins';
 import { openGuide } from './SetupGuide';
@@ -144,6 +145,24 @@ function wantsSignIn(a: { status: string; error?: string }): boolean {
   return a.status === 'needs-signin' || (a.status === 'error' && /sign in|unauthori[sz]ed|invalid_grant|invalid_client/i.test(a.error || ''));
 }
 
+const RANGE_OPTS: { v: number | null; l: string }[] = [{ v: 90, l: '3 months' }, { v: 365, l: '1 year' }, { v: 1095, l: '3 years' }, { v: null, l: 'Everything' }];
+
+/** How far back an account keeps mail on this PC. The same choice shows in Accounts and in Search & storage. */
+function KeepMail({ a, compact }: { a: Account; compact?: boolean }) {
+  const change = (v: number | null) => {
+    const smaller = v !== null && (a.retentionDays === null || v < a.retentionDays);
+    updateAccount(a.id, { retentionDays: v, syncCursor: undefined });
+    toast({ text: smaller ? `${a.label} now keeps ${RANGE_OPTS.find((o) => o.v === v)?.l}. Older mail already on this PC stays, and nothing older is fetched.` : `${a.label} is fetching mail for the new range.`, ttl: 8000 });
+    restartSync(a.id);
+  };
+  const select = (
+    <select aria-label={`How much mail to keep for ${a.email}`} value={String(a.retentionDays)} onChange={(e) => change(e.target.value === 'null' ? null : Number(e.target.value))}>
+      {RANGE_OPTS.map((o) => <option key={String(o.v)} value={String(o.v)}>{o.l}</option>)}
+    </select>
+  );
+  return compact ? <label className="keep-mail">Keep mail from {select}</label> : select;
+}
+
 function AccountsTab() {
   const accounts = useMail((s) => s.accounts);
   const demo = useSettings((s) => s.demoMode);
@@ -199,11 +218,12 @@ function AccountsTab() {
                   <input type="checkbox" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /> Show in All Inboxes
                 </label>
               )}
+              {a.kind !== 'demo' && <KeepMail a={a} compact />}
             </div>
             <button className="icon-btn" aria-label="Move up" disabled={i === 0} onClick={() => move(a.id, -1)}><Icon name="chevronDown" className="rot180" /></button>
             <button className="icon-btn" aria-label="Move down" disabled={i === sorted.length - 1} onClick={() => move(a.id, 1)}><Icon name="chevronDown" /></button>
             {wantsSignIn(a) && <button className="btn primary" onClick={() => reconnectAccount(a.id)}>Sign in</button>}
-            <button className="btn ghost" onClick={() => syncAccount(a.id, { full: true })}>Resync</button>
+            <button className="btn ghost" onClick={() => restartSync(a.id)}>Resync</button>
             <button className="btn ghost danger" onClick={() => setConfirm(a.id)}>Remove</button>
           </div>
         ))}
@@ -785,7 +805,7 @@ function OfflineTab() {
   const s = useSettings();
   const accounts = useMail((st) => st.accounts);
   const count = useMail((st) => Object.keys(st.messages).length);
-  const opts: { v: number | null; l: string }[] = [{ v: 90, l: '3 months' }, { v: 365, l: '1 year' }, { v: 1095, l: '3 years' }, { v: null, l: 'Everything' }];
+  const opts = RANGE_OPTS;
   return (
     <>
       <h1>Search &amp; storage</h1>
@@ -820,9 +840,7 @@ function OfflineTab() {
         <p className="hint">Mail in this window is stored on your PC for instant search and offline reading. Recent mail (about 6 weeks) is stored in full; older mail downloads when you open it. Searches also check Google's servers for anything older. {count.toLocaleString('en-GB')} emails stored now.</p>
         {accounts.map((a) => (
           <Row key={a.id} label={a.label}>
-            <select aria-label={`How much mail to keep for ${a.email}`} value={String(a.retentionDays)} onChange={(e) => { updateAccount(a.id, { retentionDays: e.target.value === 'null' ? null : Number(e.target.value), syncCursor: undefined }); toast({ text: `${a.label} will resync with the new range` }); setTimeout(() => syncAccount(a.id, { full: true }), 300); }}>
-              {opts.map((o) => <option key={String(o.v)} value={String(o.v)}>{o.l}</option>)}
-            </select>
+            <KeepMail a={a} />
           </Row>
         ))}
         <Row label="New accounts keep" htmlFor="defret">

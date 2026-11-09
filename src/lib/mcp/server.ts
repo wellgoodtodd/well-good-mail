@@ -29,15 +29,26 @@ const apps = new Map<number, string>();
 const grants = new Map<string, number>();
 let lastRequestAt = Date.now();
 
-/** Brings Well Good Mail forward and says so in a Windows notification, because the person needs to answer. */
+/**
+ * Tells the person there is a question, with a Windows notification. If they are already using a Well Good Mail
+ * window (perhaps typing a draft), nothing is moved in front of them: the taskbar flashes and the card waits.
+ * Only when they are in another app is the main window brought forward.
+ */
 async function callPerson(title: string, body: string) {
   if (!isTauri()) return;
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-    const w = getCurrentWindow();
-    await w.unminimize();
-    await w.show();
-    await w.setFocus();
+    const { getCurrentWindow, UserAttentionType } = await import('@tauri-apps/api/window');
+    const { getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
+    const me = getCurrentWindow();
+    const all = await getAllWebviewWindows();
+    const usingUs = (await Promise.all(all.map((w) => w.isFocused().catch(() => false)))).some(Boolean);
+    if (usingUs) {
+      if (!(await me.isFocused())) await me.requestUserAttention(UserAttentionType.Informational);
+    } else {
+      await me.unminimize();
+      await me.show();
+      await me.setFocus();
+    }
   } catch { /* the card still shows inside the app */ }
   void notify(title, body);
 }
@@ -56,7 +67,7 @@ async function askPerson(app: string, req: AskRequest) {
     const overrides = { ...mcp.overrides };
     for (const id of allowed) if (overrides[id]?.[req.capability]) overrides[id] = { ...overrides[id], [req.capability]: 'allow' as Mode };
     useSettings.getState().set({ mcp: tidy({ ...mcp, modes: { ...mcp.modes, [req.capability]: 'allow' }, overrides }) });
-    toast({ text: 'Done. It won\'t ask about that again. Change it in Settings, AI connection.', ttl: 6000 });
+    toast({ text: 'Done. It won\'t ask about that again. You can change it back any time in Settings, AI connection.', ttl: 12000, action: { label: 'Open settings', run: () => openScreen('settings', 'ai') } });
   }
   return { allowed, edit };
 }
@@ -83,6 +94,7 @@ async function makeDraft(app: string, input: import('./handlers').DraftInput): P
     ...(input.subject ? { subject: input.subject } : {}),
     html: toHtml(input.text),
     byAi: app,
+    ...(input.group ? { group: input.group } : earlier?.group ? { group: earlier.group } : {}),
     updatedAt: Date.now(),
   });
   if (!draft.fromEmail) draft = { ...draft, fromEmail };
@@ -159,6 +171,7 @@ async function answer(rid: number, conn: number, body: string) {
     settings: tidy(settings().mcp),
     accounts: mail.accounts,
     folders: mail.folders,
+    draftGroups: settings().draftGroups || [],
     messages: mail.messages,
     events: mail.events,
     followups: mail.followups,

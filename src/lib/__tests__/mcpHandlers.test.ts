@@ -15,6 +15,7 @@ function world(settings: Partial<McpSettings>, ask: boolean | string[] = true) {
     settings: { ...defaultMcp(), enabled: true, ...settings },
     accounts: [acc('a', 'a@x.com', 0), acc('b', 'b@x.com', 1)],
     folders: {},
+    draftGroups: [{ id: 'clients', name: 'Clients' }, { id: 'personal', name: 'Personal' }],
     messages,
     events: [],
     followups: [],
@@ -41,7 +42,7 @@ describe('the AI connection answering requests', () => {
     expect(text(init)).toContain('well-good-mail');
     const names = visibleTools(w.settings).map((t) => t.name);
     expect(names).toContain('search_mail');
-    expect(names).not.toContain('create_draft');
+    expect(names).toContain('create_draft');
     expect(names).not.toContain('send_email');
   });
 
@@ -174,13 +175,34 @@ describe('writing drafts', () => {
     await handleRpc(w, call('create_draft', draftArgs));
     expect(w.openDraft).toHaveBeenCalledWith('d1');
   });
+  it('files the draft in the group the AI names, if it exists', async () => {
+    const { w } = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'allow' } });
+    await handleRpc(w, call('create_draft', { ...draftArgs, group: 'clients' }));
+    expect(w.makeDraft).toHaveBeenCalledWith(expect.objectContaining({ group: 'clients' }));
+    await handleRpc(w, call('create_draft', { ...draftArgs, group: 'Made up' }));
+    expect(w.makeDraft).toHaveBeenLastCalledWith(expect.objectContaining({ group: undefined }));
+  });
   it('keeps a reply in the same conversation', async () => {
     const { w } = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'allow' } });
     await handleRpc(w, call('create_draft', { account: 'a', reply_to: 'm1', body: 'Thanks' }));
     expect(w.makeDraft).toHaveBeenCalledWith(expect.objectContaining({ replyToId: 'm1', subject: 'Re: Quote' }));
   });
-  it('only lists the draft tool when an account is Read and write', () => {
-    expect(visibleTools({ ...defaultMcp(), enabled: true, accounts: { a: 'read' } }).map((t) => t.name)).not.toContain('create_draft');
-    expect(visibleTools({ ...defaultMcp(), enabled: true, accounts: { a: 'write' } }).map((t) => t.name)).toContain('create_draft');
+  it('lists the draft tool even while every account is Read only, and says how to change it', async () => {
+    expect(visibleTools({ ...defaultMcp(), enabled: true, accounts: { a: 'read' } }).map((t) => t.name)).toContain('create_draft');
+    expect(visibleTools({ ...defaultMcp(), enabled: true, accounts: { a: 'off' } }).map((t) => t.name)).not.toContain('create_draft');
+    expect(visibleTools({ ...defaultMcp(), enabled: true, accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.draft': 'off' } }).map((t) => t.name)).not.toContain('create_draft');
+    const { w } = world({ accounts: { a: 'read', b: 'write' } });
+    const r = JSON.stringify(await handleRpc(w, call('create_draft', draftArgs)));
+    expect(r).toContain('Read only');
+    expect(r).toContain('B');
+    expect(w.makeDraft).not.toHaveBeenCalled();
+  });
+  it('lists folders by the names you see', async () => {
+    const { w } = world({ accounts: { a: 'read' } });
+    w.folders = { a: [{ id: 'DRAFT', accountId: 'a', name: 'DRAFT', system: 'drafts', unread: 0, depth: 0 }, { id: 'L1', accountId: 'a', name: 'Clients', unread: 0, depth: 0 }] };
+    const r = JSON.stringify(await handleRpc(w, call('list_accounts')));
+    expect(r).toContain('Drafts');
+    expect(r).not.toContain('DRAFT"');
+    expect(r).toContain('Clients');
   });
 });

@@ -14,7 +14,8 @@ import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
 import { inSystemFolder } from '../lib/mailbox';
 import { dueReminders, alertMute } from '../lib/reminders';
-import { useAiDrafts } from '../lib/mcp/aiDrafts';
+import { useAiDrafts, groupCounts, setDraftFilter } from '../lib/mcp/aiDrafts';
+import { groupItems, newGroup } from './AiDrafts';
 import type { Account, AccountGroup, Folder, Scope, SystemFolder, View } from '../lib/types';
 
 const FOLDERS: { folder: SystemFolder; icon: IconName; name: string; all: string }[] = [
@@ -428,6 +429,7 @@ export function Sidebar({ width }: { width: number }) {
   const pickColour = (accountId: string, anchor: { x: number; y: number }) => setPicker({ accountId, anchor });
   const hiddenCals = useSettings((s) => s.hiddenCalendars);
   const aiDrafts = useAiDrafts((s) => s.list);
+  const draftFilter = useAiDrafts((s) => s.filter);
   const aiOn = useSettings((s) => Boolean(s.mcp?.enabled));
   const alertsMode = useSettings((s) => s.hiddenCalendarsAlerts);
   const reminderCount = useMemo(() => dueReminders(events, followups, dismissed, Date.now(), alertMute({ hiddenCalendars: hiddenCals, hiddenCalendarsAlerts: alertsMode })).length, [events, followups, dismissed, hiddenCals, alertsMode]);
@@ -609,6 +611,42 @@ export function Sidebar({ width }: { width: number }) {
         </div>
       </Section>
 
+      {(aiDrafts.length > 0 || aiOn) && (() => {
+        // AI drafts, with its groups one level down. Click a group to see only those drafts; right-click to rename or delete it.
+        const groups = s.draftGroups || [];
+        const n = groupCounts(aiDrafts, groups);
+        const filter = draftFilter;
+        const go = (f: string) => { setDraftFilter(f); openScreen('aidrafts'); };
+        const on = (f: string) => screen === 'aidrafts' && filter === f;
+        return (
+          <Section id="sec:aidrafts" title="AI drafts">
+            <div className="side-row">
+              <button className={`side-item ${on('all') ? 'selected' : ''}`} onClick={() => go('all')} title="Drafts written by AI apps">
+                <Icon name="sparkle" /><span className="name">All AI drafts</span>{n.all ? <span className="count">{n.all}</span> : null}
+              </button>
+            </div>
+            {groups.map((g) => (
+              <div className="side-row" key={g.id}>
+                <button className={`side-item child ${on(g.id) ? 'selected' : ''}`} onClick={() => go(g.id)}
+                  onContextMenu={(e) => { e.preventDefault(); menu.open({ x: e.clientX, y: e.clientY }, groupItems(g.id, g.name)); }}>
+                  <Icon name="tag" /><span className="name">{g.name}</span>{n.byGroup[g.id] ? <span className="count">{n.byGroup[g.id]}</span> : null}
+                </button>
+              </div>
+            ))}
+            {n.none > 0 && (
+              <div className="side-row">
+                <button className={`side-item child ${on('none') ? 'selected' : ''}`} onClick={() => go('none')}>
+                  <Icon name="file" /><span className="name">No group</span><span className="count">{n.none}</span>
+                </button>
+              </div>
+            )}
+            <div className="side-row">
+              <button className="side-item child dim" onClick={() => void newGroup()}><Icon name="plus" /><span className="name">New group</span></button>
+            </div>
+          </Section>
+        );
+      })()}
+
       {s.hiddenItems.length > 0 && (
         <Section id="sec:hidden" title={`Hidden (${s.hiddenItems.length})`} defaultCollapsed>
           {(s.hiddenItems.map(d).filter(Boolean) as Desc[]).map((h) => <Item key={h.ref} d={h} dim showContext />)}
@@ -617,13 +655,6 @@ export function Sidebar({ width }: { width: number }) {
 
       </div>
       <div className="side-footer">
-        {(aiDrafts.length > 0 || aiOn) && (
-          <div className="side-row">
-            <button className={`side-item ${screen === 'aidrafts' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'aidrafts' ? 'mail' : 'aidrafts')} title="Drafts written by AI apps">
-              <Icon name="sparkle" /><span className="name">AI drafts</span>{aiDrafts.length ? <span className="count">{aiDrafts.length}</span> : null}
-            </button>
-          </div>
-        )}
         <div className="side-row">
           <button className={`side-item ${screen === 'reminders' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'reminders' ? 'mail' : 'reminders')}>
             <Icon name="bell" /><span className="name">Reminders</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}

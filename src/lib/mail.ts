@@ -447,9 +447,29 @@ export async function leaveDemo() {
 // ---------- syncing ----------
 
 const syncingNow = new Set<string>();
+/** Accounts whose running sync should stop at the next batch, and start again from scratch. */
+const restartWanted = new Set<string>();
+class SyncStopped extends Error {}
+
+/** When the person last clicked or typed, so a big sync can ease off while they are using the app. */
+let lastInputAt = 0;
+if (typeof window !== 'undefined') {
+  const mark = () => { lastInputAt = Date.now(); };
+  window.addEventListener('pointerdown', mark, true);
+  window.addEventListener('keydown', mark, true);
+  window.addEventListener('wheel', mark, { capture: true, passive: true });
+}
+/** Between batches of a big sync: give the screen a turn, and a longer one while the person is busy. */
+const breathe = () => new Promise<void>((r) => setTimeout(r, Date.now() - lastInputAt < 3000 ? 600 : 0));
 
 /** True while this account is really being synced right now. */
 export const isSyncing = (id: string) => syncingNow.has(id);
+
+/** A full sync from scratch, stopping one that is already running (for example after the range changes). */
+export function restartSync(id: string) {
+  if (syncingNow.has(id)) restartWanted.add(id);
+  else void syncAccount(id, { full: true });
+}
 
 export async function syncAccount(id: string, opts: { full?: boolean; quiet?: boolean } = {}) {
   if (syncingNow.has(id)) return;
@@ -474,7 +494,9 @@ export async function syncAccount(id: string, opts: { full?: boolean; quiet?: bo
       const { cursor } = await provider.fullSync(
         account.retentionDays,
         async (batch) => {
+          if (restartWanted.has(id)) throw new SyncStopped();
           putMessages(batch);
+          await breathe();
           const done = (get().accounts.find((a) => a.id === id)?.syncDone || 0) + batch.length;
           set({ accounts: get().accounts.map((x) => (x.id === id ? { ...x, syncDone: done } : x)) });
         },
@@ -507,12 +529,17 @@ export async function syncAccount(id: string, opts: { full?: boolean; quiet?: bo
     applyRulesToNew(newOnes);
     if (!opts.quiet) notifyNewMail(newOnes.filter((m) => m.date > startedAt - 10 * 60000));
   } catch (e) {
-    const needs = (e as { needsSignIn?: boolean }).needsSignIn;
-    saveAccount({ ...get().accounts.find((a) => a.id === id)!, status: needs ? 'needs-signin' : 'error', error: e instanceof Error ? e.message : String(e), syncDone: undefined });
-    if (!opts.quiet && !needs && navigator.onLine) console.warn('Sync failed', id, e);
+    if (e instanceof SyncStopped) {
+      // Stopped on purpose; the fresh sync below takes over.
+    } else {
+      const needs = (e as { needsSignIn?: boolean }).needsSignIn;
+      saveAccount({ ...get().accounts.find((a) => a.id === id)!, status: needs ? 'needs-signin' : 'error', error: e instanceof Error ? e.message : String(e), syncDone: undefined });
+      if (!opts.quiet && !needs && navigator.onLine) console.warn('Sync failed', id, e);
+    }
   } finally {
     syncingNow.delete(id);
     set({ syncing: syncingNow.size > 0, lastSyncAt: Date.now() });
+    if (restartWanted.delete(id)) void syncAccount(id, { full: true });
   }
 }
 

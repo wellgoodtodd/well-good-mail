@@ -9,6 +9,8 @@ export type ReminderMode = 'never' | 'daily' | 'important' | 'all';
 export type ImagePolicy = 'block' | 'known' | 'always';
 export type PanePosition = 'right' | 'bottom' | 'off';
 
+export interface DraftGroup { id: string; name: string }
+
 export interface Settings {
   theme: ThemeSetting;
   accent: string;
@@ -77,6 +79,8 @@ export interface Settings {
   hiddenCalendarsAlerts: 'all' | 'meetings' | 'none';
   /** The AI connection: off until switched on, each account Off until given a level. Kept on this computer only. */
   mcp: McpSettings;
+  /** Groups for AI drafts, shown under AI drafts in the sidebar. The id stays the same when a group is renamed. */
+  draftGroups: DraftGroup[];
 
   newMailAlerts: 'all' | 'important' | 'off';
   alertSound: boolean;
@@ -194,6 +198,12 @@ export const defaultSettings: Settings = {
   hiddenCalendars: [],
   hiddenCalendarsAlerts: 'meetings',
   mcp: defaultMcp(),
+  draftGroups: [
+    { id: 'clients', name: 'Clients' },
+    { id: 'prospects', name: 'Prospects' },
+    { id: 'personal', name: 'Personal' },
+    { id: 'admin', name: 'Admin' },
+  ],
 
   newMailAlerts: 'important',
   alertSound: false,

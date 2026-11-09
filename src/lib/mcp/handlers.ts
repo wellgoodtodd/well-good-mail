@@ -20,16 +20,18 @@ export interface AskRequest {
 /** The person's answer: which of the accounts they allowed (none means refused), and whether to open a draft to edit. */
 export interface AskAnswer { allowed: string[]; edit?: boolean }
 
-export interface DraftPreview { from: string; to: string[]; cc: string[]; subject: string; text: string; replyTo?: string }
+export interface DraftPreview { from: string; to: string[]; cc: string[]; subject: string; text: string; replyTo?: string; group?: string }
 
 /** What the app needs to save a draft for the AI. */
-export interface DraftInput { accountId: string; to: { email: string; name?: string }[]; cc: { email: string; name?: string }[]; subject: string; text: string; replyToId?: string; replaceId?: string }
+export interface DraftInput { accountId: string; to: { email: string; name?: string }[]; cc: { email: string; name?: string }[]; subject: string; text: string; replyToId?: string; replaceId?: string; group?: string }
 
 /** Everything a tool may look at, passed in so the handlers stay testable. */
 export interface McpWorld {
   settings: McpSettings;
   accounts: Account[];
   folders: Record<string, Folder[]>;
+  /** The person's AI drafts groups, like Clients or Personal. */
+  draftGroups: { id: string; name: string }[];
   messages: Record<string, Message>;
   events: CalendarEvent[];
   followups: FollowUp[];
@@ -89,9 +91,10 @@ const SCHEMAS: Record<string, object> = {
       to: { type: 'array', items: { type: 'string' }, description: 'Email addresses, like "sam@example.com" or "Sam Smith <sam@example.com>".' },
       cc: { type: 'array', items: { type: 'string' }, description: 'Optional copies.' },
       subject: { type: 'string', description: 'The subject line. Leave empty when replying to keep "Re:" and the thread.' },
-      body: { type: 'string', description: 'The text of the email. Blank lines start new paragraphs. Do not add a signature: the account\'s own is added.' },
+      body: { type: 'string', description: 'The text of the email. Blank lines start new paragraphs. Do not add a signature or sign your own name: the account\'s signature is added below, so end with the message itself, or a sign-off like "Best," with no name after it. Write as the person, never as an AI.' },
       reply_to: { type: 'string', description: 'Optional id of an email (from search_mail) to reply to, keeping the conversation together.' },
       replace_draft: { type: 'string', description: 'Optional id of a draft you made earlier, to replace it with this version.' },
+      group: { type: 'string', description: 'Optional group to file it under, from draftGroups in list_accounts (like "Clients", "Prospects", "Personal" or "Admin"). The person can change it.' },
     },
     required: ['account', 'body'],
   },
@@ -108,11 +111,20 @@ const textOf = (m: Message) => visibleText(m.bodyHtml, m.bodyText, MAX_TEXT) || 
 const iso = (ms: number) => new Date(ms).toISOString();
 const who = (a?: { email: string; name?: string }) => (a ? (a.name ? `${a.name} <${a.email}>` : a.email) : '');
 
-/** The tools this AI may see right now: switched on, ready, and allowed for at least one shared account. */
+/**
+ * The tools this AI may see right now: switched on, ready, and allowed for at least one shared account.
+ * AI apps only fetch this list when they connect, so a writing tool is listed even while every account is
+ * Read only. Using it then gets a clear answer saying how to change that, instead of the tool being missing.
+ */
 export function visibleTools(s: McpSettings): ToolSpec[] {
   const shared = sharedAccounts(s);
-  return TOOLS.filter((t) => READY.has(t.name) && (t.perAccount ? shared.some((id) => decide(s, t.capability, id).verdict !== 'deny') : decide(s, t.capability).verdict !== 'deny'));
+  const asWrite = (id: string): McpSettings => ({ ...s, accounts: { ...s.accounts, [id]: 'write' } });
+  return TOOLS.filter((t) => READY.has(t.name) && (t.perAccount ? shared.some((id) => decide(asWrite(id), t.capability, id).verdict !== 'deny') : decide(s, t.capability).verdict !== 'deny'));
 }
+
+const FOLDER_WORDS: Record<string, string> = { inbox: 'Inbox', drafts: 'Drafts', sent: 'Sent', junk: 'Junk', bin: 'Bin', archive: 'Archive', flagged: 'Flagged' };
+/** Folder names as the person sees them in the sidebar, not the raw ones like "DRAFT". */
+const folderWords = (folders: Folder[]) => [...new Set(folders.map((f) => (f.system ? FOLDER_WORDS[f.system] : f.name)))];
 
 class Refused extends Error {}
 
@@ -173,9 +185,9 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
         name: a.label || a.email,
         email: a.email,
         access: LEVEL_WORDS[w.settings.accounts[a.id]],
-        folders: (w.folders[a.id] || []).map((f) => f.name),
+        folders: folderWords(w.folders[a.id] || []),
       }));
-      return { data: { accounts: list }, logText: `Looked at the account list (${list.length} shared)` };
+      return { data: { accounts: list, draftGroups: w.draftGroups.map((g) => g.name) }, logText: `Looked at the account list (${list.length} shared)` };
     }
     case 'search_mail': {
       const query = String(args.query || '').trim();
@@ -235,6 +247,10 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       const accountId = String(args.account || '');
       const account = byId(accountId);
       if (!account || !shared.includes(accountId)) throw new Refused('That account is not shared with the AI. Use an id from list_accounts.');
+      if (w.settings.accounts[accountId] !== 'write') {
+        const writable = w.accounts.filter((a) => w.settings.accounts[a.id] === 'write').map(accName);
+        throw new Refused(`${accName(account)} is Read only for the AI, so no draft was made there. ${writable.length ? `Accounts set to Read and write: ${writable.join(', ')}.` : 'No account is set to Read and write.'} The person can change this in Well Good Mail, Settings, AI connection.`);
+      }
       const to = (Array.isArray(args.to) ? args.to : args.to ? [args.to] : []).map((x) => parseAddress(String(x))).filter((x): x is { email: string; name?: string } => Boolean(x));
       const cc = (Array.isArray(args.cc) ? args.cc : args.cc ? [args.cc] : []).map((x) => parseAddress(String(x))).filter((x): x is { email: string; name?: string } => Boolean(x));
       const body = String(args.body || '').trim();
@@ -246,9 +262,11 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       if (!to.length && !replyTo) throw new Error('Say who it is to, or which email it replies to.');
       const subject = String(args.subject || '').trim() || (replyTo ? `Re: ${replyTo.subject.replace(/^re:\s*/i, '')}` : '');
       args.subject = subject || '(no subject)';
-      const preview: DraftPreview = { from: `${account.email} (${accName(account)})`, to: (to.length ? to : replyTo ? [replyTo.from] : []).map(who), cc: cc.map(who), subject: subject || '(no subject)', text: body.slice(0, 4000), replyTo: replyTo ? `${replyTo.subject}, from ${who(replyTo.from)}` : undefined };
+      const wantGroup = typeof args.group === 'string' ? args.group.trim().toLowerCase() : '';
+      const group = wantGroup ? w.draftGroups.find((g) => g.name.toLowerCase() === wantGroup || g.id === wantGroup) : undefined;
+      const preview: DraftPreview = { group: group?.name, from: `${account.email} (${accName(account)})`, to: (to.length ? to : replyTo ? [replyTo.from] : []).map(who), cc: cc.map(who), subject: subject || '(no subject)', text: body.slice(0, 4000), replyTo: replyTo ? `${replyTo.subject}, from ${who(replyTo.from)}` : undefined };
       const { edit } = await permitAccounts(w, tool, [accountId], () => `write a draft from ${accName(account)} to ${preview.to.join(', ') || 'nobody yet'}`, preview);
-      const saved = await w.makeDraft({ accountId, to, cc, subject, text: body, replyToId: replyTo?.id, replaceId: replace });
+      const saved = await w.makeDraft({ accountId, to, cc, subject, text: body, replyToId: replyTo?.id, replaceId: replace, group: group?.id });
       if (edit) w.openDraft(saved.id);
       return {
         data: {

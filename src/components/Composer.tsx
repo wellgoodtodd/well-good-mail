@@ -395,8 +395,18 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
           ))}
         </select>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-          {!showCc && <button className="btn ghost" onClick={() => setShowCc(true)}>Cc</button>}
-          {!showBcc && <button className="btn ghost" onClick={() => setShowBcc(true)}>Bcc</button>}
+          {/* Each one shows or hides its line. A line with addresses in it stays, so nothing is hidden by accident. */}
+          {(['cc', 'bcc'] as const).map((k) => {
+            const shown = k === 'cc' ? showCc : showBcc;
+            const set = k === 'cc' ? setShowCc : setShowBcc;
+            const filled = draft[k].length > 0;
+            const name = k === 'cc' ? 'Cc' : 'Bcc';
+            return (
+              <button key={k} className={`btn ghost ${shown ? 'active' : ''}`} aria-pressed={shown}
+                title={shown ? (filled ? `Remove the ${name} addresses to hide this line` : `Hide ${name}`) : `Show ${name}`}
+                onClick={() => { if (!shown) set(true); else if (!filled) set(false); }}>{name}</button>
+            );
+          })}
         </span>
       </div>
       <RecipientField label="To" value={draft.to} contacts={contacts} onAdd={(l) => addRecipients('to', l)} onRemove={(e) => removeRecipient('to', e)} autoFocus={draft.mode === 'new' || draft.mode === 'forward'} />
