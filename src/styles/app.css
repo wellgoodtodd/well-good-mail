@@ -1468,3 +1468,7 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .ooo-signin > span { flex: 1; line-height: 1.4; }
 [data-theme='dark'] .ooo-signin > svg { color: #f0a020; }
 /* The Settings page keeps 60px of room at the bottom; the bar sits flush with the window edge so nothing scrolls past under it. */
+
+/* AI Drafts: a draft's attachments (0.7.2 beta 2) */
+.ai-files { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.ai-file { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9em; color: var(--text-muted); }

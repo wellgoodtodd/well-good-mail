@@ -29,6 +29,9 @@ export function SuggestedEvent({ message }: { message: Message }) {
     if (!on || !message.bodyLoaded || message.isDraft) return undefined;
     return suggestEvent(message, visibleText(message.bodyHtml, message.bodyText, 8000), Date.now(), events);
   }, [on, message.id, message.bodyLoaded, events.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (added) {
+    return <section className="invite-card suggest-card" aria-label="Suggested event"><span className="inv-ok"><Icon name="check" size={14} /> Added to your calendar</span></section>;
+  }
   if (!found || hidden.includes(message.id) || muted.includes(sender) || !canAddToCalendar(message.id)) return null;
 
   const hide = () => useSettings.getState().set({ suggestHidden: [...hidden, message.id].slice(-300) }, { quiet: true });
@@ -43,16 +46,16 @@ export function SuggestedEvent({ message }: { message: Message }) {
     try {
       await addInviteToCalendar(message.id, invite);
       setAdded(true);
-      toast({ text: `"${s.title}" added to your calendar.` });
+      // Once added it isn't offered again, even for dates beyond what the app keeps of the calendar.
+      useSettings.getState().set({ suggestHidden: [...useSettings.getState().suggestHidden, message.id].slice(-300) }, { quiet: true });
+      const acc = useMail.getState().accounts.find((a) => a.id === message.accountId);
+      toast({ text: `"${s.title}" added to ${acc ? `${acc.label || acc.email}'s` : 'your'} calendar, ${whenWords(s)}.` });
     } catch (e) {
       toast({ text: `Couldn't add it: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
     }
     setBusy(false);
   };
 
-  if (added) {
-    return <section className="invite-card suggest-card" aria-label="Suggested event"><span className="inv-ok"><Icon name="check" size={14} /> Added to your calendar</span></section>;
-  }
   return (
     <section className="invite-card suggest-card" aria-label="Suggested event">
       <div className="inv-top">

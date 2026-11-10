@@ -4,7 +4,8 @@ import { create } from 'zustand';
 import { store } from '../db';
 import { settings, useSettings, type DraftGroup } from '../settings';
 import type { Draft, Message } from '../types';
-import { useMail, providerFor, queueSend, loadBody } from '../mail';
+import { useMail, providerFor, queueSend, loadBody, getAttachmentData } from '../mail';
+import { bytesToBase64 } from '../mime';
 import { draftToOutgoing, createDraft } from '../compose';
 import { composeContext } from '../composeActions';
 import { record } from '../history';
@@ -61,7 +62,7 @@ export async function saveDraftEverywhere(draft: Draft): Promise<Draft> {
     const { accountId, message } = draftToOutgoing(draft, source, composeContext());
     const p = providerFor(accountId);
     if (p) {
-      const { draftId, messageId } = await p.saveDraft({ ...message, attachments: [] }, draft.serverDraftId);
+      const { draftId, messageId } = await p.saveDraft(message, draft.serverDraftId);
       draft = { ...draft, serverDraftId: draftId, serverAccountId: accountId, ...(messageId ? { serverDraftMessageId: messageId } : {}) };
       await store.putDraft(draft);
       void labelAiDraft(draft, accountId, messageId);
@@ -70,6 +71,19 @@ export async function saveDraftEverywhere(draft: Draft): Promise<Draft> {
     console.warn('Draft not saved to the server yet', e);
   }
   return draft;
+}
+
+/** The files attached to a draft made elsewhere (Gmail on the web, a phone), read in so they stay with it. */
+async function draftFiles(m: Message): Promise<Draft['attachments']> {
+  const out: Draft['attachments'] = [];
+  for (const a of m.attachments || []) {
+    if (a.inline && a.contentId) continue;
+    try {
+      const data = await getAttachmentData(m.id, a.id);
+      out.push({ id: crypto.randomUUID(), filename: a.filename, mimeType: a.mimeType, size: data.length, dataB64: bytesToBase64(data) });
+    } catch (e) { console.warn('Draft attachment not read', a.filename, e); }
+  }
+  return out;
 }
 
 /** Who an outside draft is marked as: made in Gmail itself (on the web, a phone, or an assistant's fallback). */
@@ -147,12 +161,20 @@ export async function syncServerDrafts(): Promise<number> {
         }
         let next = d;
         if (!mail.accounts.some((a) => a.id === d.fromAccountId)) next = { ...next, fromAccountId: account.id };
+        // Brought in before attachments were read: pick up the files from Gmail's copy once.
+        if (!d.attachments.length && now === d.serverDraftMessageId) {
+          const m = byMessage(now);
+          if (m?.attachments?.some((a) => !(a.inline && a.contentId))) {
+            const files = await draftFiles((await loadBody(m.id)) || m);
+            if (files.length) next = { ...next, attachments: files };
+          }
+        }
         if (d.serverDraftMessageId && now !== d.serverDraftMessageId) {
           // Changed elsewhere (Gmail on the web, a phone). Take that version once it has synced here.
           const m = byMessage(now);
           if (m && m.date > d.updatedAt) {
             const full = (await loadBody(m.id)) || m;
-            next = { ...next, subject: full.subject === '(no subject)' ? '' : full.subject, to: full.to, cc: full.cc, bcc: full.bcc, html: full.bodyHtml || textToHtml(full.bodyText || ''), serverDraftMessageId: now, updatedAt: m.date };
+            next = { ...next, subject: full.subject === '(no subject)' ? '' : full.subject, to: full.to, cc: full.cc, bcc: full.bcc, html: full.bodyHtml || textToHtml(full.bodyText || ''), attachments: await draftFiles(full), serverDraftMessageId: now, updatedAt: m.date };
           }
         }
         if (next !== d) { await store.putDraft(next); changed++; }
@@ -187,7 +209,8 @@ export async function syncServerDrafts(): Promise<number> {
           updatedAt: full.date,
           ...(source ? { mode: 'reply' as const, sourceMessageId: source.id, includeQuote: false } : {}),
         });
-        await store.putDraft(draft);
+        const files = await draftFiles(full);
+        await store.putDraft(files.length ? { ...draft, attachments: files } : draft);
         known.add(s.draftId);
         changed++;
       }

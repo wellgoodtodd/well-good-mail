@@ -492,8 +492,13 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
           {showQuote && <div className="ai-quote-text">{htmlToText(parts.quote)}</div>}
         </div>
       )}
+      {d.attachments.length > 0 && (
+        <div className="ai-files" aria-label="Attachments">
+          {d.attachments.map((a) => <span key={a.id} className="ai-file"><Icon name="paperclip" size={13} /> {a.filename}</span>)}
+        </div>
+      )}
       <div className="ai-quick-note ai-note-row">
-        <span>{writerText(d)}. For attachments and fonts, use Open in editor.</span>
+        <span>{writerText(d)}. To add or remove attachments, or change fonts, use Open in editor.</span>
         <span className={`ai-saved ${saving}`} aria-live="polite">{saving === 'saving' ? 'Saving...' : saving === 'saved' ? 'Saved' : ''}</span>
       </div>
       <div className="ai-quick-actions">
