@@ -9,6 +9,13 @@ import { buildList, inMailbox, scopeAccountIds, threadKey, type ListItem } from 
 /** The last list worked out, and what it was worked out from. A second caller with the same inputs gets it straight back. */
 let last: { deps: unknown[]; out: { items: ListItem[]; remote: ListItem[] } } | undefined;
 
+/**
+ * With Unread on, a conversation you read stays in the list (so you can go back to it) until you leave the
+ * mailbox or switch the filter off and on. The list then settles in one go, instead of shifting under each click.
+ */
+let kept: { sig: string; keys: Set<string> } = { sig: '', keys: new Set() };
+const conv = (i: ListItem) => `${i.message.accountId}|${i.message.threadId}`;
+
 export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
   const messages = useMail((s) => s.messages);
   const view = useMail((s) => s.view);
@@ -54,16 +61,20 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
       for (const i of items) i.count = Math.max(i.count, total.get(threadKey(i.message)) || 1);
     }
     const f = filters;
+    // Unread switched off: forget what was kept, so switching it back on starts fresh.
+    if (!f.unread) kept = { sig: '', keys: new Set() };
     if (f.unread || f.flagged || f.attachments || f.vip || f.toMe || f.period !== 'any' || f.accountIds.length) {
       const mine = myAddresses(accounts);
       const start = new Date(); start.setHours(0, 0, 0, 0);
       const since = f.period === 'today' ? start.getTime() : f.period === 'week' ? Date.now() - 7 * 86400000 : f.period === 'month' ? Date.now() - 30 * 86400000 : 0;
       const vipSet = new Set(vips);
+      const sig = JSON.stringify([view, f]);
+      if (kept.sig !== sig) kept = { sig, keys: new Set() };
       items = items.filter((i) => {
         // Keep the open conversation visible even once it's been read.
         const selectedKey = useMail.getState().selectedKey;
         if (selectedKey && `${i.message.accountId}|${i.message.threadId}` === selectedKey) return true;
-        if (f.unread && !i.unread) return false;
+        if (f.unread && !i.unread && !kept.keys.has(conv(i))) return false;
         if (f.flagged && !i.flagged) return false;
         if (f.attachments && !i.hasAttachments) return false;
         if (f.vip && !i.thread.some((m) => vipSet.has(m.from.email.toLowerCase()))) return false;
@@ -72,6 +83,7 @@ export function useViewList(): { items: ListItem[]; remote: ListItem[] } {
         if (f.accountIds.length && !f.accountIds.includes(i.message.accountId)) return false;
         return true;
       });
+      if (f.unread) for (const i of items) kept.keys.add(conv(i));
     }
     const remote = view.mailbox.kind === 'search' ? buildList(remoteResults.filter((m) => allowed.has(m.accountId) && fits(m)), false) : [];
     return { items, remote };
