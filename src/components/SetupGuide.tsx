@@ -72,7 +72,8 @@ function Frame({ step, total, children, onBack, onNext, nextLabel, hideNext, onC
 }
 
 function FirstRun() {
-  const [step, setStep] = useState(0);
+  const [startedAt] = useState(() => useGuide.getState().step);
+  const [step, setStep] = useState(startedAt ?? 0);
   const [ticks, setTicks] = useState([false, false, false, false]);
   const [id, setId] = useState('');
   const [secret, setSecret] = useState('');
@@ -193,6 +194,7 @@ function FirstRun() {
       <p className="gstep">Step 5 of 5</p>
       <h2>Paste your key</h2>
       <p className="glead">Copy both values from that box and paste them here. Then test the sign-in with your own Gmail.</p>
+      {startedAt === 5 && <p className="ghint">Moving from another computer? Use the same key. The client ID is in Google Cloud, Google Auth Platform, Clients. Google won't show the secret again, so click Add secret on that client for a new one. Your other computer keeps working.</p>}
       <label className="glabel" htmlFor="g-id">Client ID</label>
       <input id="g-id" className="gin" value={id} placeholder="123456789-abc.apps.googleusercontent.com" onChange={(e) => { setId(e.target.value); setError(''); }} />
       <label className="glabel" htmlFor="g-secret">Client secret</label>

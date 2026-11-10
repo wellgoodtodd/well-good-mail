@@ -20,7 +20,7 @@ import { addAccountItems } from './lib/accountMenu';
 import { useSettings } from './lib/settings';
 import { skinById, SKIN_VARS, buttonFill, accentOn } from './lib/skins';
 import { useBanners, dismissBanner, showBanner } from './lib/banners';
-import { backupDue, haveOwnKeys } from './lib/backup';
+import { backupDue, haveOwnKeys, importKeys } from './lib/backup';
 import {
   useMail, initMail, refreshAll, runSearch, dismissToast, archive, trash, toggleFlag, markRead, selectedMessageIds, selectThread, startDemo,
   markSpam, snooze, markViewRead, openScreen,
@@ -137,6 +137,7 @@ function Toasts() {
 function Welcome() {
   const configured = useGoogleConfigured();
   const menu = useMenu();
+  const [moving, setMoving] = useState(false);
   return (
     <div className="welcome">
       <div className="welcome-card">
@@ -147,10 +148,64 @@ function Welcome() {
           <button className="btn primary" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), addAccountItems())} style={{ height: 36, padding: '0 16px' }}><Icon name="plus" /> Add account <Icon name="chevronDown" size={14} /></button>
           <button className="btn" onClick={() => startDemo()} style={{ height: 36, padding: '0 16px' }}>Try demo mode</button>
         </div>
-        {!configured && <p className="note">Gmail needs a free key from Google first. The guide takes about 10 minutes and walks you through it.</p>}
+        {!configured && !moving && <p className="note">Gmail needs a free key from Google first. The guide takes about 10 minutes and walks you through it.</p>}
+        <button className="link-btn welcome-move" aria-expanded={moving} onClick={() => setMoving(!moving)}>Moving from another computer?</button>
+        {moving && <MovingChecklist configured={configured} onAdd={(el) => menu.open(el.getBoundingClientRect(), addAccountItems())} />}
         {menu.node}
       </div>
     </div>
+  );
+}
+
+/** Setting up on a second computer: the Google key from a backup file, signing in, then the mail export. */
+function MovingChecklist({ configured, onAdd }: { configured: boolean; onAdd: (el: HTMLElement) => void }) {
+  const [restored, setRestored] = useState(false);
+  const [error, setError] = useState('');
+  const file = useRef<HTMLInputElement>(null);
+  const pick = async (f: File) => {
+    try {
+      await importKeys(f);
+      await loadGoogleKeys();
+      await loadMicrosoftKeys();
+      setRestored(true);
+      setError('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  return (
+    <ol className="move-list" aria-label="Moving from another computer">
+      <li className={configured ? 'done' : ''}>
+        <span className="move-num" aria-hidden>{configured ? <Icon name="check" size={13} /> : 1}</span>
+        <div className="move-body">
+          <strong>Restore your Google key</strong>
+          <span>{configured ? (restored ? 'Restored from your backup.' : 'Your Google key is already on this computer.') : 'On your old computer: Settings, Search & Storage, Back up my keys. Then choose that file here. Microsoft, iCloud and other email need no key.'}</span>
+          {error && <span className="status-bad" role="alert">{error}</span>}
+          {!configured && (
+            <div className="move-actions">
+              <button className="btn" onClick={() => file.current?.click()}>Choose backup file</button>
+              <button className="btn ghost" onClick={() => openGuide('setup', { step: 5 })}>I don't have one</button>
+              <input ref={file} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void pick(f); }} />
+            </div>
+          )}
+        </div>
+      </li>
+      <li>
+        <span className="move-num" aria-hidden>2</span>
+        <div className="move-body">
+          <strong>Sign in to your accounts</strong>
+          <span>Sign in to each one as usual. Your mail and settings in Gmail or Outlook are all still there.</span>
+          <div className="move-actions"><button className="btn" onClick={(e) => onAdd(e.currentTarget)}><Icon name="plus" /> Add account</button></div>
+        </div>
+      </li>
+      <li>
+        <span className="move-num" aria-hidden>3</span>
+        <div className="move-body">
+          <strong>Bring your mail across (optional)</strong>
+          <span>On your old computer: Settings, Search & Storage, Export. Once you've signed in here, Import it from the same place, so nothing has to download twice.</span>
+        </div>
+      </li>
+    </ol>
   );
 }
 
@@ -440,7 +495,7 @@ function MainWindow() {
     <div className={`app density-${s.density}`}>
       <header className={`toolbar ${beta ? 'beta' : ''}`}>
         <button className="icon-btn" title="Menu" aria-label="Menu" onClick={(e) => appMenu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), appMenuItems())}><Icon name="menu" /></button>
-        <button className={`icon-btn ${s.sidebarVisible ? '' : 'active'}`} title="Show or hide sidebar (Ctrl+Shift+S)" aria-label="Toggle sidebar" onClick={() => (narrow ? setMobileNav(!mobileNav) : s.set({ sidebarVisible: !s.sidebarVisible }))}><Icon name="sidebar" /></button>
+        <button className={`icon-btn ${s.sidebarVisible ? '' : 'active'}`} title="Show or hide sidebar (Ctrl+Shift+S)" aria-label="Toggle sidebar" disabled={!accounts.length} onClick={() => (narrow ? setMobileNav(!mobileNav) : s.set({ sidebarVisible: !s.sidebarVisible }))}><Icon name="sidebar" /></button>
         <BackButton />
         <button className="icon-btn" title="Check for new mail (F5)" aria-label="Check for new mail" onClick={() => refreshAll()} disabled={!accounts.length}>
           <span style={{ display: 'inline-flex', animation: syncing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span>
@@ -475,7 +530,7 @@ function MainWindow() {
       {update.status === 'ready' && <div className="update-bar">Version {update.version} is ready. <button className="btn" onClick={restartToUpdate}>Restart to update</button></div>}
       {guide ? (
         <SetupGuide />
-      ) : !accounts.length ? (
+      ) : !accounts.length && screen !== 'settings' && screen !== 'help' ? (
         <Welcome />
       ) : narrow ? (
         <div className="main narrow">
@@ -494,7 +549,7 @@ function MainWindow() {
         </div>
       ) : (
         <div className={`main ${bottom ? 'bottom' : ''}`}>
-          {s.sidebarVisible && screen !== 'settings' && (
+          {s.sidebarVisible && screen !== 'settings' && accounts.length > 0 && (
             <>
               <Sidebar width={s.sidebarWidth} />
               <Splitter onDrag={(d) => s.set({ sidebarWidth: Math.max(170, Math.min(420, useSettings.getState().sidebarWidth + d)) })} />
