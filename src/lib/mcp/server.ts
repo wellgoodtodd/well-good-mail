@@ -186,6 +186,17 @@ async function answer(rid: number, conn: number, body: string) {
     makeDraft: (input) => makeDraft(input.writer || app, input),
     fileDrafts: (accountId, ids, group, writer) => fileServerDrafts(accountId, ids, group, writer || app),
     openDraft: (id) => void openDraft(id),
+    ooo: {
+      plan: settings().ooo,
+      status: async (ids) => {
+        const m = await import('../oooStore');
+        await m.refreshOoo(ids);
+        const by = m.useOoo.getState().byAccount;
+        return Object.fromEntries(ids.map((id) => [id, by[id]?.reply || { error: by[id]?.needsPermission ? 'This account needs to sign in once more in Well Good Mail to allow Out of Office.' : by[id]?.error || 'Not known' }]));
+      },
+      turnOn: async (plan) => (await import('../oooStore')).turnOnOoo(plan),
+      turnOff: async (ids) => (await import('../oooStore')).turnOffOoo(ids),
+    },
     aiDraft: (id) => { const d = aiDraftsNow().find((x) => x.id === id); return d && d.fromAccountId ? { accountId: d.fromAccountId } : undefined; },
     log: (text, outcome) => logActivity(text, outcome, app),
     version: useUpdates.getState().currentVersion || '',

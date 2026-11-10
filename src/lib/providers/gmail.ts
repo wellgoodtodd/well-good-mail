@@ -4,7 +4,9 @@ import { getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
 import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
-import { CalendarPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
+import type { AutoReply } from '../ooo';
+import { htmlToText, isWorkAccount } from '../ooo';
+import { CalendarPermissionError, NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { Invite, Rsvp } from '../invites';
 import { findMeetingUrl } from '../meetings';
 import { cleanPreview } from '../cleanText';
@@ -607,6 +609,86 @@ export class GmailProvider implements MailProvider {
         }),
       });
     } catch (e) { this.permissionOr(e); }
+  }
+
+  private scopeOr(e: unknown, what: string): never {
+    const err = e as Error & { status?: number };
+    if (err.status === 403 && /scope|insufficient|permission/i.test(err.message) && !/quota|rateLimit/i.test(err.message)) throw new NeedsPermissionError(what);
+    throw e;
+  }
+
+  async getAutoReply(): Promise<AutoReply> {
+    type V = { enableAutoReply?: boolean; responseSubject?: string; responseBodyHtml?: string; responseBodyPlainText?: string; restrictToContacts?: boolean; restrictToDomain?: boolean; startTime?: string; endTime?: string };
+    let v: V;
+    try { v = await this.call<V>('/settings/vacation', {}, 0, true); } catch (e) { this.scopeOr(e, 'Out of Office'); }
+    return {
+      on: Boolean(v.enableAutoReply),
+      start: v.startTime ? Number(v.startTime) : undefined,
+      end: v.endTime ? Number(v.endTime) : undefined,
+      subject: v.responseSubject || '',
+      html: v.responseBodyHtml || (v.responseBodyPlainText ? v.responseBodyPlainText.split(/\n{2,}/).map((p) => `<p>${p}</p>`).join('') : ''),
+      audience: v.restrictToDomain ? 'org' : v.restrictToContacts ? 'contacts' : 'all',
+    };
+  }
+
+  async setAutoReply(r: AutoReply): Promise<void> {
+    const body = {
+      enableAutoReply: r.on,
+      responseSubject: r.subject || '',
+      responseBodyHtml: r.html,
+      responseBodyPlainText: htmlToText(r.html),
+      restrictToContacts: r.audience === 'contacts',
+      restrictToDomain: r.audience === 'org' && isWorkAccount(this.account.email),
+      ...(r.on && r.start ? { startTime: String(r.start) } : {}),
+      ...(r.on && r.end ? { endTime: String(r.end) } : {}),
+    };
+    try { await this.call('/settings/vacation', { method: 'PUT', body: JSON.stringify(body) }, 0, true); } catch (e) { this.scopeOr(e, 'Out of Office'); }
+  }
+
+  async addAwayEvent(start: number, end: number, opts: { allDay: boolean; decline: boolean; message?: string }): Promise<string> {
+    const CAL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    // Google Workspace has a real "Out of office" event, which can decline invitations; it is always timed, never all day.
+    if (isWorkAccount(this.account.email)) {
+      try {
+        const ev = await this.call<{ id: string }>(CAL, {
+          method: 'POST',
+          body: JSON.stringify({
+            summary: 'Out of office',
+            eventType: 'outOfOffice',
+            start: { dateTime: new Date(start).toISOString(), timeZone: zone },
+            end: { dateTime: new Date(end).toISOString(), timeZone: zone },
+            outOfOfficeProperties: { autoDeclineMode: opts.decline ? 'declineOnlyNewConflictingInvitations' : 'declineNone', declineMessage: opts.message || 'I\'m away at this time.' },
+          }),
+        });
+        return ev.id;
+      } catch (e) {
+        const err = e as Error & { status?: number };
+        if (err.status !== 400) this.permissionOr(e);
+        // Not a Workspace calendar after all: fall through to a plain event.
+      }
+    }
+    try {
+      const ev = await this.call<{ id: string }>(CAL, {
+        method: 'POST',
+        body: JSON.stringify({
+          summary: 'Away',
+          transparency: 'opaque',
+          start: opts.allDay ? { date: day(start) } : { dateTime: new Date(start).toISOString() },
+          end: opts.allDay ? { date: day(end) } : { dateTime: new Date(end).toISOString() },
+          reminders: { useDefault: false, overrides: [] },
+        }),
+      });
+      return ev.id;
+    } catch (e) { this.permissionOr(e); }
+  }
+
+  async removeAwayEvent(id: string): Promise<void> {
+    try { await this.call(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(id)}`, { method: 'DELETE' }); } catch (e) {
+      if ((e as { status?: number }).status === 404 || (e as { status?: number }).status === 410) return;
+      throw e;
+    }
   }
 
   async uploadLargeFile(name: string, mimeType: string, data: Uint8Array): Promise<string> {

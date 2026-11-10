@@ -28,7 +28,9 @@ These use the built in demo mailbox, so there is no real mail in them.
 - An optional AI Connection: let Claude or another AI app on your computer search your mail and write drafts, only for the accounts and actions you allow. It never sends anything, and drafts wait under AI Drafts for you to check and send
 - Images and trackers blocked until you allow them
 - Offline reading and fast search across every account
-- Light and dark mode, calendar reminders and meeting banners, attachment preview, and a Help page inside the app
+- Out of Office for Gmail and Microsoft accounts, set inside each account, with dates, a message for each account and "While you were away"
+- Attachments open straight away in their own app; dates in emails can go into your calendar with one click
+- Light and dark mode, calendar reminders and meeting banners, attachment preview, an Accessibility page, and a Help page inside the app
 
 ## Install
 

@@ -2,6 +2,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/app.css';
+import { useSettings } from './lib/settings';
+import { setDownloadFolder, clearPreviews, isPopout } from './lib/platform';
+
+// Save uses the downloads folder chosen in Settings (in every window), and old previews are tidied once at start.
+setDownloadFolder(useSettings.getState().downloadFolder);
+useSettings.subscribe((s) => setDownloadFolder(s.downloadFolder));
+if (!isPopout()) setTimeout(() => { void clearPreviews(30).catch(() => { /* nothing to clear */ }); }, 20000);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

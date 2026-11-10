@@ -7,6 +7,7 @@ import { bytesToBase64, buildRawMessage, base64ToBytes } from '../mime';
 import { httpFetch } from '../platform';
 import type { Account, Address, Alias, CalendarEvent, EventGuest, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
+import type { AutoReply } from '../ooo';
 import { findMeetingUrl } from '../meetings';
 import { cleanPreview } from '../cleanText';
 
@@ -85,8 +86,8 @@ export class MicrosoftProvider implements MailProvider {
     for (const f of folders) if (f.system && f.system !== 'flagged') this.folderIds[f.system] = f.id;
   }
 
-  private async call<T>(url: string, init: RequestInit = {}): Promise<T> {
-    const token = await getMicrosoftAccessToken(this.account.email);
+  private async call<T>(url: string, init: RequestInit = {}, extra?: string[]): Promise<T> {
+    const token = await getMicrosoftAccessToken(this.account.email, extra);
     const res = await httpFetch(url.startsWith('http') ? url : G + url, {
       ...init,
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) },
@@ -238,6 +239,83 @@ export class MicrosoftProvider implements MailProvider {
 
   private calNames: string[] = [];
   knownCalendars(): string[] { return this.calNames; }
+
+  async getAutoReply(): Promise<AutoReply> {
+    type When = { dateTime?: string; timeZone?: string };
+    const s = await this.call<{ automaticRepliesSetting?: { status?: string; externalAudience?: string; scheduledStartDateTime?: When; scheduledEndDateTime?: When; internalReplyMessage?: string; externalReplyMessage?: string } }>('/mailboxSettings', {}, ['MailboxSettings.ReadWrite']);
+    const a = s.automaticRepliesSetting || {};
+    const at = (w?: When) => (w?.dateTime ? new Date(w.dateTime.replace(/Z?$/, w.timeZone === 'UTC' || !w.timeZone ? 'Z' : '')).getTime() : undefined);
+    const scheduled = a.status === 'scheduled';
+    const inside = a.internalReplyMessage || '';
+    const outside = a.externalReplyMessage || '';
+    return {
+      on: a.status === 'alwaysEnabled' || scheduled,
+      start: scheduled ? at(a.scheduledStartDateTime) : undefined,
+      end: scheduled ? at(a.scheduledEndDateTime) : undefined,
+      html: inside,
+      audience: a.externalAudience === 'none' ? 'org' : 'all',
+      outsideAudience: a.externalAudience === 'contactsOnly' ? 'contacts' : a.externalAudience === 'none' ? 'none' : 'all',
+      outsideHtml: outside && outside !== inside ? outside : undefined,
+    };
+  }
+
+  async setAutoReply(r: AutoReply): Promise<void> {
+    const when = (ms: number) => ({ dateTime: new Date(ms).toISOString().replace(/Z$/, ''), timeZone: 'UTC' });
+    const outsideAudience = r.audience === 'org' ? 'none' : r.audience === 'contacts' ? 'contactsOnly' : r.outsideAudience === 'contacts' ? 'contactsOnly' : r.outsideAudience === 'none' ? 'none' : 'all';
+    const scheduled = r.on && Boolean(r.end);
+    await this.call('/mailboxSettings', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        automaticRepliesSetting: {
+          status: !r.on ? 'disabled' : scheduled ? 'scheduled' : 'alwaysEnabled',
+          externalAudience: outsideAudience,
+          internalReplyMessage: r.html,
+          externalReplyMessage: r.outsideHtml || r.html,
+          ...(scheduled ? { scheduledStartDateTime: when(r.start || Date.now()), scheduledEndDateTime: when(r.end!) } : {}),
+        },
+      }),
+    }, ['MailboxSettings.ReadWrite']);
+  }
+
+  async addAwayEvent(start: number, end: number, opts: { allDay: boolean }): Promise<string> {
+    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00`; };
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const ev = await this.call<{ id: string }>('/events', {
+      method: 'POST',
+      body: JSON.stringify({
+        subject: 'Away',
+        showAs: 'oof',
+        isAllDay: opts.allDay,
+        isReminderOn: false,
+        start: opts.allDay ? { dateTime: day(start), timeZone: zone } : { dateTime: new Date(start).toISOString().replace(/Z$/, ''), timeZone: 'UTC' },
+        end: opts.allDay ? { dateTime: day(end), timeZone: zone } : { dateTime: new Date(end).toISOString().replace(/Z$/, ''), timeZone: 'UTC' },
+      }),
+    }, ['Calendars.ReadWrite']);
+    return ev.id;
+  }
+
+  async addInviteToCalendar(invite: import('../invites').Invite): Promise<void> {
+    const when = (ms: number) => ({ dateTime: new Date(ms).toISOString().replace(/Z$/, ''), timeZone: 'UTC' });
+    await this.call('/events', {
+      method: 'POST',
+      body: JSON.stringify({
+        subject: invite.title,
+        start: when(invite.start),
+        end: when(invite.end),
+        isAllDay: invite.allDay,
+        location: invite.location ? { displayName: invite.location } : undefined,
+        body: invite.description ? { contentType: 'text', content: invite.description } : undefined,
+        transactionId: invite.uid.slice(0, 100),
+      }),
+    }, ['Calendars.ReadWrite']);
+  }
+
+  async removeAwayEvent(id: string): Promise<void> {
+    try { await this.call(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' }, ['Calendars.ReadWrite']); } catch (e) {
+      if ((e as { status?: number }).status === 404) return;
+      throw e;
+    }
+  }
 
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
     const page = await this.call<{ value: { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null; isOrganizer?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { type?: string; status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] }[] }>(

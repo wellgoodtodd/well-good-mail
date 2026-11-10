@@ -4,6 +4,8 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 ## After 0.7.0
 
+**In 0.7.2 beta 1 (10 Nov 2026):** Out of Office (set inside Gmail and Microsoft; dates, audience, default and own messages, templates, back date, Preview, Send me a test; Away event, Workspace declines, reminder, amber bar, sidebar plane, While you were away, holiday suggestion, pause alerts; AI tools get_out_of_office and set_out_of_office, always asking with the whole reply); attachments open in their own app from a private Previews folder (programs and scripts refused), a downloads folder, Clear previews; suggested events (chrono-node, people only, Change details, Don't suggest from this sender); What's new grouped by series; Accessibility tab (bold focus ring, motion, Windows high contrast, every control named); one control height (reminder minute boxes, template menu) and one page width (scroll bar room on full-page screens). The sidebar fold lag couldn't be reproduced in the demo with 1,500 drafts (folds in 6 to 19 ms): watch for it on the real app. Still to do from this list: Accounts round two (mock-ups first), Add to contacts.
+
 **In 0.7.1 beta 1 (10 Nov 2026):** design review fixes (contrast on the selected row and Allow buttons, editor fitting its pane, headings that match their tabs, softer greys made readable, even editor edges, empty group chips hidden, sign-off trimmed from previews); Settings, Accounts as a list with a calm detail column; Appearance with one Colours card; hardening: what an AI is shown, remote picture blocking, links opening in the browser, Always allow only for ticked accounts, safe attachment names, tighter content rules.
 
 **Attachments, asked for 10 Nov 2026 (next beta):**
@@ -12,12 +14,27 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 - Settings, Search & Storage: the Previews folder's size, Open folder and Clear previews, and previews older than 30 days cleared by themselves.
 - Needs a small Windows-side addition (write to the cache folder and open a file with its own app), kept to that folder only.
 
+**Out of Office, designed 10 Nov 2026 (0.7.2, mock-up shown):**
+- Set in each account itself (Gmail vacation responder via gmail.settings.basic; Microsoft automatic replies via MailboxSettings.ReadWrite), so it works with the PC off and shows on the phone. iCloud and IMAP: a link to their web settings. Google scopes added by Todd in the WellGood - MAIL project; each account asks to sign in again only the first time it's used.
+- Where: Settings, Out of Office (Title Case place name), the top-left menu, the tray menu, and each account's card.
+- Accounts as chips with their current state (Off, On until..., Scheduled from...). Read back from Gmail and Microsoft whenever it opens, so changes made elsewhere show.
+- When: "From now until I turn it off" or "Between dates". Dates are whole days and inclusive: First day away (from 00:00) and Back on (replies stop at the end of the day before). Optional times for part days. A plain sentence repeats exactly when replies start and stop. It switches itself off on the back-on date.
+- Who: Everyone, My contacts only, or (Workspace/Microsoft 365) people in the organisation only; Microsoft can have a separate message for outside the organisation.
+- Message: subject (Gmail), rich text with the basic formatting bar, the signature menu, "Insert back date" (kept in step if dates change), and templates (Away, Holiday, Conference, Off sick). Preview the reply before turning on.
+- Extras: add an "Away" all-day event to the calendar (on by default), remind me the day before it ends, decline new invitations while away (Workspace and Microsoft 365 only).
+- While on: a quiet amber bar at the top of the mail with Change and Turn off now, and a small badge on the account in the sidebar. Turning off early is one click. Gmail itself only replies to each sender once every 4 days; Help says so.
+- Added 10 Nov (Todd): one default away message plus "Own message" per account (each chip says which); one main Turn on / Schedule for all ticked accounts, with an "All accounts" tick. Every native option: Gmail contacts only / organisation only (Workspace), Microsoft inside and outside messages with outside audience everyone / contacts / nobody. Decline new invitations is a user option, on by default, where the account supports it (Workspace, Microsoft 365), greyed with a note otherwise. Plane icon on away accounts.
+- Bonus: "While you were away" summary on return (VIPs, questions, Cc'd); suggest out of office from all-day Holiday or Annual leave events (with suggested events); pause new-mail notifications while away (option); "Send me a test" of the auto-reply.
+- AI apps CAN set it (changed 10 Nov, Todd): new tools to read and set out of office (accounts, dates, message, who). It reaches other people, so it always asks with a full preview card and can't be set to Allow. Works from Claude on this PC; from a phone only through a Claude session running on the PC (no Well Good Mail server).
+
 **Settings, Accounts, round two (10 Nov 2026, mock-ups first, next beta):**
 - One bigger card per account: an easy-to-read summary at the top (every setting on one line each, no "Mail" / "Calendar and AI" breaks), and a panel underneath that shows whichever row you click.
 - Signature: a drop-down (like "WGM signature") that shows the whole signature, where you change the default. Also separate defaults for replies and forwards (for example a short one or none on forwards).
 - Calendars: clicking shows that account's calendars with their switches right there, plus the "alerts from hidden calendars" choice (that setting should live here too, not only on the old Calendars section).
 - AI Connection: that account's switches (Off, Ask, Allow for each thing) right there, with a link to the full AI Connection tab for everything else.
 - The separate Calendars section and the account card then become one place.
+
+**What's new log, grouped by series (10 Nov 2026, next beta):** in Settings, Updates (the update log), the current series shows each live release on its own (0.7.1, 0.7.0, and later 0.7.2), newest first. Every older series folds into one row ("0.6.x") that opens to list its releases newest to oldest, each with what changed. When 0.8 comes, the 0.7s fold up the same way. Betas never appear, only live releases.
 
 **Noticed while testing 0.7.1 beta 1 (10 Nov):** the "ALL (Others)" folder in the sidebar wouldn't fold closed (or took a long time) while Drafts held a lot of drafts. Check folding speed with a big Drafts folder, and check nothing is pulling in more drafts than it should.
 

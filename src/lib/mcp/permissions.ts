@@ -38,6 +38,7 @@ export const CAPABILITIES: Capability[] = [
   { id: 'calendar.add', group: 'calendar', label: 'Add invitations to your calendar', description: 'Put an invitation from an email into your calendar.', fallback: 'ask', max: 'allow' },
   // Anything that reaches other people
   { id: 'send.email', group: 'send', label: 'Send email', description: 'Send a reply or new email. The app shows who it goes to and the whole message, and waits for you every time.', fallback: 'off', max: 'ask' },
+  { id: 'settings.ooo', group: 'send', label: 'Set Out of Office', description: 'Turn auto-replies on or off, with dates and a message. People who email you get the reply, so it always asks and shows you the whole thing.', fallback: 'ask', max: 'ask' },
   { id: 'send.forward', group: 'send', label: 'Forward to someone else', description: 'Pass an email on. It always asks, and it always shows the recipient.', fallback: 'off', max: 'ask' },
 ];
 

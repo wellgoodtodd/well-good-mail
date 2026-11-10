@@ -62,14 +62,54 @@ export async function notify(title: string, body: string): Promise<void> {
   }
 }
 
-/** Save bytes to a file the user picks. */
-export async function saveFile(filename: string, data: Uint8Array, mimeType: string): Promise<void> {
+function toBase64(bytes: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/** The downloads folder chosen in Settings, or '' to ask each time. Set by the app at start and when it changes. */
+let downloadFolder = '';
+export const setDownloadFolder = (path: string) => { downloadFolder = path || ''; };
+
+/**
+ * Opens an attachment straight away in the program Windows uses for it, from a copy in the app's private Previews
+ * folder. Programs and scripts are refused. In the browser preview it is downloaded instead.
+ */
+export async function openWithApp(filename: string, data: Uint8Array, mimeType: string): Promise<void> {
+  if (!isTauri()) { await saveFile(filename, data, mimeType); return; }
+  await invoke('open_attachment', { name: filename, data: toBase64(data) });
+}
+
+/** Size of the Previews folder. */
+export async function previewsSize(): Promise<{ bytes: number; files: number }> {
+  if (!isTauri()) return { bytes: 0, files: 0 };
+  const [bytes, files] = await invoke<[number, number]>('previews_size');
+  return { bytes, files };
+}
+export const clearPreviews = (olderThanDays?: number) => (isTauri() ? invoke<number>('clear_previews', { olderThanDays: olderThanDays ?? null }) : Promise.resolve(0));
+export const openPreviewsFolder = () => (isTauri() ? invoke('open_previews_folder') : Promise.resolve());
+
+/** Lets the person pick a folder (for Settings). */
+export async function chooseFolder(title: string): Promise<string | undefined> {
+  if (!isTauri()) return undefined;
+  const { open } = await import('@tauri-apps/plugin-dialog');
+  const dir = await open({ directory: true, title });
+  return typeof dir === 'string' ? dir : undefined;
+}
+
+/**
+ * Save bytes to a file. With a downloads folder chosen in Settings it goes straight there (never overwriting);
+ * otherwise the person picks where. Returns where it went, or undefined if cancelled.
+ */
+export async function saveFile(filename: string, data: Uint8Array, mimeType: string): Promise<string | undefined> {
+  if (isTauri() && downloadFolder) return invoke<string>('save_to_folder', { folder: downloadFolder, name: filename, data: toBase64(data) });
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog');
     const { writeFile } = await import('@tauri-apps/plugin-fs');
-    const path = await save({ defaultPath: filename });
+    const path = await save({ defaultPath: safeFileName(filename) });
     if (path) await writeFile(path, data);
-    return;
+    return path || undefined;
   }
   const blob = new Blob([data], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -78,6 +118,7 @@ export async function saveFile(filename: string, data: Uint8Array, mimeType: str
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
+  return filename;
 }
 
 /** Save several files into one folder, asking for the folder once. Returns how many were saved (0 if cancelled). */
@@ -93,6 +134,10 @@ export function safeFileName(name: string): string {
 export async function saveFilesToFolder(files: { filename: string; data: Uint8Array; mimeType: string }[]): Promise<number> {
   if (!isTauri()) {
     for (const f of files) await saveFile(f.filename, f.data, f.mimeType);
+    return files.length;
+  }
+  if (downloadFolder) {
+    for (const f of files) await invoke('save_to_folder', { folder: downloadFolder, name: f.filename, data: toBase64(f.data) });
     return files.length;
   }
   const { open } = await import('@tauri-apps/plugin-dialog');

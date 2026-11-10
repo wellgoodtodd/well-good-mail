@@ -12,6 +12,27 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.7.2',
+    date: 'November 2026',
+    highlights: [
+      'Out of Office: set auto-replies in Gmail and Outlook from here, for one account or all of them',
+      'Attachments like Word and Excel open straight away in their own app',
+      'A suggestion to add dates and times from emails to your calendar',
+      'An Accessibility page, and Windows high contrast and animation settings followed',
+    ],
+    more: [
+      'Out of Office lives in Settings, the top-left menu and the tray menu. It is set inside each Google and Microsoft account, so replies go out with this computer off. Choose dates (whole days, or times for part days), who gets a reply (everyone, your contacts, or your organisation), a default message with templates and the back date filled in, and an own message for any account.',
+      'While you are away: an amber bar at the top of your mail with Turn off now, a plane by each away account in the sidebar, an Away event in your calendar, a reminder the day before it ends, and "While you were away" when you are back. New-mail alerts can pause too. Google Workspace accounts can decline new invitations.',
+      'Holiday or Annual leave in your calendar? Well Good Mail offers to set Out of Office for those dates.',
+      'AI apps can read and set Out of Office for accounts set to Read and write. You always see the accounts, dates and whole message first, and nothing changes until you say yes.',
+      'Google accounts sign in once more the first time they use Out of Office. Microsoft accounts do the same.',
+      'Attachments that can\'t be previewed open in their own app from a private Previews folder. Programs and scripts never open straight from an email. Settings, Search & Storage can save attachments to one folder without asking, and shows the Previews folder with Clear previews (old ones clear by themselves after 30 days).',
+      'An email that mentions a day and time ("Thursday, 7pm kick off") shows Add to calendar at the top. Only from people, never newsletters, and it is read on this computer with no AI. Turn it off in Settings, Notifications & Reminders.',
+      'Settings, Accessibility: a bold focus ring, and Keep things still for motion. The app follows Windows Animation effects and contrast themes, and every button has a name Narrator reads.',
+      'Settings, Updates groups older versions by series (0.6.x), and buttons, boxes and full-page screens share one height and width.',
+    ],
+  },
+  {
     version: '0.7.1',
     date: 'November 2026',
     highlights: [

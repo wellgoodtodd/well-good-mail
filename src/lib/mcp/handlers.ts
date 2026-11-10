@@ -4,6 +4,7 @@ import { decide, sharedAccounts, alwaysAsks, LEVEL_WORDS, RateLimit, type McpSet
 import { READY, TOOLS, logLine, toolByName, type ToolSpec } from './tools';
 import { cleanPreview, visibleText, stripFiller } from '../cleanText';
 import type { Account, CalendarEvent, Folder, FollowUp, Message } from '../types';
+import { BACK_TOKEN, oooSupport, stateWords, textToHtml, whenSentence, htmlToText, fillBackDate, windowOf, type AutoReply, type OooPlan } from '../ooo';
 
 /** One question for the person: what the AI app wants, and for which accounts. */
 export interface AskRequest {
@@ -16,7 +17,11 @@ export interface AskRequest {
   canRemember: boolean;
   /** A draft the AI wants to save, shown in full on the card. */
   draft?: DraftPreview;
+  /** Out of Office the AI wants to set, shown in full on the card. */
+  ooo?: OooPreview;
 }
+
+export interface OooPreview { off: boolean; accounts: string[]; when: string; who: string; subject?: string; text: string }
 /** The person's answer: which of the accounts they allowed (none means refused), and whether to open a draft to edit. */
 export interface AskAnswer { allowed: string[]; edit?: boolean }
 
@@ -47,6 +52,13 @@ export interface McpWorld {
   makeDraft: (input: DraftInput) => Promise<{ id: string; savedToServer: boolean }>;
   /** Files drafts already in the account (message ids from search_mail) as AI drafts, in a group. Returns how many. */
   fileDrafts?: (accountId: string, ids: string[], group?: string, writer?: string) => Promise<{ filed: number; missing: string[] }>;
+  /** Out of Office: the person's saved plan (default message and choices), each account's state, and the actions. */
+  ooo?: {
+    plan: OooPlan;
+    status: (ids: string[]) => Promise<Record<string, AutoReply | { error: string }>>;
+    turnOn: (plan: OooPlan) => Promise<{ done: string[]; failed: string[] }>;
+    turnOff: (ids: string[]) => Promise<{ done: string[]; failed: string[] }>;
+  };
   /** Opens a draft in Well Good Mail for the person to edit. */
   openDraft: (id: string) => void;
   /** Drafts this AI made earlier, by id, so it can replace one instead of piling up new ones. */
@@ -88,6 +100,20 @@ const SCHEMAS: Record<string, object> = {
     },
   },
   list_reminders: { type: 'object', properties: {} },
+  get_out_of_office: { type: 'object', properties: { account: { type: 'string', description: 'Optional account id, for one account only.' } } },
+  set_out_of_office: {
+    type: 'object',
+    properties: {
+      accounts: { type: 'array', items: { type: 'string' }, description: 'Account ids from list_accounts, or ["all"] for every shared account set to Read and write.' },
+      on: { type: 'boolean', description: 'True to turn on or schedule (the default). False to turn it off now.' },
+      from: { type: 'string', description: 'First day away, like 2026-12-21. Leave out to start straight away.' },
+      back: { type: 'string', description: 'The day the person is back, like 2027-01-04. Replies stop at the start of that day. Leave out to keep it on until turned off.' },
+      message: { type: 'string', description: 'Optional text of the reply. Leave out to use the person\'s own default away message, which is usually best. Write [back date] where the return date should go. No signature.' },
+      subject: { type: 'string', description: 'Optional subject for the reply (Gmail).' },
+      who: { type: 'string', enum: ['everyone', 'contacts', 'organisation'], description: 'Who gets the reply. Default: as the person set it in Well Good Mail.' },
+    },
+    required: ['accounts'],
+  },
   file_drafts: {
     type: 'object',
     properties: {
@@ -149,7 +175,7 @@ class Refused extends Error {}
  * are put to the person in one question, and any they untick or refuse are left out too. Refused only when nothing
  * is left. Returns the accounts to use and the names of any the person left out.
  */
-async function permitAccounts(w: McpWorld, tool: ToolSpec, wanted: string[], what: (names: string[]) => string, draft?: DraftPreview): Promise<{ ids: string[]; leftOut: string[]; edit?: boolean }> {
+async function permitAccounts(w: McpWorld, tool: ToolSpec, wanted: string[], what: (names: string[]) => string, draft?: DraftPreview, ooo?: OooPreview): Promise<{ ids: string[]; leftOut: string[]; edit?: boolean }> {
   const byId = (id: string) => w.accounts.find((a) => a.id === id);
   const verdicts = wanted.map((id) => ({ id, d: decide(w.settings, tool.capability, id, w.now) }));
   const open = verdicts.filter((v) => v.d.verdict === 'allow' || (v.d.verdict === 'ask' && w.granted(tool.capability, v.id))).map((v) => v.id);
@@ -158,7 +184,7 @@ async function permitAccounts(w: McpWorld, tool: ToolSpec, wanted: string[], wha
   let leftOut: string[] = [];
   let edit: boolean | undefined;
   if (toAsk.length) {
-    const answer = await w.ask({ capability: tool.capability, what: what(toAsk.map((id) => accName(byId(id)))), accounts: toAsk.map((id) => ({ id, name: accName(byId(id)) })), canRemember: !alwaysAsks(tool.capability), draft });
+    const answer = await w.ask({ capability: tool.capability, what: what(toAsk.map((id) => accName(byId(id)))), accounts: toAsk.map((id) => ({ id, name: accName(byId(id)) })), canRemember: !alwaysAsks(tool.capability), draft, ooo });
     edit = answer.edit;
     allowed = [...open, ...toAsk.filter((id) => answer.allowed.includes(id))];
     leftOut = toAsk.filter((id) => !answer.allowed.includes(id)).map((id) => accName(byId(id)));
@@ -310,6 +336,88 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
           where: `Saved as a draft in ${accName(account)}${saved.savedToServer ? ' (Drafts folder)' : ''}, and listed under AI Drafts in Well Good Mail. Nothing was sent: the person sends it themselves.${edit ? ' They opened it to edit.' : ''}`,
         },
         logText: logLine(tool, { subject: subject || '(no subject)' }),
+      };
+    }
+    case 'get_out_of_office': {
+      if (!w.ooo) throw new Error('Out of Office is not available here.');
+      if (!scope.length) throw new Refused('No account is shared with the AI.');
+      const { ids, leftOut } = await permitAccounts(w, tool, scope, (names) => `see Out of Office for ${listNames(names)}`);
+      const st = await w.ooo.status(ids.filter((id) => byId(id) && oooSupport(byId(id)!).native));
+      return {
+        data: {
+          accounts: ids.map((id) => {
+            const a = byId(id);
+            const r = st[id];
+            if (!a || !oooSupport(a).native) return { account: accName(a), outOfOffice: 'Can\'t be read or set from Well Good Mail (set it in the account\'s web mail).' };
+            if (!r || 'error' in r) return { account: accName(a), outOfOffice: 'Couldn\'t check', why: r && 'error' in r ? r.error : undefined };
+            return { account: accName(a), id, state: stateWords(r, w.now).words, starts: r.start ? iso(r.start) : undefined, ends: r.end ? iso(r.end) : undefined, subject: r.subject || undefined, message: htmlToText(r.html).slice(0, 2000), who: r.audience };
+          }),
+          defaultMessage: htmlToText(w.ooo.plan.message.html).slice(0, 2000),
+          note: note(leftOut),
+        },
+        logText: 'Looked at Out of Office',
+      };
+    }
+    case 'set_out_of_office': {
+      if (!w.ooo) throw new Error('Out of Office is not available here.');
+      const wanted = (Array.isArray(args.accounts) ? args.accounts : args.accounts ? [args.accounts] : []).map(String);
+      const writable = shared.filter((id) => w.settings.accounts[id] === 'write');
+      const ids = (wanted.includes('all') ? writable : wanted.filter((id) => shared.includes(id))).filter((id) => byId(id));
+      if (!ids.length) throw new Refused('None of those accounts are shared with the AI. Use ids from list_accounts.');
+      const readOnly = ids.filter((id) => w.settings.accounts[id] !== 'write');
+      if (readOnly.length === ids.length) throw new Refused(`${listNames(readOnly.map((id) => accName(byId(id))))} ${readOnly.length === 1 ? 'is' : 'are'} Read only for the AI. The person can change this in Well Good Mail, Settings, AI Connection.`);
+      const cannot = ids.filter((id) => !oooSupport(byId(id)!).native);
+      const usable = ids.filter((id) => !readOnly.includes(id) && !cannot.includes(id));
+      if (!usable.length) throw new Refused('Out of Office can\'t be set from Well Good Mail for those accounts. The person sets it in the account\'s web mail.');
+      const off = args.on === false;
+      args.verb = off ? 'turn off' : 'set';
+      const from = typeof args.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.from.trim()) ? args.from.trim() : undefined;
+      const back = typeof args.back === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.back.trim()) ? args.back.trim() : undefined;
+      if ((args.from && !from) || (args.back && !back)) throw new Error('Write dates as YYYY-MM-DD, like 2026-12-21.');
+      const todayYmd = new Date(w.now).toISOString().slice(0, 10);
+      const plan: OooPlan = {
+        ...w.ooo.plan,
+        accounts: usable,
+        mode: back ? 'dates' : 'open',
+        firstDay: from || todayYmd,
+        backOn: back || w.ooo.plan.backOn,
+        useTimes: false,
+        audience: args.who === 'contacts' ? 'contacts' : args.who === 'organisation' ? 'org' : args.who === 'everyone' ? 'all' : w.ooo.plan.audience,
+        own: typeof args.message === 'string' && args.message.trim() ? {} : w.ooo.plan.own,
+        message: typeof args.message === 'string' && args.message.trim()
+          ? { subject: typeof args.subject === 'string' ? args.subject.trim().slice(0, 150) : w.ooo.plan.message.subject, html: textToHtml(String(args.message).slice(0, 4000)) }
+          : { ...w.ooo.plan.message, subject: typeof args.subject === 'string' && args.subject.trim() ? args.subject.trim().slice(0, 150) : w.ooo.plan.message.subject },
+      };
+      if (!off && back) {
+        const { end } = windowOf(plan, w.now);
+        if (!end || end <= w.now) throw new Error('The back date has already passed.');
+        if (from && end <= new Date(from + 'T00:00').getTime()) throw new Error('The back date needs to be after the first day away.');
+      }
+      const { end } = windowOf(plan, w.now);
+      const msg = plan.message;
+      const preview: OooPreview = {
+        off,
+        accounts: usable.map((id) => accName(byId(id))),
+        when: off ? 'Turned off now.' : whenSentence(plan, w.now),
+        who: plan.audience === 'contacts' ? 'Your contacts only' : plan.audience === 'org' ? 'People in your organisation only' : 'Everyone who emails you',
+        subject: off ? undefined : fillBackDate(msg.subject, end),
+        text: off ? '' : htmlToText(fillBackDate(msg.html, end)).slice(0, 3000),
+      };
+      const what = (names: string[]) => (off ? `turn off Out of Office for ${listNames(names)}` : `${plan.mode === 'dates' && from && from > todayYmd ? 'schedule' : 'turn on'} Out of Office for ${listNames(names)}`);
+      const { ids: allowed, leftOut } = await permitAccounts(w, tool, usable, what, undefined, preview);
+      const r = off ? await w.ooo.turnOff(allowed) : await w.ooo.turnOn({ ...plan, accounts: allowed });
+      const doneNames = r.done.map((id) => accName(byId(id)));
+      return {
+        data: {
+          done: doneNames,
+          failed: r.failed.length ? r.failed : undefined,
+          when: off ? undefined : preview.when,
+          notSet: cannot.length ? `Set these in their own web mail: ${listNames(cannot.map((id) => accName(byId(id))))}.` : undefined,
+          readOnly: readOnly.length ? `Read only for the AI, so left alone: ${listNames(readOnly.map((id) => accName(byId(id))))}.` : undefined,
+          hasBackDate: msg.html.includes(BACK_TOKEN) || undefined,
+          note: note(leftOut),
+        },
+        logText: logLine(tool, { verb: off ? 'turn off' : 'set' }),
       };
     }
     case 'list_reminders': {

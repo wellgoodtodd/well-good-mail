@@ -3,8 +3,11 @@
 import { create } from 'zustand';
 import { httpFetch, invoke, isTauri, onTauriEvent, openExternal, secrets } from '../platform';
 import { AuthError } from './google';
+import { NeedsPermissionError } from '../providers/provider';
 
 export const MS_SCOPES = ['offline_access', 'openid', 'email', 'profile', 'User.Read', 'Mail.ReadWrite', 'Mail.Send', 'Calendars.Read', 'Contacts.Read', 'MailboxSettings.Read'];
+/** Asked for when signing in (Out of Office, the Away event, Add to contacts). Accounts that signed in before these existed sign in once more the first time they need one. */
+const MS_EXTRA = ['MailboxSettings.ReadWrite', 'Calendars.ReadWrite', 'Contacts.ReadWrite'];
 const AUTHORITY = 'https://login.microsoftonline.com/common/oauth2/v2.0';
 /**
  * The shared "Well Good Mail" app registration. A client ID is public by design (it only says which app is asking),
@@ -64,7 +67,7 @@ export async function signInWithMicrosoft(): Promise<{ email: string; name: stri
     client_id: id,
     response_type: 'code',
     redirect_uri: redirect,
-    scope: MS_SCOPES.join(' '),
+    scope: [...MS_SCOPES, ...MS_EXTRA].join(' '),
     code_challenge: await challenge(verifier),
     code_challenge_method: 'S256',
     state,
@@ -84,7 +87,8 @@ export async function signInWithMicrosoft(): Promise<{ email: string; name: stri
   return { email, name: me.displayName || email };
 }
 
-export async function getMicrosoftAccessToken(email: string): Promise<string> {
+export async function getMicrosoftAccessToken(email: string, extra?: string[]): Promise<string> {
+  if (extra?.length) return extraToken(email, extra);
   const e = email.toLowerCase();
   const c = cache.get(e);
   if (c && c.exp > Date.now()) return c.token;
@@ -94,6 +98,24 @@ export async function getMicrosoftAccessToken(email: string): Promise<string> {
   if (!ok) throw new AuthError(`Please sign in to ${email} again.`);
   if (json.refresh_token) await secrets.set(key(e), json.refresh_token);
   cache.set(e, { token: json.access_token, exp: Date.now() + (json.expires_in - 60) * 1000 });
+  return json.access_token;
+}
+
+/** A token for a permission beyond the everyday ones. Says plainly when the account needs to sign in once more for it. */
+async function extraToken(email: string, extra: string[]): Promise<string> {
+  const e = email.toLowerCase();
+  const k = `${e}|${extra.join(' ')}`;
+  const c = cache.get(k);
+  if (c && c.exp > Date.now()) return c.token;
+  const refresh = await secrets.get(key(e));
+  if (!refresh) throw new AuthError(`Please sign in to ${email} again.`);
+  const { ok, json } = await tokenPost(new URLSearchParams({ client_id: clientId() || '', grant_type: 'refresh_token', refresh_token: refresh, scope: ['offline_access', ...extra].join(' ') }).toString());
+  if (!ok) {
+    if (/AADSTS65001|consent|invalid_scope/i.test(`${json.error} ${json.error_description}`)) throw new NeedsPermissionError();
+    throw new AuthError(`Please sign in to ${email} again.`);
+  }
+  if (json.refresh_token) await secrets.set(key(e), json.refresh_token);
+  cache.set(k, { token: json.access_token, exp: Date.now() + (json.expires_in - 60) * 1000 });
   return json.access_token;
 }
 

@@ -20,6 +20,8 @@ import { openSmartEditor, smartItems } from './SmartMailboxEditor';
 import { matchSmart } from '../lib/smartMailboxes';
 import { myAddresses } from '../lib/compose';
 import type { Account, AccountGroup, Folder, Scope, SystemFolder, View } from '../lib/types';
+import { useOoo } from '../lib/oooStore';
+import { isAway } from '../lib/ooo';
 
 const FOLDERS: { folder: SystemFolder; icon: IconName; name: string; all: string }[] = [
   { folder: 'inbox', icon: 'inbox', name: 'Inbox', all: 'All Inboxes' },
@@ -253,6 +255,7 @@ function Item({ d, level = 0, twisty, onTwisty, inFavourites = false, favIndex, 
     const { view, screen, favDrop, menuFor, open, openMenu, pickColour, renaming, startRename, finishRename } = useContext(SideCtx);
     const s = useSettings();
     const rkey = renameKey(d, inFavourites);
+    const away = useOoo((o) => Boolean(d.account && d.dot && isAway(o.byAccount[d.account.id]?.reply)));
     const editing = renaming === rkey;
     const lastClick = useRef(0);
     const selected = screen === 'mail' && sameView(view, d.view) && !(twisty === 'open' && d.account);
@@ -331,6 +334,7 @@ function Item({ d, level = 0, twisty, onTwisty, inFavourites = false, favIndex, 
             {chip && d.account && d.dot && <span className="side-email"><i style={{ background: d.dot }} />{d.account.email}</span>}
           </span>
           {d.warn && <span className="warn" title="Needs signing in again"><Icon name="alert" size={14} /></span>}
+          {away && <span className="side-away" title="Out of Office is on" aria-label="Out of Office is on"><Icon name="plane" size={13} /></span>}
           {d.count && s.badges.style === 'dot' ? <span className="attn-dot" style={{ background: s.badges.colour }} title="Unread mail" aria-label="Has unread mail" /> : null}
           {d.count && s.badges.style !== 'dot' ? <span className={`count ${s.badges.style === 'pill' ? 'pill-badge' : ''}`} style={s.badges.style === 'pill' ? { background: s.badges.colour, color: textOn(s.badges.colour) } : undefined}>{d.count > 999 ? '999+' : d.count}</span> : null}
         </button>

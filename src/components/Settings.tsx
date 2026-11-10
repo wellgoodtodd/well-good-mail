@@ -21,15 +21,18 @@ import { exportCache, importCache } from '../lib/cacheTransfer';
 import { exportKeys, importKeys } from '../lib/backup';
 import { paceInfo } from '../lib/providers/gmail';
 import { enableSettingsSync } from '../lib/settingsSync';
-import { isTauri, setAutostart, setCloseQuits, notify, openExternal } from '../lib/platform';
+import { isTauri, setAutostart, setCloseQuits, notify, openExternal, previewsSize, clearPreviews, openPreviewsFolder, chooseFolder } from '../lib/platform';
 import { showBanner } from '../lib/banners';
 import { useSettingsAlerts } from '../lib/alerts';
 import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate, isBetaVersion } from '../lib/updater';
-import { useMenu, Dialog } from './ui';
+import { useMenu, Dialog, fileSize } from './ui';
 import { UpdateLog } from './WhatsNew';
 import { useBetaNotice, checkForBeta, wantsBetaNotices } from '../lib/betaNotice';
 import { CalendarList } from './ComingUp';
 import { AiConnectionTab } from './AiConnection';
+import { OutOfOfficeTab } from './OutOfOffice';
+import { useOoo } from '../lib/oooStore';
+import { stateWords as oooStateWords, oooSupport } from '../lib/ooo';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../lib/shortcuts';
 
 const TABS = [
@@ -38,10 +41,12 @@ const TABS = [
   ['groups', 'Inbox Groups'],
   ['appearance', 'Appearance'],
   ['writing', 'Composing'],
+  ['ooo', 'Out of Office'],
   ['notifications', 'Notifications & Reminders'],
   ['privacy', 'Privacy'],
   ['offline', 'Search & Storage'],
   ['shortcuts', 'Keyboard Shortcuts'],
+  ['access', 'Accessibility'],
   ['ai', 'AI Connection'],
   ['updates', 'Updates'],
   ['diagnostics', 'Diagnostics'],
@@ -111,7 +116,9 @@ export function SettingsScreen() {
         {tab === 'privacy' && <><PrivacyTab /><PeopleTab /></>}
         {tab === 'offline' && <OfflineTab />}
         {tab === 'shortcuts' && <ShortcutsTab />}
+        {tab === 'access' && <AccessibilityTab />}
         {tab === 'ai' && <AiConnectionTab />}
+        {tab === 'ooo' && <OutOfOfficeTab />}
         {tab === 'updates' && <UpdatesTab />}
         {tab === 'diagnostics' && <DiagnosticsTab />}
       </div>
@@ -192,6 +199,7 @@ function AccountsTab() {
   const [dropOn, setDropOn] = useState<string | null>(null);
   // The account shown on the right: the one you picked, else the first that needs attention, else the first.
   const sel = sorted.find((a) => a.id === selId) || sorted.find((a) => wantsSignIn(a) || a.status === 'error') || sorted[0];
+  const oooAcc = useOoo((o) => (sel ? o.byAccount[sel.id] : undefined));
   const mcp = tidy(s.mcp);
   const events = useMail((st) => st.events);
   const calNames = useMail((st) => st.calendarNames);
@@ -287,6 +295,11 @@ function AccountsTab() {
                     <span className="k">Calendars</span>
                     <span className="v">{calLine(sel)}</span>
                     <button className="link-btn" onClick={() => document.getElementById('acct-calendars')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Choose</button>
+                  </div>
+                  <div className="acct-line">
+                    <span className="k">Out of Office</span>
+                    <span className="v">{oooSupport(sel).native ? (oooAcc?.needsPermission ? 'Needs one more sign in' : oooStateWords(oooAcc?.reply).words) : 'Set in its own web mail'}</span>
+                    <button className="link-btn" onClick={() => openScreen('settings', 'ooo')}>Open Out of Office</button>
                   </div>
                   <div className="acct-line">
                     <span className="k">AI Connection</span>
@@ -799,6 +812,11 @@ function NotificationsTab() {
     <>
       <h1>Notifications</h1>
       <section className="set-section">
+        <h2>Suggested events</h2>
+        <Check checked={s.suggestEvents} onChange={(v) => s.set({ suggestEvents: v })}>Offer to add dates and times from emails to my calendar</Check>
+        <p className="hint" style={{ margin: '4px 0 0' }}>Only for emails from people (not newsletters or receipts), and only when there's a clear day and time. Read on this computer, with no AI. Nothing is added unless you click.{s.suggestMuted.length > 0 && <> {s.suggestMuted.length} sender{s.suggestMuted.length === 1 ? '' : 's'} never suggested: <button className="link-btn" onClick={() => s.set({ suggestMuted: [] })}>Allow again</button></>}</p>
+      </section>
+      <section className="set-section">
         <h2>New mail</h2>
         <Radio name="newmail" value={s.newMailAlerts} onChange={(v) => s.set({ newMailAlerts: v })} options={[
           { value: 'important', label: 'Only from important senders' },
@@ -880,6 +898,72 @@ function PrivacyTab() {
 
 // ---------- offline ----------
 
+function AccessibilityTab() {
+  const s = useSettings();
+  return (
+    <>
+      <h1>Accessibility</h1>
+      <section className="set-section">
+        <h2>Seeing</h2>
+        <Row label="Text size">
+          <span className="v">{Math.round((s.textScale || 1) * 100)}%</span>
+          <button className="link-btn" onClick={() => useMail.setState({ settingsTab: 'appearance' })}>Change in Appearance</button>
+        </Row>
+        <Row label="Keyboard focus" htmlFor="focusring">
+          <select id="focusring" value={s.focusRing} onChange={(e) => s.set({ focusRing: e.target.value as 'standard' | 'bold' })}>
+            <option value="standard">Standard ring</option>
+            <option value="bold">Bold ring, easier to spot</option>
+          </select>
+        </Row>
+        <p className="hint" style={{ margin: '4px 0 0' }}>Windows high contrast themes (Settings, Accessibility, Contrast themes) are followed, with selected rows and buttons outlined.</p>
+      </section>
+      <section className="set-section">
+        <h2>Motion</h2>
+        <Radio name="motion" value={s.motion} onChange={(v) => s.set({ motion: v })} options={[
+          { value: 'system', label: 'Follow Windows', sub: 'Uses "Animation effects" in Windows Settings, Accessibility, Visual effects.' },
+          { value: 'reduce', label: 'Keep things still', sub: 'No sliding, fading or pulsing anywhere in the app.' },
+        ]} />
+      </section>
+      <section className="set-section">
+        <h2>Keyboard and Narrator</h2>
+        <p className="hint" style={{ margin: 0 }}>Everything works from the keyboard: Tab and Shift+Tab move between controls, the arrow keys move through lists, Enter opens and Escape closes. Every button and box has a name that Windows Narrator reads out.</p>
+        <div style={{ marginTop: 10 }}><button className="btn" onClick={() => useMail.setState({ settingsTab: 'shortcuts' })}>Keyboard Shortcuts</button></div>
+      </section>
+    </>
+  );
+}
+
+function AttachmentsSection() {
+  const folder = useSettings((st) => st.downloadFolder);
+  const [size, setSize] = useState<{ bytes: number; files: number } | null>(null);
+  const load = () => { void previewsSize().then(setSize).catch(() => setSize(null)); };
+  useEffect(load, []);
+  const pick = async () => { const d = await chooseFolder('Choose where attachments are saved'); if (d) useSettings.getState().set({ downloadFolder: d }); };
+  return (
+    <section className="set-section">
+      <h2>Attachments</h2>
+      <div className="set-row">
+        <label htmlFor="dlfolder">Save attachments to</label>
+        <select id="dlfolder" value={folder ? 'folder' : 'ask'} onChange={(e) => { if (e.target.value === 'ask') useSettings.getState().set({ downloadFolder: '' }); else void pick(); }}>
+          <option value="ask">Ask each time</option>
+          <option value="folder">{folder ? folder : 'Choose a folder...'}</option>
+        </select>
+        {folder && <button className="link-btn" onClick={pick}>Change</button>}
+      </div>
+      <p className="hint">Files that can't be previewed here (like Word, Excel or Pages) open straight away in their own app, from a private Previews folder. Changes you make there aren't saved back to the email: use Save to keep a copy. Programs and scripts are never opened straight from an email.</p>
+      {isTauri() && (
+        <div className="set-row">
+          <span className="label">Previews</span>
+          <span className="v">{size ? (size.files ? `${fileSize(size.bytes)} in ${size.files} file${size.files === 1 ? '' : 's'}` : 'Empty') : '...'}</span>
+          <button className="btn" onClick={() => void openPreviewsFolder()}>Open folder</button>
+          <button className="btn" disabled={!size?.files} onClick={async () => { await clearPreviews(); load(); toast({ text: 'Previews cleared.' }); }}>Clear previews</button>
+        </div>
+      )}
+      {isTauri() && <p className="hint" style={{ marginBottom: 0 }}>Previews older than 30 days are cleared by themselves.</p>}
+    </section>
+  );
+}
+
 function OfflineTab() {
   const s = useSettings();
   const accounts = useMail((st) => st.accounts);
@@ -888,6 +972,7 @@ function OfflineTab() {
   return (
     <>
       <h1>Search &amp; Storage</h1>
+      <AttachmentsSection />
       <section className="set-section">
         <h2>Moving to another computer</h2>
         <Check checked={s.syncSettings} onChange={(v) => { s.set({ syncSettings: v }); if (v) enableSettingsSync(); }}>Keep my settings the same on every computer (uses a small file in your Google Drive)</Check>

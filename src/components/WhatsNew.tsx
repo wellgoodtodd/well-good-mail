@@ -56,17 +56,39 @@ export function WhatsNew() {
   );
 }
 
-/** Every main version, newest open and the rest folded away. */
+/** The series a version belongs to: "0.7.1" is in 0.7. */
+const seriesOf = (v: string) => v.split('.').slice(0, 2).join('.');
+
+function ReleaseItem({ r, open, latest }: { r: (typeof RELEASES)[number]; open?: boolean; latest?: boolean }) {
+  return (
+    <details className="log-item" open={open}>
+      <summary><strong>{r.version}</strong> <span className="log-date">{r.date}{latest ? ' · latest' : ''}</span></summary>
+      <ul>{r.more.map((m) => <li key={m}>{m}</li>)}</ul>
+    </details>
+  );
+}
+
+/**
+ * Every live release. The current series shows each release on its own, newest first and open; each older series
+ * folds into one row ("0.6.x") that opens to list its releases. Test versions never appear.
+ */
 export function UpdateLog() {
+  const current = seriesOf(RELEASES[0]?.version || '');
+  const now = RELEASES.filter((r) => seriesOf(r.version) === current);
+  const older = [...new Set(RELEASES.map((r) => seriesOf(r.version)).filter((s) => s !== current))];
   return (
     <section className="set-section">
       <h2 style={{ margin: '0 0 8px' }}>What's new</h2>
-      {RELEASES.map((r, i) => (
-        <details key={r.version} className="log-item" open={i === 0}>
-          <summary><strong>{r.version}</strong> <span className="log-date">{r.date}{i === 0 ? ' · latest' : ''}</span></summary>
-          <ul>{r.more.map((m) => <li key={m}>{m}</li>)}</ul>
-        </details>
-      ))}
+      {now.map((r, i) => <ReleaseItem key={r.version} r={r} open={i === 0} latest={i === 0} />)}
+      {older.map((s) => {
+        const list = RELEASES.filter((r) => seriesOf(r.version) === s);
+        return (
+          <details key={s} className="log-item log-series">
+            <summary><strong>{s}.x</strong> <span className="log-date">{list.length} release{list.length === 1 ? '' : 's'}, {list[list.length - 1].date} to {list[0].date}</span></summary>
+            <div className="log-series-list">{list.map((r) => <ReleaseItem key={r.version} r={r} />)}</div>
+          </details>
+        );
+      })}
       <p className="hint">Test versions are folded into the main version they lead to. The full history is on GitHub.</p>
     </section>
   );

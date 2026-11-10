@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AccountGroup, Template } from './types';
 import { defaultMcp, type McpSettings } from './mcp/permissions';
+import { defaultPlan, type OooActive, type OooPlan } from './ooo';
 
 export type ThemeSetting = 'dark' | 'light' | 'system';
 export type ReminderMode = 'never' | 'daily' | 'important' | 'all';
@@ -125,6 +126,26 @@ export interface Settings {
   warnings: { noSubject: boolean; missingAttachment: boolean; manyRecipients: boolean; fromMismatch: boolean; deleteDraft?: boolean; deleteGroup?: boolean; deleteSmart?: boolean };
   /** Scheduled email when the app is closed: Windows starts Well Good Mail at the send time (waking the PC from sleep). */
   wakeToSend: boolean;
+  /** Motion: follow Windows' "Animation effects", or always keep things still. */
+  motion: 'system' | 'reduce';
+  /** A bolder ring around whatever has keyboard focus. */
+  focusRing: 'standard' | 'bold';
+  /** A card at the top of an email that mentions a future date and time, offering to add it to the calendar. */
+  suggestEvents: boolean;
+  /** Emails whose suggestion was answered with Not now. */
+  suggestHidden: string[];
+  /** Senders to never suggest events from. */
+  suggestMuted: string[];
+  /** Where Save puts attachments without asking. Empty: ask each time. */
+  downloadFolder: string;
+  /** Out of Office: the next time away, as set up in Settings, Out of Office. */
+  ooo: OooPlan;
+  /** A time away Well Good Mail turned on, for its extras. */
+  oooActive?: OooActive;
+  /** Holiday suggestions already answered with Not now. */
+  oooDismissed: string[];
+  /** Suggest out of office from Holiday and Annual leave events in the calendar. */
+  oooSuggest: boolean;
 
   shortcuts: 'gmail' | 'none';
   /** Custom key combos by action id; missing = default. */
@@ -249,6 +270,15 @@ export const defaultSettings: Settings = {
   hiddenItems: [],
   warnings: { noSubject: true, missingAttachment: true, manyRecipients: true, fromMismatch: true, deleteDraft: true, deleteGroup: true, deleteSmart: true },
   wakeToSend: true,
+  ooo: defaultPlan(),
+  downloadFolder: '',
+  suggestEvents: true,
+  motion: 'system',
+  focusRing: 'standard',
+  suggestHidden: [],
+  suggestMuted: [],
+  oooDismissed: [],
+  oooSuggest: true,
 
   shortcuts: 'gmail',
   keybindings: {},
@@ -269,7 +299,7 @@ export const defaultSettings: Settings = {
 };
 
 /** Changes that happen by themselves, or are too small to be worth a step in Undo (dragging a divider, folding a section). */
-const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'demoMode', 'googlePublished', 'sidebarVisible']);
+const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden']);
 /** Friendly names for the Undo menu. Anything else is just "settings". */
 const SETTING_NAMES: Record<string, string> = {
   theme: 'appearance', accent: 'accent colour', density: 'density', textScale: 'text size', palette: 'account colours', darkSkin: 'dark look', lightSkin: 'light look',
@@ -278,7 +308,7 @@ const SETTING_NAMES: Record<string, string> = {
   hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
-  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring',
 };
 let lastStep: { id: string; keys: string; at: number } | null = null;
 
@@ -364,7 +394,7 @@ export const useSettings = create<SettingsStore>()(
       },
       merge: (persisted, current) => {
         const p = persisted as Partial<Settings>;
-        return { ...current, ...p, warnings: { ...current.warnings, ...(p?.warnings || {}) }, badges: { ...current.badges, ...(p?.badges || {}) } };
+        return { ...current, ...p, warnings: { ...current.warnings, ...(p?.warnings || {}) }, badges: { ...current.badges, ...(p?.badges || {}) }, ooo: { ...current.ooo, ...(p?.ooo || {}) } };
       },
     },
   ),

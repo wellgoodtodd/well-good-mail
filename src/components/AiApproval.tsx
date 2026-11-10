@@ -109,6 +109,16 @@ function AskCard({ asks }: { asks: ReturnType<typeof useApprovals.getState>['ask
                   <div className="ai-draft-note">Your signature for this account is added. It is saved as a draft and never sent: you send it yourself.</div>
                 </div>
               )}
+              {a.ooo && (
+                <div className="ai-draft">
+                  <div className="ai-draft-row"><b>Accounts</b><span>{a.ooo.accounts.join(', ')}</span></div>
+                  <div className="ai-draft-row"><b>When</b><span>{a.ooo.when}</span></div>
+                  {!a.ooo.off && <div className="ai-draft-row"><b>Who</b><span>{a.ooo.who}</span></div>}
+                  {!a.ooo.off && a.ooo.subject && <div className="ai-draft-row"><b>Subject</b><span>{a.ooo.subject}</span></div>}
+                  {!a.ooo.off && <div className="ai-draft-body">{a.ooo.text}</div>}
+                  <div className="ai-draft-note">{a.ooo.off ? 'Auto-replies stop straight away.' : 'Set inside each account, so people who email you get this reply even with your computer off. You can turn it off any time.'}</div>
+                </div>
+              )}
               {a.accounts.length > 1 && (
                 <span className="ai-card-ticks">
                   {a.accounts.map((acc) => (

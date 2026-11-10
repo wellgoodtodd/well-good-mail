@@ -9,7 +9,8 @@ import { avatarColour, fileSize, fullDate, initials, useMenu } from './ui';
 import { renderEmail, plainTextOf } from '../lib/render';
 import { loadBody, refetchBody, looksGarbled, getAttachmentData, markRead, messagesInThread, useMail, unsubscribe, toggleVip, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
-import { saveFile, saveFilesToFolder, openExternal } from '../lib/platform';
+import { SuggestedEvent } from './SuggestedEvent';
+import { saveFile, saveFilesToFolder, openExternal, openWithApp, isTauri } from '../lib/platform';
 import { askConfirm } from '../lib/dialogs';
 import { bytesToBase64 } from '../lib/mime';
 import { startCompose, editServerDraft } from '../lib/composeActions';
@@ -138,9 +139,18 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
 
   const download = async (id: string, filename: string, mime: string) => {
     try {
-      await saveFile(filename, await getAttachmentData(message.id, id), mime);
+      const where = await saveFile(filename, await getAttachmentData(message.id, id), mime);
+      if (where && isTauri() && useSettings.getState().downloadFolder) toast({ text: `Saved to ${where}` });
     } catch (e) {
       toast({ text: `Couldn't save ${filename}: ${e instanceof Error ? e.message : e}` });
+    }
+  };
+
+  const openApp = async (id: string, filename: string, mime: string) => {
+    try {
+      await openWithApp(filename, await getAttachmentData(message.id, id), mime);
+    } catch (e) {
+      toast({ text: `Couldn't open ${filename}: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
     }
   };
 
@@ -232,7 +242,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
           <button className="btn" onClick={() => editServerDraft(message)}>Edit draft</button>
         </div>
       )}
-      {message.attachments.some((a) => /calendar|ics/i.test(a.mimeType) || /.ics$/i.test(a.filename)) && <InviteCard message={message} />}
+      {message.attachments.some((a) => /calendar|ics/i.test(a.mimeType) || /.ics$/i.test(a.filename)) ? <InviteCard message={message} /> : <SuggestedEvent message={message} />}
       <div className="frame-wrap">
         {rendered ? <EmailFrame html={rendered.html} onLinkHover={onLinkHover} onContext={onFrameContext} /> : <div className="empty">Loading...</div>}
       </div>
@@ -247,10 +257,11 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
             return (
               <div key={a.id} className="attachment" onContextMenu={(e) => { e.preventDefault(); setPeek(null); menu.open({ x: e.clientX, y: e.clientY }, [
                 ...(canPreview ? [{ label: 'Preview', icon: 'eye' as const, onClick: () => setPreviewAt(i) }] : []),
-                { label: 'Save...', icon: 'download' as const, onClick: () => download(a.id, a.filename, a.mimeType) },
+                ...(isTauri() ? [{ label: 'Open in its own app', icon: 'popout' as const, onClick: () => openApp(a.id, a.filename, a.mimeType) }] : []),
+                { label: useSettings.getState().downloadFolder ? 'Save to downloads folder' : 'Save...', icon: 'download' as const, onClick: () => download(a.id, a.filename, a.mimeType) },
                 ...(attachments.length > 1 ? [{ label: `Save all ${attachments.length} to a folder...`, icon: 'folder' as const, onClick: saveAll }] : []),
               ]); }} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); clearTimeout(peekTimer.current); if (canPreview && !big) peekTimer.current = setTimeout(() => setPeek({ i, rect }), 400); }} onMouseLeave={() => { clearTimeout(peekTimer.current); setPeek(null); }}>
-                <button className="open" onClick={() => (canPreview ? (setPeek(null), setPreviewAt(i)) : download(a.id, a.filename, a.mimeType))} title={canPreview ? (big ? `Large file: click to preview ${a.filename}` : `Preview ${a.filename}`) : `Save ${a.filename}`}>
+                <button className="open" onClick={() => (canPreview ? (setPeek(null), setPreviewAt(i)) : isTauri() ? openApp(a.id, a.filename, a.mimeType) : download(a.id, a.filename, a.mimeType))} title={canPreview ? (big ? `Large file: click to preview ${a.filename}` : `Preview ${a.filename}`) : isTauri() ? `Open ${a.filename} in its own app` : `Save ${a.filename}`}>
                   <span className={`ftile ${fileTone(a)}`} aria-hidden="true">{fileTag(a)}</span>
                   <span className="info">
                     <div className="fname">{a.filename}</div>

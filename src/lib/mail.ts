@@ -635,6 +635,7 @@ function applyRulesToNew(msgs: Message[]) {
 function notifyNewMail(msgs: Message[]) {
   const s = settings();
   if (s.newMailAlerts === 'off' || isQuietNow(s)) return;
+  if (s.oooActive?.pauseAlerts && s.oooActive.start <= Date.now() && (!s.oooActive.end || s.oooActive.end > Date.now())) return;
   const mine = myAddresses(get().accounts);
   const vips = new Set(s.vips);
   const candidates = msgs.filter((m) => {
@@ -1433,6 +1434,7 @@ export async function flushOutbox() {
 
 function minuteTick() {
   flushOutbox();
+  void import('./oooStore').then((m) => m.oooTick()).catch(() => { /* not ready yet */ });
   const now = Date.now();
   const due = get().snoozes.filter((s) => s.until <= now);
   if (due.length) {

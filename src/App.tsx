@@ -40,6 +40,7 @@ import { loadMicrosoftKeys } from './lib/auth/microsoft';
 import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from './lib/updater';
 import { startMcpWatch } from './lib/mcp/server';
 import { AiApprovalCard, AiStatusButton } from './components/AiApproval';
+import { OooBanner, AwaySummary } from './components/OutOfOffice';
 import { AiDrafts } from './components/AiDrafts';
 import { ScheduledScreen } from './components/Scheduled';
 import './lib/sender';
@@ -68,6 +69,12 @@ function useTheme() {
   const unreadColour = useSettings((s) => s.unreadColour);
   const darkSkin = useSettings((s) => s.darkSkin);
   const lightSkin = useSettings((s) => s.lightSkin);
+  const motion = useSettings((s) => s.motion);
+  const focusRing = useSettings((s) => s.focusRing);
+  useEffect(() => {
+    document.documentElement.dataset.motion = motion;
+    document.documentElement.dataset.focus = focusRing;
+  }, [motion, focusRing]);
   const [systemDark, setSystemDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
     const mq = matchMedia('(prefers-color-scheme: dark)');
@@ -318,6 +325,7 @@ function MainWindow() {
     const offs: Promise<() => void>[] = [
       onTauriEvent('tray-refresh', () => refreshAll()),
       onTauriEvent('tray-compose', () => startCompose('new')),
+      onTauriEvent('tray-ooo', () => openScreen('settings', 'ooo')),
     ];
     // Drafts sent from pop out windows: send from here so undo and retries work.
     const bc = new BroadcastChannel('wgm');
@@ -358,6 +366,7 @@ function MainWindow() {
       { label: 'Add account', icon: 'plus', submenu: addAccountItems() },
       { divider: true },
       { label: 'Reminders', icon: 'bell', onClick: () => openScreen('reminders') },
+      { label: 'Out of Office', icon: 'plane', disabled: !hasAccounts, onClick: () => openScreen('settings', 'ooo') },
       { label: 'Settings', icon: 'settings', submenu: [tab('Accounts', 'accounts'), tab('Appearance', 'appearance'), tab('Notifications and Reminders', 'notifications'), tab('Keyboard Shortcuts', 'shortcuts'), tab('Updates', 'updates'), tab('Diagnostics', 'diagnostics')] },
       { label: 'Help', icon: 'help', onClick: () => openScreen('help') },
       { divider: true },
@@ -461,6 +470,7 @@ function MainWindow() {
         )}
       </header>
       {accounts.length > 0 && !guide && <MeetingBanner />}
+      {accounts.length > 0 && !guide && <OooBanner />}
       {!online && <div className="offline">You're offline. Mail you've already downloaded is still here, and anything you send will go when you're back online.</div>}
       {update.status === 'ready' && <div className="update-bar">Version {update.version} is ready. <button className="btn" onClick={restartToUpdate}>Restart to update</button></div>}
       {guide ? (
@@ -516,6 +526,7 @@ function MainWindow() {
       )}
       {appMenu.node}
       <DialogHost />
+      <AwaySummary />
       <AiApprovalCard />
       <SmartMailboxEditor />
       <WhatsNew />

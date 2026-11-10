@@ -5,6 +5,7 @@
 //! Windows Credential Manager, the tray icon, start with Windows and updates.
 
 mod dav;
+mod files;
 mod imapmail;
 mod mcp;
 mod pdf;
@@ -207,15 +208,21 @@ pub fn run() {
             mcp::mcp_installed,
             mcp::mcp_self_test,
             wake::schedule_wake,
-            wake::cancel_wake
+            wake::cancel_wake,
+            files::open_attachment,
+            files::save_to_folder,
+            files::previews_size,
+            files::clear_previews,
+            files::open_previews_folder
         ])
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;
             let refresh = MenuItem::with_id(app, "refresh", "Check for new mail", true, None::<&str>)?;
             let compose = MenuItem::with_id(app, "compose", "New email", true, None::<&str>)?;
+            let ooo = MenuItem::with_id(app, "ooo", "Out of Office...", true, None::<&str>)?;
             let ai_pause = MenuItem::with_id(app, "ai-pause", "Pause or resume the AI connection", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &compose, &refresh, &ai_pause, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &compose, &refresh, &ooo, &ai_pause, &quit])?;
 
             TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
@@ -230,6 +237,10 @@ pub fn run() {
                     "compose" => {
                         show_main(app);
                         let _ = app.emit("tray-compose", ());
+                    }
+                    "ooo" => {
+                        show_main(app);
+                        let _ = app.emit("tray-ooo", ());
                     }
                     "ai-pause" => {
                         let _ = app.emit("tray-mcp-pause", ());

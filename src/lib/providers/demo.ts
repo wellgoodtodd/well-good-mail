@@ -2,6 +2,7 @@
 // tested without signing in to anything. Nothing leaves the computer.
 import type { Account, Address, Alias, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
+import type { AutoReply } from '../ooo';
 import { htmlToText } from '../mime';
 
 const SYSTEM: Record<SystemFolder, string | null> = {
@@ -225,8 +226,24 @@ export function resetDemo() {
   state = null;
 }
 
+const demoReplies = new Map<string, AutoReply>();
+
 export class DemoProvider implements MailProvider {
   constructor(public readonly account: Account) {}
+
+  async getAutoReply(): Promise<AutoReply> {
+    await new Promise((r) => setTimeout(r, 250));
+    return demoReplies.get(this.account.id) || { on: false, html: '', subject: '', audience: 'all' };
+  }
+
+  async setAutoReply(r: AutoReply): Promise<void> {
+    await new Promise((res) => setTimeout(res, 400));
+    demoReplies.set(this.account.id, { ...r });
+  }
+
+  async addAwayEvent(): Promise<string> { return `away-${Date.now()}`; }
+  async addInviteToCalendar(): Promise<void> { await new Promise((r) => setTimeout(r, 300)); }
+  async removeAwayEvent(): Promise<void> { /* nothing to remove in the demo */ }
 
   systemFolderId(f: SystemFolder) {
     return SYSTEM[f];

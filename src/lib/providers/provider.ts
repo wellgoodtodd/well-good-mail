@@ -1,6 +1,7 @@
 // The contract every mail service (Gmail, Microsoft 365, IMAP, demo) fulfils.
 import type { Account, Address, Alias, CalendarEvent, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Invite, Rsvp } from '../invites';
+import type { AutoReply } from '../ooo';
 
 export interface SyncResult {
   upserted: Message[];
@@ -56,6 +57,13 @@ export interface MailProvider {
   respondToInvite?(uid: string, status: Rsvp): Promise<boolean>;
   /** Puts an invitation in the calendar. */
   addInviteToCalendar?(invite: Invite): Promise<void>;
+  /** Out of Office as the account itself holds it. */
+  getAutoReply?(): Promise<AutoReply>;
+  /** Sets Out of Office inside the account, so it works with this computer off. */
+  setAutoReply?(r: AutoReply): Promise<void>;
+  /** An "Away" event in the calendar for the time away. Google Workspace can decline new invitations during it. Returns its id. */
+  addAwayEvent?(start: number, end: number, opts: { allDay: boolean; decline: boolean; message?: string }): Promise<string>;
+  removeAwayEvent?(id: string): Promise<void>;
   /** Upload a large file and return a share link (Google Drive). */
   uploadLargeFile?(name: string, mimeType: string, data: Uint8Array): Promise<string>;
 }
@@ -64,6 +72,14 @@ export interface MailProvider {
 export class CalendarPermissionError extends Error {
   constructor() {
     super("This account hasn't allowed Well Good Mail to change its calendar yet");
+  }
+}
+
+/** The account signed in before it allowed this (like Out of Office). Signing in once more fixes it. */
+export class NeedsPermissionError extends Error {
+  needsPermission = true;
+  constructor(what = 'this') {
+    super(`This account needs to sign in once more to allow ${what}`);
   }
 }
 

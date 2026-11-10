@@ -14,6 +14,10 @@ export const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/contacts.readonly',
   'https://www.googleapis.com/auth/contacts.other.readonly',
   'https://www.googleapis.com/auth/drive.file',
+  // Out of Office (Gmail's vacation responder).
+  'https://www.googleapis.com/auth/gmail.settings.basic',
+  // Add to contacts from the person card.
+  'https://www.googleapis.com/auth/contacts',
 ];
 
 /**
@@ -72,7 +76,14 @@ const grantKey = (email: string) => `wgm.calwrite.${email.toLowerCase()}`;
 /** Remembers whether Google said this sign in may edit calendar events (it comes back with every token). */
 function noteScopes(email: string, scope: unknown) {
   if (typeof scope !== 'string') return;
-  try { localStorage.setItem(grantKey(email), scope.split(' ').includes('https://www.googleapis.com/auth/calendar.events') ? '1' : '0'); } catch { /* storage unavailable */ }
+  try {
+    localStorage.setItem(grantKey(email), scope.split(' ').includes('https://www.googleapis.com/auth/calendar.events') ? '1' : '0');
+    localStorage.setItem(`wgm.scopes.${email.toLowerCase()}`, scope);
+  } catch { /* storage unavailable */ }
+}
+/** Whether this Google sign in allowed a permission. undefined: not known yet. */
+export function googleAllows(email: string, scope: string): boolean | undefined {
+  try { const v = localStorage.getItem(`wgm.scopes.${email.toLowerCase()}`); return v === null ? undefined : v.split(' ').includes(scope); } catch { return undefined; }
 }
 /** true: allowed. false: this account signed in before the permission existed. undefined: not known yet. */
 export function calendarEditAllowed(email: string): boolean | undefined {
