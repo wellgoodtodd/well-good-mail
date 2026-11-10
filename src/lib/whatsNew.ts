@@ -30,6 +30,8 @@ export const RELEASES: Release[] = [
       'An email that mentions a day and time ("Thursday, 7pm kick off") shows Add to calendar at the top. Only from people, never newsletters, and it is read on this computer with no AI. Turn it off in Settings, Notifications & Reminders.',
       'Settings, Accessibility: a bold focus ring, and Keep things still for motion. The app follows Windows Animation effects and contrast themes, and every button has a name Narrator reads.',
       'Settings, Updates groups older versions by series (0.6.x), and buttons, boxes and full-page screens share one height and width.',
+      'Setting up a second computer? The welcome page has Moving from another computer: restore your Google key from a backup file, sign in, then bring your mail across.',
+      'Text size is in Accessibility as well as Appearance. Drafts made in Gmail keep their attachments in AI Drafts, and bounce and no-reply addresses no longer come up as suggestions.',
     ],
   },
   {
