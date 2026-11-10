@@ -108,10 +108,10 @@ export function startUpdateChecks() {
   // A test build, or a live build that asked to hear about them, glances at the public release list once a day.
   const betaLook = () => import('@tauri-apps/api/app').then(({ getVersion }) => getVersion()).then((v) => checkForBeta(v)).catch(() => {});
   setTimeout(betaLook, 20000);
-  setInterval(betaLook, 24 * 60 * 60 * 1000);
   // A tiny look at the update file every 30 minutes, and when you come back to the window after a while away.
+  // The test version look rides along, but asks GitHub at most once an hour.
   let last = Date.now();
-  const look = () => { last = Date.now(); checkForUpdates(); };
+  const look = () => { last = Date.now(); checkForUpdates(); betaLook(); };
   setInterval(look, 30 * 60 * 1000);
   window.addEventListener('focus', () => { if (Date.now() - last > 10 * 60 * 1000) look(); });
 }
