@@ -58,7 +58,10 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
     const t = setTimeout(() => {
       const el = document.querySelector('.composer.inline') as HTMLElement | null;
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      (el?.querySelector('[contenteditable="true"]') as HTMLElement | null)?.focus();
+      // Typing starts in To when nobody is on it yet (a forward), otherwise in the message.
+      const to = el?.querySelector('[data-field="to"]');
+      const empty = to && !to.querySelector('.chip');
+      ((empty ? to.querySelector('input') : el?.querySelector('[contenteditable="true"]')) as HTMLElement | null)?.focus();
     }, 80);
     return () => clearTimeout(t);
   }, [inlineDraftId]);

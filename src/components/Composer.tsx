@@ -171,14 +171,23 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
     editor?.view.dom.setAttribute('spellcheck', s.spellCheck ? 'true' : 'false');
   }, [editor, s.spellCheck]);
 
+  /** Where typing starts: in To when nobody is on the email yet (a forward or a new email), otherwise in the message. */
+  const startTyping = (d: { to: unknown[]; cc: unknown[]; bcc: unknown[] }) => {
+    setTimeout(() => {
+      const nobody = !d.to.length && !d.cc.length && !d.bcc.length;
+      const to = document.querySelector<HTMLInputElement>(`[data-composer="${draftId}"] [data-field="to"] input`);
+      if (nobody && to) to.focus();
+      else editor?.commands.focus('start');
+    }, 30);
+  };
+
   // Put the saved body into the editor once both exist.
   const loadedInto = useRef<string | null>(null);
   useEffect(() => {
     if (editor && draft && loadedInto.current !== draft.id) {
       loadedInto.current = draft.id;
       editor.commands.setContent(draft.html || '', false);
-      if (draft.mode === 'new' && !draft.to.length) return;
-      setTimeout(() => editor.commands.focus('start'), 30);
+      startTyping(draft);
     }
   }, [editor, draft]);
 
@@ -196,6 +205,8 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
     update((d) => {
       const next = switchMode(d, mode, d.sourceMessageId ? useMail.getState().messages[d.sourceMessageId] : undefined, useMail.getState().accounts);
       if (next.cc.length) setShowCc(true);
+      // Switching to Forward empties To, so typing starts there.
+      if (mode === 'forward' && !next.to.length) startTyping(next);
       return next;
     });
   }, [update]);
@@ -370,6 +381,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   return (
     <div
       ref={rootRef}
+      data-composer={draftId}
       className={`composer ${variant}`}
       style={{ position: 'relative' }}
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragOver(true); } }}

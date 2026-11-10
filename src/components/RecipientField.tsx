@@ -41,7 +41,7 @@ export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFo
   };
 
   return (
-    <div className="comp-field">
+    <div className="comp-field" data-field={label.toLowerCase()}>
       <label htmlFor={id}>{label}</label>
       <div className="chips" onClick={() => inputRef.current?.focus()}>
         {value.map((a) => (
