@@ -567,8 +567,7 @@ function AppearanceTab() {
           <Radio name="theme" value={s.theme} onChange={(v) => s.set({ theme: v })} options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'Follow Windows' }]} />
         </Row>
         <Row label="Text size" htmlFor="scale">
-          <input id="scale" type="range" min={0.85} max={1.3} step={0.05} value={s.textScale} onChange={(e) => s.set({ textScale: Number(e.target.value) })} />
-          <span>{Math.round(s.textScale * 100)}%</span>
+          <TextSizeSlider id="scale" />
         </Row>
         <Row label="List spacing">
           <Radio name="density" value={s.density} onChange={(v) => s.set({ density: v })} options={[{ value: 'comfortable', label: 'Comfortable' }, { value: 'compact', label: 'Compact' }]} />
@@ -898,6 +897,18 @@ function PrivacyTab() {
 
 // ---------- offline ----------
 
+/** The one text size setting, shown in both Appearance and Accessibility: moving either moves the other. */
+function TextSizeSlider({ id }: { id: string }) {
+  const scale = useSettings((st) => st.textScale) || 1;
+  const pct = Math.round(scale * 100);
+  return (
+    <>
+      <input id={id} type="range" min={0.85} max={1.3} step={0.05} value={scale} aria-valuetext={`${pct}%`} onChange={(e) => useSettings.getState().set({ textScale: Number(e.target.value) })} />
+      <span>{pct}%</span>
+    </>
+  );
+}
+
 function AccessibilityTab() {
   const s = useSettings();
   return (
@@ -905,9 +916,8 @@ function AccessibilityTab() {
       <h1>Accessibility</h1>
       <section className="set-section">
         <h2>Seeing</h2>
-        <Row label="Text size">
-          <span className="v">{Math.round((s.textScale || 1) * 100)}%</span>
-          <button className="link-btn" onClick={() => useMail.setState({ settingsTab: 'appearance' })}>Change in Appearance</button>
+        <Row label="Text size" htmlFor="scale-a11y">
+          <TextSizeSlider id="scale-a11y" />
         </Row>
         <Row label="Keyboard focus" htmlFor="focusring">
           <select id="focusring" value={s.focusRing} onChange={(e) => s.set({ focusRing: e.target.value as 'standard' | 'bold' })}>
