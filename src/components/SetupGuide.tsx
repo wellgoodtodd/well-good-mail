@@ -535,6 +535,9 @@ function ImapGuide() {
     <Frame step={2} total={total} onBack={() => setStep(preset ? 1 : 0)} hideNext>
       <p className="gstep">{existing ? 'New password' : preset ? 'Step 2 of 2' : 'Your account'}</p>
       <h2>{existing ? `Enter a new password for ${existing.email}` : preset ? 'Enter your address and password' : 'Enter your account details'}</h2>
+      {existing && preset && (
+        <p className="glead">{preset.name} stopped accepting the old {preset.passwordName}, so make a new one. <button className="link-btn" onClick={() => setStep(1)}>Show me how</button></p>
+      )}
       <label className="glabel" htmlFor="i-email">Email address</label>
       <input id="i-email" className="gin" value={email} disabled={Boolean(existing)} placeholder={preset?.id === 'icloud' ? 'you@icloud.com' : 'you@example.com'} onChange={(e) => { setEmail(e.target.value); setError(''); }} />
       <label className="glabel" htmlFor="i-pass">{preset ? `The ${preset.passwordName}` : 'Password (an app password, if your service has them)'}</label>
