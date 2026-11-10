@@ -6,7 +6,7 @@ import { getMicrosoftAccessToken } from '../auth/microsoft';
 import { bytesToBase64, buildRawMessage, base64ToBytes } from '../mime';
 import { httpFetch } from '../platform';
 import type { Account, Address, Alias, CalendarEvent, EventGuest, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
-import type { MailProvider, MessageBody, SyncResult } from './provider';
+import { NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { findMeetingUrl } from '../meetings';
 import { cleanPreview } from '../cleanText';
@@ -93,7 +93,10 @@ export class MicrosoftProvider implements MailProvider {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) },
     });
     if (!res.ok) {
-      const err = new Error(`Microsoft ${res.status}: ${(await res.text()).slice(0, 300)}`) as Error & { status?: number };
+      const text = (await res.text()).slice(0, 300);
+      // A token without the newer permission (mailbox settings, calendar, contacts) is turned away: one more sign in fixes it.
+      if (extra?.length && res.status === 403 && /AccessDenied|scope|permission/i.test(text)) throw new NeedsPermissionError();
+      const err = new Error(`Microsoft ${res.status}: ${text}`) as Error & { status?: number };
       err.status = res.status;
       throw err;
     }

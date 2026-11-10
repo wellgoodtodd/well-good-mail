@@ -11,10 +11,12 @@ import { threadKey } from '../lib/mailbox';
 import { useSettings } from '../lib/settings';
 import { allAliases } from '../lib/compose';
 import { BACK_TOKEN, TEMPLATES, htmlToText, messageFor, oooSupport, planProblem, stateWords, whenSentence, windowOf, type OooMessage, type OooPlan } from '../lib/ooo';
-import { awayAccounts, awayDigest, closeSummary, dismissSuggestion, nativeAccounts, refreshOoo, replyFor, turnOffOoo, turnOnOoo, useOoo, applySuggestion, oooToastResult } from '../lib/oooStore';
+import { awayAccounts, awayDigest, closeSummary, dismissSuggestion, nativeAccounts, refreshOoo, replyFor, turnOffOoo, turnOnOoo, useOoo, applySuggestion, oooToastResult, oooSignIn, oooSignInDue, shortReason } from '../lib/oooStore';
 import type { Account, Message } from '../lib/types';
 
 const nameOf = (a: Account) => a.label || a.email;
+/** The sign in pop-up shows once each time the app runs; the bar above the accounts stays until it's done. */
+let askedSignIn = false;
 const listNames = (n: string[]) => (n.length <= 1 ? n.join('') : `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}`);
 const dayWords = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
@@ -72,7 +74,13 @@ export function OutOfOfficeTab() {
   const suggestion = useOoo((s) => s.suggestion);
   const [editing, setEditing] = useState<string>('default');
   const [preview, setPreview] = useState(false);
-  useEffect(() => { void refreshOoo(); }, []);
+  useEffect(() => {
+    void refreshOoo().then(() => {
+      if (askedSignIn || !oooSignInDue().length) return;
+      askedSignIn = true;
+      void oooSignIn(undefined, { ask: true });
+    });
+  }, []);
 
   const native = accounts.filter((a) => oooSupport(a).native);
   const others = accounts.filter((a) => !oooSupport(a).native);
@@ -102,7 +110,18 @@ export function OutOfOfficeTab() {
   };
 
   const turnOn = async () => {
-    const r = await turnOnOoo(useSettings.getState().ooo);
+    const plan = useSettings.getState().ooo;
+    const r = await turnOnOoo(plan);
+    // Accounts that need one more sign in: ask, sign in to each, then carry on turning it on for them.
+    if (r.needSignIn.length) {
+      askedSignIn = true;
+      const ready = await oooSignIn(r.needSignIn, { ask: true });
+      if (ready.length) {
+        const again = await turnOnOoo({ ...plan, accounts: ready });
+        r.done.push(...again.done);
+        r.failed.push(...again.failed);
+      }
+    }
     const names = accounts.filter((a) => r.done.includes(a.id)).map(nameOf);
     if (r.done.length) toast({ text: `Out of Office ${scheduling ? 'is scheduled' : 'is on'} for ${listNames(names)}.` });
     oooToastResult(r, scheduling ? 'scheduled' : 'turned on');
@@ -143,6 +162,7 @@ export function OutOfOfficeTab() {
         {native.length > 1 && (
           <label className="check ooo-all"><input type="checkbox" checked={allTicked} onChange={(e) => set({ accounts: e.target.checked ? native.map((a) => a.id) : [] })} /><span>All accounts</span></label>
         )}
+        <OooSignInBar />
         <div className="ooo-chips">
           {native.map((a) => {
             const x = by[a.id];
@@ -157,7 +177,7 @@ export function OutOfOfficeTab() {
                   <span className="ooo-chip-text">
                     <b>{nameOf(a)}</b>
                     <small>
-                      {x?.loading ? 'Checking...' : x?.needsPermission ? 'Needs one more sign in' : x?.error ? 'Couldn\'t check' : <span className={`ooo-state ${st.state}`}>{st.state !== 'off' && <Icon name="plane" size={12} />}{st.words}</span>}
+                      {x?.loading ? 'Checking...' : x?.needsPermission ? 'Needs one more sign in' : x?.error ? <span className="status-bad" title={x.error}>Couldn't check: {shortReason(x.error)}</span> : <span className={`ooo-state ${st.state}`}>{st.state !== 'off' && <Icon name="plane" size={12} />}{st.words}</span>}
                       {on && <span className="ooo-which-msg">{own ? 'Own message' : 'Default message'}</span>}
                     </small>
                   </span>
@@ -268,6 +288,7 @@ export function OutOfOfficeTab() {
       </section>
 
       <div className="ooo-actions">
+        {anyOn && <button className="btn" disabled={busy} onClick={turnOff}>Turn off now</button>}
         {problem && <span className="ooo-problem">{problem}</span>}
         <span className="grow" />
         <button className="btn" disabled={!ticked.length} onClick={() => setPreview(true)}>Preview</button>
@@ -374,3 +395,18 @@ export function AwaySummary() {
   );
 }
 
+
+/** Blatant, so it isn't missed: accounts that need one more sign in before Out of Office can be set. */
+function OooSignInBar() {
+  const byAccount = useOoo((s) => s.byAccount);
+  const due = nativeAccounts().filter((a) => byAccount[a.id]?.needsPermission);
+  const [busy, setBusy] = useState(false);
+  if (!due.length) return null;
+  return (
+    <div className="ooo-signin" role="alert">
+      <Icon name="alert" size={16} />
+      <span><b>{due.length === 1 ? `${nameOf(due[0])} needs one more sign in` : `${due.length} accounts need one more sign in`}</b> before Out of Office can be set. Tick every box when asked.</span>
+      <button className="btn primary" disabled={busy} onClick={async () => { setBusy(true); await oooSignIn(due.map((a) => a.id)); setBusy(false); }}>{due.length === 1 ? 'Sign in' : 'Sign in to each'}</button>
+    </div>
+  );
+}

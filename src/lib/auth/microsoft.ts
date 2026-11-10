@@ -111,8 +111,8 @@ async function extraToken(email: string, extra: string[]): Promise<string> {
   if (!refresh) throw new AuthError(`Please sign in to ${email} again.`);
   const { ok, json } = await tokenPost(new URLSearchParams({ client_id: clientId() || '', grant_type: 'refresh_token', refresh_token: refresh, scope: ['offline_access', ...extra].join(' ') }).toString());
   if (!ok) {
-    if (/AADSTS65001|consent|invalid_scope/i.test(`${json.error} ${json.error_description}`)) throw new NeedsPermissionError();
-    throw new AuthError(`Please sign in to ${email} again.`);
+    // Whatever Microsoft says (no consent yet, a scope it won't add to this sign in), signing in once more asks afresh.
+    throw new NeedsPermissionError();
   }
   if (json.refresh_token) await secrets.set(key(e), json.refresh_token);
   cache.set(k, { token: json.access_token, exp: Date.now() + (json.expires_in - 60) * 1000 });

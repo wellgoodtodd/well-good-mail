@@ -1392,7 +1392,7 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 [data-theme='dark'] .ooo-editor, [data-theme='dark'] .ooo-editor .ooo-body { background: #1b1b1e; border-color: #3a3a40; }
 .ooo-h3 { font-size: 0.95em; margin: 14px 0 0; }
 .ooo-warn { color: #8f5400; margin: 8px 0 0; }
-.ooo-actions { display: flex; align-items: center; gap: 8px; max-width: 760px; margin: 0 0 30px; position: sticky; bottom: 0; padding: 10px 0; background: var(--bg); border-top: 1px solid var(--border); }
+.ooo-actions { display: flex; align-items: center; gap: 8px; max-width: 760px; margin: 0; position: sticky; bottom: -60px; padding: 10px 0 14px; background: var(--bg); border-top: 1px solid var(--border); }
 .ooo-problem { color: var(--text-muted); font-size: 0.92em; }
 .ooo-actions .grow, .ooo-bar .grow, .ooo-suggest .grow { flex: 1; min-width: 0; }
 .ooo-suggest { display: flex; align-items: center; gap: 10px; }
@@ -1414,8 +1414,7 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .away-row:hover, .away-row:focus-visible { background: var(--bg-hover); }
 .away-row b, .away-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .away-row small { color: var(--text-muted); }
-.ooo-chip-text small { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; }
-.ooo-which-msg::before { content: '·'; margin-right: 6px; color: var(--text-muted); }
+.ooo-chip-text small { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
 
 /* Suggested events (0.7.2) */
 .suggest-kicker { display: inline-flex; align-items: center; gap: 5px; text-transform: none; }
@@ -1462,3 +1461,10 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .move-body { display: flex; flex-direction: column; gap: 3px; line-height: 1.45; }
 .move-body > span { color: var(--text-muted); font-size: 0.92em; }
 .move-actions { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+
+/* Out of Office: accounts that need one more sign in (0.7.2 beta 2) */
+.ooo-signin { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 0 0 12px; border-radius: 8px; border: 1px solid #c98a1a; background: color-mix(in srgb, #f0a020 14%, transparent); }
+.ooo-signin > svg { flex: none; color: #8f5400; }
+.ooo-signin > span { flex: 1; line-height: 1.4; }
+[data-theme='dark'] .ooo-signin > svg { color: #f0a020; }
+/* The Settings page keeps 60px of room at the bottom; the bar sits flush with the window edge so nothing scrolls past under it. */

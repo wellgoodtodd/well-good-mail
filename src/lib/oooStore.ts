@@ -1,7 +1,8 @@
 // Out of Office in the app: reads each account's state, turns it on and off for the ticked accounts, and looks
 // after the extras (the Away event, the reminder the day before, "While you were away" and the holiday suggestion).
 import { create } from 'zustand';
-import { useMail, providerFor, toast as showToast } from './mail';
+import { useMail, providerFor, reconnectAccount, toast as showToast } from './mail';
+import { askConfirm } from './dialogs';
 import { settings, useSettings, isQuietNow } from './settings';
 import { notify } from './platform';
 import type { Account, Message } from './types';
@@ -71,11 +72,12 @@ export function replyFor(plan: OooPlan, a: Account, now = Date.now()): AutoReply
  * Turns Out of Office on (or schedules it) in every ticked account, then adds the extras. Each account is set on its
  * own, so one that fails (or needs to sign in once more) doesn't stop the others. Returns the names that failed.
  */
-export async function turnOnOoo(plan: OooPlan): Promise<{ done: string[]; failed: string[] }> {
+export async function turnOnOoo(plan: OooPlan): Promise<{ done: string[]; failed: string[]; needSignIn: string[] }> {
   useOoo.setState({ busy: true });
   const now = Date.now();
   const done: string[] = [];
   const failed: string[] = [];
+  const needSignIn: string[] = [];
   const events: Record<string, string> = { ...(settings().oooActive?.events || {}) };
   const targets = accounts().filter((a) => plan.accounts.includes(a.id) && oooSupport(a).native);
   for (const a of targets) {
@@ -89,7 +91,7 @@ export async function turnOnOoo(plan: OooPlan): Promise<{ done: string[]; failed
     } catch (e) {
       const err = e as Error & { needsPermission?: boolean };
       setAcc(a.id, { needsPermission: Boolean(err.needsPermission), error: err.needsPermission ? undefined : err.message });
-      failed.push(nameOf(a));
+      if (err.needsPermission) needSignIn.push(a.id); else failed.push(nameOf(a));
       continue;
     }
     // The Away event: only for dates, never for "until I turn it off". A calendar that says no doesn't undo the reply.
@@ -115,7 +117,46 @@ export async function turnOnOoo(plan: OooPlan): Promise<{ done: string[]; failed
     useSettings.getState().set({ oooActive: active }, { quiet: true });
   }
   useOoo.setState({ busy: false });
-  return { done, failed };
+  return { done, failed, needSignIn };
+}
+
+/** The accounts that need one more sign in before Out of Office can be read or set. */
+export const oooSignInDue = (ids?: string[]) => nativeAccounts().filter((a) => (!ids || ids.includes(a.id)) && useOoo.getState().byAccount[a.id]?.needsPermission);
+
+const andList = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
+
+/**
+ * Signs in once more to each account that needs it for Out of Office, one after another. With ask, a pop-up explains
+ * first (Sign in or Later). Resolves with the accounts that work now.
+ */
+export async function oooSignIn(ids?: string[], opts: { ask?: boolean } = {}): Promise<string[]> {
+  const due = oooSignInDue(ids);
+  if (!due.length) return [];
+  const names = andList(due.map(nameOf));
+  if (opts.ask) {
+    const ok = await askConfirm(
+      due.length === 1 ? `Sign in to ${names} once more` : `Sign in to ${due.length} accounts once more`,
+      `Out of Office needs one more sign in for ${names}, to allow setting auto-replies. When Google or Microsoft asks, tick every box. Your mail stays where it is.`,
+      due.length === 1 ? 'Sign in' : 'Sign in to each',
+      { cancelLabel: 'Later' },
+    );
+    if (!ok) return [];
+  }
+  for (const a of due) {
+    try { await reconnectAccount(a.id); } catch { /* the next account still gets its turn */ }
+  }
+  await refreshOoo(due.map((a) => a.id));
+  const still = oooSignInDue(due.map((a) => a.id));
+  if (still.length) showToast({ text: `${andList(still.map(nameOf))} still can't use Out of Office. On the sign in page, make sure every box is ticked.`, ttl: 10000 });
+  return due.filter((a) => !still.includes(a)).map((a) => a.id);
+}
+
+/** A short reason from a provider's error, for "Couldn't check". */
+export function shortReason(error?: string): string {
+  if (!error) return '';
+  const m = /"message"\s*:\s*"([^"]+)"/.exec(error);
+  const text = (m ? m[1] : error.replace(/^(Gmail|Microsoft) \d+:\s*/, '')).trim();
+  return text.length > 90 ? `${text.slice(0, 88)}...` : text;
 }
 
 /** Turns Out of Office off now in these accounts (all of them if none given), and takes the Away event out of the calendar. */
