@@ -2,6 +2,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { parseAddressList } from '../lib/mime';
+import { isMachineAddress } from '../lib/machineAddress';
 import type { Address } from '../lib/types';
 import { useMenu } from './ui';
 import { PersonCard, personItems } from './Person';
@@ -28,7 +29,7 @@ export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFo
     if (q.length < 1) return [];
     const taken = new Set(value.map((v) => v.email.toLowerCase()));
     return contacts
-      .filter((c) => !taken.has(c.email) && (c.email.includes(q) || (c.name || '').toLowerCase().includes(q)))
+      .filter((c) => !taken.has(c.email) && !isMachineAddress(c.email) && (c.email.includes(q) || (c.name || '').toLowerCase().includes(q)))
       .sort((a, b) => Number(b.email.startsWith(q) || (b.name || '').toLowerCase().startsWith(q)) - Number(a.email.startsWith(q) || (a.name || '').toLowerCase().startsWith(q)))
       .slice(0, 8);
   }, [text, contacts, value]);

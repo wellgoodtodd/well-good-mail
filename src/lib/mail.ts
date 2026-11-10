@@ -10,6 +10,7 @@ import { openImapGuide } from './guide';
 import { record, undoEntry, useHistory } from './history';
 import { removeImapPassword, saveImapPassword, testImap, type ImapSettings } from './auth/imap';
 import { DemoProvider, DEMO_ACCOUNTS, resetDemo } from './providers/demo';
+import { isMachineAddress } from './machineAddress';
 import type { MailProvider } from './providers/provider';
 import { buildReply, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from './invites';
 import { signInWithGoogle, signOutGoogle } from './auth/google';
@@ -1194,7 +1195,7 @@ export async function refreshContacts() {
     if (!had || (!had.name && c.name)) map.set(e, { email: e, name: c.name || had?.name, photo: c.photo || had?.photo });
     else if (!had.photo && c.photo) had.photo = c.photo;
   }
-  const list = [...map.values()];
+  const list = [...map.values()].filter((c) => !isMachineAddress(c.email));
   set({ contacts: list });
   store.putContacts(list);
 }
