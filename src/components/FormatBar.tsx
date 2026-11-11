@@ -145,3 +145,39 @@ export function editorMenuItems(editor: Editor): MenuItem[] {
     { label: 'Clear formatting', icon: 'eraser', disabled: !picked, onClick: () => editor.chain().focus().unsetAllMarks().clearNodes().run() },
   ];
 }
+
+/**
+ * The right-click menu in a message, with spelling first: when the word under the pointer is misspelt, its
+ * suggestions (click one to swap it in) and Add to dictionary, then the usual cut, copy and paste.
+ */
+export async function editorMenuWithSpelling(editor: Editor, x: number, y: number): Promise<MenuItem[]> {
+  const rest = editorMenuItems(editor);
+  const at = editor.view.posAtCoords({ left: x, top: y });
+  if (!at) return rest;
+  const $p = editor.state.doc.resolve(at.pos);
+  const text = $p.parent.textContent;
+  const offset = $p.parentOffset;
+  const isWord = (ch: string | undefined) => !!ch && /[\p{L}'’-]/u.test(ch);
+  let s = offset;
+  let e = offset;
+  while (s > 0 && isWord(text[s - 1])) s--;
+  while (e < text.length && isWord(text[e])) e++;
+  const word = text.slice(s, e).replace(/^['’-]+|['’-]+$/g, '');
+  if (!word) return rest;
+  const lead = text.slice(s, e).indexOf(word);
+  const from = at.pos - (offset - s) + lead;
+  const to = from + word.length;
+  // Only when the positions really hold that word (pictures or line breaks in the paragraph can shift them).
+  if (editor.state.doc.textBetween(from, to) !== word) return rest;
+  const { suggestFor, addToDictionary } = await import('../lib/spell');
+  const suggestions = await suggestFor(word);
+  if (!suggestions) return rest;
+  return [
+    ...(suggestions.length
+      ? suggestions.map((sug) => ({ label: sug, icon: 'check' as const, onClick: () => editor.chain().focus().insertContentAt({ from, to }, sug).run() }))
+      : [{ label: 'No suggestions', disabled: true }]),
+    { label: `Add "${word}" to dictionary`, icon: 'plus', onClick: () => addToDictionary(word) },
+    { divider: true },
+    ...rest,
+  ];
+}

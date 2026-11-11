@@ -6,7 +6,7 @@ import { Icon } from './Icon';
 import { RecipientField } from './RecipientField';
 import { SendLaterPicker } from './SendLaterPicker';
 import { SignaturePicker } from './SignaturePicker';
-import { FormatBar, promptLink, pasteAsQuote, editorMenuItems } from './FormatBar';
+import { FormatBar, promptLink, pasteAsQuote, editorMenuWithSpelling } from './FormatBar';
 import { editorExtensions, changeIndent } from './editorExtensions';
 import { Dialog, fileSize, sendLaterOptions, useMenu } from './ui';
 import { DraftFilesPreview, draftFile, openDraftFile, type DraftFile } from './AttachmentPreview';
@@ -488,7 +488,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
 
       <div className="editor-wrap" onClick={(e) => { if (e.target === e.currentTarget) editor?.commands.focus('end'); }}>
         <div style={cssToStyle(writingCss)}>
-          <EditorContent editor={editor} onContextMenu={(e) => { if (!editor) return; e.preventDefault(); menu.open({ x: e.clientX, y: e.clientY }, editorMenuItems(editor)); }} />
+          <EditorContent editor={editor} onContextMenu={(e) => { if (!editor) return; e.preventDefault(); const at = { x: e.clientX, y: e.clientY }; void editorMenuWithSpelling(editor, at.x, at.y).then((items) => menu.open(at, items)); }} />
         </div>
         {s.signaturePlacement === 'above' && signature && <div className="signature-preview" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signature) }} />}
         {draft.driveLinks.length > 0 && (
