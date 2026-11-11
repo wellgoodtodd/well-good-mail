@@ -4,6 +4,8 @@
 //! web page can't: signing in through the system browser, keeping sign ins in
 //! Windows Credential Manager, the tray icon, start with Windows and updates.
 
+mod crash;
+mod mailto;
 mod dav;
 mod files;
 mod imapmail;
@@ -159,6 +161,10 @@ pub fn run() {
                 return;
             }
             show_main(app);
+            // An email link clicked elsewhere: open a new email with it.
+            if let Some(link) = args.iter().find(|a| a.to_ascii_lowercase().starts_with("mailto:")) {
+                let _ = app.emit("open-mailto", link.clone());
+            }
         }))
         // Size and place are remembered; whether it's showing is not (that's decided at start, below).
         .plugin(
@@ -214,12 +220,19 @@ pub fn run() {
             files::open_attachment,
             files::save_to_folder,
             files::open_saved,
+            crash::clean_exit,
+            mailto::take_start_mailto,
+            mailto::register_mail_app,
+            mailto::is_default_mail_app,
+            crash::last_run_crashed,
             files::reveal_saved,
             files::previews_size,
             files::clear_previews,
             files::open_previews_folder
         ])
         .setup(|app| {
+            crash::start(app.handle());
+            mailto::remember_start_link();
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;
             let refresh = MenuItem::with_id(app, "refresh", "Check for new mail", true, None::<&str>)?;
             let compose = MenuItem::with_id(app, "compose", "New email", true, None::<&str>)?;
@@ -293,6 +306,12 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Well Good Mail");
+        .build(tauri::generate_context!())
+        .expect("error while running Well Good Mail")
+        .run(|_app, event| {
+            // A tidy quit: next time, don't offer a crash report.
+            if let tauri::RunEvent::Exit = event {
+                crash::clean_exit();
+            }
+        });
 }

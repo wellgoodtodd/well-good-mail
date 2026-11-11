@@ -1,5 +1,6 @@
 // A person's name or address, wherever it shows (an email's From, To and Cc, and the chips in a draft).
 // Click: a small card with Copy, Email and Search emails. Right-click: the full menu.
+import { addToContacts, contactAccounts } from '../lib/mail';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
 import { useMenu, avatarColour, initials, type MenuItem } from './ui';
@@ -27,6 +28,7 @@ export function personItems(a: Address, extra: MenuItem[] = []): MenuItem[] {
     { label: `New email to ${a.name?.split(' ')[0] || a.email}`, icon: 'compose', onClick: () => void startCompose('new', undefined, { extra: { to: [a] } }) },
     { label: 'Show emails with them', icon: 'search', onClick: () => void runSearch(a.email, { everywhere: true }) },
     { label: 'Make a Smart Mailbox for them', icon: 'filter', onClick: () => openSmartEditor({ ...newSmartMailbox(who), rules: [{ field: 'from', value: a.email }] }, '', true) },
+    ...(contactAccounts().length ? [{ label: 'Add to contacts', icon: 'user' as const, onClick: () => void addToContacts(a) }] : []),
     ...(extra.length ? [{ divider: true as const }, ...extra] : []),
   ];
 }

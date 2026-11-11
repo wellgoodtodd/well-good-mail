@@ -1,6 +1,6 @@
 [package]
 name = "well-good-mail"
-version = "0.7.2-beta.4"
+version = "0.7.2-beta.5"
 description = "Well Good Mail: an email app for Windows, inspired by Apple Mail"
 authors = ["Well Good Media Ltd"]
 edition = "2021"
@@ -36,7 +36,7 @@ base64 = "0.22"
 # Saving an email as a PDF with the Windows web view's own PDF maker.
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
-windows = { version = "0.62", features = ["Win32_Foundation"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_SystemInformation"] }
 
 [profile.release]
 codegen-units = 1

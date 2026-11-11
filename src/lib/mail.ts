@@ -233,8 +233,10 @@ function countUnreadBadge() {
   for (const m of Object.values(get().messages)) {
     if (m.unread && !leftOut.has(m.accountId) && inSystemFolder(m, 'inbox', providers.get(m.accountId))) n++;
   }
-  setUnreadCount(n);
+  setUnreadCount(settings().taskbarCount === false ? 0 : n);
 }
+/** Shows or clears the taskbar count straight away (the switch in Settings, General). */
+export const refreshTaskbarCount = () => countUnreadBadge();
 
 function saveAccount(a: Account) {
   set({ accounts: get().accounts.map((x) => (x.id === a.id ? a : x)) });
@@ -1235,6 +1237,29 @@ export function adoptRemote(m: Message) {
 }
 
 // ---------- contacts & calendar ----------
+
+/** Accounts that can add a contact: Google and Microsoft. */
+export const contactAccounts = () => get().accounts.filter((a) => providers.get(a.id)?.addContact);
+
+/** Adds someone to an account's contacts: the given one, else the account of the email open now, else the default. */
+export async function addToContacts(person: Address, accountId?: string) {
+  const able = contactAccounts();
+  const open = get().selectedKey?.split('|')[0];
+  const def = settings().defaultFromEmail.toLowerCase();
+  const acc = able.find((a) => a.id === accountId) || able.find((a) => a.id === open) || able.find((a) => a.aliases.some((x) => x.email.toLowerCase() === def)) || able[0];
+  if (!acc) { toast({ text: 'Adding contacts works for Google and Microsoft accounts.' }); return; }
+  try {
+    await providers.get(acc.id)!.addContact!(person);
+    toast({ text: `${person.name || person.email} added to ${acc.label || acc.email}'s contacts.` });
+    void refreshContacts();
+  } catch (e) {
+    if ((e as { needsPermission?: boolean }).needsPermission) {
+      toast({ text: `${acc.label || acc.email} needs one more sign in to add contacts.`, action: { label: 'Sign in', run: () => void reconnectAccount(acc.id) }, ttl: 12000 });
+      return;
+    }
+    toast({ text: `Couldn't add the contact: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
+  }
+}
 
 export async function refreshContacts() {
   const all: Address[] = [];

@@ -478,6 +478,15 @@ export class GmailProvider implements MailProvider {
     return msgs.filter(Boolean) as Message[];
   }
 
+  async addContact(a: Address): Promise<void> {
+    try {
+      await this.call('https://people.googleapis.com/v1/people:createContact', {
+        method: 'POST',
+        body: JSON.stringify({ ...(a.name ? { names: [{ unstructuredName: a.name }] } : {}), emailAddresses: [{ value: a.email }] }),
+      });
+    } catch (e) { this.scopeOr(e, 'Contacts'); }
+  }
+
   async listContacts(): Promise<Address[]> {
     const out: Address[] = [];
     const collect = (people?: { names?: { displayName?: string }[]; emailAddresses?: { value: string }[]; photos?: { url?: string; default?: boolean }[] }[]) =>

@@ -48,6 +48,8 @@ export interface MailProvider {
   findDraftId?(providerMessageId: string): Promise<string | undefined>;
   searchRemote(query: string): Promise<Message[]>;
   listContacts(): Promise<Address[]>;
+  /** Adds someone to the account's own contacts (Google Contacts, Outlook People). */
+  addContact?(a: Address): Promise<void>;
   listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]>;
   /** Is this invitation in the person's calendar, and what did they answer? */
   /** The calendars this account has, as last seen, even if none has an event. */

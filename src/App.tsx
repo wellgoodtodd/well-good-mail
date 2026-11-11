@@ -1,4 +1,6 @@
 // The main window and pop out windows.
+import { parseMailto, mailtoBodyHtml } from './lib/mailtoLink';
+import { CrashPrompt } from './components/Feedback';
 import { openHelp } from './components/Help';
 import { useSaves, openSaved, showSaved, clearSaves, markSavesSeen } from './lib/saves';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -36,7 +38,7 @@ import { checkReminderAlerts } from './lib/reminders';
 import { startSettingsSync } from './lib/settingsSync';
 import { restoreOpenDrafts } from './lib/openDrafts';
 import { CommandPalette } from './components/CommandPalette';
-import { isPopout, isTauri, onTauriEvent, rememberPopoutSize, setAutostart, setCloseQuits } from './lib/platform';
+import { isPopout, isTauri, invoke, onTauriEvent, rememberPopoutSize, setAutostart, setCloseQuits } from './lib/platform';
 import { loadGoogleKeys, useGoogleConfigured, calendarEditAllowed } from './lib/auth/google';
 import { loadMicrosoftKeys } from './lib/auth/microsoft';
 import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from './lib/updater';
@@ -139,6 +141,22 @@ function Toasts() {
       ))}
     </div>
   );
+}
+
+/** Email links (mailto:) clicked in a browser or another app open a new email here. */
+function useMailtoLinks() {
+  const ready = useMail((s) => s.accounts.length > 0);
+  useEffect(() => {
+    if (!isTauri() || isPopout() || !ready) return;
+    const open = (link: string) => {
+      const p = parseMailto(link);
+      void startCompose('new', undefined, { extra: { to: p.to, cc: p.cc, bcc: p.bcc, subject: p.subject, html: mailtoBodyHtml(p.body) } });
+    };
+    void invoke<string | null>('take_start_mailto').then((l) => { if (l) open(l); }).catch(() => undefined);
+    let stop: (() => void) | undefined;
+    void import('@tauri-apps/api/event').then(({ listen }) => listen<string>('open-mailto', (e) => open(e.payload))).then((u) => { stop = u; });
+    return () => stop?.();
+  }, [ready]);
 }
 
 /** Appears once something has been saved from the app: recent saves with Open and Show in folder, like a browser. */
@@ -632,6 +650,7 @@ function MainWindow() {
       <WhatsNew />
       <CommandPalette />
       <Toasts />
+      <CrashPrompt />
       <Banners />
     </div>
   );
@@ -659,6 +678,7 @@ function PopoutWindow() {
 
 export default function App() {
   useTheme();
+  useMailtoLinks();
   const popout = isPopout();
   useEffect(() => {
     initMail({ popout, route: popout ? location.hash.replace('#/popout/', '') : undefined });

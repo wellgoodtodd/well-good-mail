@@ -7,7 +7,7 @@ import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
 import { PALETTES } from '../lib/palettes';
-import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount, syncWakes } from '../lib/mail';
+import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount, syncWakes, refreshTaskbarCount } from '../lib/mail';
 import { useSettings, defaultSettings, type Settings as S } from '../lib/settings';
 import { LEVEL_WORDS, tidy } from '../lib/mcp/permissions';
 import { undoSteps, useHistory } from '../lib/history';
@@ -24,7 +24,7 @@ import { exportCache, importCache } from '../lib/cacheTransfer';
 import { exportKeys, importKeys, backupDue } from '../lib/backup';
 import { paceInfo } from '../lib/providers/gmail';
 import { enableSettingsSync } from '../lib/settingsSync';
-import { isTauri, setAutostart, setCloseQuits, notify, openExternal, previewsSize, clearPreviews, openPreviewsFolder, chooseFolder } from '../lib/platform';
+import { invoke, isTauri, setAutostart, setCloseQuits, notify, openExternal, previewsSize, clearPreviews, openPreviewsFolder, chooseFolder } from '../lib/platform';
 import { showBanner } from '../lib/banners';
 import { useSettingsAlerts } from '../lib/alerts';
 import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate, isBetaVersion } from '../lib/updater';
@@ -219,6 +219,33 @@ function KeepMail({ a, compact }: { a: Account; compact?: boolean }) {
   return compact ? <label className="keep-mail">Keep mail from {select}</label> : select;
 }
 
+/** Email links in a browser or another app: open them here. Windows asks you to confirm the choice. */
+function DefaultMailApp() {
+  const [isDefault, setIsDefault] = useState<boolean | null>(null);
+  const look = () => { void invoke<boolean>('is_default_mail_app').then(setIsDefault).catch(() => setIsDefault(false)); };
+  useEffect(() => {
+    look();
+    // Back from Windows Settings: look again.
+    window.addEventListener('focus', look);
+    return () => window.removeEventListener('focus', look);
+  }, []);
+  const make = async () => {
+    try {
+      await invoke('register_mail_app');
+      await openExternal('ms-settings:defaultapps?registeredAppUser=Well%20Good%20Mail');
+      toast({ text: 'In Windows Settings, choose Well Good Mail for MAILTO (email links).', ttl: 12000 });
+    } catch (e) {
+      toast({ text: `Couldn't set it up: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
+    }
+  };
+  return (
+    <div className="set-row">
+      <label>Default mail app<span className="check-sub">{isDefault ? 'Email links in your browser and other apps open a new email here.' : 'Make email links in your browser and other apps open a new email here.'}</span></label>
+      {isDefault ? <span className="acct-pill ok">Well Good Mail is the default</span> : <button className="btn" onClick={make}>Make default…</button>}
+    </div>
+  );
+}
+
 /** How the app starts, closes and checks for mail. */
 function GeneralTab() {
   const s = useSettings();
@@ -238,6 +265,8 @@ function GeneralTab() {
           </select>
         </Row>
         <p className="hint" style={{ margin: '0 0 6px' }}>iCloud and other email accounts get new Inbox mail straight away anyway. F5 or the refresh button checks any time.</p>
+        {isTauri() && <DefaultMailApp />}
+        <Check checked={s.taskbarCount} onChange={(v) => { s.set({ taskbarCount: v }); setTimeout(refreshTaskbarCount); }}>Unread count on the taskbar icon<span className="check-sub">The number of unread emails in your Inboxes.</span></Check>
         <Check checked={s.flashTaskbar} onChange={(v) => s.set({ flashTaskbar: v })}>Flash the taskbar icon<span className="check-sub">For reminders and new mail when the app is in the background.</span></Check>
       </section>
       <section className="set-section">

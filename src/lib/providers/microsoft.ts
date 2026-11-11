@@ -235,6 +235,15 @@ export class MicrosoftProvider implements MailProvider {
     return page.value.map((m) => this.toMessage(m, false));
   }
 
+  async addContact(a: Address): Promise<void> {
+    const name = a.name || a.email.split('@')[0];
+    const [given, ...rest] = name.split(' ');
+    await this.call('/me/contacts', {
+      method: 'POST',
+      body: JSON.stringify({ displayName: name, givenName: given, surname: rest.join(' ') || undefined, emailAddresses: [{ address: a.email, name }] }),
+    }, ['Contacts.ReadWrite']);
+  }
+
   async listContacts(): Promise<Address[]> {
     const page = await this.call<{ value: { displayName?: string; emailAddresses: { address: string }[] }[] }>('/contacts?$top=500');
     return page.value.flatMap((c) => c.emailAddresses.map((e) => ({ name: c.displayName, email: e.address.toLowerCase() })));

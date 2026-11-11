@@ -132,6 +132,8 @@ export interface Settings {
   focusRing: 'standard' | 'bold';
   /** The first day of the week in month views and date pickers. */
   weekStart: 'monday' | 'sunday';
+  /** The unread count on the taskbar icon. */
+  taskbarCount: boolean;
   /** The calendar on the Reminders screen: one day, a week, or a month. */
   calendarMode: 'day' | 'week' | 'month';
   /** Week numbers in the calendar views. */
@@ -295,6 +297,7 @@ export const defaultSettings: Settings = {
   strongBorders: false,
   weekStart: 'monday',
   calendarMode: 'week',
+  taskbarCount: true,
   weekNumbers: false,
   hideWeekends: false,
   workHours: { enabled: true, from: '09:00', to: '17:00' },
@@ -332,7 +335,7 @@ const SETTING_NAMES: Record<string, string> = {
   hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
-  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
 };
 let lastStep: { id: string; keys: string; at: number } | null = null;
 

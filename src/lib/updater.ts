@@ -77,6 +77,7 @@ export async function installFoundUpdate() {
   if (!found) return;
   try {
     useUpdates.setState({ status: 'downloading' });
+    await cleanExit();
     await found.downloadAndInstall();
     const { relaunch } = await import('@tauri-apps/plugin-process');
     await relaunch();
@@ -85,7 +86,11 @@ export async function installFoundUpdate() {
   }
 }
 
+/** Installing closes the app: that's not a crash. */
+const cleanExit = () => import('./platform').then(({ invoke, isTauri }) => (isTauri() ? invoke('clean_exit') : undefined)).catch(() => undefined);
+
 export async function restartToUpdate() {
+  await cleanExit();
   if (waiting) {
     // One last look, so a version released since the download is the one that gets installed.
     try {
