@@ -943,6 +943,14 @@ function RemindersTab() {
             <option value="sunday">Sunday</option>
           </select>
         </Row>
+        <Check checked={s.weekNumbers} onChange={(v) => s.set({ weekNumbers: v })}>Show week numbers</Check>
+        <Check checked={s.hideWeekends} onChange={(v) => s.set({ hideWeekends: v })}>Hide weekends in Week and Month</Check>
+        <Check checked={s.workHours.enabled} onChange={(v) => s.set({ workHours: { ...s.workHours, enabled: v } })}>Shade working hours in Day and Week (Monday to Friday)</Check>
+        {s.workHours.enabled && (
+          <Row label="Working hours" htmlFor="workfrom">
+            <span className="work-hours"><input id="workfrom" type="time" value={s.workHours.from} onChange={(e) => s.set({ workHours: { ...s.workHours, from: e.target.value } })} /> to <input type="time" aria-label="Working hours end" value={s.workHours.to} onChange={(e) => s.set({ workHours: { ...s.workHours, to: e.target.value } })} /></span>
+          </Row>
+        )}
         <p className="hint">Reminders always collect in the Reminders list. These settings only control interruptions.</p>
         <Radio name="remmode" value={s.reminderMode} onChange={(v) => s.set({ reminderMode: v })} options={[
           { value: 'never', label: 'Never pop up', sub: 'Just add them to the list. Check it when you want.' },

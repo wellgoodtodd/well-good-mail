@@ -5,6 +5,7 @@ import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectTh
 import { useSettings } from '../lib/settings';
 import { dueReminders, eventKey, alertMute } from '../lib/reminders';
 import { CalendarPicker, ComingUpList, EventPreview, JoinButton, MonthView } from './ComingUp';
+import { TimeGridView } from './CalendarViews';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
 
 /** One readable sentence about how reminders reach you. */
@@ -63,13 +64,18 @@ export function Reminders() {
               <button className={s.remindersView === 'list' ? 'on' : ''} aria-pressed={s.remindersView === 'list'} onClick={() => s.set({ remindersView: 'list' })}><Icon name="list" size={14} /> List</button>
               <button className={s.remindersView === 'calendar' ? 'on' : ''} aria-pressed={s.remindersView === 'calendar'} onClick={() => s.set({ remindersView: 'calendar' })}><Icon name="calendar" size={14} /> Calendar</button>
             </div>
+            {s.remindersView === 'calendar' && (
+              <div className="seg" role="group" aria-label="Calendar view">
+                {(['day', 'week', 'month'] as const).map((m) => <button key={m} className={s.calendarMode === m ? 'on' : ''} aria-pressed={s.calendarMode === m} onClick={() => s.set({ calendarMode: m })}>{m === 'day' ? 'Day' : m === 'week' ? 'Week' : 'Month'}</button>)}
+              </div>
+            )}
             <CalendarPicker />
             <button className="btn ghost" disabled={refreshing} onClick={refresh}><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span> {refreshing ? 'Refreshing' : 'Refresh'}</button>
             <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>
           </div>
           <p className="lead">Everything from your calendars and follow ups collects here quietly until you clear it. Nothing pops up unless you ask it to.</p>
           <div className="rem-scroll">
-            {s.remindersView === 'calendar' ? <MonthView onPick={setPreview} /> : items.length === 0 ? (
+            {s.remindersView === 'calendar' ? (s.calendarMode === 'month' ? <MonthView onPick={setPreview} /> : <TimeGridView key={s.calendarMode} mode={s.calendarMode} onPick={setPreview} />) : items.length === 0 ? (
               <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Icon name="check" size={26} />
                 <div style={{ marginTop: 8, fontSize: '1.1em', color: 'var(--text)' }}>All clear</div>

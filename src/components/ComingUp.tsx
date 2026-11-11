@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast, eventsBetween } from '../lib/mail';
+import { isoWeek } from './CalendarViews';
 import { useSettings } from '../lib/settings';
 import { upcoming, alertMute } from '../lib/reminders';
 import { meetingService, meetingsSoon, dedupeEvents, visibleEvents, guestTally, guestAnswerWord, inviteText, meetingPhase, meetingPhaseText } from '../lib/meetings';
@@ -378,6 +379,8 @@ export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
   const nearEvents = useMail((s) => s.events);
   const hidden = useSettings((s) => s.hiddenCalendars);
   const sunday = useSettings((s) => s.weekStart) === 'sunday';
+  const weekNumbers = useSettings((s) => s.weekNumbers);
+  const hideWeekends = useSettings((s) => s.hideWeekends);
   const colour = useColour();
   const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
   const first = new Date(month);
@@ -419,11 +422,16 @@ export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
         <button className="icon-btn" aria-label="Next month" onClick={() => shift(1)}><Icon name="chevronRight" size={16} /></button>
         <button className="btn ghost" onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonth(d); }}>Today</button>
       </div>
-      <div className="month-grid" role="grid">
-        {(sunday ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).map((n) => <div key={n} className="month-dow">{n}</div>)}
-        {days.map((d) => {
+      <div className="month-grid" role="grid" style={{ gridTemplateColumns: `${weekNumbers ? '34px ' : ''}repeat(${hideWeekends ? 5 : 7}, minmax(0, 1fr))` }}>
+        {weekNumbers && <div className="month-dow">Wk</div>}
+        {(sunday ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).filter((n) => !hideWeekends || (n !== 'Sat' && n !== 'Sun')).map((n) => <div key={n} className="month-dow">{n}</div>)}
+        {days.flatMap((d, i) => {
+          const out: React.ReactNode[] = [];
+          // The week number goes first in each row, for the Monday of that row.
+          if (weekNumbers && i % 7 === 0) out.push(<div key={`wk${i}`} className="month-wk">{isoWeek(new Date(d.getTime() + (sunday ? 86400000 : 0)))}</div>);
+          if (hideWeekends && (d.getDay() === 0 || d.getDay() === 6)) return out;
           const list = byDay.get(d.toDateString()) || [];
-          return (
+          out.push(
             <div key={d.toISOString()} className={`month-day ${d.getMonth() === month.getMonth() ? '' : 'other'} ${d.toDateString() === today ? 'today' : ''}`}>
               <span className="n">{d.getDate()}</span>
               {list.slice(0, 3).map((e) => (
@@ -432,8 +440,9 @@ export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
                 </button>
               ))}
               {list.length > 3 && <span className="more">+{list.length - 3} more</span>}
-            </div>
+            </div>,
           );
+          return out;
         })}
       </div>
     </div>

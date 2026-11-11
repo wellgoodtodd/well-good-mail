@@ -132,6 +132,14 @@ export interface Settings {
   focusRing: 'standard' | 'bold';
   /** The first day of the week in month views and date pickers. */
   weekStart: 'monday' | 'sunday';
+  /** The calendar on the Reminders screen: one day, a week, or a month. */
+  calendarMode: 'day' | 'week' | 'month';
+  /** Week numbers in the calendar views. */
+  weekNumbers: boolean;
+  /** Leave Saturday and Sunday out of the Week and Month views. */
+  hideWeekends: boolean;
+  /** Working hours, shaded lighter in Day and Week (Monday to Friday). */
+  workHours: { enabled: boolean; from: string; to: string };
   /** Per account: the signature on replies and forwards, the same as new emails or none. */
   signatureModes: Record<string, { replies?: 'same' | 'none'; forwards?: 'same' | 'none' }>;
   /** Links underlined in emails and the app, so they don't rely on colour alone. */
@@ -286,6 +294,10 @@ export const defaultSettings: Settings = {
   underlineLinks: false,
   strongBorders: false,
   weekStart: 'monday',
+  calendarMode: 'week',
+  weekNumbers: false,
+  hideWeekends: false,
+  workHours: { enabled: true, from: '09:00', to: '17:00' },
   signatureModes: {},
   suggestHidden: [],
   suggestMuted: [],
@@ -311,7 +323,7 @@ export const defaultSettings: Settings = {
 };
 
 /** Changes that happen by themselves, or are too small to be worth a step in Undo (dragging a divider, folding a section). */
-const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden']);
+const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'calendarMode', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden']);
 /** Friendly names for the Undo menu. Anything else is just "settings". */
 const SETTING_NAMES: Record<string, string> = {
   theme: 'appearance', accent: 'accent colour', density: 'density', textScale: 'text size', palette: 'account colours', darkSkin: 'dark look', lightSkin: 'light look',
@@ -320,7 +332,7 @@ const SETTING_NAMES: Record<string, string> = {
   hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
-  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', signatureModes: 'signatures on replies and forwards',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
 };
 let lastStep: { id: string; keys: string; at: number } | null = null;
 
