@@ -882,12 +882,24 @@ export function canAddToCalendar(messageId: string): boolean {
   return Boolean(m && providers.get(m.accountId)?.addInviteToCalendar);
 }
 
-export async function addInviteToCalendar(messageId: string, invite: Invite): Promise<void> {
+export async function addInviteToCalendar(messageId: string, invite: Invite): Promise<string | void> {
   const m = get().messages[messageId];
   const p = m && providers.get(m.accountId);
   if (!p?.addInviteToCalendar) throw new Error("This account type can't add to a calendar from here yet");
-  await p.addInviteToCalendar(invite);
+  const ref = await p.addInviteToCalendar(invite);
   refreshEvents();
+  return ref;
+}
+
+/** Changes an event added from an email: by the calendar's own id where it gave one, else by adding again (same uid). */
+export async function updateAddedEvent(messageId: string, ref: string | void, invite: Invite): Promise<void> {
+  const m = get().messages[messageId];
+  const p = m && providers.get(m.accountId);
+  if (!p) throw new Error('Email not found');
+  if (ref && p.updateAddedEvent) await p.updateAddedEvent(ref, invite);
+  else if (p.addInviteToCalendar) await p.addInviteToCalendar(invite);
+  refreshEvents();
+  void import('./calendarCache').then((c) => c.refreshCalendarCopy());
 }
 
 /** Answers an invitation. In the calendar itself where the account allows it, otherwise by emailing the organiser. */

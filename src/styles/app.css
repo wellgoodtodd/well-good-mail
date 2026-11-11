@@ -1732,3 +1732,7 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .set-row:has(.upd-actions) > span:first-of-type { margin-left: auto; text-align: right; }
 .acct-subhead { width: 100%; font-size: 0.75em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding-top: 6px; border-top: 1px solid var(--border); }
 .jump-year strong { color: var(--accent); font-size: 1.05em; }
+/* Day and Week: one scroll area (the hours), with the day headers fixed above it (0.7.2 beta 10) */
+.rem-scroll:has(> .tgrid) { overflow: hidden; display: flex; flex-direction: column; }
+.rem-scroll > .tgrid { flex: 1; min-height: 0; }
+.rem-scroll > .tgrid .tg-scroll { flex: 1; max-height: none; min-height: 0; }

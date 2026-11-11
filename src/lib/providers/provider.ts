@@ -58,7 +58,10 @@ export interface MailProvider {
   /** Answers an invitation in the calendar itself, telling the organiser. False when it isn't in the calendar. */
   respondToInvite?(uid: string, status: Rsvp): Promise<boolean>;
   /** Puts an invitation in the calendar. */
-  addInviteToCalendar?(invite: Invite): Promise<void>;
+  /** Adds an event; may return the calendar's own id for it, so it can be changed later. */
+  addInviteToCalendar?(invite: Invite): Promise<string | void>;
+  /** Changes an event added from here (its time or title). Without this, adding again with the same uid updates it. */
+  updateAddedEvent?(ref: string, invite: Invite): Promise<void>;
   /** Out of Office as the account itself holds it. */
   getAutoReply?(): Promise<AutoReply>;
   /** Sets Out of Office inside the account, so it works with this computer off. */

@@ -306,9 +306,9 @@ export class MicrosoftProvider implements MailProvider {
     return ev.id;
   }
 
-  async addInviteToCalendar(invite: import('../invites').Invite): Promise<void> {
+  async addInviteToCalendar(invite: import('../invites').Invite): Promise<string> {
     const when = (ms: number) => ({ dateTime: new Date(ms).toISOString().replace(/Z$/, ''), timeZone: 'UTC' });
-    await this.call('/events', {
+    const made = await this.call<{ id: string }>('/events', {
       method: 'POST',
       body: JSON.stringify({
         subject: invite.title,
@@ -319,6 +319,15 @@ export class MicrosoftProvider implements MailProvider {
         body: invite.description ? { contentType: 'text', content: invite.description } : undefined,
         transactionId: invite.uid.slice(0, 100),
       }),
+    }, ['Calendars.ReadWrite']);
+    return made.id;
+  }
+
+  async updateAddedEvent(ref: string, invite: import('../invites').Invite): Promise<void> {
+    const when = (ms: number) => ({ dateTime: new Date(ms).toISOString().replace(/Z$/, ''), timeZone: 'UTC' });
+    await this.call(`/events/${encodeURIComponent(ref)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ subject: invite.title, start: when(invite.start), end: when(invite.end), isAllDay: invite.allDay }),
     }, ['Calendars.ReadWrite']);
   }
 

@@ -1,4 +1,5 @@
 // The main window and pop out windows.
+import { EventEditDialog } from './components/SuggestedEvent';
 import { parseMailto, mailtoBodyHtml } from './lib/mailtoLink';
 import { CrashPrompt } from './components/Feedback';
 import { openHelp } from './components/Help';
@@ -696,6 +697,7 @@ function MainWindow() {
       <CommandPalette />
       <Toasts />
       <CrashPrompt />
+      <EventEditDialog />
       <Banners />
     </div>
   );
