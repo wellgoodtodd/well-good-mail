@@ -226,7 +226,9 @@ export async function openPopout(route: string, title: string, given?: { width: 
     const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
     const label = 'popout-' + Math.random().toString(36).slice(2, 10);
     const at = await popoutPosition(route.split('/')[0]);
-    new WebviewWindow(label, { url, title, width: size.width, height: size.height, minWidth: 520, minHeight: 400, ...(at ? { x: at.x, y: at.y } : {}) });
+    // dragDropEnabled off, like the main window: files dropped onto an email reach the page (to attach them)
+    // instead of being taken by Windows first.
+    new WebviewWindow(label, { url, title, width: size.width, height: size.height, minWidth: 520, minHeight: 400, dragDropEnabled: false, ...(at ? { x: at.x, y: at.y } : {}) });
     return true;
   }
   try {

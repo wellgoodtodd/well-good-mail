@@ -137,6 +137,15 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
     content: '',
     editorProps: {
       attributes: { spellcheck: 'true', lang: 'en-GB', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Email body' },
+      // Files dropped straight onto the message are attached (the editor would otherwise take the drop itself).
+      handleDrop: (_view, event) => {
+        const files = Array.from((event as DragEvent).dataTransfer?.files || []);
+        if (!files.length) return false;
+        event.preventDefault();
+        setDragOver(false);
+        void addFiles(files);
+        return true;
+      },
       handlePaste: (view, event) => {
         const files = Array.from(event.clipboardData?.files || []);
         if (!files.length) return false;
@@ -396,7 +405,8 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragOver(true); } }}
       onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOver(false); }}
       onDrop={(e) => {
-        if (!e.dataTransfer.files.length) return;
+        // Dropped onto the message itself: the editor has attached them already.
+        if (!e.dataTransfer.files.length || e.defaultPrevented) { setDragOver(false); return; }
         e.preventDefault();
         setDragOver(false);
         addFiles(Array.from(e.dataTransfer.files));
@@ -545,6 +555,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
           </div>
         )}
         <button className="btn" onClick={saveAndClose} title="Close this and keep it as a draft"><Icon name="file" /> Save &amp; close</button>
+        <button className="btn" onClick={() => fileInput.current?.click()} title="Attach files (or drag them onto the email)"><Icon name="paperclip" /> Attach</button>
         <label className="check" style={{ padding: 0 }} title="Brings this back as a reminder if nobody replies">
           <Icon name="bell" size={14} />
           <select className="mode-select" aria-label="Follow up reminder" value={draft.followUpDays || 0} onChange={(e) => update({ followUpDays: Number(e.target.value) || undefined })}>
