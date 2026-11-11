@@ -8,7 +8,7 @@ import { MicrosoftProvider } from './providers/microsoft';
 import { ImapProvider } from './providers/imap';
 import { openImapGuide } from './guide';
 import { record, undoEntry, useHistory } from './history';
-import { removeImapPassword, saveImapPassword, testImap, type ImapSettings } from './auth/imap';
+import { removeImapPassword, saveImapPassword, testImap, imapReset, type ImapSettings } from './auth/imap';
 import { DemoProvider, DEMO_ACCOUNTS, resetDemo } from './providers/demo';
 import { isMachineAddress } from './machineAddress';
 import type { MailProvider } from './providers/provider';
@@ -396,6 +396,7 @@ export async function addMicrosoftAccountStrict(): Promise<string> {
  */
 export async function addImapAccountStrict(settings: ImapSettings, email: string, password: string, name: string): Promise<void> {
   await testImap(settings, password);
+  imapReset(email);
   await saveImapPassword(email, password);
   const existing = get().accounts.find((a) => a.kind === 'imap' && a.email === email);
   if (existing) providers.set(existing.id, makeProvider({ ...existing, imap: settings }));
@@ -434,7 +435,10 @@ export async function removeAccount(id: string) {
   if (!a) return;
   if (a.kind === 'gmail') await signOutGoogle(a.email);
   if (a.kind === 'microsoft') await signOutMicrosoft(a.email);
-  if (a.kind === 'imap') await removeImapPassword(a.email).catch(() => {});
+  if (a.kind === 'imap') {
+    await removeImapPassword(a.email).catch(() => {});
+    if (isTauri()) void invoke('imap_unwatch', { id }).catch(() => {});
+  }
   providers.delete(id);
   await store.deleteAccount(id);
   const messages = Object.fromEntries(Object.entries(get().messages).filter(([, m]) => m.accountId !== id));
@@ -1471,4 +1475,15 @@ export async function markViewRead(view: View) {
   await markRead(ids, true);
   const id = record(`Mark ${ids.length} as read`, () => markRead(ids, false, { silent: true }), () => markRead(ids, true));
   toast({ text: `${ids.length} marked as read`, undo: () => undoEntry(id) });
+}
+
+// iCloud and other IMAP accounts: the Inbox watcher says something changed, so that account syncs now (a short wait
+// gathers the few signals a single new email brings).
+const imapNudges = new Map<string, ReturnType<typeof setTimeout>>();
+if (isTauri() && !isPopout()) {
+  void import('@tauri-apps/api/event').then(({ listen }) => listen<string>('imap-changed', (e) => {
+    const id = e.payload;
+    clearTimeout(imapNudges.get(id));
+    imapNudges.set(id, setTimeout(() => { imapNudges.delete(id); void syncAccount(id); }, 2000));
+  })).catch(() => undefined);
 }

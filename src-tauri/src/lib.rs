@@ -197,6 +197,8 @@ pub fn run() {
             imapmail::imap_delete_by_id,
             imapmail::imap_append,
             imapmail::smtp_send,
+            imapmail::imap_watch,
+            imapmail::imap_unwatch,
             dav::dav_request,
             pdf::save_pdf,
             pdf::set_printing,

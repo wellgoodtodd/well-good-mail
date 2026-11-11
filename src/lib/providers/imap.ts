@@ -8,7 +8,7 @@
 //  - Sending doesn't save a copy to Sent, so a copy is filed there after sending.
 import PostalMime, { type Address as PostalAddress, type Email } from 'postal-mime';
 import { AuthError } from '../auth/google';
-import { getImapPassword, mailError, type ImapConn } from '../auth/imap';
+import { getImapPassword, mailError, imapPaused, imapRefused, imapWorked, type ImapConn } from '../auth/imap';
 import { imapDate, isSyncable, labelsFor, leafName, decodeFolderName, mergeCopies, messageKey, previewOf, summariseFlags, systemFolders, threadFor, type ImapFolderInfo } from '../imapUtil';
 import { fetchContacts, fetchEvents, type DavAuth } from '../dav';
 import { base64ToBytes, buildRawMessage, bytesToBase64 } from '../mime';
@@ -52,6 +52,8 @@ export class ImapProvider implements MailProvider {
   private parsed = new Map<string, Email>();
   /** Called after a change that moves emails between folders, so the list can catch up with the server. */
   onChanged?: () => void;
+  /** The Inbox watcher (IDLE) is running for this account. */
+  private watching = false;
 
   constructor(public readonly account: Account, private known: () => Message[] = () => []) {}
 
@@ -70,12 +72,31 @@ export class ImapProvider implements MailProvider {
     return { host: s.host, port: s.port, user: s.username, pass };
   }
 
+  /** The service's name for messages: iCloud, or the server's own name. */
+  private serviceName() {
+    const host = this.settings().host;
+    return /me\.com|icloud/i.test(host) ? 'iCloud' : /yahoo/i.test(host) ? 'Yahoo' : /fastmail/i.test(host) ? 'Fastmail' : /aol/i.test(host) ? 'AOL' : 'The mail server';
+  }
+
   private async run<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
+    const email = this.account.email;
+    imapPaused(email, this.serviceName());
+    let out: T;
     try {
-      return await invoke<T>(cmd, { conn: await this.conn(), ...args });
+      out = await invoke<T>(cmd, { conn: await this.conn(), ...args });
     } catch (e) {
-      throw mailError(e);
+      throw imapRefused(email, this.serviceName(), mailError(e));
     }
+    imapWorked(email);
+    this.watch();
+    return out;
+  }
+
+  /** Starts the Inbox watcher once a sign in has worked: new mail then arrives within seconds. */
+  private watch() {
+    if (this.watching) return;
+    this.watching = true;
+    void this.conn().then((conn) => invoke('imap_watch', { id: this.account.id, conn })).catch(() => { this.watching = false; });
   }
 
   hydrate(folders: Folder[]) {
