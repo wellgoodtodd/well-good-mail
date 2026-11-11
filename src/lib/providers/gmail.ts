@@ -547,7 +547,12 @@ export class GmailProvider implements MailProvider {
         maxResults: '250',
       });
       try {
-        const { items } = await this.call<{ items: { id: string; summary?: string; status?: string; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] }; attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[] }[] }>(
+        // Every page, not just the first 250: a busy calendar with weekly events passes that within weeks,
+        // and everything after it went missing.
+        let pageToken: string | undefined;
+        do {
+        if (pageToken) params.set('pageToken', pageToken);
+        const { items, nextPageToken } = await this.call<{ nextPageToken?: string; items: { id: string; summary?: string; status?: string; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] }; attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[] }[] }>(
           `${CAL}/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
         );
         for (const e of items) {
@@ -574,6 +579,8 @@ export class GmailProvider implements MailProvider {
             ...guestsOf(e.attendees),
           });
         }
+        pageToken = nextPageToken;
+        } while (pageToken);
       } catch (err) {
         console.warn('Calendar unavailable', cal.summary, err);
       }

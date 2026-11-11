@@ -339,12 +339,17 @@ export class MicrosoftProvider implements MailProvider {
   }
 
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
-    const page = await this.call<{ value: { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null; isOrganizer?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { type?: string; status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] }[] }>(
-      `/calendarView?startDateTime=${new Date(fromMs).toISOString()}&endDateTime=${new Date(toMs).toISOString()}&$top=250`,
-      { headers: { Prefer: 'outlook.timezone="UTC"' } },
-    );
+    // Every page, not just the first 250 (a busy calendar passes that within weeks, and later events went missing).
+    type Page = { '@odata.nextLink'?: string; value: { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null; isOrganizer?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { type?: string; status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] }[] };
+    const all: Page['value'] = [];
+    let url: string | undefined = `/calendarView?startDateTime=${new Date(fromMs).toISOString()}&endDateTime=${new Date(toMs).toISOString()}&$top=250`;
+    while (url) {
+      const page: Page = await this.call<Page>(url, { headers: { Prefer: 'outlook.timezone="UTC"' } });
+      all.push(...page.value);
+      url = page['@odata.nextLink'];
+    }
     this.calNames = ['Calendar'];
-    return page.value.map((e) => ({
+    return all.map((e) => ({
       id: `${this.account.id}|${e.id}`,
       accountId: this.account.id,
       calendarName: 'Calendar',
