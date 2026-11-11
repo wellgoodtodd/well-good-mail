@@ -470,16 +470,18 @@ function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLin
           <div className="acct-panel-head"><strong>{title}</strong><SavedNote /><button className="icon-btn" aria-label="Close" onClick={() => setOpen(null)}><Icon name="close" size={14} /></button></div>
           {open === 'signature' && (
             <>
-              <div className="acct-field"><span>Replies</span><select value={modes.replies || 'same'} onChange={(e) => setMode('replies', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
-              <div className="acct-field"><span>Forwards</span><select value={modes.forwards || 'same'} onChange={(e) => setMode('forwards', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
-              {/* Quick edits right here; the full page has the rest (pictures, placement, every address). */}
+              {/* The address first (each has its own signature), then its signature to edit right here, then the
+                  account-wide choices for replies and forwards. The full page has the rest. */}
               {aliases.length > 1 && (
                 <div className="acct-field"><span>Address</span><select value={sigOf} onChange={(e) => setSigAddr(e.target.value)}>{aliases.map((x) => <option key={x.email} value={x.email}>{x.email}</option>)}</select></div>
               )}
               <div className="acct-sig-edit">
                 <SignatureEditor key={sigOf} email={sigOf} initial={sigOf in s.signatures ? s.signatures[sigOf] : (aliases.find((x) => x.email === sigOf) as { providerSignatureHtml?: string } | undefined)?.providerSignatureHtml || ''} onChange={(html) => s.set({ signatures: { ...useSettings.getState().signatures, [sigOf]: html } })} />
               </div>
-              <button className="link-btn" onClick={() => openScreen('settings', 'signatures')}>More signature options in Signatures &amp; Addresses</button>
+              <div className="acct-subhead">For every address on this account</div>
+              <div className="acct-field"><span>Replies</span><select value={modes.replies || 'same'} onChange={(e) => setMode('replies', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
+              <div className="acct-field"><span>Forwards</span><select value={modes.forwards || 'same'} onChange={(e) => setMode('forwards', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
+              <button className="btn" onClick={() => openScreen('settings', 'signatures')}>Signatures &amp; Addresses</button>
             </>
           )}
           {open === 'sending' && (

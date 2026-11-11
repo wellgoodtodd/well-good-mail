@@ -1669,8 +1669,9 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .set-section .log-series-list .log-item { background: transparent; padding-left: 12px; }
 
 /* Reminders header: view switch beside the title; Day, Week, Month in the calendar's own header (0.7.2 beta 6) */
-.rem-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.rem-head h1 { margin-right: 6px; }
+.rem-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; min-height: 40px; }
+.rem-head + .lead { margin-top: 0; }
+.rem-head h1 { margin: 0 6px 0 0; line-height: 1.2; }
 .rem-head .grow { flex: 1; }
 .cal-modes button { padding: 4px 11px; font-size: 0.9em; }
 
@@ -1729,3 +1730,5 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .settings-nav .side-scroll > .set-group:last-child { margin-top: auto; padding-top: 12px; }
 .upd-actions { display: inline-flex; gap: 8px; margin-left: 12px; flex: none; }
 .set-row:has(.upd-actions) > span:first-of-type { margin-left: auto; text-align: right; }
+.acct-subhead { width: 100%; font-size: 0.75em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding-top: 6px; border-top: 1px solid var(--border); }
+.jump-year strong { color: var(--accent); font-size: 1.05em; }
