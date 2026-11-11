@@ -260,8 +260,32 @@ export async function onTauriEvent<T>(name: string, handler: (payload: T) => voi
   return listen<T>(name, (e) => handler(e.payload));
 }
 
+/** A small red badge with the number, for the taskbar icon (base64 PNG, no data: prefix). */
+export function drawBadge(count: number): string | null {
+  if (count <= 0) return null;
+  const size = 32;
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const g = c.getContext('2d');
+  if (!g) return null;
+  g.fillStyle = '#e5484d';
+  g.beginPath(); g.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2); g.fill();
+  const text = count > 99 ? '99+' : String(count);
+  g.fillStyle = '#fff';
+  g.font = `700 ${text.length > 2 ? 13 : text.length > 1 ? 17 : 20}px "Segoe UI", Arial, sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, size / 2, size / 2 + 1);
+  return c.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
+}
+
+let lastBadge = -1;
 export async function setUnreadCount(count: number): Promise<void> {
-  if (isTauri()) await invoke('set_unread_count', { count }).catch(() => {});
+  if (!isTauri()) return;
+  await invoke('set_unread_count', { count }).catch(() => {});
+  // The taskbar badge, redrawn only when the number changes.
+  if (count === lastBadge) return;
+  lastBadge = count;
+  await invoke('set_taskbar_badge', { png: drawBadge(count) }).catch(() => {});
 }
 
 export async function setCloseQuits(on: boolean): Promise<void> {

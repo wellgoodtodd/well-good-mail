@@ -115,6 +115,20 @@ fn set_unread_count(app: AppHandle, count: u32) {
     }
 }
 
+/// The unread badge on the taskbar icon: a small PNG drawn by the interface, or none to clear it.
+#[tauri::command]
+fn set_taskbar_badge(app: AppHandle, png: Option<String>) {
+    use base64::Engine;
+    let Some(window) = app.get_webview_window("main") else { return };
+    let image = png
+        .and_then(|b| base64::engine::general_purpose::STANDARD.decode(b).ok())
+        .and_then(|bytes| tauri::image::Image::from_bytes(&bytes).ok().map(|i| i.to_owned()));
+    #[cfg(windows)]
+    let _ = window.set_overlay_icon(image);
+    #[cfg(not(windows))]
+    let _ = (window, image);
+}
+
 /// When on, the window's close button quits the app instead of hiding it to the tray.
 static CLOSE_QUITS: AtomicBool = AtomicBool::new(false);
 
@@ -217,6 +231,7 @@ pub fn run() {
             mcp::mcp_self_test,
             wake::schedule_wake,
             wake::cancel_wake,
+            set_taskbar_badge,
             files::open_attachment,
             files::save_to_folder,
             files::open_saved,
