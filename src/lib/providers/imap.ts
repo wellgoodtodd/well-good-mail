@@ -205,7 +205,11 @@ export class ImapProvider implements MailProvider {
     const held = new Map<string, Message>(this.mine().map((m) => [m.providerId, m]));
     const have = new Set(this.mine().flatMap((m) => Object.entries(m.locations || {}).map(([f, u]) => `${f}\u0000${u}`)));
     let failed: Error | undefined;
-    for (const folder of this.syncNames) {
+    // The Inbox first, then Sent, then the rest, so a new account shows its newest mail first.
+    const rank = (f: string) => (f === this.sys.inbox || /^inbox$/i.test(f) ? 0 : f === this.sys.sent ? 1 : 2);
+    const order = [...this.syncNames].sort((a, b) => rank(a) - rank(b));
+    let firstBatch = true;
+    for (const folder of order) {
       let list: UidList;
       try {
         list = await this.run<UidList>('imap_uids', { folder, since });
@@ -216,8 +220,12 @@ export class ImapProvider implements MailProvider {
       }
       cursor.f[folder] = { validity: list.validity, uidnext: list.uidnext };
       const todo = list.uids.filter((u) => !have.has(`${folder}\u0000${u}`)).reverse(); // newest first
-      for (let i = 0; i < todo.length; i += BATCH) {
-        const raws = await this.run<RawMessage[]>('imap_headers', { folder, uids: todo.slice(i, i + BATCH) });
+      for (let i = 0; i < todo.length;) {
+        // A small first batch, so something shows within seconds.
+        const size = firstBatch ? 25 : BATCH;
+        firstBatch = false;
+        const raws = await this.run<RawMessage[]>('imap_headers', { folder, uids: todo.slice(i, i + size) });
+        i += size;
         const batch = (await this.toMessages(folder, raws, seen)).map((m) => {
           const merged = mergeCopies(held.get(m.providerId), m);
           held.set(m.providerId, merged);

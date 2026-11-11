@@ -578,13 +578,17 @@ export async function syncAccount(id: string, opts: { full?: boolean; quiet?: bo
       store.putFolders(id, folders);
       account = { ...account, aliases };
       saveAccount(account);
+      // Each email counts once, even when it arrives twice (first the summary, then the full text).
+      const counted = new Set<string>();
       const { cursor } = await provider.fullSync(
         account.retentionDays,
         async (batch) => {
           if (restartWanted.has(id)) throw new SyncStopped();
           putMessages(batch);
           await breathe();
-          const done = (get().accounts.find((a) => a.id === id)?.syncDone || 0) + batch.length;
+          let fresh = 0;
+          for (const m of batch) if (!counted.has(m.id)) { counted.add(m.id); fresh++; }
+          const done = (get().accounts.find((a) => a.id === id)?.syncDone || 0) + fresh;
           set({ accounts: get().accounts.map((x) => (x.id === id ? { ...x, syncDone: done } : x)) });
         },
         // A first sync that was cut short keeps what it already fetched.

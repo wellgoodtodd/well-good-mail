@@ -293,8 +293,11 @@ export class GmailProvider implements MailProvider {
     const fullCutoff = Date.now() - FULL_BODY_DAYS * 86400000;
     let pageToken: string | undefined;
     const q = sinceDays ? `newer_than:${sinceDays}d` : '';
+    // The first page is small, so a new account shows its newest mail within seconds rather than after hundreds.
+    let first = true;
     do {
-      const params = new URLSearchParams({ maxResults: '200', includeSpamTrash: 'true' });
+      const params = new URLSearchParams({ maxResults: first ? '50' : '200', includeSpamTrash: 'true' });
+      first = false;
       if (q) params.set('q', q);
       if (pageToken) params.set('pageToken', pageToken);
       const page = await this.call<{ messages?: { id: string }[]; nextPageToken?: string }>(`/messages?${params}`);
@@ -303,10 +306,11 @@ export class GmailProvider implements MailProvider {
       // Newest first: the first pages get bodies, older ones metadata only.
       const metas = await pool(ids, CONCURRENCY, (id) => this.fetchMessage(id, false));
       const msgs = metas.filter(Boolean) as Message[];
+      // Show them now (sender, subject, preview), then fill in the full text of the recent ones.
+      await onBatch(msgs);
       const needBodies = msgs.filter((m) => m.date >= fullCutoff);
-      const full = await pool(needBodies, CONCURRENCY, (m) => this.fetchMessage(m.providerId, true));
-      const byId = new Map(full.filter(Boolean).map((m) => [m!.id, m!]));
-      await onBatch(msgs.map((m) => byId.get(m.id) || m));
+      const full = (await pool(needBodies, CONCURRENCY, (m) => this.fetchMessage(m.providerId, true))).filter(Boolean) as Message[];
+      if (full.length) await onBatch(full);
       pageToken = page.nextPageToken;
     } while (pageToken);
     return { cursor: profile.historyId };
