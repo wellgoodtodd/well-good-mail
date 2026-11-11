@@ -456,7 +456,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
       {showBcc && <RecipientField label="Bcc" value={draft.bcc} contacts={contacts} onAdd={(l) => addRecipients('bcc', l)} onRemove={(e) => removeRecipient('bcc', e)} />}
       <div className="comp-field">
         <label htmlFor={`subj-${draft.id}`}>Subject</label>
-        <input id={`subj-${draft.id}`} className="plain" value={draft.subject} onChange={(e) => update({ subject: e.target.value })} spellCheck lang="en-GB" style={{ fontWeight: 600 }} />
+        <input id={`subj-${draft.id}`} className="plain" value={draft.subject} onChange={(e) => update({ subject: e.target.value })} onKeyDown={(e) => { /* Tab goes straight to the message, past the formatting bar. */ if (e.key === 'Tab' && !e.shiftKey && editor) { e.preventDefault(); editor.commands.focus(); } }} spellCheck lang="en-GB" style={{ fontWeight: 600 }} />
       </div>
 
       <FormatBar

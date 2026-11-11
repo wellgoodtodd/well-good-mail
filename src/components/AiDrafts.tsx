@@ -477,7 +477,7 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
         {showBcc && <RecipientField label="Bcc" value={form.bcc} contacts={contacts} onAdd={(l) => add('bcc', l)} onRemove={(e) => drop('bcc', e)} />}
         <div className="comp-field">
           <label htmlFor={`aisubj-${d.id}`}>Subject</label>
-          <input id={`aisubj-${d.id}`} className="plain ai-subject-input" value={form.subject} onChange={(e) => change({ subject: e.target.value })} onBlur={() => void flush()} placeholder="Subject" />
+          <input id={`aisubj-${d.id}`} className="plain ai-subject-input" value={form.subject} onChange={(e) => change({ subject: e.target.value })} onBlur={() => void flush()} onKeyDown={(e) => { if (e.key === 'Tab' && !e.shiftKey && editor) { e.preventDefault(); editor.commands.focus(); } }} placeholder="Subject" />
         </div>
       </div>
       <div className="ai-editor">
