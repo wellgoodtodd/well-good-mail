@@ -6,6 +6,7 @@ import { useSettings } from '../lib/settings';
 import { dueReminders, eventKey, alertMute } from '../lib/reminders';
 import { CalendarPicker, ComingUpList, EventPreview, JoinButton, MonthView } from './ComingUp';
 import { TimeGridView, CalendarModes } from './CalendarViews';
+import { refreshCalendarCopy, startCalendarCopy } from '../lib/calendarCache';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
 
 /** One readable sentence about how reminders reach you. */
@@ -33,7 +34,9 @@ export function Reminders() {
   const items = useMemo(() => dueReminders(events, followups, dismissed, Date.now(), mute), [events, followups, dismissed, tick, s.hiddenCalendars, s.hiddenCalendarsAlerts]); // eslint-disable-line react-hooks/exhaustive-deps
   const [preview, setPreview] = useState<CalendarEvent | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  useEffect(() => { startCalendarCopy(); }, []);
   const refresh = async () => {
+    void refreshCalendarCopy();
     setRefreshing(true);
     try {
       const failed = await refreshEvents();
@@ -59,7 +62,7 @@ export function Reminders() {
       <div className="rem-top">
         <div className="rem-main">
           <div className="rem-head">
-            <h1>Reminders</h1>
+            <h1>Calendar &amp; Reminders</h1>
             <div className="seg" role="group" aria-label="View">
               <button className={s.remindersView === 'list' ? 'on' : ''} aria-pressed={s.remindersView === 'list'} onClick={() => s.set({ remindersView: 'list' })}><Icon name="list" size={14} /> List</button>
               <button className={s.remindersView === 'calendar' ? 'on' : ''} aria-pressed={s.remindersView === 'calendar'} onClick={() => s.set({ remindersView: 'calendar' })}><Icon name="calendar" size={14} /> Calendar</button>

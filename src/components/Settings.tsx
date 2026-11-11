@@ -1032,11 +1032,11 @@ function RemindersTab() {
       </section>
       <section className="set-section">
         <h2>Reminders</h2>
-        <p className="hint">Reminders always collect in the Reminders list. These settings only control interruptions.</p>
+        <p className="hint">Reminders always collect in the list on the Calendar screen. These settings only control interruptions.</p>
         <Radio name="remmode" value={s.reminderMode} onChange={(v) => s.set({ reminderMode: v })} options={[
           { value: 'never', label: 'Never pop up', sub: 'Just add them to the list. Check it when you want.' },
           { value: 'daily', label: 'Once a day summary', sub: 'One notification listing what is on today.' },
-          { value: 'important', label: 'Important only, plus a daily summary', sub: 'Pop up only for events you star in the Reminders list, and follow ups.' },
+          { value: 'important', label: 'Important only, plus a daily summary', sub: 'Pop up only for events you star in the list, and follow ups.' },
           { value: 'all', label: 'Every reminder', sub: 'The usual pop up for everything.' },
         ]} />
         {(s.reminderMode === 'daily' || s.reminderMode === 'important') && (

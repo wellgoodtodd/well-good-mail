@@ -799,7 +799,7 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
       </div>
       <div className="side-row">
         <button className={`side-item ${screen === 'reminders' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'reminders' ? 'mail' : 'reminders')}>
-          <Icon name="bell" /><span className="name">Reminders</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}
+          <Icon name="calendar" /><span className="name">Calendar</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}
         </button>
       </div>
       <div className="side-row">

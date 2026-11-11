@@ -2,8 +2,9 @@
 // preview with a Join button, a month view, and the bar that appears just before a video meeting.
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast, eventsBetween } from '../lib/mail';
+import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast } from '../lib/mail';
 import { isoWeek } from './CalendarViews';
+import { useCalCache, ensureCalendarRange, cachedBetween } from '../lib/calendarCache';
 import { useSettings } from '../lib/settings';
 import { upcoming, alertMute } from '../lib/reminders';
 import { meetingService, meetingsSoon, dedupeEvents, visibleEvents, guestTally, guestAnswerWord, inviteText, meetingPhase, meetingPhaseText } from '../lib/meetings';
@@ -387,18 +388,14 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
   const offset = sunday ? first.getDay() : (first.getDay() + 6) % 7;
   const gridStart = new Date(first); gridStart.setDate(1 - offset);
   const days = Array.from({ length: 42 }, (_, i) => { const d = new Date(gridStart); d.setDate(gridStart.getDate() + i); return d; });
-  // The app keeps only the next week or so of events; the month shown is fetched as well.
-  const [far, setFar] = useState<CalendarEvent[]>([]);
-  useEffect(() => {
-    let gone = false;
-    const end = new Date(gridStart); end.setDate(end.getDate() + 42);
-    void eventsBetween(gridStart.getTime(), end.getTime()).then((list) => { if (!gone) setFar(list); });
-    return () => { gone = true; };
-  }, [month.getTime(), sunday]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The calendar copy on this computer covers the month at once; anything it lacks is fetched and kept.
+  const copy = useCalCache((c) => c.events);
+  const gridEnd = gridStart.getTime() + 42 * 86400000;
+  useEffect(() => { void ensureCalendarRange(gridStart.getTime(), gridEnd); }, [month.getTime(), sunday]); // eslint-disable-line react-hooks/exhaustive-deps
   const events = useMemo(() => {
     const seen = new Set(nearEvents.map((e) => e.id));
-    return visibleEvents([...nearEvents, ...far.filter((e) => !seen.has(e.id))], hidden);
-  }, [nearEvents, far, hidden]);
+    return visibleEvents([...nearEvents, ...cachedBetween(copy, gridStart.getTime(), gridEnd).filter((e) => !seen.has(e.id))], hidden);
+  }, [nearEvents, copy, hidden, gridStart.getTime(), gridEnd]); // eslint-disable-line react-hooks/exhaustive-deps
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
     for (const e of dedupeEvents(events)) {

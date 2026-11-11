@@ -13,6 +13,7 @@ import { messageMenu } from '../lib/actions';
 import { popoutMessage, editServerDraft } from '../lib/composeActions';
 import { myAddresses } from '../lib/compose';
 import { replyMark, replyMarkWords, sentByThread } from '../lib/replyMarks';
+import { startCalendarCopy } from '../lib/calendarCache';
 
 export function MessageList({ style }: { style: React.CSSProperties }) {
   const { items: listed, remote } = useViewList();
@@ -79,7 +80,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
   };
   const mine = useMemo(() => myAddresses(accounts), [accounts]);
   const warmTimer = useRef<ReturnType<typeof setTimeout>>();
-  useEffect(() => { if (accounts.length) warmAfterStart(); }, [accounts.length]);
+  useEffect(() => { if (accounts.length) { warmAfterStart(); startCalendarCopy(); } }, [accounts.length]);
   // Your sent emails by conversation, for the replied and forwarded marks.
   const allMessages = useMail((s) => s.messages);
   const sent = useMemo(() => sentByThread(Object.values(allMessages), mine), [allMessages, mine]);

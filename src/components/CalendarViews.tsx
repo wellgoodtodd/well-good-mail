@@ -2,7 +2,8 @@
 // for now. The month view lives in ComingUp.tsx; Reminders switches between all three.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, eventsBetween } from '../lib/mail';
+import { useMail } from '../lib/mail';
+import { useCalCache, ensureCalendarRange, cachedBetween } from '../lib/calendarCache';
 import { useSettings } from '../lib/settings';
 import { dedupeEvents, visibleEvents } from '../lib/meetings';
 import type { CalendarEvent } from '../lib/types';
@@ -84,17 +85,13 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
   const from = days[0].getTime();
   const to = days[days.length - 1].getTime() + DAY_MS;
 
-  // The app keeps only the next week or so; the days shown are fetched as well.
-  const [far, setFar] = useState<CalendarEvent[]>([]);
-  useEffect(() => {
-    let gone = false;
-    void eventsBetween(from, to).then((list) => { if (!gone) setFar(list); });
-    return () => { gone = true; };
-  }, [from, to]);
+  // The calendar copy on this computer shows these days at once; anything it lacks is fetched and kept.
+  const copy = useCalCache((c) => c.events);
+  useEffect(() => { void ensureCalendarRange(from, to); }, [from, to]);
   const events = useMemo(() => {
     const seen = new Set(near.map((e) => e.id));
-    return dedupeEvents(visibleEvents([...near, ...far.filter((e) => !seen.has(e.id))], hidden)).filter((e) => e.end > from && e.start < to);
-  }, [near, far, hidden, from, to]);
+    return dedupeEvents(visibleEvents([...near, ...cachedBetween(copy, from, to).filter((e) => !seen.has(e.id))], hidden)).filter((e) => e.end > from && e.start < to);
+  }, [near, copy, hidden, from, to]);
 
   // Starts scrolled to the working day (or an hour before now, when that's later).
   const scroller = useRef<HTMLDivElement>(null);
