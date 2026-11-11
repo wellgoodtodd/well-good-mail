@@ -1,6 +1,6 @@
 // Demo mode: pretend accounts and emails so the whole app can be tried and
 // tested without signing in to anything. Nothing leaves the computer.
-import type { Account, Address, Alias, CalendarEvent, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { htmlToText } from '../mime';
@@ -363,7 +363,17 @@ export class DemoProvider implements MailProvider {
     return [...seen.values()];
   }
 
+  /** Demo: changes are only kept until the calendar refreshes. */
+  private evEdits: Record<string, Partial<CalendarEvent> | null> = {};
+  writableCalendars(): string[] { return this.account.id === 'demo-wgm' ? ['Studio', 'Shoots'] : ['Personal']; }
+  async editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> { const { calendarName, ...rest } = patch; this.evEdits[ev.id] = { ...(this.evEdits[ev.id] || {}), ...rest, ...(calendarName ? { calendarName } : {}) }; }
+  async deleteEvent(ev: CalendarEvent): Promise<void> { this.evEdits[ev.id] = null; }
+
   async listEvents(): Promise<CalendarEvent[]> {
+    return (await this.demoEvents()).filter((e) => this.evEdits[e.id] !== null).map((e) => ({ ...e, ...(this.evEdits[e.id] || {}), canEdit: true }));
+  }
+
+  private async demoEvents(): Promise<CalendarEvent[]> {
     if (this.account.id !== 'demo-wgm' && this.account.id !== 'demo-personal' && this.account.id !== 'demo-church') return [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);

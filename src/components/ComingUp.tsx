@@ -2,7 +2,8 @@
 // preview with a Join button, a month view, and the bar that appears just before a video meeting.
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast } from '../lib/mail';
+import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast, editEvent, deleteEvent, writableCalendars, providerFor } from '../lib/mail';
+import { askConfirm } from '../lib/dialogs';
 import { isoWeek, JumpTitle } from './CalendarViews';
 import { useCalCache, ensureCalendarRange, cachedBetween } from '../lib/calendarCache';
 import { useSettings } from '../lib/settings';
@@ -10,7 +11,7 @@ import { upcoming, alertMute } from '../lib/reminders';
 import { meetingService, meetingsSoon, dedupeEvents, visibleEvents, guestTally, guestAnswerWord, inviteText, meetingPhase, meetingPhaseText } from '../lib/meetings';
 import { startCompose } from '../lib/composeActions';
 import { openExternal } from '../lib/platform';
-import type { CalendarEvent, EventGuest, GuestAnswer } from '../lib/types';
+import type { CalendarEvent, EventGuest, EventPatch, GuestAnswer } from '../lib/types';
 
 /** Re-renders every minute so "soon" and "coming up" stay current. */
 function useMinute() {
@@ -282,23 +283,26 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
   const event = useMemo(() => dedupeEvents(all).find((x) => x.id === picked.id) || picked, [all, picked]);
   const [refreshing, setRefreshing] = useState(false);
   const [more, setMore] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const editable = Boolean(event.canEdit && providerFor(event.accountId)?.editEvent);
   const refresh = async () => { setRefreshing(true); try { await refreshEvents(); } finally { setRefreshing(false); } };
   // Opening an event with guests pulls the latest answers, unless they were fetched in the last minute.
   useEffect(() => { if (picked.guests?.length && Date.now() - lastEventsRefresh() > 60000) void refresh(); }, [picked.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const ids = event.accountIds?.length ? event.accountIds : [event.accountId];
   const labels = ids.map((id) => accounts.find((a) => a.id === id)?.label || accounts.find((a) => a.id === id)?.email || '').filter(Boolean);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') { if (editing) setEditing(false); else onClose(); } };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
-  }, [onClose]);
+  }, [onClose, editing]);
   const sameDay = new Date(event.start).toDateString() === new Date(event.end).toDateString();
   const guestList = (event.guests || []).map((g) => { if (!g.self || g.name) return g; const acc = accounts.find((x) => x.email.toLowerCase() === g.email || x.aliases.some((al) => al.email.toLowerCase() === g.email)); const name = acc?.aliases.find((al) => al.isDefault)?.name || acc?.aliases[0]?.name; return name ? { ...g, name } : g; });
   const others = guestList.filter((g) => !g.self);
   const writeTo = (to: EventGuest[]) => { void startCompose('new', undefined, { extra: { to: to.map((g) => ({ email: g.email, name: g.name })), subject: event.title } }); };
   return (
-    <div className="ev-scrim" onClick={onClose}>
+    <div className="ev-scrim" onClick={() => { if (!editing) onClose(); }}>
       <div className="ev-pop" role="dialog" aria-modal="true" aria-label={event.title} onClick={(e) => e.stopPropagation()}>
+        {editing ? <EventEditForm event={event} colour={chipBackground(ids, colour)} onDone={(closeAll) => { setEditing(false); if (closeAll) onClose(); }} /> : <>
         <div className="ev-head">
           <span className="ev-bar" style={{ background: chipBackground(ids, colour) }} />
           <h2>{event.title}</h2>
@@ -315,7 +319,9 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
             <GuestList guests={guestList} subject={event.title} actions={false} />
           </div>
         )}
+        {!event.canEdit && event.guests?.some((g) => g.organiser && !g.self) && <p className="hint ev-note">Only the organiser can change the time or details. You can still answer from the invitation email.</p>}
         <div className="ev-actions">
+          {editable && <button className={`btn ${event.meetingUrl ? '' : 'primary'}`} onClick={() => setEditing(true)}>Edit</button>}
           <JoinButton event={event} />
           <button className="btn" onClick={() => { void navigator.clipboard?.writeText(inviteText(event)).then(() => toast({ text: 'Invite copied. Paste it anywhere.', ttl: 2500 }), () => toast({ text: "Couldn't copy the invite", ttl: 4000 })); }}>Copy invite</button>
           <span className="cal-picker">
@@ -326,12 +332,109 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
                 {others.some((g) => g.answer === 'waiting') && <button role="menuitem" className="btn ghost" onClick={() => { setMore(false); writeTo(others.filter((g) => g.answer === 'waiting')); }}>Email those waiting</button>}
                 {guestList.length > 0 && <button role="menuitem" className="btn ghost" disabled={refreshing} onClick={() => { setMore(false); void refresh(); }}>{refreshing ? 'Checking...' : 'Refresh answers'}</button>}
                 {event.htmlLink && <button role="menuitem" className="btn ghost" onClick={() => { setMore(false); openExternal(event.htmlLink!); }}>Open in calendar</button>}
+                {editable && providerFor(event.accountId)?.deleteEvent && <button role="menuitem" className="btn ghost danger" onClick={() => { setMore(false); void removeEvent(event, onClose); }}>Delete event</button>}
               </div>
             )}
           </span>
         </div>
+        </>}
       </div>
     </div>
+  );
+}
+
+async function removeEvent(event: CalendarEvent, onClose: () => void) {
+  const guests = (event.guests || []).filter((g) => !g.self).length;
+  const ok = await askConfirm(`Delete "${event.title}"?`, `It's deleted from the calendar itself${guests ? `, and the ${guests === 1 ? 'guest is' : `${guests} guests are`} told it's cancelled` : ''}.${event.recurring ? ' Only this one of the series.' : ''}`, 'Delete event');
+  if (!ok) return;
+  try {
+    await deleteEvent(event);
+    onClose();
+    toast({ text: `"${event.title}" deleted.` });
+  } catch (e) { toast({ text: `Couldn't delete it: ${e instanceof Error ? e.message : e}`, ttl: 9000 }); }
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const ymdOf = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+const hmOf = (ms: number) => { const d = new Date(ms); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+const msAt = (day: string, time = '00:00') => { const [y, m, d] = day.split('-').map(Number); const [h, mi] = time.split(':').map(Number); return new Date(y, m - 1, d, h || 0, mi || 0).getTime(); };
+
+/** Editing an event in the same box: title, when, all day, calendar (within its account), where and notes. */
+function EventEditForm({ event, colour, onDone }: { event: CalendarEvent; colour: string; onDone: (closeAll: boolean) => void }) {
+  const accounts = useMail((s) => s.accounts);
+  const acc = accounts.find((a) => a.id === event.accountId);
+  const cals = useMemo(() => { const w = writableCalendars(event.accountId); return w.includes(event.calendarName) ? w : [event.calendarName, ...w]; }, [event.accountId, event.calendarName]);
+  // All-day events end at midnight after the last day; the form shows the last day itself.
+  const [f, setF] = useState(() => ({
+    title: event.title,
+    day: ymdOf(event.start),
+    endDay: ymdOf(event.allDay ? event.end - 1 : event.end),
+    from: event.allDay ? '09:00' : hmOf(event.start),
+    to: event.allDay ? '10:00' : hmOf(event.end),
+    allDay: event.allDay,
+    calendar: event.calendarName,
+    location: event.location && !event.location.startsWith('http') ? event.location : '',
+    notes: event.description || '',
+  }));
+  const [busy, setBusy] = useState(false);
+  const start = f.allDay ? msAt(f.day) : msAt(f.day, f.from);
+  const end = f.allDay ? msAt(f.endDay) + 86400000 : msAt(f.endDay === f.day || f.endDay < f.day ? f.day : f.endDay, f.to);
+  const bad = !f.title.trim() ? 'Give it a title.' : end <= start ? 'It ends before it starts.' : '';
+  const guests = (event.guests || []).filter((g) => !g.self).length;
+  const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }));
+  const save = async () => {
+    const patch: EventPatch = {};
+    if (f.title.trim() !== event.title) patch.title = f.title.trim();
+    if (start !== event.start || end !== event.end || f.allDay !== event.allDay) { patch.start = start; patch.end = end; patch.allDay = f.allDay; }
+    const oldLoc = event.location && !event.location.startsWith('http') ? event.location : '';
+    if (f.location.trim() !== oldLoc) patch.location = f.location.trim();
+    if (f.notes.trim() !== (event.description || '').trim()) patch.description = f.notes.trim();
+    if (f.calendar !== event.calendarName) patch.calendarName = f.calendar;
+    if (!Object.keys(patch).length) { onDone(false); return; }
+    setBusy(true);
+    try {
+      await editEvent(event, patch);
+      toast({ text: `"${patch.title || event.title}" saved${patch.calendarName ? `, now in ${patch.calendarName}` : ''}.${guests && (patch.start !== undefined || patch.location !== undefined) ? ' Guests are told.' : ''}` });
+      onDone(true);
+    } catch (e) {
+      setBusy(false);
+      toast({ text: `Couldn't save it: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
+    }
+  };
+  return (
+    <form className="ev-edit" onSubmit={(e) => { e.preventDefault(); if (!bad && !busy) void save(); }}>
+      <div className="ev-head">
+        <span className="ev-bar" style={{ background: colour }} />
+        <input className="ev-title-in" aria-label="Title" value={f.title} autoFocus onChange={(e) => set({ title: e.target.value })} />
+      </div>
+      <div className="ev-form">
+        <label htmlFor="ev-day">When</label>
+        <div className="ev-when">
+          <input id="ev-day" type="date" value={f.day} onChange={(e) => { const len = msAt(f.endDay) - msAt(f.day); const nd = e.target.value; set({ day: nd, endDay: ymdOf(msAt(nd) + Math.max(0, len)) }); }} />
+          {!f.allDay && <input type="time" aria-label="From" value={f.from} onChange={(e) => { const keep = msAt(f.day, f.to) - msAt(f.day, f.from); const nf = e.target.value; const ne = msAt(f.day, nf) + keep; set({ from: nf, to: hmOf(ne), endDay: ymdOf(ne) }); }} />}
+          <span className="ev-to">to</span>
+          {(f.allDay || f.endDay !== f.day) && <input type="date" aria-label="Last day" value={f.endDay} min={f.day} onChange={(e) => set({ endDay: e.target.value })} />}
+          {!f.allDay && <input type="time" aria-label="To" value={f.to} onChange={(e) => set({ to: e.target.value })} />}
+        </div>
+        <span>All day</span>
+        <div><input type="checkbox" role="switch" className="switch" aria-label="All day" checked={f.allDay} onChange={(e) => set({ allDay: e.target.checked })} /></div>
+        <label htmlFor="ev-cal">Calendar</label>
+        {cals.length > 1
+          ? <select id="ev-cal" value={f.calendar} onChange={(e) => set({ calendar: e.target.value })}>{cals.map((n) => <option key={n} value={n}>{n}</option>)}</select>
+          : <span className="ev-static">{event.calendarName}{acc ? ` · ${acc.label || acc.email}` : ''}</span>}
+        <label htmlFor="ev-where">Where</label>
+        <input id="ev-where" placeholder="Add a place" value={f.location} onChange={(e) => set({ location: e.target.value })} />
+        <label htmlFor="ev-notes">Notes</label>
+        <textarea id="ev-notes" rows={3} placeholder="Add notes" value={f.notes} onChange={(e) => set({ notes: e.target.value })} />
+      </div>
+      {(event.recurring || guests > 0) && <p className="hint ev-note">{event.recurring ? 'This changes only this one, not the whole series. ' : ''}{guests ? `${guests === 1 ? 'The guest is' : `The ${guests} guests are`} told about changes.` : ''}</p>}
+      {bad && <p className="hint ev-note bad">{bad}</p>}
+      <div className="ev-actions">
+        <button type="submit" className="btn primary" disabled={Boolean(bad) || busy}>{busy ? 'Saving…' : 'Save'}</button>
+        <button type="button" className="btn" onClick={() => onDone(false)}>Cancel</button>
+        {providerFor(event.accountId)?.deleteEvent && <button type="button" className="btn danger ev-delete" onClick={() => void removeEvent(event, () => onDone(true))}>Delete event</button>}
+      </div>
+    </form>
   );
 }
 

@@ -1736,3 +1736,51 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .rem-scroll:has(> .tgrid) { overflow: hidden; display: flex; flex-direction: column; }
 .rem-scroll > .tgrid { flex: 1; min-height: 0; }
 .rem-scroll > .tgrid .tg-scroll { flex: 1; max-height: none; min-height: 0; }
+
+/* Accounts header actions, the Out of Office quick panel, removing an account (0.7.2 beta 11) */
+.acct-head-actions { display: flex; align-items: center; gap: 8px; }
+.acct-head-actions .btn.small { display: inline-flex; align-items: center; gap: 5px; }
+.acct-ooo-edit { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.acct-ooo-edit-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.acct-ooo-edit-head > span { font-weight: 600; }
+.acct-ooo-edit-head select, .acct-ooo-subject { height: 30px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-input); color: var(--text); padding: 0 8px; font: inherit; box-sizing: border-box; }
+.acct-ooo-subject { width: 100%; }
+.acct-ooo-edit .ooo-body { min-height: 90px; }
+.acct-cap .set-seg button { padding: 3px 10px; font-size: 0.85em; }
+.set-seg button:disabled { opacity: 0.45; cursor: not-allowed; }
+.remove-opts { display: flex; flex-direction: column; gap: 8px; }
+.remove-opt { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; cursor: pointer; }
+.remove-opt.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.remove-opt input { margin-top: 3px; }
+.remove-opt span { display: flex; flex-direction: column; gap: 2px; }
+.remove-opt small { color: var(--text-muted); font-size: 0.88em; line-height: 1.4; }
+.btn.danger-fill { background: var(--danger); border-color: var(--danger); color: #fff; }
+/* Out of Office page: message near the top, When and Who side by side, switches on the right */
+.switch-line { display: flex; align-items: center; justify-content: space-between; gap: 14px; cursor: pointer; padding: 7px 0; }
+.switch-line.off { opacity: 0.55; }
+.switch-line > span { flex: 1; }
+.ooo-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 16px; align-items: start; }
+.ooo-dates { display: grid; grid-template-columns: max-content 150px; align-items: center; gap: 8px 12px; margin: 12px 0 4px; }
+.ooo-dates.with-times { grid-template-columns: max-content 150px 100px; }
+.ooo-dates label { display: block; font-size: 0.92em; color: var(--text-muted); }
+.ooo-dates input { width: 100%; }
+.acct-field > span:first-child { white-space: nowrap; }
+.set-section .check.ooo-all { justify-content: flex-start; width: max-content; margin-bottom: 6px; }
+.ooo-two { max-width: 760px; }
+.ooo-two .set-section { max-width: none; }
+/* Editing an event, in the same box */
+.ev-edit .ev-head { align-items: center; }
+.ev-title-in { flex: 1; min-width: 0; font: inherit; font-size: 1.15em; font-weight: 700; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; }
+.ev-form { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 9px 12px; align-items: center; margin-top: 14px; }
+.ev-form > label, .ev-form > span { color: var(--text-muted); font-size: 0.92em; }
+.ev-form input:not([type=checkbox]), .ev-form select, .ev-form textarea { height: 30px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-input); color: var(--text); font: inherit; padding: 0 8px; width: 100%; }
+.ev-form textarea { height: auto; padding: 6px 8px; resize: vertical; align-self: stretch; }
+.ev-form > label[for=ev-notes] { align-self: start; padding-top: 6px; }
+.ev-when { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ev-when input[type=date] { width: 140px !important; }
+.ev-when input[type=time] { width: 92px !important; }
+.ev-to { color: var(--text-muted); font-size: 0.92em; }
+.ev-static { color: var(--text) !important; font-size: 1em !important; }
+.ev-note { margin: 10px 0 0; }
+.ev-note.bad { color: var(--danger); }
+.ev-delete { margin-left: auto; }

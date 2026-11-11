@@ -5,7 +5,7 @@
 import { getMicrosoftAccessToken } from '../auth/microsoft';
 import { bytesToBase64, buildRawMessage, base64ToBytes } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, CalendarEvent, EventGuest, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventGuest, EventPatch, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import { NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { findMeetingUrl } from '../meetings';
@@ -340,7 +340,7 @@ export class MicrosoftProvider implements MailProvider {
 
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
     // Every page, not just the first 250 (a busy calendar passes that within weeks, and later events went missing).
-    type Page = { '@odata.nextLink'?: string; value: { id: string; subject: string; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null; isOrganizer?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { type?: string; status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] }[] };
+    type Page = { '@odata.nextLink'?: string; value: { id: string; subject: string; seriesMasterId?: string | null; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null; isOrganizer?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { type?: string; status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] }[] };
     const all: Page['value'] = [];
     let url: string | undefined = `/calendarView?startDateTime=${new Date(fromMs).toISOString()}&endDateTime=${new Date(toMs).toISOString()}&$top=250`;
     while (url) {
@@ -363,6 +363,35 @@ export class MicrosoftProvider implements MailProvider {
       reminderMinutes: e.isReminderOn ? [e.reminderMinutesBeforeStart] : [],
       htmlLink: e.webLink,
       ...graphGuests(e, [this.account.email, ...(this.account.aliases || []).map((a) => a.email)]),
+      canEdit: e.isOrganizer !== false,
+      recurring: Boolean(e.seriesMasterId),
     }));
+  }
+
+  writableCalendars(): string[] { return ['Calendar']; }
+
+  async editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> {
+    const id = ev.id.slice(this.account.id.length + 1);
+    const allDay = patch.allDay ?? ev.allDay;
+    const start = patch.start ?? ev.start;
+    const end = patch.end ?? ev.end;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const localDay = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T00:00:00`; };
+    const when = (ms: number) => (allDay ? { dateTime: localDay(ms), timeZone: 'UTC' } : { dateTime: new Date(ms).toISOString().replace(/Z$/, ''), timeZone: 'UTC' });
+    const body: Record<string, unknown> = {};
+    if (patch.title !== undefined) body.subject = patch.title;
+    if (patch.location !== undefined) body.location = { displayName: patch.location };
+    if (patch.description !== undefined) body.body = { contentType: 'text', content: patch.description };
+    if (patch.start !== undefined || patch.end !== undefined || patch.allDay !== undefined) {
+      body.isAllDay = allDay;
+      body.start = when(start);
+      body.end = when(allDay ? Math.max(end, start + 86400000) : end);
+    }
+    if (Object.keys(body).length) await this.call(`/events/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }, ['Calendars.ReadWrite']);
+  }
+
+  async deleteEvent(ev: CalendarEvent): Promise<void> {
+    const id = ev.id.slice(this.account.id.length + 1);
+    await this.call(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' }, ['Calendars.ReadWrite']);
   }
 }

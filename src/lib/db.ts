@@ -42,6 +42,18 @@ export const store = {
   async putAccount(a: Account) {
     await (await db()).put('accounts', a);
   },
+  /** One account's mail, for bringing back an account whose mail was kept when it was removed. */
+  async messagesFor(accountId: string): Promise<Message[]> {
+    return (await db()).getAllFromIndex('messages', 'accountId', accountId) as Promise<Message[]>;
+  },
+  async foldersFor(accountId: string): Promise<Folder[]> {
+    const rows = (await (await db()).getAllFromIndex('folders', 'accountId', accountId)) as FolderRow[];
+    return rows.map(({ key: _k, ...f }) => f);
+  },
+  /** Removes only the account record; its mail and folders stay (kept for adding it again). */
+  async parkAccount(id: string) {
+    await (await db()).delete('accounts', id);
+  },
   async deleteAccount(id: string) {
     const d = await db();
     await d.delete('accounts', id);

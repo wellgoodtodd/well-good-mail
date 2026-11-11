@@ -6,6 +6,7 @@ import { FormatBar } from './FormatBar';
 import { editorExtensions, tidyForEditor, FONT_CHOICES } from './editorExtensions';
 import { ColourPicker } from './ColourPicker';
 import { PALETTES } from '../lib/palettes';
+import { keptAccounts, forgetKeptAccount } from '../lib/mail';
 import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount, syncWakes, refreshTaskbarCount } from '../lib/mail';
 import { useSettings, defaultSettings, type Settings as S } from '../lib/settings';
 import { LEVEL_WORDS, tidy, CAPABILITIES, effectiveMode, type Mode } from '../lib/mcp/permissions';
@@ -34,9 +35,9 @@ import { useBetaNotice, checkForBeta, wantsBetaNotices } from '../lib/betaNotice
 import { SideFooter } from './Sidebar';
 import type { IconName } from './Icon';
 import { AiConnectionTab } from './AiConnection';
-import { OutOfOfficeTab } from './OutOfOffice';
+import { OutOfOfficeTab, MessageEditor as OooMessageEditor } from './OutOfOffice';
 import { useOoo } from '../lib/oooStore';
-import { stateWords as oooStateWords, oooSupport, messageFor as messageForOoo, planProblem, fillBackDate, dayStart, ymd as ymdOoo, type OooPlan } from '../lib/ooo';
+import { stateWords as oooStateWords, oooSupport, messageFor as messageForOoo, planProblem, ymd as ymdOoo, TEMPLATES as OOO_TEMPLATES, type OooPlan, type OooMessage } from '../lib/ooo';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../lib/shortcuts';
 
 const TABS = [
@@ -176,6 +177,15 @@ function AccountName({ a }: { a: Account }) {
 
 function Row({ label, children, htmlFor }: { label: string; children: React.ReactNode; htmlFor?: string }) {
   return <div className="set-row"><label htmlFor={htmlFor}>{label}</label>{children}</div>;
+}
+
+/** Buttons side by side for a short choice (the selected one filled). */
+function Seg<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string; disabled?: boolean; title?: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div className="seg set-seg" role="radiogroup" aria-label={label}>
+      {options.map((o) => <button key={o.value} type="button" role="radio" aria-checked={value === o.value} disabled={o.disabled} title={o.title} className={value === o.value ? 'on' : ''} onClick={() => onChange(o.value)}>{o.label}</button>)}
+    </div>
+  );
 }
 
 function Radio<T extends string>({ name, value, options, onChange }: { name: string; value: T; options: { value: T; label: string; sub?: string }[]; onChange: (v: T) => void }) {
@@ -340,7 +350,7 @@ function SavedNote() {
   return <span className="acct-saved" aria-live="polite">Saved · <button className="link-btn" onClick={() => void undoSteps(1)}>Undo</button></span>;
 }
 
-/** Out of Office for one account: where it stands, and turning it on or off right here. */
+/** Out of Office for one account. Off: the three things that matter (until when, who, the words) and one button. On: what's going out, with Change and Turn off now. */
 function AccountOooPanel({ a }: { a: Account }) {
   const plan = useSettings((st) => st.ooo);
   const ooo = useOoo((o) => o.byAccount[a.id]);
@@ -348,46 +358,77 @@ function AccountOooPanel({ a }: { a: Account }) {
   const [until, setUntil] = useState<'open' | 'dates'>('open');
   const [backOn, setBackOn] = useState(() => ymdOoo(Date.now() + 7 * 86400000));
   useEffect(() => { void refreshOoo([a.id]); }, [a.id]);
-  if (!oooSupport(a).native) return <><p className="hint">This kind of account sets Out of Office in its own web mail.</p><button className="link-btn" onClick={() => openScreen('settings', 'ooo')}>More in Out of Office</button></>;
-  if (ooo?.needsPermission) return <><p className="hint">This account needs one more sign in before Out of Office can be set.</p><button className="btn primary" onClick={() => void oooSignIn([a.id])}>Sign in</button></>;
+  const name = a.label || a.email;
+  const sup = oooSupport(a);
+  if (!sup.native) return <p className="hint">This kind of account sets Out of Office in {sup.webUrl ? <a href={sup.webUrl} target="_blank" rel="noreferrer">{sup.webName}</a> : 'its own web mail'}.</p>;
+  if (ooo?.needsPermission) return <><p className="hint">This account needs one more sign in before Out of Office can be set.</p><div className="acct-panel-actions"><button className="btn primary" onClick={() => void oooSignIn([a.id])}>Sign in</button></div></>;
   const state = oooStateWords(ooo?.reply);
+  const own = Boolean(plan.own[a.id]);
   const msg = messageForOoo(plan, a.id);
-  const preview = fillBackDate(msg.html, until === 'dates' ? dayStart(backOn) : undefined).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+  const setPlan = (patch: Partial<OooPlan>) => useSettings.getState().set({ ooo: { ...useSettings.getState().ooo, ...patch } });
+  // Editing here gives this account its own message, so the default for every account stays as it was.
+  const setMsg = (patch: Partial<OooMessage>) => {
+    const p = useSettings.getState().ooo;
+    const base = p.own[a.id] || p.message;
+    setPlan({ own: { ...p.own, [a.id]: { ...base, ...patch } } });
+  };
+  if (state.state !== 'off') {
+    const r = ooo?.reply;
+    const text = (r?.html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    const who = r?.audience === 'contacts' ? 'Replying to your contacts.' : r?.audience === 'org' ? 'Replying to people in your organisation.' : 'Replying to everyone who emails you.';
+    const turnOff = async () => { const res = await turnOffOoo([a.id]); if (res.done.length) toast({ text: `Out of Office is off for ${name}.` }); oooToastResult(res, 'turned off'); };
+    return (
+      <>
+        <div className="acct-ooo-msg">{r?.subject && <b>{r.subject}</b>}<span>{text || 'No message.'}</span></div>
+        <p className="hint" style={{ margin: 0 }}>{state.state === 'scheduled' ? `${state.words}. ` : ''}{who}</p>
+        <div className="acct-panel-actions"><button className="btn" onClick={() => openScreen('settings', 'ooo')}>Change…</button><button className="btn" disabled={busy} onClick={() => void turnOff()}>{busy ? 'Turning off…' : 'Turn off now'}</button></div>
+      </>
+    );
+  }
   const turnOn = async () => {
-    const today = ymdOoo(Date.now());
-    const p: OooPlan = { ...plan, accounts: [a.id], mode: until, firstDay: today, backOn: until === 'dates' ? backOn : plan.backOn, useTimes: false };
+    const p: OooPlan = { ...useSettings.getState().ooo, accounts: [a.id], mode: until, firstDay: ymdOoo(Date.now()), backOn: until === 'dates' ? backOn : plan.backOn, useTimes: false };
     const problem = planProblem(p);
     if (problem) { toast({ text: problem, ttl: 8000 }); return; }
     const r = await turnOnOoo(p);
     if (r.needSignIn.length) { const ok = await oooSignIn(r.needSignIn, { ask: true }); if (ok.length) { const again = await turnOnOoo(p); r.done.push(...again.done); r.failed.push(...again.failed); } }
-    if (r.done.length) toast({ text: `Out of Office is on for ${a.label || a.email}.` });
+    if (r.done.length) toast({ text: `Out of Office is on for ${name}.` });
     oooToastResult(r, 'turned on');
   };
-  const turnOff = async () => { const r = await turnOffOoo([a.id]); if (r.done.length) toast({ text: `Out of Office is off for ${a.label || a.email}.` }); oooToastResult(r, 'turned off'); };
+  const audiences: { value: OooPlan['audience']; label: string; disabled?: boolean; title?: string }[] = [
+    { value: 'all', label: 'Everyone' },
+    { value: 'contacts', label: 'My contacts' },
+    ...(sup.org ? [{ value: 'org' as const, label: 'My organisation' }] : []),
+  ];
+  const audience = plan.audience === 'org' && !sup.org ? 'all' : plan.audience;
   return (
     <>
-      <div className="acct-field"><span>Now</span><span className={`acct-pill ${state.state === 'off' ? 'busy' : 'ok'}`}>{state.words}</span></div>
-      {state.state === 'off' ? (
-        <>
-          <div className="acct-field"><span>Until</span><span className="acct-times">
-            <select value={until} onChange={(e) => setUntil(e.target.value as 'open' | 'dates')}><option value="open">I turn it off</option><option value="dates">I'm back on</option></select>
-            {until === 'dates' && <input type="date" aria-label="Back on" value={backOn} min={ymdOoo(Date.now() + 86400000)} onChange={(e) => setBackOn(e.target.value)} />}
-          </span></div>
-          <div className="acct-ooo-msg"><b>{msg.subject || 'Out of Office'}</b><span>{preview || 'No message yet.'}</span></div>
-          <div className="acct-panel-actions"><button className="btn primary" disabled={busy} onClick={() => void turnOn()}>{busy ? 'Turning on…' : 'Turn on'}</button><button className="link-btn" onClick={() => openScreen('settings', 'ooo')}>Change the message, who gets it, and more</button></div>
-        </>
-      ) : (
-        <div className="acct-panel-actions"><button className="btn" disabled={busy} onClick={() => void turnOff()}>{busy ? 'Turning off…' : 'Turn off now'}</button><button className="link-btn" onClick={() => openScreen('settings', 'ooo')}>More in Out of Office</button></div>
-      )}
+      <div className="acct-field"><span>Until</span><span className="acct-times">
+        <Seg label="Until" value={until} onChange={setUntil} options={[{ value: 'open', label: 'I turn it off' }, { value: 'dates', label: 'A date' }]} />
+        {until === 'dates' && <input type="date" aria-label="Back on" title="The day you're back" value={backOn} min={ymdOoo(Date.now() + 86400000)} onChange={(e) => setBackOn(e.target.value)} />}
+      </span></div>
+      <div className="acct-field"><span>Who gets it</span><Seg label="Who gets it" value={audience} onChange={(v) => setPlan({ audience: v })} options={audiences} /></div>
+      <div className="acct-ooo-edit">
+        <div className="acct-ooo-edit-head">
+          <span>Message</span>
+          <select aria-label="Start from a template" value="" onChange={(e) => { const t = OOO_TEMPLATES.find((x) => x.id === e.target.value); if (t) setMsg({ subject: t.subject, html: t.html }); }}>
+            <option value="">Templates…</option>
+            {OOO_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        {sup.subject && <input type="text" className="acct-ooo-subject" aria-label="Subject" placeholder="Subject" value={msg.subject} onChange={(e) => setMsg({ subject: e.target.value })} />}
+        <OooMessageEditor key={`acct-${a.id}`} label={`Away message for ${name}`} html={msg.html} onChange={(html) => setMsg({ html })} />
+        <p className="hint" style={{ margin: 0 }}>{own ? <>Saved as {name}'s own message. <button className="link-btn" onClick={() => { const o = { ...useSettings.getState().ooo.own }; delete o[a.id]; setPlan({ own: o }); }}>Use the default instead</button></> : 'The default message for every account. Changing it here gives this account its own.'}</p>
+      </div>
+      <div className="acct-panel-actions"><button className="btn primary" disabled={busy} onClick={() => void turnOn()}>{busy ? 'Turning on…' : `Turn on for ${name}`}</button></div>
     </>
   );
 }
 
-/** AI Connection for one account: how much it can see, and each thing an AI app may do here. */
+/** AI Connection for one account: how much it can see, then each thing an AI app may do here, as buttons. */
 function AccountAiPanel({ a }: { a: Account }) {
   const s = useSettings();
   const mcp = tidy(s.mcp);
-  if (!mcp.enabled) return <><p className="hint">AI Connection is switched off, so no AI app can see this account.</p><button className="btn" onClick={() => openScreen('settings', 'ai')}>Set up AI Connection</button></>;
+  if (!mcp.enabled) return <><p className="hint">AI Connection is switched off, so no AI app can see this account.</p><div className="acct-panel-actions"><button className="btn" onClick={() => openScreen('settings', 'ai')}>Set up AI Connection</button></div></>;
   const level = mcp.accounts[a.id] ?? 'off';
   const save = (patch: Partial<typeof mcp>) => s.set({ mcp: { ...mcp, ...patch } });
   const setOverride = (cap: string, mode: Mode) => {
@@ -398,7 +439,11 @@ function AccountAiPanel({ a }: { a: Account }) {
   const caps = CAPABILITIES.filter((c) => c.group === 'read' || level === 'write');
   return (
     <>
-      <div className="acct-field"><span>This account</span><select value={level} onChange={(e) => save({ accounts: { ...mcp.accounts, [a.id]: e.target.value as 'off' | 'read' | 'write' } })}><option value="off">{LEVEL_WORDS.off}</option><option value="read">{LEVEL_WORDS.read}</option><option value="write">{LEVEL_WORDS.write}</option></select></div>
+      <div className="acct-field"><span>This account</span>
+        <Seg label="How much AI apps can do here" value={level} onChange={(v) => save({ accounts: { ...mcp.accounts, [a.id]: v } })}
+          options={[{ value: 'off', label: LEVEL_WORDS.off }, { value: 'read', label: LEVEL_WORDS.read }, { value: 'write', label: LEVEL_WORDS.write }]} />
+      </div>
+      <p className="hint" style={{ margin: 0 }}>{level === 'write' ? 'Sending and anything that reaches other people always asks you first.' : level === 'read' ? 'AI apps can look, but never change or write anything here.' : 'AI apps can\'t see this account.'}</p>
       {level !== 'off' && (
         <div className="acct-caps">
           {caps.map((c, i) => {
@@ -409,23 +454,21 @@ function AccountAiPanel({ a }: { a: Account }) {
               <div key={c.id} className="acct-cap-wrap">{heading && <div className="acct-cap-group">{heading}</div>}
               <div className="acct-cap">
                 <span><span>{c.label}</span>{own && <small className="acct-note">Only for this account</small>}</span>
-                <select aria-label={c.label} value={mode} onChange={(e) => setOverride(c.id, e.target.value as Mode)}>
-                  <option value="off">Off</option><option value="ask">Ask</option><option value="allow" disabled={c.max !== 'allow'}>Allow</option>
-                </select>
+                <Seg label={c.label} value={mode} onChange={(v) => setOverride(c.id, v)}
+                  options={[{ value: 'off', label: 'Off' }, { value: 'ask', label: 'Ask' }, { value: 'allow', label: 'Allow', disabled: c.max !== 'allow', title: c.max !== 'allow' ? 'This always asks first' : undefined }]} />
               </div>
               </div>
             );
           })}
         </div>
       )}
-      <p className="hint">{level === 'write' ? 'Sending and anything that reaches other people always asks you first.' : level === 'read' ? 'Read only: AI apps can look, but never change or write anything here.' : 'AI apps can\'t see this account.'}</p>
-      <button className="link-btn" onClick={() => openScreen('settings', 'ai')}>More in AI Connection</button>
+      <div className="acct-panel-actions"><button className="btn" onClick={() => openScreen('settings', 'ai')}>AI Connection settings</button></div>
     </>
   );
 }
 
 /** The summary rows; clicking one opens its settings below, or to the right on a wide window. */
-function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLine: (a: Account) => string; calLine: (a: Account) => string; onRemove: () => void }) {
+function AccountSections({ a, sigLine, calLine }: { a: Account; sigLine: (a: Account) => string; calLine: (a: Account) => string }) {
   const s = useSettings();
   const accounts = useMail((st) => st.accounts);
   const events = useMail((st) => st.events);
@@ -467,7 +510,10 @@ function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLin
       </div>
       {open && (
         <div className="acct-panel" role="region" aria-label={title}>
-          <div className="acct-panel-head"><strong>{title}</strong><SavedNote /><button className="icon-btn" aria-label="Close" onClick={() => setOpen(null)}><Icon name="close" size={14} /></button></div>
+          <div className="acct-panel-head"><strong>{title}</strong><SavedNote />
+            {open === 'ooo' && oooSupport(a).native && <button className="btn small" onClick={() => openScreen('settings', 'ooo')}>Out of Office settings</button>}
+            {open === 'ai' && mcp.enabled && <button className="btn small" onClick={() => openScreen('settings', 'ai')}>AI Connection settings</button>}
+            <button className="icon-btn" aria-label="Close" onClick={() => setOpen(null)}><Icon name="close" size={14} /></button></div>
           {open === 'signature' && (
             <>
               {/* The address first (each has its own signature), then its signature to edit right here, then the
@@ -528,10 +574,6 @@ function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLin
             <>
               {accounts.length > 1 && <label className="acct-field switch-row"><span>Show in All Inboxes</span><input type="checkbox" role="switch" className="switch" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /></label>}
               <div className="acct-field"><span>Keep mail from</span><KeepMail a={a} /></div>
-              <div className="acct-panel-foot">
-                <span>{a.lastSync ? `Checked ${new Date(a.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Not checked yet'} · <button className="link-btn" onClick={() => restartSync(a.id)}>Resync</button></span>
-                <button className="link-btn danger" onClick={onRemove}>Remove account</button>
-              </div>
             </>
           )}
         </div>
@@ -546,8 +588,17 @@ function AccountsTab() {
   const s = useSettings();
   const googleOn = useGoogleConfigured();
   const addMenu = useMenu();
+  const moreMenu = useMenu();
   const keys = useGoogleKeys();
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [keepMail, setKeepMail] = useState(true);
+  const messages = useMail((st) => st.messages);
+  const confirmCount = useMemo(() => (confirm ? Object.values(messages).filter((m) => m.accountId === confirm).length : 0), [confirm, messages]);
+  const moreItems = (a: Account) => [
+    ...(a.kind === 'gmail' || a.kind === 'microsoft' || a.kind === 'imap' ? [{ label: 'Sign in again', icon: 'user' as IconName, onClick: () => void reconnectAccount(a.id) }] : []),
+    { label: 'Change colour', icon: 'contrast' as IconName, onClick: () => { const el = document.querySelector('.acct-avatar') as HTMLElement | null; const r = el?.getBoundingClientRect(); setPicker({ accountId: a.id, anchor: { x: r ? r.left : 200, y: r ? r.bottom + 6 : 200 } }); } },
+    { label: 'Remove account…', icon: 'trash' as IconName, onClick: () => { setKeepMail(true); setConfirm(a.id); } },
+  ];
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
   const sorted = [...accounts].sort((a, b) => a.order - b.order);
   const [selId, setSelId] = useState<string | undefined>(undefined);
@@ -597,6 +648,7 @@ function AccountsTab() {
               return (
                 <button key={a.id} role="option" aria-selected={sel?.id === a.id} className={`acct-item ${sel?.id === a.id ? 'on' : ''} ${dropOn === a.id ? 'drop-before' : ''}`}
                   onClick={() => setSelId(a.id)} draggable title="Drag to change the order"
+                  onContextMenu={(e) => { e.preventDefault(); setSelId(a.id); moreMenu.open({ left: e.clientX, right: e.clientX, top: e.clientY, bottom: e.clientY, width: 0, height: 0, x: e.clientX, y: e.clientY, toJSON: () => ({}) } as DOMRect, moreItems(a)); }}
                   onDragStart={(e) => { e.dataTransfer.setData('text/wgm-account', a.id); e.dataTransfer.effectAllowed = 'move'; }}
                   onDragOver={(e) => { if (e.dataTransfer.types.includes('text/wgm-account')) { e.preventDefault(); setDropOn(a.id); } }}
                   onDragLeave={() => setDropOn(null)}
@@ -617,14 +669,18 @@ function AccountsTab() {
                   <AccountName key={sel.id} a={sel} />
                   <div className="acct-sub">{sel.email} · {kindName(sel)}</div>
                 </div>
-                {wantsSignIn(sel)
-                  ? <button className="btn primary small" onClick={() => reconnectAccount(sel.id)}>Sign in</button>
-                  : <span className={`acct-pill ${sel.status === 'error' ? 'bad' : sel.status === 'syncing' ? 'busy' : 'ok'}`} title={sel.status === 'error' ? sel.error : undefined}>{statusWords(sel)}</span>}
+                <div className="acct-head-actions">
+                  {wantsSignIn(sel)
+                    ? <button className="btn primary small" onClick={() => reconnectAccount(sel.id)}>Sign in</button>
+                    : <span className={`acct-pill ${sel.status === 'error' ? 'bad' : sel.status === 'syncing' ? 'busy' : 'ok'}`} title={sel.status === 'error' ? sel.error : undefined}>{statusWords(sel)}</span>}
+                  {sel.kind !== 'demo' && <button className="btn small" disabled={sel.status === 'syncing'} title="Fetch this account's mail again from the start" onClick={() => restartSync(sel.id)}><Icon name="refresh" size={13} /> Resync</button>}
+                  <button className="btn small icon-only" aria-label={`More for ${sel.label || sel.email}`} title="More" onClick={(e) => moreMenu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), moreItems(sel))}><Icon name="more" size={14} /></button>
+                </div>
               </div>
 
               <AccountHealth a={sel} />
               <AccountSuggestion a={sel} />
-              <AccountSections key={sel.id} a={sel} sigLine={sigLine} calLine={calLine} onRemove={() => setConfirm(sel.id)} />
+              <AccountSections key={sel.id} a={sel} sigLine={sigLine} calLine={calLine} />
             </div>
           ) : (
             <div className="acct-detail empty">Add an account to get started.</div>
@@ -666,14 +722,29 @@ function AccountsTab() {
         </section>
       )}
       {addMenu.node}
+      {moreMenu.node}
       {picker && <ColourPicker anchor={picker.anchor} value={accounts.find((x) => x.id === picker.accountId)?.colour || '#888888'} onPick={(c) => editAccount(picker.accountId, { colour: c }, 'colour')} onClose={() => setPicker(null)} />}
       {confirm && (
-        <Dialog title="Remove account?" onClose={() => setConfirm(null)} actions={<>
-          <button className="btn" onClick={() => setConfirm(null)}>Cancel</button>
-          <button className="btn primary" onClick={() => { removeAccount(confirm); setConfirm(null); }}>Remove</button>
-        </>}>
-          <p>This signs out and removes its emails from this computer. Nothing is deleted from Gmail itself.</p>
-        </Dialog>
+        (() => {
+          const acc = accounts.find((x) => x.id === confirm);
+          const where = acc?.kind === 'gmail' ? 'Gmail' : acc?.kind === 'microsoft' ? 'Outlook' : 'the account';
+          return (
+            <Dialog title={`Remove ${acc ? acc.label || acc.email : 'this account'}?`} onClose={() => setConfirm(null)} actions={<>
+              <button className="btn" onClick={() => setConfirm(null)}>Cancel</button>
+              <button className="btn danger-fill" onClick={() => { const id = confirm; setConfirm(null); void removeAccount(id, { keepMail: acc?.kind !== 'demo' && keepMail }).then(() => toast({ text: keepMail ? `${acc?.label || acc?.email} removed. Its mail is kept on this computer for if you add it again.` : `${acc?.label || acc?.email} removed, and its mail deleted from this computer.` })); }}>Remove account</button>
+            </>}>
+              <p style={{ marginTop: 0 }}>Nothing changes in {where} itself. Your mail stays there.</p>
+              {acc?.kind !== 'demo' && (
+                <div className="remove-opts" role="radiogroup" aria-label="What happens to its mail here">
+                  <label className={`remove-opt ${keepMail ? 'on' : ''}`}><input type="radio" name="keepmail" checked={keepMail} onChange={() => setKeepMail(true)} />
+                    <span><b>Keep its mail on this computer</b><small>Hidden until you add the account again, then it's back at once instead of downloading {confirmCount.toLocaleString()} emails. You can clear it later in Storage.</small></span></label>
+                  <label className={`remove-opt ${!keepMail ? 'on' : ''}`}><input type="radio" name="keepmail" checked={!keepMail} onChange={() => setKeepMail(false)} />
+                    <span><b>Delete its mail from this computer</b><small>Frees the space its {confirmCount.toLocaleString()} emails take. Adding it again downloads everything from the start.</small></span></label>
+                </div>
+              )}
+            </Dialog>
+          );
+        })()
       )}
     </>
   );
@@ -1339,6 +1410,26 @@ function AttachmentsSection() {
   );
 }
 
+/** Mail kept from accounts that were removed, so adding them again is instant. Shown only when there is some. */
+function KeptMailSection() {
+  const [kept, setKept] = useState<{ id: string; email: string; label: string; count: number }[]>([]);
+  const accounts = useMail((st) => st.accounts);
+  useEffect(() => { void keptAccounts().then(setKept).catch(() => setKept([])); }, [accounts.length]);
+  if (!kept.length) return null;
+  return (
+    <section className="set-section">
+      <h2>Mail kept from removed accounts</h2>
+      <p className="hint">Add one of these accounts again and its mail is back at once.</p>
+      {kept.map((k) => (
+        <div key={k.id} className="set-card">
+          <div className="tx"><strong>{k.label}</strong><span>{k.email} · {k.count.toLocaleString()} emails</span></div>
+          <button className="btn" onClick={() => void forgetKeptAccount(k.id).then(() => { setKept((x) => x.filter((y) => y.id !== k.id)); toast({ text: `${k.email}'s kept mail is deleted from this computer.` }); })}>Delete from this computer</button>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function OfflineTab() {
   const s = useSettings();
   const accounts = useMail((st) => st.accounts);
@@ -1348,6 +1439,7 @@ function OfflineTab() {
     <>
       <h1>Storage</h1>
       <AttachmentsSection />
+      <KeptMailSection />
       <section className="set-section">
         <h2>Moving to another computer</h2>
         <p className="hint">Export saves the mail kept on this PC into one file (no passwords in it). Import reads that file on another computer so it doesn't have to download everything again. Sign in to your accounts there as usual, then import: each account only fetches what's new.</p>

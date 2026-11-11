@@ -3,7 +3,7 @@
 import { getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { AutoReply } from '../ooo';
 import { htmlToText, isWorkAccount } from '../ooo';
 import { CalendarPermissionError, NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
@@ -535,9 +535,11 @@ export class GmailProvider implements MailProvider {
 
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
     const CAL = 'https://www.googleapis.com/calendar/v3';
-    const { items: calendars } = await this.call<{ items: { id: string; summary: string; selected?: boolean; primary?: boolean; defaultReminders?: { method: string; minutes: number }[] }[] }>(`${CAL}/users/me/calendarList`);
+    const { items: calendars } = await this.call<{ items: { id: string; summary: string; selected?: boolean; primary?: boolean; accessRole?: string; defaultReminders?: { method: string; minutes: number }[] }[] }>(`${CAL}/users/me/calendarList`);
     const events: CalendarEvent[] = [];
     this.calNames = calendars.filter((c) => c.selected || c.primary).map((c) => c.summary);
+    this.calIds = Object.fromEntries(calendars.map((c) => [c.summary, c.id]));
+    this.writable = calendars.filter((c) => (c.selected || c.primary) && (c.accessRole === 'owner' || c.accessRole === 'writer')).map((c) => c.summary);
     for (const cal of calendars.filter((c) => c.selected || c.primary)) {
       const params = new URLSearchParams({
         timeMin: new Date(fromMs).toISOString(),
@@ -552,7 +554,7 @@ export class GmailProvider implements MailProvider {
         let pageToken: string | undefined;
         do {
         if (pageToken) params.set('pageToken', pageToken);
-        const { items, nextPageToken } = await this.call<{ nextPageToken?: string; items: { id: string; summary?: string; status?: string; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] }; attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[] }[] }>(
+        const { items, nextPageToken } = await this.call<{ nextPageToken?: string; items: { id: string; summary?: string; status?: string; recurringEventId?: string; organizer?: { self?: boolean }; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] }; attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[] }[] }>(
           `${CAL}/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
         );
         for (const e of items) {
@@ -572,11 +574,13 @@ export class GmailProvider implements MailProvider {
             end,
             allDay,
             location: e.location,
-            description: e.description ? e.description.replace(/<[^>]+>/g, ' ').replace(/s+/g, ' ').trim().slice(0, 600) : undefined,
+            description: e.description ? e.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600) : undefined,
             meetingUrl: e.hangoutLink || e.conferenceData?.entryPoints?.find((p) => p.entryPointType === 'video')?.uri || findMeetingUrl(e.location, e.description),
             reminderMinutes,
             htmlLink: e.htmlLink,
             ...guestsOf(e.attendees),
+            canEdit: (cal.accessRole === 'owner' || cal.accessRole === 'writer') && (e.organizer?.self ?? true),
+            recurring: Boolean(e.recurringEventId),
           });
         }
         pageToken = nextPageToken;
@@ -586,6 +590,51 @@ export class GmailProvider implements MailProvider {
       }
     }
     return events;
+  }
+
+  private calIds: Record<string, string> = {};
+  private writable: string[] = [];
+  writableCalendars(): string[] { return this.writable; }
+
+  /** The calendar and event ids inside an app event id (account|calendar|event). */
+  private eventParts(ev: CalendarEvent) {
+    const rest = ev.id.slice(this.account.id.length + 1);
+    const cut = rest.lastIndexOf('|');
+    return { calId: rest.slice(0, cut), eventId: rest.slice(cut + 1) };
+  }
+
+  async editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> {
+    const CAL = 'https://www.googleapis.com/calendar/v3';
+    const { calId, eventId } = this.eventParts(ev);
+    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const allDay = patch.allDay ?? ev.allDay;
+    const start = patch.start ?? ev.start;
+    const end = patch.end ?? ev.end;
+    const body: Record<string, unknown> = {};
+    if (patch.title !== undefined) body.summary = patch.title;
+    if (patch.location !== undefined) body.location = patch.location;
+    if (patch.description !== undefined) body.description = patch.description;
+    if (patch.start !== undefined || patch.end !== undefined || patch.allDay !== undefined) {
+      // Google's all-day end is the day after the last day.
+      body.start = allDay ? { date: day(start), dateTime: null } : { dateTime: new Date(start).toISOString(), date: null };
+      body.end = allDay ? { date: day(Math.max(end, start + 86400000)), dateTime: null } : { dateTime: new Date(end).toISOString(), date: null };
+    }
+    try {
+      if (Object.keys(body).length) {
+        await this.call(`${CAL}/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify(body) });
+      }
+      const dest = patch.calendarName && this.calIds[patch.calendarName];
+      if (dest && dest !== calId) {
+        await this.call(`${CAL}/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}/move?destination=${encodeURIComponent(dest)}&sendUpdates=all`, { method: 'POST' });
+      }
+    } catch (e) { this.permissionOr(e); }
+  }
+
+  async deleteEvent(ev: CalendarEvent): Promise<void> {
+    const { calId, eventId } = this.eventParts(ev);
+    try {
+      await this.call(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, { method: 'DELETE' });
+    } catch (e) { this.permissionOr(e); }
   }
 
   /** The invitation as it sits in the primary calendar, found by its calendar id. */

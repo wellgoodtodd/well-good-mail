@@ -156,6 +156,22 @@ export interface CalendarEvent {
   myResponse?: GuestAnswer;
   /** True when every copy of the event has your "No" on it, so no alerts are needed. */
   declined?: boolean;
+  /** You can change it here: it's on a calendar you can write to and you made it (not an invitation from someone else). */
+  canEdit?: boolean;
+  /** One of a repeating series (changes here change only this one). */
+  recurring?: boolean;
+}
+
+/** What can be changed on an event. Only the fields given are changed. */
+export interface EventPatch {
+  title?: string;
+  start?: number;
+  end?: number;
+  allDay?: boolean;
+  location?: string;
+  description?: string;
+  /** Another calendar in the same account, by its name. */
+  calendarName?: string;
 }
 
 export type GuestAnswer = 'yes' | 'no' | 'maybe' | 'waiting';

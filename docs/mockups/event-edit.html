@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Editing an event</title>
+<style>
+:root{--card:#26262b;--line:#3a3a40;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:900px;margin:0 auto;display:grid;gap:26px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.why{color:var(--muted);font-size:12.5px;margin:8px 0 0;max-width:700px}
+.pop{width:440px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.t{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
+.bar{width:4px;height:22px;border-radius:2px;background:#2fae8c}
+.x{margin-left:auto;color:var(--muted);font-weight:400}
+.line{display:flex;gap:9px;align-items:center;color:#d6d6db;margin-top:9px}
+.ic{width:16px;text-align:center;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:5px 12px;background:#2f2f35;font-size:12.5px}
+.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.dng{color:#ffb3b5}
+.acts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.f{display:grid;grid-template-columns:90px 1fr;gap:8px 10px;align-items:center;margin-top:12px}
+.f label{color:var(--muted);font-size:12.5px}
+.in{border:1px solid #4a4a52;border-radius:7px;padding:6px 9px;background:#1d1d20}
+.row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sel{border:1px solid #4a4a52;border-radius:7px;padding:6px 9px;background:#1d1d20;display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%}
+.menu{margin-top:6px;background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:4px;width:300px}
+.mh{font-size:11px;color:var(--muted);padding:6px 8px 2px;text-transform:uppercase;letter-spacing:.04em}
+.mi{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:6px}
+.mi.on{background:#2b3a5a}
+.sw{width:30px;height:18px;border-radius:999px;background:#4a4a52;position:relative;display:inline-block}
+.sw::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+</style></head><body><div class="w">
+
+<section>
+<div class="lbl">1 · Click an event: as now, with Edit beside Copy invite</div>
+<div class="pop">
+<div class="t"><span class="bar"></span>Ballet - Ayla<span class="x">✕</span></div>
+<div class="line"><span class="ic">◷</span>Thu 12 Nov, 19:00 to 20:00</div>
+<div class="line"><span class="ic">▦</span><span style="display:flex;align-items:center;gap:6px"><span class="dot" style="background:#2fae8c"></span>toddwellfilms@gmail.com · TWF (gmail)</span></div>
+<div class="acts"><span class="btn pri">Edit</span><span class="btn">Copy invite</span><span class="btn">More ▾</span></div>
+</div>
+<p class="why">More keeps Open in Google Calendar (or Outlook), plus Duplicate and Delete event. The calendar line can be clicked too, to move it straight away.</p>
+</section>
+
+<section>
+<div class="lbl">2 · Edit, right there in the same box</div>
+<div class="pop">
+<div class="t"><span class="bar"></span><span class="in" style="flex:1;font-weight:700">Ballet - Ayla</span></div>
+<div class="f">
+<label>When</label><div class="row2"><span class="in">Thu 12 Nov</span><span class="in">19:00</span>to<span class="in">20:00</span></div>
+<label>All day</label><div><span class="sw"></span></div>
+<label>Calendar</label><div class="sel"><span class="dot" style="background:#2fae8c"></span>TWF (gmail) · toddwellfilms@gmail.com <span style="margin-left:auto">▾</span></div>
+<label>Where</label><div class="in" style="color:#7d7d86">Add a place or a video link</div>
+<label>Notes</label><div class="in" style="min-height:52px;color:#7d7d86">Add notes</div>
+</div>
+<div class="acts"><span class="btn pri">Save</span><span class="btn">Cancel</span><span class="btn dng" style="margin-left:auto">Delete event</span></div>
+</div>
+<div class="menu">
+<div class="mh">TWF (gmail)</div><div class="mi on"><span class="dot" style="background:#2fae8c"></span>toddwellfilms@gmail.com</div><div class="mi"><span class="dot" style="background:#2fae8c"></span>Family</div>
+<div class="mh">TBWELLER</div><div class="mi"><span class="dot" style="background:#f59e0b"></span>tbweller@gmail.com</div>
+<div class="mh">WGM</div><div class="mi"><span class="dot" style="background:#3b82f6"></span>todd@wellgood.media</div><div class="mi"><span class="dot" style="background:#3b82f6"></span>Studio bookings</div>
+<div class="mh">WGM Microsoft</div><div class="mi"><span class="dot" style="background:#ef4444"></span>Calendar</div>
+</div>
+<p class="why">Every calendar you can write to, grouped by account. Moving within one Google account keeps it the same event; moving to another account copies it there and removes the original, and says so before saving. Events other people invited you to can't be moved or retimed (only the organiser can), so those fields show greyed with a short note, and you can still answer Yes, No or Maybe. iCloud calendars stay view-only for now.</p>
+</section>
+
+<section>
+<div class="lbl">3 · Adding from an email uses the same box</div>
+<div class="pop">
+<div class="t"><span class="bar" style="background:#f59e0b"></span><span class="in" style="flex:1;font-weight:700">Studio walkthrough</span></div>
+<div class="f"><label>When</label><div class="row2"><span class="in">Thu 19 Nov</span><span class="in">14:00</span>to<span class="in">15:00</span></div>
+<label>Calendar</label><div class="sel"><span class="dot" style="background:#f59e0b"></span>TBWELLER · tbweller@gmail.com ▾</div></div>
+<div class="acts"><span class="btn pri">Add to calendar</span><span class="btn">Cancel</span></div>
+</div>
+<p class="why">Change details on the Add to calendar card opens this, so you can pick the calendar before it's added instead of it always going into the email's own account.</p>
+</section>
+</div></body></html>

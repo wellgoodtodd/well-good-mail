@@ -1,5 +1,5 @@
 // The contract every mail service (Gmail, Microsoft 365, IMAP, demo) fulfils.
-import type { Account, Address, Alias, CalendarEvent, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventPatch, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Invite, Rsvp } from '../invites';
 import type { AutoReply } from '../ooo';
 
@@ -51,6 +51,12 @@ export interface MailProvider {
   /** Adds someone to the account's own contacts (Google Contacts, Outlook People). */
   addContact?(a: Address): Promise<void>;
   listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]>;
+  /** Calendars in this account that events can be written to (known after listEvents). */
+  writableCalendars?(): string[];
+  /** Changes an event you can edit. Guests, if any, are told. */
+  editEvent?(event: CalendarEvent, patch: EventPatch): Promise<void>;
+  /** Deletes an event you made. Guests, if any, are told. */
+  deleteEvent?(event: CalendarEvent): Promise<void>;
   /** Is this invitation in the person's calendar, and what did they answer? */
   /** The calendars this account has, as last seen, even if none has an event. */
   knownCalendars?(): string[];

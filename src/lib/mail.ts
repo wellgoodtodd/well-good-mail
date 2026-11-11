@@ -24,7 +24,7 @@ import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout
 import { myAddresses } from './compose';
 import { bytesToBase64 } from './mime';
 import { paletteById, colourFor } from './palettes';
-import type { Account, Address, CalendarEvent, Draft, EventGuest, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
+import type { Account, Address, CalendarEvent, EventPatch, Draft, EventGuest, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
 
 const providers = new Map<string, MailProvider>();
 export const providerFor = (accountId: string) => providers.get(accountId);
@@ -216,7 +216,8 @@ function patchMessages(ids: string[], patch: (m: Message) => Message) {
 export async function reloadMessagesFromDb() {
   const all = await store.messages();
   const map: Record<string, Message> = {};
-  all.forEach((m) => (map[m.id] = m));
+  const live = new Set(get().accounts.map((a) => a.id));
+  all.forEach((m) => { if (live.has(m.accountId)) map[m.id] = m; });
   set({ messages: map });
   updateUnreadBadge();
 }
@@ -287,7 +288,9 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   folders.forEach((f) => (byAcc[f.accountId] ||= []).push(f));
   for (const [id, list] of Object.entries(byAcc)) providers.get(id)?.hydrate?.(list);
   const map: Record<string, Message> = {};
-  messages.forEach((m) => (map[m.id] = m));
+  const live = new Set(accounts.map((a) => a.id));
+  messages.forEach((m) => { if (live.has(m.accountId)) map[m.id] = m; });
+  for (const k of Object.keys(byAcc)) if (!live.has(k)) delete byAcc[k];
   set({ ready: true, accounts, folders: byAcc, messages: map, outbox, snoozes, followups, events, dismissed, contacts });
 
   if (opts.popout) { updateUnreadBadge(); return; }
@@ -298,7 +301,8 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
     const all = await store.messages();
     const now = get().messages;
     const merged: Record<string, Message> = { ...now };
-    for (const m of all) if (!(m.id in merged)) merged[m.id] = m;
+    const liveNow = new Set(get().accounts.map((a) => a.id));
+    for (const m of all) if (!(m.id in merged) && liveNow.has(m.accountId)) merged[m.id] = m;
     set({ messages: merged });
     rebuildIndexInBackground(Object.values(merged));
   } catch (e) {
@@ -353,6 +357,26 @@ async function addAccount(kind: Account['kind'], email: string, displayName: str
     toast({ text: `${email} is signed in again` });
     syncAccount(existing.id);
     return existing;
+  }
+  // Removed earlier with its mail kept: put it back as it was, show its mail at once, then fetch only what changed.
+  const parked = (await parkedAccounts()).find((a) => a.email === email && a.kind === kind);
+  if (parked) {
+    const back: Account = { ...parked, ...extra, order: get().accounts.length, status: 'syncing', error: undefined };
+    await store.kvSet(PARKED_KEY, (await parkedAccounts()).filter((a) => a.id !== parked.id));
+    providers.set(back.id, makeProvider(back));
+    const [msgs, flds] = await Promise.all([store.messagesFor(back.id), store.foldersFor(back.id)]);
+    providers.get(back.id)?.hydrate?.(flds);
+    const merged = { ...get().messages };
+    for (const m of msgs) merged[m.id] = m;
+    set({ accounts: [...get().accounts, back], messages: merged, folders: { ...get().folders, [back.id]: flds } });
+    indexMessages(msgs);
+    await store.putAccount(back);
+    toast({ text: `${email} is back, with ${msgs.length.toLocaleString()} emails kept on this computer. Fetching anything new.` });
+    await syncAccount(back.id);
+    refreshContacts();
+    refreshEvents();
+    updateUnreadBadge();
+    return back;
   }
   const order = get().accounts.length;
   const account: Account = {
@@ -443,7 +467,15 @@ export async function reconnectAccount(id: string) {
   }
 }
 
-export async function removeAccount(id: string) {
+/** Accounts removed with "Keep its mail on this computer": the record, kept so adding it again picks up where it left off. */
+const PARKED_KEY = 'parked-accounts';
+async function parkedAccounts(): Promise<Account[]> { return (await store.kvGet<Account[]>(PARKED_KEY)) || []; }
+
+/**
+ * Removes an account. With keepMail, its mail and folders stay in the cache, hidden, so adding the same account again
+ * brings it all back at once and only fetches what changed. Nothing changes in the account itself either way.
+ */
+export async function removeAccount(id: string, opts: { keepMail?: boolean } = {}) {
   const a = get().accounts.find((x) => x.id === id);
   if (!a) return;
   if (a.kind === 'gmail') await signOutGoogle(a.email);
@@ -453,7 +485,15 @@ export async function removeAccount(id: string) {
     if (isTauri()) void invoke('imap_unwatch', { id }).catch(() => {});
   }
   providers.delete(id);
-  await store.deleteAccount(id);
+  if (opts.keepMail && a.kind !== 'demo') {
+    const parked = (await parkedAccounts()).filter((x) => x.id !== id);
+    await store.kvSet(PARKED_KEY, [...parked, { ...a, status: 'ok', error: undefined, syncDone: undefined }]);
+    await store.parkAccount(id);
+  } else {
+    await store.deleteAccount(id);
+    const parked = await parkedAccounts();
+    if (parked.some((x) => x.id === id)) await store.kvSet(PARKED_KEY, parked.filter((x) => x.id !== id));
+  }
   const messages = Object.fromEntries(Object.entries(get().messages).filter(([, m]) => m.accountId !== id));
   const folders = { ...get().folders };
   delete folders[id];
@@ -900,6 +940,36 @@ export async function updateAddedEvent(messageId: string, ref: string | void, in
   else if (p.addInviteToCalendar) await p.addInviteToCalendar(invite);
   refreshEvents();
   void import('./calendarCache').then((c) => c.refreshCalendarCopy());
+}
+
+/** Calendars in an account that events can be written to. */
+export function writableCalendars(accountId: string): string[] {
+  return providers.get(accountId)?.writableCalendars?.() || [];
+}
+
+/** Changes an event in its own calendar, then shows the change here straight away and refreshes the copy. */
+export async function editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> {
+  const p = providers.get(ev.accountId);
+  if (!p?.editEvent) throw new Error("This calendar can't be changed from here yet");
+  await p.editEvent(ev, patch);
+  const changed = (e: CalendarEvent): CalendarEvent => (e.id === ev.id ? { ...e, ...(patch.title !== undefined ? { title: patch.title } : {}), ...(patch.start !== undefined ? { start: patch.start } : {}), ...(patch.end !== undefined ? { end: patch.end } : {}), ...(patch.allDay !== undefined ? { allDay: patch.allDay } : {}), ...(patch.location !== undefined ? { location: patch.location || undefined } : {}), ...(patch.description !== undefined ? { description: patch.description || undefined } : {}), ...(patch.calendarName ? { calendarName: patch.calendarName } : {}) } : e);
+  set({ events: get().events.map(changed) });
+  const cal = await import('./calendarCache');
+  cal.useCalCache.setState((s) => ({ events: s.events.map(changed) }));
+  void refreshEvents();
+  void cal.refreshCalendarCopy();
+}
+
+/** Deletes an event you made, from its own calendar and from here. */
+export async function deleteEvent(ev: CalendarEvent): Promise<void> {
+  const p = providers.get(ev.accountId);
+  if (!p?.deleteEvent) throw new Error("This calendar can't be changed from here yet");
+  await p.deleteEvent(ev);
+  set({ events: get().events.filter((e) => e.id !== ev.id) });
+  const cal = await import('./calendarCache');
+  cal.useCalCache.setState((s) => ({ events: s.events.filter((e) => e.id !== ev.id) }));
+  void refreshEvents();
+  void cal.refreshCalendarCopy();
 }
 
 /** Answers an invitation. In the calendar itself where the account allows it, otherwise by emailing the organiser. */
@@ -1634,4 +1704,16 @@ export function warmAfterStart() {
   if (warmedAtStart) return;
   warmedAtStart = true;
   setTimeout(() => warmInbox(), 8000);
+}
+
+/** Accounts removed with their mail kept, for Storage (each can be cleared for good there). */
+export async function keptAccounts(): Promise<{ id: string; email: string; label: string; count: number }[]> {
+  const parked = await parkedAccounts();
+  return Promise.all(parked.map(async (a) => ({ id: a.id, email: a.email, label: a.label || a.email, count: (await store.messagesFor(a.id)).length })));
+}
+
+/** Deletes the kept mail of a removed account from this computer. */
+export async function forgetKeptAccount(id: string) {
+  await store.deleteAccount(id);
+  await store.kvSet(PARKED_KEY, (await parkedAccounts()).filter((x) => x.id !== id));
 }

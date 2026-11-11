@@ -21,7 +21,7 @@ const listNames = (n: string[]) => (n.length <= 1 ? n.join('') : `${n.slice(0, -
 const dayWords = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
 /** The away message editor: the basic formatting bar, like a quick edit in AI Drafts. */
-function MessageEditor({ html, onChange, label }: { html: string; onChange: (html: string) => void; label: string }) {
+export function MessageEditor({ html, onChange, label }: { html: string; onChange: (html: string) => void; label: string }) {
   const writing = { font: useSettings((s) => s.writingFont), size: useSettings((s) => s.writingSize) };
   const timer = useRef<number | undefined>(undefined);
   const editor = useEditor({
@@ -201,48 +201,7 @@ export function OutOfOfficeTab() {
         )}
       </section>
 
-      <section className="set-section">
-        <h2>When</h2>
-        <div className="radio-list" role="radiogroup">
-          <label><input type="radio" name="ooomode" checked={plan.mode === 'open'} onChange={() => set({ mode: 'open' })} /><span>From now until I turn it off</span></label>
-          <label><input type="radio" name="ooomode" checked={plan.mode === 'dates'} onChange={() => set({ mode: 'dates' })} /><span>Between dates</span></label>
-        </div>
-        {plan.mode === 'dates' && (
-          <div className="ooo-dates">
-            <label><span>First day away</span><input type="date" value={plan.firstDay} onChange={(e) => set({ firstDay: e.target.value })} /></label>
-            {plan.useTimes && <label><span>From</span><input type="time" value={plan.startTime} onChange={(e) => set({ startTime: e.target.value })} /></label>}
-            <label><span>Back on</span><input type="date" value={plan.backOn} onChange={(e) => set({ backOn: e.target.value })} /></label>
-            {plan.useTimes && <label><span>At</span><input type="time" value={plan.backTime} onChange={(e) => set({ backTime: e.target.value })} /></label>}
-          </div>
-        )}
-        {plan.mode === 'dates' && <label className="check"><input type="checkbox" checked={plan.useTimes} onChange={(e) => set({ useTimes: e.target.checked })} /><span>Set times as well (for part days)</span></label>}
-        <p className="ooo-sentence" aria-live="polite">{whenSentence(plan)}</p>
-      </section>
-
-      <section className="set-section">
-        <h2>Who gets the reply</h2>
-        <div className="radio-list" role="radiogroup">
-          <label><input type="radio" name="oooaud" checked={plan.audience === 'all'} onChange={() => set({ audience: 'all' })} /><span>Everyone who emails me</span></label>
-          <label><input type="radio" name="oooaud" checked={plan.audience === 'contacts'} onChange={() => set({ audience: 'contacts' })} /><span>My contacts only<br /><span className="sub">Mailing lists and strangers don't get one.</span></span></label>
-          <label className={supOrg ? '' : 'off'}><input type="radio" name="oooaud" disabled={!supOrg} checked={plan.audience === 'org'} onChange={() => set({ audience: 'org' })} /><span>People in my organisation only<br /><span className="sub">{supOrg ? 'Work accounts (Google Workspace, Microsoft 365). Personal accounts that are ticked reply to everyone.' : 'For work accounts (Google Workspace, Microsoft 365).'}</span></span></label>
-        </div>
-        {supOutside && plan.audience !== 'org' && (
-          <>
-            <div className="set-row">
-              <label htmlFor="ooo-out">Outside my organisation (Microsoft)</label>
-              <select id="ooo-out" value={plan.outsideAudience} onChange={(e) => set({ outsideAudience: e.target.value as OooPlan['outsideAudience'] })}>
-                <option value="all">Everyone</option>
-                <option value="contacts">My contacts only</option>
-                <option value="none">Nobody</option>
-              </select>
-            </div>
-            <label className="check"><input type="checkbox" checked={plan.outsideDifferent} onChange={(e) => set({ outsideDifferent: e.target.checked })} /><span>A different message for people outside my organisation</span></label>
-          </>
-        )}
-        <p className="hint" style={{ margin: '8px 0 0' }}>Gmail replies to each person once every 4 days, however many times they email.</p>
-      </section>
-
-      <section className="set-section">
+      <section className="set-section ooo-message">
         <div className="set-h2-row">
           <h2>Message</h2>
           <select aria-label="Start from a template" value="" onChange={(e) => { const t = TEMPLATES.find((x) => x.id === e.target.value); if (t) setMsg({ subject: t.subject, html: t.html }); }}>
@@ -274,17 +233,62 @@ export function OutOfOfficeTab() {
         {plan.mode === 'open' && msg.html.includes(BACK_TOKEN) && <p className="hint ooo-warn">The message has a [back date], but there are no dates. It will say "soon" instead.</p>}
       </section>
 
+      <div className="ooo-two">
+      <section className="set-section ooo-when">
+        <h2>When</h2>
+        <div className="seg set-seg" role="radiogroup" aria-label="When">
+          <button type="button" role="radio" aria-checked={plan.mode === 'open'} className={plan.mode === 'open' ? 'on' : ''} onClick={() => set({ mode: 'open' })}>Until I turn it off</button>
+          <button type="button" role="radio" aria-checked={plan.mode === 'dates'} className={plan.mode === 'dates' ? 'on' : ''} onClick={() => set({ mode: 'dates' })}>Between dates</button>
+        </div>
+        {plan.mode === 'dates' && (
+          <div className={`ooo-dates ${plan.useTimes ? 'with-times' : ''}`}>
+            <label htmlFor="ooo-first">First day away</label>
+            <input id="ooo-first" type="date" value={plan.firstDay} onChange={(e) => set({ firstDay: e.target.value })} />
+            {plan.useTimes && <input type="time" aria-label="From" value={plan.startTime} onChange={(e) => set({ startTime: e.target.value })} />}
+            <label htmlFor="ooo-back">Back on</label>
+            <input id="ooo-back" type="date" value={plan.backOn} onChange={(e) => set({ backOn: e.target.value })} />
+            {plan.useTimes && <input type="time" aria-label="Back at" value={plan.backTime} onChange={(e) => set({ backTime: e.target.value })} />}
+          </div>
+        )}
+        {plan.mode === 'dates' && <label className="switch-line"><span>Part days (set times)</span><input type="checkbox" role="switch" className="switch" checked={plan.useTimes} onChange={(e) => set({ useTimes: e.target.checked })} /></label>}
+        <p className="ooo-sentence" aria-live="polite">{whenSentence(plan)}</p>
+      </section>
+      <section className="set-section ooo-who">
+        <h2>Who gets it</h2>
+        <div className="radio-list" role="radiogroup">
+          <label><input type="radio" name="oooaud" checked={plan.audience === 'all'} onChange={() => set({ audience: 'all' })} /><span>Everyone who emails me</span></label>
+          <label><input type="radio" name="oooaud" checked={plan.audience === 'contacts'} onChange={() => set({ audience: 'contacts' })} /><span>My contacts only<br /><span className="sub">Mailing lists and strangers don't get one.</span></span></label>
+          <label className={supOrg ? '' : 'off'}><input type="radio" name="oooaud" disabled={!supOrg} checked={plan.audience === 'org'} onChange={() => set({ audience: 'org' })} /><span>People in my organisation only<br /><span className="sub">{supOrg ? 'Work accounts (Google Workspace, Microsoft 365). Personal accounts that are ticked reply to everyone.' : 'For work accounts (Google Workspace, Microsoft 365).'}</span></span></label>
+        </div>
+        {supOutside && plan.audience !== 'org' && (
+          <>
+            <div className="set-row">
+              <label htmlFor="ooo-out">Outside my organisation (Microsoft)</label>
+              <select id="ooo-out" value={plan.outsideAudience} onChange={(e) => set({ outsideAudience: e.target.value as OooPlan['outsideAudience'] })}>
+                <option value="all">Everyone</option>
+                <option value="contacts">My contacts only</option>
+                <option value="none">Nobody</option>
+              </select>
+            </div>
+            <label className="switch-line check"><span>A different message for people outside my organisation</span><input type="checkbox" role="switch" className="switch" checked={plan.outsideDifferent} onChange={(e) => set({ outsideDifferent: e.target.checked })} /></label>
+          </>
+        )}
+        <p className="hint" style={{ margin: '8px 0 0' }}>Gmail replies to each person once every 4 days, however many times they email.</p>
+      </section>
+
+      </div>
+
       <section className="set-section">
         <h2>While I'm away</h2>
-        <label className={`check ${plan.mode === 'open' ? 'off' : ''}`}><input type="checkbox" disabled={plan.mode === 'open'} checked={plan.addEvent} onChange={(e) => set({ addEvent: e.target.checked })} /><span>Add an Away event to my calendar</span></label>
-        <label className={`check ${plan.mode === 'open' ? 'off' : ''}`}><input type="checkbox" disabled={plan.mode === 'open'} checked={plan.remindBefore} onChange={(e) => set({ remindBefore: e.target.checked })} /><span>Remind me the day before it ends</span></label>
-        <label className={`check ${supDecline && plan.mode === 'dates' && plan.addEvent ? '' : 'off'}`}>
-          <input type="checkbox" disabled={!supDecline || plan.mode === 'open' || !plan.addEvent} checked={plan.decline} onChange={(e) => set({ decline: e.target.checked })} />
+        <label className={`switch-line check ${plan.mode === 'open' ? 'off' : ''}`}><span>Add an Away event to my calendar</span><input type="checkbox" role="switch" className="switch" disabled={plan.mode === 'open'} checked={plan.addEvent} onChange={(e) => set({ addEvent: e.target.checked })} /></label>
+        <label className={`switch-line check ${plan.mode === 'open' ? 'off' : ''}`}><span>Remind me the day before it ends</span><input type="checkbox" role="switch" className="switch" disabled={plan.mode === 'open'} checked={plan.remindBefore} onChange={(e) => set({ remindBefore: e.target.checked })} /></label>
+        <label className={`switch-line check ${supDecline && plan.mode === 'dates' && plan.addEvent ? '' : 'off'}`}>
           <span>Decline new invitations while I'm away<br /><span className="sub">{supDecline ? 'Google Workspace accounts, through the Away event.' : 'Google Workspace accounts only. Microsoft and personal Gmail can\'t do this from here yet.'}</span></span>
+          <input type="checkbox" role="switch" className="switch" disabled={!supDecline || plan.mode === 'open' || !plan.addEvent} checked={plan.decline} onChange={(e) => set({ decline: e.target.checked })} />
         </label>
-        <label className="check"><input type="checkbox" checked={plan.pauseAlerts} onChange={(e) => set({ pauseAlerts: e.target.checked })} /><span>Pause new-mail alerts while I'm away</span></label>
-        <label className="check"><input type="checkbox" checked={plan.awaySummary} onChange={(e) => set({ awaySummary: e.target.checked })} /><span>Show "While you were away" when I'm back</span></label>
-        <label className="check"><input type="checkbox" checked={suggestOn} onChange={(e) => useSettings.getState().set({ oooSuggest: e.target.checked })} /><span>Suggest Out of Office from Holiday and Annual leave in my calendar</span></label>
+        <label className="switch-line check"><span>Pause new-mail alerts while I'm away</span><input type="checkbox" role="switch" className="switch" checked={plan.pauseAlerts} onChange={(e) => set({ pauseAlerts: e.target.checked })} /></label>
+        <label className="switch-line check"><span>Show "While you were away" when I'm back</span><input type="checkbox" role="switch" className="switch" checked={plan.awaySummary} onChange={(e) => set({ awaySummary: e.target.checked })} /></label>
+        <label className="switch-line check"><span>Suggest Out of Office from Holiday and Annual leave in my calendar</span><input type="checkbox" role="switch" className="switch" checked={suggestOn} onChange={(e) => useSettings.getState().set({ oooSuggest: e.target.checked })} /></label>
       </section>
 
       <div className="ooo-actions">
@@ -293,7 +297,7 @@ export function OutOfOfficeTab() {
         <span className="grow" />
         <button className="btn" disabled={!ticked.length} onClick={() => setPreview(true)}>Preview</button>
         <button className="btn" disabled={!ticked.length || busy} onClick={sendTest} title={ticked[0] ? `Sends the reply to ${ticked[0].email}, so you can see it as others will` : ''}>Send me a test</button>
-        <button className="btn primary" disabled={Boolean(problem) || busy} onClick={turnOn}>{busy ? 'Working...' : ticked.some((a) => stateWords(by[a.id]?.reply).state !== 'off') ? 'Update' : scheduling ? 'Schedule' : 'Turn on'}</button>
+        <button className="btn primary" disabled={Boolean(problem) || busy} onClick={turnOn}>{busy ? 'Working...' : `${ticked.some((a) => stateWords(by[a.id]?.reply).state !== 'off') ? 'Update' : scheduling ? 'Schedule' : 'Turn on'}${ticked.length ? ` for ${ticked.length > 2 ? `${ticked.length} accounts` : listNames(ticked.map(nameOf))}` : ''}`}</button>
       </div>
       {preview && <OooPreview plan={plan} accounts={ticked} onClose={() => setPreview(false)} />}
     </>
