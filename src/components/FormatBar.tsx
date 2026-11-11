@@ -1,4 +1,5 @@
 // The formatting toolbar: fonts, sizes, styles, lists, indents, quote, link.
+import type { MenuItem } from './ui';
 import { useEffect, useReducer } from 'react';
 import type { Editor } from '@tiptap/core';
 import { Icon, type IconName } from './Icon';
@@ -103,4 +104,44 @@ export function FormatBar({ editor, extra, end, basic, defaultFont, defaultSize 
       {end && <><span className="fmt-grow" />{end}</>}
     </div>
   );
+}
+
+/** Pastes what was copied, keeping its formatting, through the editor's usual paste tidying. */
+async function pasteRich(editor: Editor) {
+  editor.commands.focus();
+  try {
+    const items = await navigator.clipboard.read();
+    for (const it of items) {
+      if (it.types.includes('text/html')) { editor.view.pasteHTML(await (await it.getType('text/html')).text()); return; }
+    }
+    for (const it of items) {
+      if (it.types.includes('text/plain')) { editor.view.pasteText(await (await it.getType('text/plain')).text()); return; }
+    }
+  } catch {
+    const text = await navigator.clipboard.readText().catch(() => '');
+    if (text) editor.view.pasteText(text);
+  }
+}
+
+/** Pastes as plain text, in your own writing font. */
+async function pastePlain(editor: Editor) {
+  editor.commands.focus();
+  const text = await navigator.clipboard.readText().catch(() => '');
+  if (text) editor.view.pasteText(text);
+}
+
+/** The right-click menu in a message: cut, copy, the three ways to paste, quote, and link. */
+export function editorMenuItems(editor: Editor): MenuItem[] {
+  const picked = !editor.state.selection.empty;
+  return [
+    { label: 'Cut', icon: 'eraser', kbd: 'Ctrl+X', disabled: !picked, onClick: () => { editor.commands.focus(); document.execCommand('cut'); } },
+    { label: 'Copy', icon: 'file', kbd: 'Ctrl+C', disabled: !picked, onClick: () => { editor.commands.focus(); document.execCommand('copy'); } },
+    { label: 'Paste', icon: 'template', kbd: 'Ctrl+V', onClick: () => void pasteRich(editor) },
+    { label: 'Paste without formatting', icon: 'template', kbd: 'Ctrl+Shift+V', onClick: () => void pastePlain(editor) },
+    { label: 'Paste as quote', icon: 'quote', onClick: () => void pasteAsQuote(editor) },
+    { divider: true },
+    { label: editor.isActive('blockquote') ? 'Remove quote' : picked ? 'Quote the selected text' : 'Quote this paragraph', icon: 'quote', onClick: () => editor.chain().focus().toggleBlockquote().run() },
+    { label: editor.isActive('link') ? 'Edit link...' : 'Add link...', icon: 'link', kbd: 'Ctrl+K', onClick: () => promptLink(editor) },
+    { label: 'Clear formatting', icon: 'eraser', disabled: !picked, onClick: () => editor.chain().focus().unsetAllMarks().clearNodes().run() },
+  ];
 }

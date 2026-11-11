@@ -11,7 +11,7 @@ import { ScheduledViewer } from './Scheduled';
 import { useMail, providerFor, toast, cancelSend } from '../lib/mail';
 import { useEditor, EditorContent } from '@tiptap/react';
 import DOMPurify from 'dompurify';
-import { FormatBar } from './FormatBar';
+import { FormatBar, editorMenuItems } from './FormatBar';
 import { SignaturePicker } from './SignaturePicker';
 import { editorExtensions } from './editorExtensions';
 import { composeContext, writingStyle } from '../lib/composeActions';
@@ -397,6 +397,7 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
   const contacts = useMail((s) => s.contacts);
   const aliases = useMemo(() => allAliases(accounts), [accounts]);
   const [filePreview, setFilePreview] = useState<number | null>(null);
+  const editMenu = useMenu();
   // Only the reply itself is edited here; earlier emails quoted under it fold away and are kept as they are.
   const parts = useMemo(() => splitQuote(d.html), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [showQuote, setShowQuote] = useState(false);
@@ -484,7 +485,7 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
         <FormatBar editor={editor} basic defaultFont={writing.font} defaultSize={writing.size}
           end={<SignaturePicker fromEmail={form.fromEmail} value={form.signatureOf} onChange={(v) => change({ signatureOf: v })} />} />
         <div className="ai-body" onClick={(e) => { if (e.target === e.currentTarget) editor?.commands.focus('end'); }}>
-          <div style={cssToStyle(writingStyle())}><EditorContent editor={editor} /></div>
+          <div style={cssToStyle(writingStyle())}><EditorContent editor={editor} onContextMenu={(e) => { if (!editor) return; e.preventDefault(); editMenu.open({ x: e.clientX, y: e.clientY }, editorMenuItems(editor)); }} /></div>{editMenu.node}
           {signature && <div className="signature-preview" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signature) }} />}
         </div>
       </div>
