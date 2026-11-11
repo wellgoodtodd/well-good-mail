@@ -194,7 +194,7 @@ a { color: var(--accent-text, var(--accent)); }
 /* Hover actions: a small pill in the corner. Moving to it slides the coloured buttons out; scrolling hides it all. */
 .row .quick { position: absolute; right: 8px; bottom: 6px; display: flex; align-items: center; padding: 1px; border-radius: 14px; background: color-mix(in srgb, var(--bg-elev) 88%, var(--text) 7%); border: 1px solid color-mix(in srgb, var(--border) 60%, var(--text) 24%); box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity 0.18s cubic-bezier(.25,.1,.25,1), padding 0.22s cubic-bezier(.32,.72,0,1); }
 .row .quick:hover, .row .quick:focus-within { padding: 2px; }
-.row .quick::before { content: ''; position: absolute; left: -14px; top: -6px; bottom: -6px; width: 14px; }
+.row .quick::before { content: ''; position: absolute; left: -40px; top: -8px; bottom: -8px; width: 40px; } /* Covers where Move to Bin opens, so heading straight for it opens the buttons. */
 .row:hover .quick { opacity: 1; pointer-events: auto; }
 .rows.scrolling .row .quick { opacity: 0 !important; pointer-events: none !important; }
 /* On its own the handle is a small dot pill (16 px); it grows to full size (24 px) as the buttons slide out. */
@@ -1696,3 +1696,17 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .note-text small { color: var(--text-muted); font-size: 0.82em; }
 .note-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .note-actions:empty { display: none; }
+/* Jumping to a month, year or date from the calendar title (0.7.2 beta 8) */
+.jump-host { display: flex; justify-content: center; }
+.jump-wrap { position: relative; display: inline-flex; }
+.jump-title { border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 600; padding: 3px 8px; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.jump-title:hover { background: var(--bg-hover); }
+.jump-pop { position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); z-index: 60; width: 270px; background: var(--bg-elev, var(--bg)); border: 1px solid var(--border-strong, var(--border)); border-radius: 10px; box-shadow: 0 14px 34px rgba(0,0,0,.35); padding: 10px; font-weight: 400; }
+.jump-year { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.jump-months { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.jump-months button { border: 0; background: transparent; color: var(--text); font: inherit; padding: 7px 0; border-radius: 6px; cursor: pointer; }
+.jump-months button:hover { background: var(--bg-hover); }
+.jump-months button.now { color: var(--accent); font-weight: 600; }
+.jump-months button.on { background: var(--accent-fill, var(--accent)); color: var(--on-accent, #fff); }
+.jump-date { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 0.9em; }
+.jump-date input { flex: 1; min-width: 0; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); color: var(--text); padding: 0 6px; font: inherit; }

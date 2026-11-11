@@ -752,6 +752,8 @@ export function openScreen(screen: MailState['screen'], settingsTab?: string) {
 // ---------- reading ----------
 
 export async function loadBody(id: string): Promise<Message | undefined> {
+  // Already fetched in the background and waiting to be saved: save it now and use it.
+  if (warmBuffer.some((u) => u.id === id)) flushWarm();
   const m = get().messages[id];
   if (!m || m.bodyLoaded) return m;
   const p = providers.get(m.accountId);
@@ -771,13 +773,26 @@ export async function loadBody(id: string): Promise<Message | undefined> {
 // Opening an email is instant when its body is already here. New mail, the top of the Inbox and whatever the
 // pointer rests on are fetched quietly in the background, one at a time, so nothing else is held up.
 const warmQueue: string[] = [];
+const warmUrgent = new Set<string>();
 let warming = false;
+// Bodies fetched in the background are saved together every couple of seconds. Saving one at a time copied the
+// whole mail list and redrew the app each time, which made everything feel slow while it worked.
+let warmBuffer: Message[] = [];
+let warmFlushTimer: ReturnType<typeof setTimeout> | undefined;
+function flushWarm() {
+  clearTimeout(warmFlushTimer);
+  warmFlushTimer = undefined;
+  if (!warmBuffer.length) return;
+  const batch = warmBuffer.map((u) => ({ ...(get().messages[u.id] || u), bodyHtml: u.bodyHtml, bodyText: u.bodyText, attachments: u.attachments, hasAttachments: u.hasAttachments, bodyLoaded: true }));
+  warmBuffer = [];
+  putMessages(batch);
+}
 
 /** Loads these emails' bodies in the background. With first, they jump the queue (the pointer is on them). */
 export function warmBodies(ids: string[], opts: { first?: boolean } = {}) {
   const todo = ids.filter((id) => { const m = get().messages[id]; return m && !m.bodyLoaded && !m.isDraft && !warmQueue.includes(id); });
   if (!todo.length) return;
-  if (opts.first) warmQueue.unshift(...todo); else warmQueue.push(...todo);
+  if (opts.first) { warmQueue.unshift(...todo); todo.forEach((id) => warmUrgent.add(id)); } else warmQueue.push(...todo);
   if (warmQueue.length > 200) warmQueue.length = 200;
   if (!warming) void runWarm();
 }
@@ -787,18 +802,26 @@ async function runWarm() {
   try {
     while (warmQueue.length) {
       const id = warmQueue.shift()!;
+      const urgent = warmUrgent.delete(id);
       const m = get().messages[id];
       const p = m && providers.get(m.accountId);
       if (!m || m.bodyLoaded || !p) continue;
       try {
         const body = await p.getBody(m);
         const updated: Message = { ...(get().messages[id] || m), bodyHtml: body.html, bodyText: body.text, attachments: body.attachments, hasAttachments: body.attachments.some((a) => !a.inline), bodyLoaded: true };
-        putMessages([updated]);
+        if (urgent) { warmBuffer.push(updated); flushWarm(); } // About to be opened: save now.
+        else {
+          warmBuffer.push(updated);
+          if (warmBuffer.length >= 25) flushWarm();
+          else if (!warmFlushTimer) warmFlushTimer = setTimeout(flushWarm, 2500);
+        }
       } catch { /* it loads when opened instead */ }
-      await new Promise((r) => setTimeout(r, 120));
+      // Gentle in the background; quick for what the pointer is on.
+      await new Promise((r) => setTimeout(r, urgent ? 0 : 250));
     }
   } finally {
     warming = false;
+    flushWarm();
   }
 }
 

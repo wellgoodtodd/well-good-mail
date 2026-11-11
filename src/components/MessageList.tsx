@@ -83,7 +83,14 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
   useEffect(() => { if (accounts.length) { warmAfterStart(); startCalendarCopy(); } }, [accounts.length]);
   // Your sent emails by conversation, for the replied and forwarded marks.
   const allMessages = useMail((s) => s.messages);
-  const sent = useMemo(() => sentByThread(Object.values(allMessages), mine), [allMessages, mine]);
+  // Rebuilt at most every second and a half, not on every small change (it looks through every email).
+  const [sent, setSent] = useState(() => sentByThread(Object.values(useMail.getState().messages), mine));
+  const sentTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    if (sentTimer.current) return;
+    sentTimer.current = setTimeout(() => { sentTimer.current = undefined; setSent(sentByThread(Object.values(useMail.getState().messages), mine)); }, 1500);
+  }, [allMessages, mine]);
+  useEffect(() => () => clearTimeout(sentTimer.current), []);
   const accountColour = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a.colour])), [accounts]);
   const showStripe = useSettings((s) => s.showAccountStripe);
   const showAccount = showStripe && view.scope.type !== 'account' && accounts.length > 1;

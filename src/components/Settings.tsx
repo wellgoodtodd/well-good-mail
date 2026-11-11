@@ -1,6 +1,5 @@
 // Settings: accounts, signatures, groups, look and feel, reminders, privacy, updates.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import DOMPurify from 'dompurify';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Icon } from './Icon';
 import { FormatBar } from './FormatBar';
@@ -349,10 +348,12 @@ function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLin
   const ooo = useOoo((o) => o.byAccount[a.id]);
   const mcp = tidy(s.mcp);
   const [open, setOpen] = useState<AcctSection | null>(null);
+  const [sigAddr, setSigAddr] = useState("");
   const modes = s.signatureModes[a.id] || {};
   const setMode = (k: 'replies' | 'forwards', v: 'same' | 'none') => s.set({ signatureModes: { ...s.signatureModes, [a.id]: { ...modes, [k]: v } } });
   const aliases = a.aliases.length ? a.aliases : [{ email: a.email, name: a.displayName, isDefault: true }];
   const own = aliases.find((x) => x.isDefault)?.email || a.email;
+  const sigOf = aliases.some((x) => x.email === sigAddr) ? sigAddr : own;
   const alertWords = { all: 'Every new email', important: 'Only VIPs', off: 'Off' } as const;
   const calendars = [...new Set<string>([...(calNames[a.id] || []), ...events.filter((e) => e.accountId === a.id).map((e) => e.calendarName), ...s.hiddenCalendars.filter((k) => k.startsWith(`${a.id}|`)).map((k) => k.slice(a.id.length + 1))])].sort((x, y) => Number(y.toLowerCase() === a.email.toLowerCase()) - Number(x.toLowerCase() === a.email.toLowerCase()) || x.localeCompare(y));
   const toggleCal = (name: string, show: boolean) => { const k = `${a.id}|${name}`; s.set({ hiddenCalendars: show ? s.hiddenCalendars.filter((x) => x !== k) : [...s.hiddenCalendars, k] }); };
@@ -386,12 +387,14 @@ function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLin
             <>
               <div className="acct-field"><span>Replies</span><select value={modes.replies || 'same'} onChange={(e) => setMode('replies', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
               <div className="acct-field"><span>Forwards</span><select value={modes.forwards || 'same'} onChange={(e) => setMode('forwards', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
-              <div className="acct-mail-preview">
-                <div className="hd">A new email from {own}</div>
-                <p>Hi Sam,</p><p>Thanks for this, see you Thursday.</p>
-                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signatureFor(own, composeContext()) || '<span style="color:#888">No signature yet</span>') }} />
+              {/* Quick edits right here; the full page has the rest (pictures, placement, every address). */}
+              {aliases.length > 1 && (
+                <div className="acct-field"><span>Address</span><select value={sigOf} onChange={(e) => setSigAddr(e.target.value)}>{aliases.map((x) => <option key={x.email} value={x.email}>{x.email}</option>)}</select></div>
+              )}
+              <div className="acct-sig-edit">
+                <SignatureEditor key={sigOf} email={sigOf} initial={sigOf in s.signatures ? s.signatures[sigOf] : (aliases.find((x) => x.email === sigOf) as { providerSignatureHtml?: string } | undefined)?.providerSignatureHtml || ''} onChange={(html) => s.set({ signatures: { ...useSettings.getState().signatures, [sigOf]: html } })} />
               </div>
-              <button className="btn" onClick={() => openScreen('settings', 'signatures')}>Edit signature</button>
+              <button className="link-btn" onClick={() => openScreen('settings', 'signatures')}>More signature options in Signatures &amp; Addresses</button>
             </>
           )}
           {open === 'sending' && (

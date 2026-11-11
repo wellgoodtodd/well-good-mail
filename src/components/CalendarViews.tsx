@@ -56,6 +56,54 @@ function useColour() {
 }
 
 /** One day or a week of times. */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const ymdOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/**
+ * The calendar's title, which opens a quick way to jump: the year with arrows, its twelve months, a date box and
+ * Today. Clicking away just closes it.
+ */
+export function JumpTitle({ label, at, onPick }: { label: React.ReactNode; at: Date; onPick: (d: Date) => void }) {
+  const [open, setOpen] = useState(false);
+  const [year, setYear] = useState(at.getFullYear());
+  useEffect(() => { if (open) setYear(at.getFullYear()); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!open) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [open]);
+  const pick = (d: Date) => { onPick(d); setOpen(false); };
+  const now = new Date();
+  return (
+    <span className="jump-wrap">
+      <button className="jump-title" aria-expanded={open} title="Jump to a month or date" onClick={() => setOpen(!open)}>{label} <Icon name="chevronDown" size={13} /></button>
+      {open && (
+        <>
+          <div className="click-away" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(false); }} />
+          <div className="jump-pop" role="dialog" aria-label="Jump to">
+            <div className="jump-year">
+              <button className="icon-btn" aria-label="Previous year" onClick={() => setYear(year - 1)}><Icon name="chevronLeft" size={15} /></button>
+              <strong>{year}</strong>
+              <button className="icon-btn" aria-label="Next year" onClick={() => setYear(year + 1)}><Icon name="chevronRight" size={15} /></button>
+            </div>
+            <div className="jump-months">
+              {MONTHS.map((m, i) => (
+                <button key={m} className={`${year === at.getFullYear() && i === at.getMonth() ? 'on' : ''} ${year === now.getFullYear() && i === now.getMonth() ? 'now' : ''}`} onClick={() => pick(new Date(year, i, 1))}>{m}</button>
+              ))}
+            </div>
+            <div className="jump-date">
+              <label htmlFor="jump-date">Go to date</label>
+              <input id="jump-date" type="date" defaultValue={ymdOf(at)} onKeyDown={(e) => { if (e.key === 'Enter') { const v = (e.target as HTMLInputElement).value; if (v) { const [y, mo, d] = v.split('-').map(Number); pick(new Date(y, mo - 1, d)); } } }} onChange={(e) => { const v = e.target.value; if (v && v.length === 10) { const [y, mo, d] = v.split('-').map(Number); if (y > 1900) pick(new Date(y, mo - 1, d)); } }} />
+              <button className="btn small" onClick={() => { const d = new Date(); d.setHours(0, 0, 0, 0); pick(d); }}>Today</button>
+            </div>
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
 /** Day, Week or Month: sits in the calendar's own header, so it's clearly for the calendar only. */
 export function CalendarModes() {
   const mode = useSettings((s) => s.calendarMode);
@@ -121,7 +169,7 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
     <div className="card tgrid">
       <div className="month-head">
         <button className="icon-btn" aria-label={mode === 'day' ? 'Previous day' : 'Previous week'} onClick={() => step(-1)}><Icon name="chevronLeft" size={16} /></button>
-        <strong>{weekNumbers && <span className="tg-wk">Week {isoWeek(days[0])}</span>}{title}</strong>
+        <strong className="jump-host"><JumpTitle at={anchor} onPick={(d) => setAnchor(d)} label={<>{weekNumbers && <span className="tg-wk">Week {isoWeek(days[0])}</span>}{title}</>} /></strong>
         <button className="icon-btn" aria-label={mode === 'day' ? 'Next day' : 'Next week'} onClick={() => step(1)}><Icon name="chevronRight" size={16} /></button>
         {modes}
         <button className="btn ghost" onClick={() => { const d = new Date(); d.setHours(0, 0, 0, 0); setAnchor(d); }}>Today</button>

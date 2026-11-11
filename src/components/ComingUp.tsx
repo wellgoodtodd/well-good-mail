@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast } from '../lib/mail';
-import { isoWeek } from './CalendarViews';
+import { isoWeek, JumpTitle } from './CalendarViews';
 import { useCalCache, ensureCalendarRange, cachedBetween } from '../lib/calendarCache';
 import { useSettings } from '../lib/settings';
 import { upcoming, alertMute } from '../lib/reminders';
@@ -415,7 +415,7 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
     <div className="card month">
       <div className="month-head">
         <button className="icon-btn" aria-label="Previous month" onClick={() => shift(-1)}><Icon name="chevronLeft" size={16} /></button>
-        <strong>{month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</strong>
+        <strong className="jump-host"><JumpTitle at={month} onPick={(d) => setMonth(new Date(d.getFullYear(), d.getMonth(), 1))} label={month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} /></strong>
         <button className="icon-btn" aria-label="Next month" onClick={() => shift(1)}><Icon name="chevronRight" size={16} /></button>
         {modes}
         <button className="btn ghost" onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonth(d); }}>Today</button>
