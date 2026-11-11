@@ -1,6 +1,7 @@
 // Day and Week calendar views: times down the side, all-day events across the top, working hours shaded, a line
 // for now. The month view lives in ComingUp.tsx; Reminders switches between all three.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { create } from 'zustand';
 import { Icon } from './Icon';
 import { useMail } from '../lib/mail';
 import { useCalCache, ensureCalendarRange, cachedBetween } from '../lib/calendarCache';
@@ -13,6 +14,18 @@ const DAY_MS = 86400000;
 const pad = (n: number) => String(n).padStart(2, '0');
 const timeText = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 const minutesOf = (hm: string) => { const [h, m] = hm.split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+
+const midnight = (ms: number) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+
+/**
+ * The day you picked, shared by Day, Week and Month (and shown in the side panel), so switching view stays on it.
+ * Undefined until you pick one: the views then start at today.
+ */
+export const useCalDay = create<{ day?: number }>(() => ({}));
+export const selectDay = (ms: number | undefined) => useCalDay.setState({ day: ms === undefined ? undefined : midnight(ms) });
+export const selectedOrToday = () => useCalDay.getState().day ?? midnight(Date.now());
+/** Opens a day on its own, in Day view. */
+export const openDay = (ms: number) => { selectDay(ms); useSettings.getState().set({ calendarMode: 'day' }); };
 
 /** The ISO week number (weeks start on Monday; week 1 holds the first Thursday of the year). */
 export function isoWeek(d: Date): number {
@@ -123,7 +136,10 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
   const hideWeekends = useSettings((s) => s.hideWeekends);
   const work = useSettings((s) => s.workHours);
   const colour = useColour();
-  const [anchor, setAnchor] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; });
+  const picked = useCalDay((c) => c.day);
+  const [anchor, setAnchorNow] = useState(() => new Date(selectedOrToday()));
+  // Moving in Day or Week moves the picked day with it, so Month and the side panel follow.
+  const setAnchor = (d: Date) => { setAnchorNow(d); selectDay(d.getTime()); };
   const days = useMemo(() => {
     if (mode === 'day') return [anchor];
     const first = weekStartOf(anchor, sunday);
@@ -177,7 +193,8 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
       <div className="tg-head" style={{ gridTemplateColumns: cols }}>
         <div className="tg-corner">{weekNumbers && mode === 'week' ? `W${isoWeek(days[0])}` : ''}</div>
         {days.map((d) => (
-          <button key={d.toISOString()} className={`tg-day ${d.toDateString() === today ? 'today' : ''}`} onClick={() => mode === 'week' && setAnchor(d)} title={mode === 'week' ? 'Show this day' : undefined}>
+          <button key={d.toISOString()} className={`tg-day ${d.toDateString() === today ? 'today' : ''} ${mode === 'week' && picked === d.getTime() ? 'picked' : ''}`} aria-pressed={mode === 'week' ? picked === d.getTime() : undefined}
+            onClick={() => mode === 'week' && setAnchor(d)} onDoubleClick={() => mode === 'week' && openDay(d.getTime())} title={mode === 'week' ? 'Click to pick this day, double-click to open it' : undefined}>
             <span>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</span> <b>{d.getDate()}</b>
           </button>
         ))}
@@ -206,7 +223,7 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
             const isToday = d.toDateString() === today;
             const nowTop = ((Date.now() - start) / 3600000) * HOUR_PX;
             return (
-              <div key={d.toISOString()} className="tg-col">
+              <div key={d.toISOString()} className={`tg-col ${mode === 'week' && picked === d.getTime() ? 'picked' : ''}`} onClick={(ev) => { if (mode === 'week' && ev.target === ev.currentTarget) setAnchor(d); }} onDoubleClick={(ev) => { if (mode === 'week' && ev.target === ev.currentTarget) openDay(d.getTime()); }}>
                 {workDay(d) && <div className="tg-work" style={{ top: (minutesOf(work.from) / 60) * HOUR_PX, height: ((minutesOf(work.to) - minutesOf(work.from)) / 60) * HOUR_PX }} />}
                 {Array.from({ length: 24 }, (_, h) => <div key={h} className="tg-line" style={{ top: h * HOUR_PX }} />)}
                 {timed.map((e) => {

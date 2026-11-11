@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectThread, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { dueReminders, eventKey, alertMute } from '../lib/reminders';
-import { CalendarPicker, ComingUpList, EventPreview, JoinButton, MonthView } from './ComingUp';
+import { CalendarPicker, ComingUpList, EventPreview, JoinButton, MonthView, PickedDay } from './ComingUp';
 import { TimeGridView, CalendarModes } from './CalendarViews';
 import { refreshCalendarCopy, startCalendarCopy } from '../lib/calendarCache';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
@@ -121,6 +121,7 @@ export function Reminders() {
             <h2 style={{ margin: '0 0 10px', fontSize: '1em' }}>Coming up</h2>
             <div className="rem-scroll"><ComingUpList onPick={setPreview} /></div>
           </div>
+          {s.remindersView === 'calendar' && <PickedDay onPick={setPreview} />}
         </aside>
       </div>
       <footer className="rem-footer">

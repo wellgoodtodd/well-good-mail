@@ -6,7 +6,7 @@ import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast, editEvent
 import { useMenu, type MenuItem } from './ui';
 import { describeRepeat } from '../lib/recurrence';
 import { askConfirm } from '../lib/dialogs';
-import { isoWeek, JumpTitle } from './CalendarViews';
+import { isoWeek, JumpTitle, useCalDay, selectDay, selectedOrToday, openDay } from './CalendarViews';
 import { useCalCache, ensureCalendarRange, cachedBetween } from '../lib/calendarCache';
 import { useSettings } from '../lib/settings';
 import { upcoming, alertMute } from '../lib/reminders';
@@ -323,6 +323,7 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
           <button className="icon-btn" aria-label="Close" onClick={onClose}><Icon name="close" size={14} /></button>
         </div>
         <div className="ev-line"><Icon name="clock" size={15} /> {event.allDay ? `${dayText(event.start)}, all day` : `${dayText(event.start)}, ${timeText(event.start)} to ${sameDay ? '' : `${dayText(event.end)}, `}${timeText(event.end)}`}</div>
+        {event.recurring && <RepeatLine event={event} />}
         {editable && calendarChoices().length
           ? <button className="ev-line ev-cal-link" title="Put it in another calendar" onClick={(e) => calMenu.open(e.currentTarget.getBoundingClientRect(), calendarItems(event, { accountId: event.accountId, calendarName: event.calendarName }, (to) => void quickMove(to)))}><Icon name="calendar" size={15} /> <span>{event.calendarName}{labels.length ? ` · ${labels.join(', ')}` : ''}</span><Icon name="chevronDown" size={12} /></button>
           : <div className="ev-line"><Icon name="calendar" size={15} /> {event.calendarName}{labels.length ? ` · ${labels.join(', ')}` : ''}</div>}
@@ -377,6 +378,28 @@ const hmOf = (ms: number) => { const d = new Date(ms); return `${pad2(d.getHours
 const msAt = (day: string, time = '00:00') => { const [y, m, d] = day.split('-').map(Number); const [h, mi] = time.split(':').map(Number); return new Date(y, m - 1, d, h || 0, mi || 0).getTime(); };
 
 type CalTarget = { accountId: string; calendarName: string };
+
+/** How each repeating event repeats, once read, so it's only asked for once. */
+const repeatWords = new Map<string, string>();
+function useRepeatWords(event: CalendarEvent): string | undefined {
+  const [words, setWords] = useState(() => repeatWords.get(event.id));
+  useEffect(() => {
+    if (!event.recurring || repeatWords.has(event.id) || !providerFor(event.accountId)?.copyOfEvent) return;
+    let live = true;
+    eventCopy(event, true).then((c) => {
+      const w = c.repeat ? describeRepeat(c.repeat) : 'Repeats';
+      repeatWords.set(event.id, w);
+      if (live) setWords(w);
+    }, () => { /* the line just says Repeats */ });
+    return () => { live = false; };
+  }, [event.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  return words;
+}
+
+function RepeatLine({ event }: { event: CalendarEvent }) {
+  const words = useRepeatWords(event);
+  return <div className="ev-line"><Icon name="refresh" size={15} /> {words || 'Repeats'}</div>;
+}
 const accountLabel = (id: string) => { const a = useMail.getState().accounts.find((x) => x.id === id); return a ? a.label || a.email : ''; };
 
 /** Every calendar you can put the event in: its own account's first, then each other account's, under its name. */
@@ -426,7 +449,7 @@ function EventEditForm({ event, startTo, onDone }: { event: CalendarEvent; start
   const [series, setSeries] = useState<{ copy?: EventCopy; error?: string } | undefined>(undefined);
   const [stopOld, setStopOld] = useState(true);
   useEffect(() => {
-    if (!across || !event.recurring || series) return;
+    if (!event.recurring || series) return;
     let live = true;
     eventCopy(event, true).then((copy) => { if (live) setSeries({ copy }); }, (e) => { if (live) setSeries({ error: e instanceof Error ? e.message : String(e) }); });
     return () => { live = false; };
@@ -502,7 +525,7 @@ function EventEditForm({ event, startTo, onDone }: { event: CalendarEvent; start
           <span className="menu-dot" style={{ background: toAcc?.colour }} /><span className="grow">{to.calendarName}{toAcc && (across || calendarChoices().length > 1) ? <small> · {toAcc.label || toAcc.email}</small> : null}</span><Icon name="chevronDown" size={12} />
         </button>
         {calMenu.node}
-        {across && event.recurring && <><span>Repeats</span><span className="ev-static">{series?.copy?.repeat ? describeRepeat(series.copy.repeat) : series?.copy?.repeatUnsupported ? "In a way that can't be copied" : series?.error ? "Couldn't read it" : 'Reading…'}</span></>}
+        {event.recurring && <><span>Repeats</span><span className="ev-static">{series?.copy?.repeat ? describeRepeat(series.copy.repeat) : series?.copy?.repeatUnsupported ? "In a way that can't be copied" : series?.error ? "Couldn't read it" : 'Reading…'}</span></>}
         <label htmlFor="ev-where">Where</label>
         <input id="ev-where" placeholder="Add a place" value={f.location} onChange={(e) => set({ location: e.target.value })} />
         <label htmlFor="ev-notes">Notes</label>
@@ -555,6 +578,45 @@ export function ComingUpList({ limit = 8, onPick }: { limit?: number; onPick: (e
   );
 }
 
+/** The day you picked in the calendar, listed in full, under Coming up. */
+export function PickedDay({ onPick }: { onPick: (e: CalendarEvent) => void }) {
+  const day = useCalDay((c) => c.day);
+  const near = useMail((s) => s.events);
+  const copy = useCalCache((c) => c.events);
+  const hidden = useSettings((s) => s.hiddenCalendars);
+  const list = useMemo(() => {
+    if (day === undefined) return [];
+    const end = day + 86400000;
+    const seen = new Set(near.map((e) => e.id));
+    return dedupeEvents(visibleEvents([...near, ...cachedBetween(copy, day, end).filter((e) => !seen.has(e.id))], hidden))
+      .filter((e) => e.start < end && e.end > day)
+      .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start - b.start);
+  }, [day, near, copy, hidden]);
+  if (day === undefined) return null;
+  const title = new Date(day).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  return (
+    <div className="card rem-coming picked-day">
+      <div className="picked-head">
+        <h2>{new Date(day).toDateString() === new Date().toDateString() ? `Today, ${title}` : title}</h2>
+        <button className="btn small" onClick={() => openDay(day)}>Open day</button>
+        <button className="icon-btn" aria-label="Clear the picked day" onClick={() => selectDay(undefined)}><Icon name="close" size={14} /></button>
+      </div>
+      <div className="rem-scroll">
+        {!list.length ? <div style={{ color: 'var(--text-muted)' }}>Nothing on</div> : list.map((e) => (
+          <div key={e.id} className="coming-row" role="button" tabIndex={0} onClick={() => onPick(e)} onKeyDown={(k) => { if (k.key === 'Enter' || k.key === ' ') { k.preventDefault(); onPick(e); } }}>
+            <span className="acc-dots col" style={{ marginTop: 6 }}><AccountDots event={e} /></span>
+            <div className="grow">
+              <div style={{ fontWeight: 500 }}>{e.title}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>{e.allDay || e.end - e.start >= 86400000 ? 'All day' : `${timeText(e.start)} to ${timeText(e.end)}`} · {e.calendarName}</div>
+            </div>
+            {e.meetingUrl && <JoinButton event={e} small />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The column beside the mail list, opened from the toolbar. */
 export function ComingUpPanel() {
   const set = useSettings((s) => s.set);
@@ -580,7 +642,16 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
   const weekNumbers = useSettings((s) => s.weekNumbers);
   const hideWeekends = useSettings((s) => s.hideWeekends);
   const colour = useColour();
-  const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
+  const picked = useCalDay((c) => c.day);
+  const [month, setMonthNow] = useState(() => { const d = new Date(selectedOrToday()); d.setDate(1); return d; });
+  // Moving month keeps the picked day on the same date in the new month (or its last day).
+  const setMonth = (d: Date) => {
+    setMonthNow(d);
+    const was = useCalDay.getState().day;
+    if (was === undefined) return;
+    const day = Math.min(new Date(was).getDate(), new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate());
+    selectDay(new Date(d.getFullYear(), d.getMonth(), day).getTime());
+  };
   const first = new Date(month);
   const offset = sunday ? first.getDay() : (first.getDay() + 6) % 7;
   const gridStart = new Date(first); gridStart.setDate(1 - offset);
@@ -615,7 +686,7 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
         <strong className="jump-host"><JumpTitle at={month} onPick={(d) => setMonth(new Date(d.getFullYear(), d.getMonth(), 1))} label={month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} /></strong>
         <button className="icon-btn" aria-label="Next month" onClick={() => shift(1)}><Icon name="chevronRight" size={16} /></button>
         {modes}
-        <button className="btn ghost" onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonth(d); }}>Today</button>
+        <button className="btn ghost" onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonthNow(d); selectDay(Date.now()); }}>Today</button>
       </div>
       <div className="month-grid" role="grid" style={{ gridTemplateColumns: `${weekNumbers ? '34px ' : ''}repeat(${hideWeekends ? 5 : 7}, minmax(0, 1fr))` }}>
         {weekNumbers && <div className="month-dow">Wk</div>}
@@ -627,14 +698,16 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
           if (hideWeekends && (d.getDay() === 0 || d.getDay() === 6)) return out;
           const list = byDay.get(d.toDateString()) || [];
           out.push(
-            <div key={d.toISOString()} className={`month-day ${d.getMonth() === month.getMonth() ? '' : 'other'} ${d.toDateString() === today ? 'today' : ''}`}>
+            <div key={d.toISOString()} className={`month-day ${d.getMonth() === month.getMonth() ? '' : 'other'} ${d.toDateString() === today ? 'today' : ''} ${picked === d.getTime() ? 'picked' : ''}`}
+              role="gridcell" aria-selected={picked === d.getTime()} title="Click to pick this day, double-click to open it"
+              onClick={() => selectDay(d.getTime())} onDoubleClick={() => openDay(d.getTime())}>
               <span className="n">{d.getDate()}</span>
               {list.slice(0, 3).map((e) => (
-                <button key={e.id} className="chip" style={{ background: chipBackground(e.accountIds?.length ? e.accountIds : [e.accountId], colour) }} title={e.title} onClick={() => onPick(e)}>
+                <button key={e.id} className="chip" style={{ background: chipBackground(e.accountIds?.length ? e.accountIds : [e.accountId], colour) }} title={e.title} onClick={(ev) => { ev.stopPropagation(); selectDay(d.getTime()); onPick(e); }} onDoubleClick={(ev) => ev.stopPropagation()}>
                   {!e.allDay && <span>{timeText(e.start)} </span>}{e.title}
                 </button>
               ))}
-              {list.length > 3 && <span className="more">+{list.length - 3} more</span>}
+              {list.length > 3 && <button className="more" onClick={(ev) => { ev.stopPropagation(); openDay(d.getTime()); }} title="Show the whole day">+{list.length - 3} more</button>}
             </div>,
           );
           return out;
