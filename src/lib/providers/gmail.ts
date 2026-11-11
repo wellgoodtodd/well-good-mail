@@ -293,7 +293,19 @@ export class GmailProvider implements MailProvider {
     const fullCutoff = Date.now() - FULL_BODY_DAYS * 86400000;
     let pageToken: string | undefined;
     const q = sinceDays ? `newer_than:${sinceDays}d` : '';
-    // The first page is small, so a new account shows its newest mail within seconds rather than after hundreds.
+    // First, the newest 25 in the Inbox, shown straight away: that's what you look at while the rest comes in.
+    try {
+      const inboxQ = ['in:inbox', q].filter(Boolean).join(' ');
+      const top = await this.call<{ messages?: { id: string }[] }>(`/messages?${new URLSearchParams({ maxResults: '25', q: inboxQ })}`);
+      const ids = (top.messages || []).map((m) => m.id).filter((id) => !isKnown?.(id));
+      if (ids.length) {
+        const metas = (await pool(ids, CONCURRENCY, (id) => this.fetchMessage(id, false))).filter(Boolean) as Message[];
+        await onBatch(metas);
+        const full = (await pool(metas.filter((m) => m.date >= fullCutoff), CONCURRENCY, (m) => this.fetchMessage(m.providerId, true))).filter(Boolean) as Message[];
+        if (full.length) await onBatch(full);
+      }
+    } catch { /* the full pass below fetches them anyway */ }
+    // Then everything, a small page first so more keeps appearing quickly.
     let first = true;
     do {
       const params = new URLSearchParams({ maxResults: first ? '50' : '200', includeSpamTrash: 'true' });
