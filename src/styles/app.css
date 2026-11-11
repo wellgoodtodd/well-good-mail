@@ -1710,3 +1710,16 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .jump-months button.on { background: var(--accent-fill, var(--accent)); color: var(--on-accent, #fff); }
 .jump-date { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 0.9em; }
 .jump-date input { flex: 1; min-width: 0; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); color: var(--text); padding: 0 6px; font: inherit; }
+/* Accounts panels, filled out (0.7.2 beta 8) */
+.acct-note { display: block; color: var(--text-muted); font-size: 0.85em; }
+.acct-times { display: inline-flex; align-items: center; gap: 6px; }
+.acct-times input, .acct-times select { height: 30px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-input); color: var(--text); padding: 0 6px; font: inherit; }
+.acct-ooo-msg { width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 0.92em; }
+.acct-ooo-msg span { color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.acct-panel-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.acct-caps { width: 100%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.acct-cap { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 0.93em; }
+.acct-cap:last-child { border-bottom: 0; }
+.acct-cap select { height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); color: var(--text); padding: 0 6px; font: inherit; }
+.acct-cap-group { padding: 8px 10px 4px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--text) 3%, transparent); }
+.acct-cap-wrap:last-child .acct-cap { border-bottom: 0; }

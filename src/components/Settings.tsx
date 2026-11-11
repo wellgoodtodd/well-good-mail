@@ -8,11 +8,11 @@ import { ColourPicker } from './ColourPicker';
 import { PALETTES } from '../lib/palettes';
 import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount, syncWakes, refreshTaskbarCount } from '../lib/mail';
 import { useSettings, defaultSettings, type Settings as S } from '../lib/settings';
-import { LEVEL_WORDS, tidy } from '../lib/mcp/permissions';
+import { LEVEL_WORDS, tidy, CAPABILITIES, effectiveMode, type Mode } from '../lib/mcp/permissions';
 import { undoSteps, useHistory } from '../lib/history';
 import { signatureFor } from '../lib/compose';
 import { composeContext } from '../lib/composeActions';
-import { oooSignIn } from '../lib/oooStore';
+import { oooSignIn, refreshOoo, turnOnOoo, turnOffOoo, oooToastResult } from '../lib/oooStore';
 import type { Account } from '../lib/types';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
 import { SKINS, type Skin } from '../lib/skins';
@@ -35,7 +35,7 @@ import type { IconName } from './Icon';
 import { AiConnectionTab } from './AiConnection';
 import { OutOfOfficeTab } from './OutOfOffice';
 import { useOoo } from '../lib/oooStore';
-import { stateWords as oooStateWords, oooSupport } from '../lib/ooo';
+import { stateWords as oooStateWords, oooSupport, messageFor as messageForOoo, planProblem, fillBackDate, dayStart, ymd as ymdOoo, type OooPlan } from '../lib/ooo';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../lib/shortcuts';
 
 const TABS = [
@@ -339,6 +339,90 @@ function SavedNote() {
   return <span className="acct-saved" aria-live="polite">Saved · <button className="link-btn" onClick={() => void undoSteps(1)}>Undo</button></span>;
 }
 
+/** Out of Office for one account: where it stands, and turning it on or off right here. */
+function AccountOooPanel({ a }: { a: Account }) {
+  const plan = useSettings((st) => st.ooo);
+  const ooo = useOoo((o) => o.byAccount[a.id]);
+  const busy = useOoo((o) => o.busy);
+  const [until, setUntil] = useState<'open' | 'dates'>('open');
+  const [backOn, setBackOn] = useState(() => ymdOoo(Date.now() + 7 * 86400000));
+  useEffect(() => { void refreshOoo([a.id]); }, [a.id]);
+  if (!oooSupport(a).native) return <><p className="hint">This kind of account sets Out of Office in its own web mail.</p><button className="link-btn" onClick={() => openScreen('settings', 'ooo')}>More in Out of Office</button></>;
+  if (ooo?.needsPermission) return <><p className="hint">This account needs one more sign in before Out of Office can be set.</p><button className="btn primary" onClick={() => void oooSignIn([a.id])}>Sign in</button></>;
+  const state = oooStateWords(ooo?.reply);
+  const msg = messageForOoo(plan, a.id);
+  const preview = fillBackDate(msg.html, until === 'dates' ? dayStart(backOn) : undefined).replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+  const turnOn = async () => {
+    const today = ymdOoo(Date.now());
+    const p: OooPlan = { ...plan, accounts: [a.id], mode: until, firstDay: today, backOn: until === 'dates' ? backOn : plan.backOn, useTimes: false };
+    const problem = planProblem(p);
+    if (problem) { toast({ text: problem, ttl: 8000 }); return; }
+    const r = await turnOnOoo(p);
+    if (r.needSignIn.length) { const ok = await oooSignIn(r.needSignIn, { ask: true }); if (ok.length) { const again = await turnOnOoo(p); r.done.push(...again.done); r.failed.push(...again.failed); } }
+    if (r.done.length) toast({ text: `Out of Office is on for ${a.label || a.email}.` });
+    oooToastResult(r, 'turned on');
+  };
+  const turnOff = async () => { const r = await turnOffOoo([a.id]); if (r.done.length) toast({ text: `Out of Office is off for ${a.label || a.email}.` }); oooToastResult(r, 'turned off'); };
+  return (
+    <>
+      <div className="acct-field"><span>Now</span><span className={`acct-pill ${state.state === 'off' ? 'busy' : 'ok'}`}>{state.words}</span></div>
+      {state.state === 'off' ? (
+        <>
+          <div className="acct-field"><span>Until</span><span className="acct-times">
+            <select value={until} onChange={(e) => setUntil(e.target.value as 'open' | 'dates')}><option value="open">I turn it off</option><option value="dates">I'm back on</option></select>
+            {until === 'dates' && <input type="date" aria-label="Back on" value={backOn} min={ymdOoo(Date.now() + 86400000)} onChange={(e) => setBackOn(e.target.value)} />}
+          </span></div>
+          <div className="acct-ooo-msg"><b>{msg.subject || 'Out of Office'}</b><span>{preview || 'No message yet.'}</span></div>
+          <div className="acct-panel-actions"><button className="btn primary" disabled={busy} onClick={() => void turnOn()}>{busy ? 'Turning on…' : 'Turn on'}</button><button className="link-btn" onClick={() => openScreen('settings', 'ooo')}>Change the message, who gets it, and more</button></div>
+        </>
+      ) : (
+        <div className="acct-panel-actions"><button className="btn" disabled={busy} onClick={() => void turnOff()}>{busy ? 'Turning off…' : 'Turn off now'}</button><button className="link-btn" onClick={() => openScreen('settings', 'ooo')}>More in Out of Office</button></div>
+      )}
+    </>
+  );
+}
+
+/** AI Connection for one account: how much it can see, and each thing an AI app may do here. */
+function AccountAiPanel({ a }: { a: Account }) {
+  const s = useSettings();
+  const mcp = tidy(s.mcp);
+  if (!mcp.enabled) return <><p className="hint">AI Connection is switched off, so no AI app can see this account.</p><button className="btn" onClick={() => openScreen('settings', 'ai')}>Set up AI Connection</button></>;
+  const level = mcp.accounts[a.id] ?? 'off';
+  const save = (patch: Partial<typeof mcp>) => s.set({ mcp: { ...mcp, ...patch } });
+  const setOverride = (cap: string, mode: Mode) => {
+    const own = { ...(mcp.overrides[a.id] || {}) };
+    if (mode === mcp.modes[cap]) delete own[cap]; else own[cap] = mode;
+    save({ overrides: { ...mcp.overrides, [a.id]: own } });
+  };
+  const caps = CAPABILITIES.filter((c) => c.group === 'read' || level === 'write');
+  return (
+    <>
+      <div className="acct-field"><span>This account</span><select value={level} onChange={(e) => save({ accounts: { ...mcp.accounts, [a.id]: e.target.value as 'off' | 'read' | 'write' } })}><option value="off">{LEVEL_WORDS.off}</option><option value="read">{LEVEL_WORDS.read}</option><option value="write">{LEVEL_WORDS.write}</option></select></div>
+      {level !== 'off' && (
+        <div className="acct-caps">
+          {caps.map((c, i) => {
+            const mode = effectiveMode(mcp, c.id, a.id);
+            const own = mcp.overrides[a.id]?.[c.id] !== undefined;
+            const heading = i === 0 || caps[i - 1].group !== c.group ? ({ read: 'Looking', organise: 'Organising', calendar: 'Calendar', send: 'Sending' } as Record<string, string>)[c.group] : undefined;
+            return (
+              <div key={c.id} className="acct-cap-wrap">{heading && <div className="acct-cap-group">{heading}</div>}
+              <div className="acct-cap">
+                <span><span>{c.label}</span>{own && <small className="acct-note">Only for this account</small>}</span>
+                <select aria-label={c.label} value={mode} onChange={(e) => setOverride(c.id, e.target.value as Mode)}>
+                  <option value="off">Off</option><option value="ask">Ask</option><option value="allow" disabled={c.max !== 'allow'}>Allow</option>
+                </select>
+              </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="hint">{level === 'write' ? 'Sending and anything that reaches other people always asks you first.' : level === 'read' ? 'Read only: AI apps can look, but never change or write anything here.' : 'AI apps can\'t see this account.'}</p>
+      <button className="link-btn" onClick={() => openScreen('settings', 'ai')}>More in AI Connection</button>
+    </>
+  );
+}
+
 /** The summary rows; clicking one opens its settings below, or to the right on a wide window. */
 function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLine: (a: Account) => string; calLine: (a: Account) => string; onRemove: () => void }) {
   const s = useSettings();
@@ -416,30 +500,15 @@ function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLin
           {open === 'alerts' && (
             <>
               <div className="acct-field"><span>New mail alerts</span><select value={a.notify} onChange={(e) => editAccount(a.id, { notify: e.target.value as Account['notify'] }, 'alerts')}><option value="all">Every new email</option><option value="important">Only VIPs</option><option value="off">Off</option></select></div>
-              <p className="hint">Quiet hours {s.quietHours.enabled ? `are on, ${s.quietHours.from} to ${s.quietHours.to}, for every account` : 'are off'}.</p>
-              <button className="btn" onClick={() => openScreen('settings', 'notifications')}>Notifications & Reminders</button>
+              <label className="acct-field switch-row"><span>Quiet hours<small className="acct-note">No alerts overnight, for every account.</small></span><input type="checkbox" role="switch" className="switch" checked={s.quietHours.enabled} onChange={(e) => s.set({ quietHours: { ...s.quietHours, enabled: e.target.checked } })} /></label>
+              {s.quietHours.enabled && (
+                <div className="acct-field"><span>From</span><span className="acct-times"><input type="time" aria-label="Quiet hours start" value={s.quietHours.from} onChange={(e) => s.set({ quietHours: { ...s.quietHours, from: e.target.value } })} /> to <input type="time" aria-label="Quiet hours end" value={s.quietHours.to} onChange={(e) => s.set({ quietHours: { ...s.quietHours, to: e.target.value } })} /></span></div>
+              )}
+              <button className="link-btn" onClick={() => openScreen('settings', 'notifications')}>More in Notifications</button>
             </>
           )}
-          {open === 'ai' && (
-            mcp.enabled ? (
-              <>
-                <div className="acct-field"><span>What AI apps can do</span><select value={mcp.accounts[a.id] ?? 'off'} onChange={(e) => s.set({ mcp: { ...mcp, accounts: { ...mcp.accounts, [a.id]: e.target.value as 'off' | 'read' | 'write' } } })}><option value="off">{LEVEL_WORDS.off}</option><option value="read">{LEVEL_WORDS.read}</option><option value="write">{LEVEL_WORDS.write}</option></select></div>
-                <p className="hint">Sending always asks you first, whatever is set here.</p>
-                <button className="btn" onClick={() => openScreen('settings', 'ai')}>AI Connection</button>
-              </>
-            ) : (
-              <>
-                <p className="hint">AI Connection is switched off, so no AI app can see this account.</p>
-                <button className="btn" onClick={() => openScreen('settings', 'ai')}>Set up AI Connection</button>
-              </>
-            )
-          )}
-          {open === 'ooo' && (
-            <>
-              <p className="hint">{oooSupport(a).native ? (ooo?.needsPermission ? 'This account needs one more sign in before Out of Office can be set.' : oooStateWords(ooo?.reply).words) : 'This kind of account sets Out of Office in its own web mail.'}</p>
-              {ooo?.needsPermission ? <button className="btn primary" onClick={() => void oooSignIn([a.id])}>Sign in</button> : <button className="btn" onClick={() => openScreen('settings', 'ooo')}>Open Out of Office</button>}
-            </>
-          )}
+          {open === 'ai' && <AccountAiPanel a={a} />}
+          {open === 'ooo' && <AccountOooPanel a={a} />}
           {open === 'mail' && (
             <>
               {accounts.length > 1 && <label className="acct-field switch-row"><span>Show in All Inboxes</span><input type="checkbox" role="switch" className="switch" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /></label>}
