@@ -483,7 +483,7 @@ export class GmailProvider implements MailProvider {
       await this.call('https://people.googleapis.com/v1/people:createContact', {
         method: 'POST',
         body: JSON.stringify({ ...(a.name ? { names: [{ unstructuredName: a.name }] } : {}), emailAddresses: [{ value: a.email }] }),
-      });
+      }, 0, true);
     } catch (e) { this.scopeOr(e, 'Contacts'); }
   }
 

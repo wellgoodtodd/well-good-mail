@@ -1654,3 +1654,22 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .set-seg button { padding: 5px 12px; font-size: 0.92em; }
 .set-seg button.on { background: var(--accent-fill, var(--accent)); color: var(--on-accent, #fff); font-weight: 600; }
 .check-sub { display: block; color: var(--text-muted); font-size: 0.88em; margin-top: 2px; }
+.default-set { display: inline-flex; align-items: center; gap: 8px; }
+.default-set .acct-pill { display: inline-flex; align-items: center; gap: 4px; }
+.skin-sw.bars { display: flex; gap: 0; padding: 0; height: 44px; overflow: hidden; align-items: stretch; }
+.skin-sw.bars i { flex: 1 1 0; width: auto; height: auto; min-width: 0; border-radius: 0; }
+.skin-sw.bars i.acc { flex: 0 0 34%; }
+.skin-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+/* What's new as rows with Show, like the mock-up (0.7.2 beta 6) */
+.set-section .log-item { border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 10px 0; margin: 0; }
+.set-section .log-item summary { list-style: none; display: flex; align-items: baseline; gap: 6px; }
+.set-section .log-item summary::-webkit-details-marker { display: none; }
+.set-section .log-item summary::after { content: "Show"; margin-left: auto; font-size: 0.9em; color: var(--accent); }
+.set-section .log-item[open] > summary::after { content: "Hide"; }
+.set-section .log-series-list .log-item { background: transparent; padding-left: 12px; }
+
+/* Reminders header: view switch beside the title; Day, Week, Month in the calendar's own header (0.7.2 beta 6) */
+.rem-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rem-head h1 { margin-right: 6px; }
+.rem-head .grow { flex: 1; }
+.cal-modes button { padding: 4px 11px; font-size: 0.9em; }

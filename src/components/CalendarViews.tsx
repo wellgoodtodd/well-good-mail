@@ -55,7 +55,18 @@ function useColour() {
 }
 
 /** One day or a week of times. */
-export function TimeGridView({ mode, onPick }: { mode: 'day' | 'week'; onPick: (e: CalendarEvent) => void }) {
+/** Day, Week or Month: sits in the calendar's own header, so it's clearly for the calendar only. */
+export function CalendarModes() {
+  const mode = useSettings((s) => s.calendarMode);
+  const set = useSettings((s) => s.set);
+  return (
+    <div className="seg cal-modes" role="group" aria-label="Calendar view">
+      {(['day', 'week', 'month'] as const).map((m) => <button key={m} className={mode === m ? 'on' : ''} aria-pressed={mode === m} onClick={() => set({ calendarMode: m })}>{m === 'day' ? 'Day' : m === 'week' ? 'Week' : 'Month'}</button>)}
+    </div>
+  );
+}
+
+export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; onPick: (e: CalendarEvent) => void; modes?: React.ReactNode }) {
   const near = useMail((s) => s.events);
   const hidden = useSettings((s) => s.hiddenCalendars);
   const sunday = useSettings((s) => s.weekStart) === 'sunday';
@@ -115,6 +126,7 @@ export function TimeGridView({ mode, onPick }: { mode: 'day' | 'week'; onPick: (
         <button className="icon-btn" aria-label={mode === 'day' ? 'Previous day' : 'Previous week'} onClick={() => step(-1)}><Icon name="chevronLeft" size={16} /></button>
         <strong>{weekNumbers && <span className="tg-wk">Week {isoWeek(days[0])}</span>}{title}</strong>
         <button className="icon-btn" aria-label={mode === 'day' ? 'Next day' : 'Next week'} onClick={() => step(1)}><Icon name="chevronRight" size={16} /></button>
+        {modes}
         <button className="btn ghost" onClick={() => { const d = new Date(); d.setHours(0, 0, 0, 0); setAnchor(d); }}>Today</button>
       </div>
       <div className="tg-head" style={{ gridTemplateColumns: cols }}>

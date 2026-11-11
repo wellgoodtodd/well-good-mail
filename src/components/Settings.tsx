@@ -28,7 +28,7 @@ import { invoke, isTauri, setAutostart, setCloseQuits, notify, openExternal, pre
 import { showBanner } from '../lib/banners';
 import { useSettingsAlerts } from '../lib/alerts';
 import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate, isBetaVersion } from '../lib/updater';
-import { useMenu, Dialog, fileSize } from './ui';
+import { useMenu, Dialog, fileSize, Splitter } from './ui';
 import { UpdateLog } from './WhatsNew';
 import { useBetaNotice, checkForBeta, wantsBetaNotices } from '../lib/betaNotice';
 import { SideFooter } from './Sidebar';
@@ -137,6 +137,8 @@ export function SettingsScreen() {
         </div>
         <SideFooter inSettings />
       </nav>
+      {/* The same width as the mail sidebar, and dragging either changes both. */}
+      <Splitter onDrag={(d) => useSettings.getState().set({ sidebarWidth: Math.max(170, Math.min(420, useSettings.getState().sidebarWidth + d)) })} />
       <div className="settings-body">
         {tab === 'general' && <GeneralTab />}
         {tab === 'accounts' && <AccountsTab />}
@@ -239,7 +241,10 @@ function DefaultMailApp() {
     try {
       await invoke('register_mail_app');
       await openExternal('ms-settings:defaultapps?registeredAppUser=Well%20Good%20Mail');
-      toast({ text: 'In Windows Settings, choose Well Good Mail for MAILTO (email links).', ttl: 12000 });
+      if (!isDefault) toast({ text: 'In Windows Settings, choose Well Good Mail for MAILTO (email links).', ttl: 12000 });
+      // Keep looking while Windows Settings is open, so the row changes as soon as the choice is made.
+      let n = 0;
+      const t = setInterval(() => { look(); if (++n >= 45) clearInterval(t); }, 2000);
     } catch (e) {
       toast({ text: `Couldn't set it up: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
     }
@@ -247,7 +252,9 @@ function DefaultMailApp() {
   return (
     <div className="set-row">
       <label>Default mail app<span className="check-sub">{isDefault ? 'Email links in your browser and other apps open a new email here.' : 'Make email links in your browser and other apps open a new email here.'}</span></label>
-      {isDefault ? <span className="acct-pill ok">Well Good Mail is the default</span> : <button className="btn" onClick={make}>Make default…</button>}
+      {isDefault
+        ? <span className="default-set"><span className="acct-pill ok"><Icon name="check" size={12} /> Default</span><button className="btn" onClick={make}>Change…</button></span>
+        : <button className="btn" onClick={make}>Make default…</button>}
     </div>
   );
 }
@@ -739,8 +746,11 @@ function AppearanceTab() {
         {showLooks && <div className="skin-grid">
           {SKINS.map((k) => (
             <button key={k.id} className={`skin-tile ${k.id === activeId ? 'on' : ''}`} aria-pressed={k.id === activeId} onClick={() => choose(k)}>
-              <span className="skin-sw" style={{ background: k.vars['--bg'] || (k.mode === 'dark' ? '#1c1c1e' : '#ffffff') }}>
-                {k.colours.slice(0, 5).map((c) => <i key={c} style={{ background: c }} />)}
+              {/* Three bars: the background, the panels, and the accent. */}
+              <span className="skin-sw bars" aria-hidden>
+                <i style={{ background: k.vars['--bg'] || (k.mode === 'dark' ? '#1c1c1e' : '#ffffff') }} />
+                <i style={{ background: k.vars['--bg-elev'] || k.vars['--bg-sidebar'] || (k.mode === 'dark' ? '#2a2a2e' : '#f2f2f4') }} />
+                <i className="acc" style={{ background: k.accent }} />
               </span>
               <b>{k.name}</b>
               <small>{k.blurb}</small>

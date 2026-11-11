@@ -64,7 +64,9 @@ pub fn register_mail_app() -> Result<(), String> {
 /// Whether Windows opens email links with Well Good Mail now.
 #[tauri::command]
 pub fn is_default_mail_app() -> bool {
-    reg(&["query", r"HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\mailto\UserChoice", "/v", "ProgId"])
-        .map(|out| out.contains(PROG_ID))
-        .unwrap_or(false)
+    // Newer Windows 11 keeps the choice under UserChoiceLatest; older versions under UserChoice.
+    ["UserChoiceLatest", "UserChoice"].iter().any(|key| {
+        let path = format!(r"HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\mailto\{}", key);
+        reg(&["query", &path, "/v", "ProgId"]).map(|out| out.contains(PROG_ID)).unwrap_or(false)
+    })
 }

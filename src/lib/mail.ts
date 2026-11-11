@@ -1,5 +1,6 @@
 // The app's live state: accounts, messages, what's selected, and every mail
 // action (archive, delete, send...). Syncing with providers happens here.
+import { askText } from './dialogs';
 import { logLine } from './activityLog';
 import { create } from 'zustand';
 import { store } from './db';
@@ -1248,6 +1249,12 @@ export async function addToContacts(person: Address, accountId?: string) {
   const def = settings().defaultFromEmail.toLowerCase();
   const acc = able.find((a) => a.id === accountId) || able.find((a) => a.id === open) || able.find((a) => a.aliases.some((x) => x.email.toLowerCase() === def)) || able[0];
   if (!acc) { toast({ text: 'Adding contacts works for Google and Microsoft accounts.' }); return; }
+  // Only an address: ask for a name first, so the contact is easy to find later.
+  if (!person.name?.trim()) {
+    const name = await askText(`Name for ${person.email}`, '', 'Add to contacts');
+    if (name === null) return;
+    person = { ...person, name: name.trim() || undefined };
+  }
   try {
     await providers.get(acc.id)!.addContact!(person);
     toast({ text: `${person.name || person.email} added to ${acc.label || acc.email}'s contacts.` });

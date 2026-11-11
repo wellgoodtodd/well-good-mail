@@ -375,7 +375,7 @@ export function ComingUpPanel() {
 }
 
 /** A month at a time, each event a coloured chip. */
-export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
+export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => void; modes?: React.ReactNode }) {
   const nearEvents = useMail((s) => s.events);
   const hidden = useSettings((s) => s.hiddenCalendars);
   const sunday = useSettings((s) => s.weekStart) === 'sunday';
@@ -420,6 +420,7 @@ export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
         <button className="icon-btn" aria-label="Previous month" onClick={() => shift(-1)}><Icon name="chevronLeft" size={16} /></button>
         <strong>{month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</strong>
         <button className="icon-btn" aria-label="Next month" onClick={() => shift(1)}><Icon name="chevronRight" size={16} /></button>
+        {modes}
         <button className="btn ghost" onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonth(d); }}>Today</button>
       </div>
       <div className="month-grid" role="grid" style={{ gridTemplateColumns: `${weekNumbers ? '34px ' : ''}repeat(${hideWeekends ? 5 : 7}, minmax(0, 1fr))` }}>

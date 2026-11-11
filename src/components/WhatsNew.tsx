@@ -79,7 +79,7 @@ export function UpdateLog() {
   return (
     <section className="set-section">
       <h2 style={{ margin: '0 0 8px' }}>What's new</h2>
-      {now.map((r, i) => <ReleaseItem key={r.version} r={r} open={i === 0} latest={i === 0} />)}
+      {now.map((r, i) => <ReleaseItem key={r.version} r={r} latest={i === 0} />)}
       {older.map((s) => {
         const list = RELEASES.filter((r) => seriesOf(r.version) === s);
         return (
