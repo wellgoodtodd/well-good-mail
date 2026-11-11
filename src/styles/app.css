@@ -1673,3 +1673,7 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .rem-head h1 { margin-right: 6px; }
 .rem-head .grow { flex: 1; }
 .cal-modes button { padding: 4px 11px; font-size: 0.9em; }
+
+/* The email appears once drawn, with no white flash (0.7.2 beta 6) */
+.email-frame { transition: opacity 90ms ease-out; }
+[data-motion='reduce'] .email-frame { transition: none; }

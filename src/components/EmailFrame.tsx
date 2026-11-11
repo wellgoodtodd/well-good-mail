@@ -4,9 +4,22 @@ import { useEffect, useRef, useState } from 'react';
 import { openExternal } from '../lib/platform';
 import { askConfirm } from '../lib/dialogs';
 
+// The last height each email drew at, so opening it again starts at the right size and nothing jumps.
+const heights = new Map<string, number>();
+const keyOf = (html: string) => `${html.length}:${html.slice(0, 64)}:${html.slice(-64)}`;
+
 export function EmailFrame({ html, onLinkHover, onContext }: { html: string; onLinkHover: (info: { href: string; mismatch?: string } | null) => void; onContext?: (at: { x: number; y: number; selection: string; link?: { href: string; mismatch: boolean } }) => void }) {
   const ref = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(80);
+  const [height, setHeight] = useState(() => heights.get(keyOf(html)) || 80);
+  // Hidden until the email has drawn, so there's never a flash of an empty white box.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    setReady(false);
+    setHeight(heights.get(keyOf(html)) || 80);
+    // Never left invisible: shown after a moment even if the frame doesn't say it has loaded.
+    const t = setTimeout(() => setReady(true), 400);
+    return () => clearTimeout(t);
+  }, [html]);
 
   useEffect(() => {
     const frame = ref.current;
@@ -15,8 +28,9 @@ export function EmailFrame({ html, onLinkHover, onContext }: { html: string; onL
     const onLoad = () => {
       const doc = frame.contentDocument;
       if (!doc) return;
-      const measure = () => setHeight(Math.max(60, Math.ceil(doc.documentElement.scrollHeight)));
+      const measure = () => { const h = Math.max(60, Math.ceil(doc.documentElement.scrollHeight)); heights.set(keyOf(html), h); setHeight(h); };
       measure();
+      requestAnimationFrame(() => setReady(true));
       observer = new ResizeObserver(measure);
       observer.observe(doc.documentElement);
       doc.querySelectorAll('img').forEach((img) => img.addEventListener('load', measure));
@@ -70,7 +84,7 @@ export function EmailFrame({ html, onLinkHover, onContext }: { html: string; onL
       // No scripts can run. Same origin only so we can measure height and catch link clicks.
       sandbox="allow-same-origin allow-popups"
       srcDoc={html}
-      style={{ height, colorScheme: 'light' }}
+      style={{ height, colorScheme: 'light', opacity: ready ? 1 : 0 }}
     />
   );
 }
