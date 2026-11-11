@@ -181,7 +181,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   // Spelling underlines follow the setting, and change straight away when it is switched.
   useEffect(() => {
     editor?.view.dom.setAttribute('spellcheck', s.spellCheck ? 'true' : 'false');
-    // The language follows Settings, Composing, Spelling, so Windows' underlines match the suggestions.
+    // The language follows Settings › Composing › Spelling, so Windows' underlines match the suggestions.
     editor?.view.dom.setAttribute('lang', s.spellLang || 'en-GB');
   }, [editor, s.spellCheck, s.spellLang]);
 

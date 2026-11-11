@@ -30,6 +30,8 @@ export const useOoo = create<OooState>(() => ({ byAccount: {}, busy: false }));
 const accounts = () => useMail.getState().accounts;
 const setAcc = (id: string, patch: AccountOoo) => useOoo.setState((s) => ({ byAccount: { ...s.byAccount, [id]: { ...s.byAccount[id], ...patch } } }));
 const nameOf = (a?: Account) => (a ? a.label || a.email : 'an account');
+/** When each account's Out of Office was last changed from here. A check that started before then is out of date, so it is ignored. */
+const changedAt: Record<string, number> = {};
 
 /** Accounts Out of Office can be set on from here. */
 export const nativeAccounts = () => accounts().filter((a) => oooSupport(a).native && providerFor(a.id)?.getAutoReply);
@@ -39,8 +41,10 @@ export async function refreshOoo(ids?: string[]): Promise<void> {
   const list = nativeAccounts().filter((a) => !ids || ids.includes(a.id));
   await Promise.all(list.map(async (a) => {
     setAcc(a.id, { loading: true });
+    const asked = Date.now();
     try {
       const reply = await providerFor(a.id)!.getAutoReply!();
+      if ((changedAt[a.id] || 0) >= asked) { setAcc(a.id, { loading: false }); return; }
       setAcc(a.id, { loading: false, reply, error: undefined, needsPermission: false });
     } catch (e) {
       const err = e as Error & { needsPermission?: boolean };
@@ -85,7 +89,9 @@ export async function turnOnOoo(plan: OooPlan): Promise<{ done: string[]; failed
     if (!p?.setAutoReply) { failed.push(nameOf(a)); continue; }
     const reply = replyFor(plan, a, now);
     try {
+      changedAt[a.id] = Date.now();
       await p.setAutoReply(reply);
+      changedAt[a.id] = Date.now();
       setAcc(a.id, { reply, error: undefined, needsPermission: false });
       done.push(a.id);
     } catch (e) {
@@ -171,9 +177,12 @@ export async function turnOffOoo(ids?: string[]): Promise<{ done: string[]; fail
   for (const a of list) {
     const p = providerFor(a.id)!;
     const was = state[a.id]?.reply || { on: false, html: '', audience: 'all' as const };
+    // Shown as off straight away; put back if the account says no.
+    changedAt[a.id] = Date.now();
+    setAcc(a.id, { reply: { ...was, on: false }, error: undefined });
     try {
       await p.setAutoReply!({ ...was, on: false, start: undefined, end: undefined });
-      setAcc(a.id, { reply: { ...was, on: false }, error: undefined });
+      changedAt[a.id] = Date.now();
       done.push(a.id);
       if (events[a.id] && p.removeAwayEvent) {
         await p.removeAwayEvent(events[a.id]).catch((e) => console.warn('Away event not removed', e));
@@ -181,7 +190,7 @@ export async function turnOffOoo(ids?: string[]): Promise<{ done: string[]; fail
       }
     } catch (e) {
       const err = e as Error & { needsPermission?: boolean };
-      setAcc(a.id, { needsPermission: Boolean(err.needsPermission), error: err.needsPermission ? undefined : err.message });
+      setAcc(a.id, { reply: was, needsPermission: Boolean(err.needsPermission), error: err.needsPermission ? undefined : err.message });
       failed.push(nameOf(a));
     }
   }
@@ -211,7 +220,7 @@ export function oooTick(now = Date.now()): void {
   const a = s.oooActive;
   if (a?.end) {
     if (!a.reminded && now >= a.end - 86400000 && now < a.end) {
-      if (!isQuietNow(s)) notify('Out of Office ends tomorrow', `Replies stop ${new Date(a.end).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}. Change it in Settings, Out of Office.`);
+      if (!isQuietNow(s)) notify('Out of Office ends tomorrow', `Replies stop ${new Date(a.end).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}. Change it in Settings › Out of Office.`);
       useSettings.getState().set({ oooActive: { ...a, reminded: true } }, { quiet: true });
     }
     if (now >= a.end) {
@@ -246,7 +255,7 @@ export function dismissSuggestion() {
   useOoo.setState({ suggestion: undefined });
 }
 
-/** Opens Settings, Out of Office with the holiday's dates filled in. */
+/** Opens Settings › Out of Office with the holiday's dates filled in. */
 export function applySuggestion() {
   const sg = useOoo.getState().suggestion;
   if (!sg) return;

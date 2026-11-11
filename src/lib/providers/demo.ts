@@ -1,6 +1,6 @@
 // Demo mode: pretend accounts and emails so the whole app can be tried and
 // tested without signing in to anything. Nothing leaves the computer.
-import type { Account, Address, Alias, CalendarEvent, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { htmlToText } from '../mime';
@@ -367,10 +367,26 @@ export class DemoProvider implements MailProvider {
   private evEdits: Record<string, Partial<CalendarEvent> | null> = {};
   writableCalendars(): string[] { return this.account.id === 'demo-wgm' ? ['Studio', 'Shoots'] : ['Personal']; }
   async editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> { const { calendarName, ...rest } = patch; this.evEdits[ev.id] = { ...(this.evEdits[ev.id] || {}), ...rest, ...(calendarName ? { calendarName } : {}) }; }
-  async deleteEvent(ev: CalendarEvent): Promise<void> { this.evEdits[ev.id] = null; }
+  async deleteEvent(ev: CalendarEvent): Promise<void> { this.evEdits[ev.id] = null; this.made = this.made.filter((e) => e.id !== ev.id); }
+  /** Demo: events moved in from another account. */
+  private made: CalendarEvent[] = [];
+  async copyOfEvent(ev: CalendarEvent, opts: { series: boolean }): Promise<EventCopy> {
+    const day = new Date(ev.start).getDay();
+    return {
+      title: ev.title, start: ev.start, end: ev.end, allDay: ev.allDay, location: ev.location, description: ev.description,
+      guests: (ev.guests || []).filter((g) => !g.self).map((g) => ({ email: g.email, name: g.name })), video: Boolean(ev.meetingUrl),
+      ...(opts.series && ev.recurring ? { repeat: { freq: 'weekly' as const, interval: 1, days: [['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][day]] } } : {}),
+    };
+  }
+  async createEvent(calendarName: string, copy: EventCopy): Promise<string> {
+    const id = `${this.account.id}|moved-${Date.now()}`;
+    this.made.push({ id, accountId: this.account.id, calendarName, title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay, location: copy.location, description: copy.description, reminderMinutes: [], recurring: Boolean(copy.repeat), meetingUrl: copy.video ? 'https://meet.google.com/new-demo-link' : undefined });
+    return id;
+  }
+  async endSeries(ev: CalendarEvent): Promise<void> { this.evEdits[ev.id] = null; }
 
   async listEvents(): Promise<CalendarEvent[]> {
-    return (await this.demoEvents()).filter((e) => this.evEdits[e.id] !== null).map((e) => ({ ...e, ...(this.evEdits[e.id] || {}), canEdit: true }));
+    return [...(await this.demoEvents()), ...this.made].filter((e) => this.evEdits[e.id] !== null).map((e) => ({ ...e, ...(this.evEdits[e.id] || {}), canEdit: true }));
   }
 
   private async demoEvents(): Promise<CalendarEvent[]> {
@@ -392,7 +408,7 @@ export class DemoProvider implements MailProvider {
       ];
     }
     if (this.account.id === 'demo-church') return [ev('e5', 'Content planning', t + 18.5 * H, [30], 'Club')];
-    return [ev('e6', 'Pick up dry cleaning', t + 9 * H, [0], 'Personal'), ev('e7', 'Bins out', t + 3 * D + 19 * H, [0], 'Personal')];
+    return [ev('e6', 'Pick up dry cleaning', t + 9 * H, [0], 'Personal'), { ...ev('e7', 'Bins out', t + 3 * D + 19 * H, [0], 'Personal'), recurring: true }];
   }
 
   async uploadLargeFile(name: string): Promise<string> {

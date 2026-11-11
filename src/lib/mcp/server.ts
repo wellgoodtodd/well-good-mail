@@ -74,7 +74,7 @@ async function askPerson(app: string, req: AskRequest) {
     } else {
       useSettings.getState().set({ mcp: tidy({ ...mcp, modes: { ...mcp.modes, [req.capability]: 'allow' } }) });
     }
-    toast({ text: req.accounts.length ? 'Done. It won\'t ask about that again for the accounts you ticked. Change it any time in Settings, AI Connection.' : 'Done. It won\'t ask about that again. You can change it back any time in Settings, AI Connection.', ttl: 12000, action: { label: 'Open settings', run: () => openScreen('settings', 'ai') } });
+    toast({ text: req.accounts.length ? 'Done. It won\'t ask about that again for the accounts you ticked. Change it any time in Settings › AI Connection.' : 'Done. It won\'t ask about that again. You can change it back any time in Settings › AI Connection.', ttl: 12000, action: { label: 'Open settings', run: () => openScreen('settings', 'ai') } });
   }
   return { allowed, edit };
 }

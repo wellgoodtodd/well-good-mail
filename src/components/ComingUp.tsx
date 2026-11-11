@@ -2,7 +2,9 @@
 // preview with a Join button, a month view, and the bar that appears just before a video meeting.
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast, editEvent, deleteEvent, writableCalendars, providerFor } from '../lib/mail';
+import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast, editEvent, deleteEvent, writableCalendars, providerFor, calendarChoices, canMoveAcross, eventCopy, moveEventAcross } from '../lib/mail';
+import { useMenu, type MenuItem } from './ui';
+import { describeRepeat } from '../lib/recurrence';
 import { askConfirm } from '../lib/dialogs';
 import { isoWeek, JumpTitle } from './CalendarViews';
 import { useCalCache, ensureCalendarRange, cachedBetween } from '../lib/calendarCache';
@@ -11,7 +13,7 @@ import { upcoming, alertMute } from '../lib/reminders';
 import { meetingService, meetingsSoon, dedupeEvents, visibleEvents, guestTally, guestAnswerWord, inviteText, meetingPhase, meetingPhaseText } from '../lib/meetings';
 import { startCompose } from '../lib/composeActions';
 import { openExternal } from '../lib/platform';
-import type { CalendarEvent, EventGuest, EventPatch, GuestAnswer } from '../lib/types';
+import type { CalendarEvent, EventCopy, EventGuest, EventPatch, GuestAnswer } from '../lib/types';
 
 /** Re-renders every minute so "soon" and "coming up" stay current. */
 function useMinute() {
@@ -284,7 +286,19 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
   const [refreshing, setRefreshing] = useState(false);
   const [more, setMore] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [editTo, setEditTo] = useState<CalTarget | undefined>(undefined);
+  const calMenu = useMenu();
   const editable = Boolean(event.canEdit && providerFor(event.accountId)?.editEvent);
+  // Two clicks to put it somewhere else. Anything with guests, a video link or a repeat opens Edit, so the note shows first.
+  const quickMove = async (to: CalTarget) => {
+    if (to.accountId === event.accountId && to.calendarName === event.calendarName) return;
+    if (to.accountId === event.accountId) {
+      try { await editEvent(event, { calendarName: to.calendarName }); toast({ text: `"${event.title}" is now in ${to.calendarName}.` }); } catch (e) { toast({ text: `Couldn't move it: ${e instanceof Error ? e.message : e}`, ttl: 9000 }); }
+      return;
+    }
+    if (event.recurring || event.meetingUrl || (event.guests || []).some((g) => !g.self)) { setEditTo(to); setEditing(true); return; }
+    try { const newId = await moveEventAcross(event, to, { removeOriginal: true }); movedToast(event, newId, to); onClose(); } catch (e) { toast({ text: `Couldn't move it: ${e instanceof Error ? e.message : e}`, ttl: 9000 }); }
+  };
   const refresh = async () => { setRefreshing(true); try { await refreshEvents(); } finally { setRefreshing(false); } };
   // Opening an event with guests pulls the latest answers, unless they were fetched in the last minute.
   useEffect(() => { if (picked.guests?.length && Date.now() - lastEventsRefresh() > 60000) void refresh(); }, [picked.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -302,14 +316,17 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
   return (
     <div className="ev-scrim" onClick={() => { if (!editing) onClose(); }}>
       <div className="ev-pop" role="dialog" aria-modal="true" aria-label={event.title} onClick={(e) => e.stopPropagation()}>
-        {editing ? <EventEditForm event={event} colour={chipBackground(ids, colour)} onDone={(closeAll) => { setEditing(false); if (closeAll) onClose(); }} /> : <>
+        {editing ? <EventEditForm event={event} startTo={editTo} onDone={(closeAll) => { setEditing(false); setEditTo(undefined); if (closeAll) onClose(); }} /> : <>
         <div className="ev-head">
           <span className="ev-bar" style={{ background: chipBackground(ids, colour) }} />
           <h2>{event.title}</h2>
           <button className="icon-btn" aria-label="Close" onClick={onClose}><Icon name="close" size={14} /></button>
         </div>
         <div className="ev-line"><Icon name="clock" size={15} /> {event.allDay ? `${dayText(event.start)}, all day` : `${dayText(event.start)}, ${timeText(event.start)} to ${sameDay ? '' : `${dayText(event.end)}, `}${timeText(event.end)}`}</div>
-        <div className="ev-line"><Icon name="calendar" size={15} /> {event.calendarName}{labels.length ? ` · ${labels.join(', ')}` : ''}</div>
+        {editable && calendarChoices().length
+          ? <button className="ev-line ev-cal-link" title="Put it in another calendar" onClick={(e) => calMenu.open(e.currentTarget.getBoundingClientRect(), calendarItems(event, { accountId: event.accountId, calendarName: event.calendarName }, (to) => void quickMove(to)))}><Icon name="calendar" size={15} /> <span>{event.calendarName}{labels.length ? ` · ${labels.join(', ')}` : ''}</span><Icon name="chevronDown" size={12} /></button>
+          : <div className="ev-line"><Icon name="calendar" size={15} /> {event.calendarName}{labels.length ? ` · ${labels.join(', ')}` : ''}</div>}
+        {calMenu.node}
         {ids.length > 1 && <div className="ev-line"><AccountDots event={event} /> On {ids.length} of your calendars</div>}
         {event.location && !event.location.startsWith('http') && <div className="ev-line"><Icon name="folder" size={15} /> {event.location}</div>}
         {event.meetingUrl && <div className="ev-line"><Icon name="link" size={15} /> {meetingService(event.meetingUrl)} call</div>}
@@ -359,11 +376,61 @@ const ymdOf = (ms: number) => { const d = new Date(ms); return `${d.getFullYear(
 const hmOf = (ms: number) => { const d = new Date(ms); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
 const msAt = (day: string, time = '00:00') => { const [y, m, d] = day.split('-').map(Number); const [h, mi] = time.split(':').map(Number); return new Date(y, m - 1, d, h || 0, mi || 0).getTime(); };
 
-/** Editing an event in the same box: title, when, all day, calendar (within its account), where and notes. */
-function EventEditForm({ event, colour, onDone }: { event: CalendarEvent; colour: string; onDone: (closeAll: boolean) => void }) {
+type CalTarget = { accountId: string; calendarName: string };
+const accountLabel = (id: string) => { const a = useMail.getState().accounts.find((x) => x.id === id); return a ? a.label || a.email : ''; };
+
+/** Every calendar you can put the event in: its own account's first, then each other account's, under its name. */
+function calendarItems(event: CalendarEvent, current: CalTarget, pick: (to: CalTarget) => void): MenuItem[] {
+  const accounts = useMail.getState().accounts;
+  const own = accounts.find((a) => a.id === event.accountId);
+  const ownCals = writableCalendars(event.accountId);
+  const groups = [
+    ...(own ? [{ account: own, calendars: ownCals.includes(event.calendarName) ? ownCals : [event.calendarName, ...ownCals] }] : []),
+    ...calendarChoices().filter((c) => c.account.id !== event.accountId),
+  ];
+  const across = canMoveAcross(event);
+  const items: MenuItem[] = [];
+  for (const { account, calendars } of groups) {
+    const mine = account.id === event.accountId;
+    items.push({ heading: `${account.label || account.email}${mine && groups.length > 1 ? ' · this account' : ''}` });
+    for (const c of calendars) items.push({ label: c, dot: account.colour, active: current.accountId === account.id && current.calendarName === c, disabled: !mine && !across, onClick: () => pick({ accountId: account.id, calendarName: c }) });
+  }
+  return items;
+}
+
+/** "Moved to WGM", with Undo, which moves it back the same way. */
+function movedToast(event: CalendarEvent, newId: string, to: CalTarget) {
+  const back: CalTarget = { accountId: event.accountId, calendarName: event.calendarName };
+  toast({
+    text: `"${event.title}" moved to ${accountLabel(to.accountId)}.`,
+    ttl: 9000,
+    undo: () => {
+      const now = useMail.getState().events.find((e) => e.id === newId);
+      if (!now) { toast({ text: "Couldn't find it to move back. Refresh the calendar and try again.", ttl: 8000 }); return; }
+      void moveEventAcross(now, back, { removeOriginal: true }).then(
+        () => toast({ text: `"${event.title}" is back in ${accountLabel(back.accountId)}.` }),
+        (e) => toast({ text: `Couldn't move it back: ${e instanceof Error ? e.message : e}`, ttl: 9000 }),
+      );
+    },
+  });
+}
+
+/** Editing an event in the same box: title, when, all day, calendar (any account's), where and notes. */
+function EventEditForm({ event, startTo, onDone }: { event: CalendarEvent; startTo?: CalTarget; onDone: (closeAll: boolean) => void }) {
   const accounts = useMail((s) => s.accounts);
-  const acc = accounts.find((a) => a.id === event.accountId);
-  const cals = useMemo(() => { const w = writableCalendars(event.accountId); return w.includes(event.calendarName) ? w : [event.calendarName, ...w]; }, [event.accountId, event.calendarName]);
+  const [to, setTo] = useState<CalTarget>(startTo || { accountId: event.accountId, calendarName: event.calendarName });
+  const toAcc = accounts.find((a) => a.id === to.accountId);
+  const across = to.accountId !== event.accountId;
+  const calMenu = useMenu();
+  // A series going to another account: read how it repeats first, so the form can say.
+  const [series, setSeries] = useState<{ copy?: EventCopy; error?: string } | undefined>(undefined);
+  const [stopOld, setStopOld] = useState(true);
+  useEffect(() => {
+    if (!across || !event.recurring || series) return;
+    let live = true;
+    eventCopy(event, true).then((copy) => { if (live) setSeries({ copy }); }, (e) => { if (live) setSeries({ error: e instanceof Error ? e.message : String(e) }); });
+    return () => { live = false; };
+  }, [across, event, series]);
   // All-day events end at midnight after the last day; the form shows the last day itself.
   const [f, setF] = useState(() => ({
     title: event.title,
@@ -372,7 +439,6 @@ function EventEditForm({ event, colour, onDone }: { event: CalendarEvent; colour
     from: event.allDay ? '09:00' : hmOf(event.start),
     to: event.allDay ? '10:00' : hmOf(event.end),
     allDay: event.allDay,
-    calendar: event.calendarName,
     location: event.location && !event.location.startsWith('http') ? event.location : '',
     notes: event.description || '',
   }));
@@ -389,7 +455,20 @@ function EventEditForm({ event, colour, onDone }: { event: CalendarEvent; colour
     const oldLoc = event.location && !event.location.startsWith('http') ? event.location : '';
     if (f.location.trim() !== oldLoc) patch.location = f.location.trim();
     if (f.notes.trim() !== (event.description || '').trim()) patch.description = f.notes.trim();
-    if (f.calendar !== event.calendarName) patch.calendarName = f.calendar;
+    if (across) {
+      setBusy(true);
+      try {
+        const newId = await moveEventAcross(event, to, { patch, copy: series?.copy, removeOriginal: event.recurring ? stopOld : true });
+        if (event.recurring) toast({ text: `"${patch.title || event.title}" series copied to ${accountLabel(to.accountId)}${stopOld ? `, and stopped in ${accountLabel(event.accountId)} from this one on` : ''}.`, ttl: 8000 });
+        else movedToast({ ...event, title: patch.title || event.title }, newId, to);
+        onDone(true);
+      } catch (e) {
+        setBusy(false);
+        toast({ text: `Couldn't move it: ${e instanceof Error ? e.message : e}`, ttl: 10000 });
+      }
+      return;
+    }
+    if (to.calendarName !== event.calendarName) patch.calendarName = to.calendarName;
     if (!Object.keys(patch).length) { onDone(false); return; }
     setBusy(true);
     try {
@@ -404,7 +483,7 @@ function EventEditForm({ event, colour, onDone }: { event: CalendarEvent; colour
   return (
     <form className="ev-edit" onSubmit={(e) => { e.preventDefault(); if (!bad && !busy) void save(); }}>
       <div className="ev-head">
-        <span className="ev-bar" style={{ background: colour }} />
+        <span className="ev-bar" style={{ background: toAcc?.colour }} />
         <input className="ev-title-in" aria-label="Title" value={f.title} autoFocus onChange={(e) => set({ title: e.target.value })} />
       </div>
       <div className="ev-form">
@@ -419,20 +498,35 @@ function EventEditForm({ event, colour, onDone }: { event: CalendarEvent; colour
         <span>All day</span>
         <div><input type="checkbox" role="switch" className="switch" aria-label="All day" checked={f.allDay} onChange={(e) => set({ allDay: e.target.checked })} /></div>
         <label htmlFor="ev-cal">Calendar</label>
-        {cals.length > 1
-          ? <select id="ev-cal" value={f.calendar} onChange={(e) => set({ calendar: e.target.value })}>{cals.map((n) => <option key={n} value={n}>{n}</option>)}</select>
-          : <span className="ev-static">{event.calendarName}{acc ? ` · ${acc.label || acc.email}` : ''}</span>}
+        <button type="button" id="ev-cal" className="ev-cal-btn" aria-haspopup="menu" onClick={(e) => calMenu.open(e.currentTarget.getBoundingClientRect(), calendarItems(event, to, setTo))}>
+          <span className="menu-dot" style={{ background: toAcc?.colour }} /><span className="grow">{to.calendarName}{toAcc && (across || calendarChoices().length > 1) ? <small> · {toAcc.label || toAcc.email}</small> : null}</span><Icon name="chevronDown" size={12} />
+        </button>
+        {calMenu.node}
+        {across && event.recurring && <><span>Repeats</span><span className="ev-static">{series?.copy?.repeat ? describeRepeat(series.copy.repeat) : series?.copy?.repeatUnsupported ? "In a way that can't be copied" : series?.error ? "Couldn't read it" : 'Reading…'}</span></>}
         <label htmlFor="ev-where">Where</label>
         <input id="ev-where" placeholder="Add a place" value={f.location} onChange={(e) => set({ location: e.target.value })} />
         <label htmlFor="ev-notes">Notes</label>
         <textarea id="ev-notes" rows={3} placeholder="Add notes" value={f.notes} onChange={(e) => set({ notes: e.target.value })} />
       </div>
-      {(event.recurring || guests > 0) && <p className="hint ev-note">{event.recurring ? 'This changes only this one, not the whole series. ' : ''}{guests ? `${guests === 1 ? 'The guest is' : `The ${guests} guests are`} told about changes.` : ''}</p>}
+      {across ? (
+        <div className="ev-move-note" role="note">
+          <Icon name="info" size={15} />
+          <div>
+            {event.recurring
+              ? <>Copies <b>the whole series</b> to <b>{accountLabel(to.accountId)}</b>, repeating the same way, from this one on.</>
+              : <>Moves from <b>{accountLabel(event.accountId)}</b> to <b>{accountLabel(to.accountId)}</b>. It's added to {accountLabel(to.accountId)}'s calendar and taken out of {accountLabel(event.accountId)}'s, with the title, time, place and notes.</>}
+            {guests > 0 && <> {guests === 1 ? 'Your guest gets' : <>Your <b>{guests} guests</b> get</>} a new invitation from {toAcc?.email} and a cancellation for the old one, so they'll need to answer again.</>}
+            {event.meetingUrl && <> The {meetingService(event.meetingUrl)} link belongs to the old event, so a new one is made.</>}
+            {event.recurring && series?.copy?.repeatUnsupported && <> This series repeats in a way that can't be copied, so it stays where it is.</>}
+            {event.recurring && <label className="switch-line ev-stop"><input type="checkbox" role="switch" className="switch" checked={stopOld} onChange={(e) => setStopOld(e.target.checked)} /> Then delete it from {accountLabel(event.accountId)} (this one on)</label>}
+          </div>
+        </div>
+      ) : (event.recurring || guests > 0) && <p className="hint ev-note">{event.recurring ? 'This changes only this one, not the whole series. ' : ''}{guests ? `${guests === 1 ? 'The guest is' : `The ${guests} guests are`} told about changes.` : ''}</p>}
       {bad && <p className="hint ev-note bad">{bad}</p>}
       <div className="ev-actions">
-        <button type="submit" className="btn primary" disabled={Boolean(bad) || busy}>{busy ? 'Saving…' : 'Save'}</button>
+        <button type="submit" className="btn primary" disabled={Boolean(bad) || busy || (across && event.recurring && !series?.copy?.repeat)}>{busy ? (across ? 'Moving…' : 'Saving…') : across ? (event.recurring ? `Copy series to ${accountLabel(to.accountId)}` : `Move to ${accountLabel(to.accountId)}`) : 'Save'}</button>
         <button type="button" className="btn" onClick={() => onDone(false)}>Cancel</button>
-        {providerFor(event.accountId)?.deleteEvent && <button type="button" className="btn danger ev-delete" onClick={() => void removeEvent(event, () => onDone(true))}>Delete event</button>}
+        {!across && providerFor(event.accountId)?.deleteEvent && <button type="button" className="btn danger ev-delete" onClick={() => void removeEvent(event, () => onDone(true))}>Delete event</button>}
       </div>
     </form>
   );

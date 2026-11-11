@@ -6,7 +6,7 @@ import { Icon } from './Icon';
 import { FormatBar } from './FormatBar';
 import { editorExtensions } from './editorExtensions';
 import { Dialog } from './ui';
-import { useMail, providerFor, reconnectAccount, selectThread, setView, toast } from '../lib/mail';
+import { useMail, providerFor, reconnectAccount, selectThread, setView, toast, openScreen } from '../lib/mail';
 import { threadKey } from '../lib/mailbox';
 import { useSettings } from '../lib/settings';
 import { allAliases } from '../lib/compose';
@@ -352,7 +352,7 @@ export function OooBanner() {
       <div className="ooo-bar" role="status">
         <Icon name="plane" size={15} />
         <span className="grow">Out of Office is on for {listNames(away.map(nameOf))}{until}.</span>
-        <button className="btn" onClick={() => useMail.setState({ screen: 'settings', settingsTab: 'ooo' })}>Change</button>
+        <button className="btn" onClick={() => openScreen('settings', 'ooo')}>Change</button>
         <button className="btn" disabled={busy} onClick={async () => { const r = await turnOffOoo(away.map((a) => a.id)); if (r.done.length) toast({ text: 'Out of Office is off.' }); oooToastResult(r, 'turned off'); }}>Turn off now</button>
       </div>
     );

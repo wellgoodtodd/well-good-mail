@@ -1,7 +1,7 @@
 {
   "name": "well-good-mail",
   "private": true,
-  "version": "0.7.2-beta.11",
+  "version": "0.7.2-beta.12",
   "type": "module",
   "scripts": {
     "dev": "vite",

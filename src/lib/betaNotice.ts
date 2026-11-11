@@ -1,4 +1,4 @@
-// Telling people a newer test build exists. It never installs anything: it only shows a note in Settings, Updates,
+// Telling people a newer test build exists. It never installs anything: it only shows a note in Settings › Updates,
 // with links to the release notes and the installer. Live builds only look when the person has switched it on.
 import { create } from 'zustand';
 import { httpFetch, isTauri } from './platform';

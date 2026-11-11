@@ -37,7 +37,7 @@ function ResumeCard({ app }: { app: string }) {
     <div className="ev-scrim ai-scrim">
       <div className="ev-pop ai-card" role="alertdialog" aria-modal="true" aria-label={`${app} wants to use Well Good Mail again`}>
         <div className="ai-card-head"><Icon name="sparkle" size={18} /><h2>{app} wants to use Well Good Mail again</h2></div>
-        <p className="ai-card-sub">The AI Connection is paused. If you weren't expecting this, choose Not now and look at Activity in Settings, AI Connection.</p>
+        <p className="ai-card-sub">The AI Connection is paused. If you weren't expecting this, choose Not now and look at Activity in Settings › AI Connection.</p>
         <div className="ai-card-actions">
           <button className="btn" onClick={go('no')}>Not now</button>
           <span className="grow" />
@@ -132,7 +132,7 @@ function AskCard({ asks }: { asks: ReturnType<typeof useApprovals.getState>['ask
         {!canRemember && <p className="ai-card-sub">This reaches other people, so it always asks.</p>}
         {canRemember && hint && (
           <p className="ai-card-hint">
-            Always allow stops it asking about this. You can change it back any time in Settings, AI Connection.
+            Always allow stops it asking about this. You can change it back any time in Settings › AI Connection.
             <button className="link-btn" onClick={later}>Got it, don't show again</button>
           </p>
         )}
@@ -140,7 +140,7 @@ function AskCard({ asks }: { asks: ReturnType<typeof useApprovals.getState>['ask
           <button className="btn" onClick={go('refuse')}>Refuse</button>
           <span className="grow" />
           {oneDraft && <button className="btn" onClick={go('edit')} title="Save it and open it in Well Good Mail to change">Edit first</button>}
-          {canRemember && <button className="btn" disabled={nothingTicked} onClick={go('always')} title="Stop asking about this. Change it back in Settings, AI Connection.">Always allow</button>}
+          {canRemember && <button className="btn" disabled={nothingTicked} onClick={go('always')} title="Stop asking about this. Change it back in Settings › AI Connection.">Always allow</button>}
           {canRemember && <button className="btn" disabled={nothingTicked} onClick={go('hour')}>Allow for 1 hour</button>}
           <button className="btn primary" disabled={nothingTicked} onClick={go('once')}>{allDrafts ? (asks.length > 1 ? 'Save drafts' : 'Save draft') : 'Allow once'}</button>
         </div>

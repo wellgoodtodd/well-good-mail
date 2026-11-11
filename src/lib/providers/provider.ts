@@ -1,5 +1,5 @@
 // The contract every mail service (Gmail, Microsoft 365, IMAP, demo) fulfils.
-import type { Account, Address, Alias, CalendarEvent, EventPatch, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Invite, Rsvp } from '../invites';
 import type { AutoReply } from '../ooo';
 
@@ -57,6 +57,12 @@ export interface MailProvider {
   editEvent?(event: CalendarEvent, patch: EventPatch): Promise<void>;
   /** Deletes an event you made. Guests, if any, are told. */
   deleteEvent?(event: CalendarEvent): Promise<void>;
+  /** Everything about an event (or, with series, its whole series from this one on), to make it in another account. */
+  copyOfEvent?(event: CalendarEvent, opts: { series: boolean }): Promise<EventCopy>;
+  /** Makes an event in one of this account's calendars, inviting any guests. Returns the app's id for it. */
+  createEvent?(calendarName: string, copy: EventCopy): Promise<string>;
+  /** Stops a series from this one on (deletes it if this is the first). */
+  endSeries?(event: CalendarEvent): Promise<void>;
   /** Is this invitation in the person's calendar, and what did they answer? */
   /** The calendars this account has, as last seen, even if none has an event. */
   knownCalendars?(): string[];

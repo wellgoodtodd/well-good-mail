@@ -10,6 +10,7 @@ import { MicrosoftProvider } from './providers/microsoft';
 import { ImapProvider } from './providers/imap';
 import { openImapGuide } from './guide';
 import { record, undoEntry, useHistory } from './history';
+import { askAiForNewAccount } from './aiAsk';
 import { removeImapPassword, saveImapPassword, testImap, imapReset, type ImapSettings } from './auth/imap';
 import { DemoProvider, DEMO_ACCOUNTS, resetDemo } from './providers/demo';
 import { isMachineAddress } from './machineAddress';
@@ -24,7 +25,7 @@ import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout
 import { myAddresses } from './compose';
 import { bytesToBase64 } from './mime';
 import { paletteById, colourFor } from './palettes';
-import type { Account, Address, CalendarEvent, EventPatch, Draft, EventGuest, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
+import type { Account, Address, CalendarEvent, EventCopy, EventPatch, Draft, EventGuest, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
 
 const providers = new Map<string, MailProvider>();
 export const providerFor = (accountId: string) => providers.get(accountId);
@@ -243,7 +244,7 @@ function countUnreadBadge() {
   }
   setUnreadCount(settings().taskbarCount === false ? 0 : n);
 }
-/** Shows or clears the taskbar count straight away (the switch in Settings, General). */
+/** Shows or clears the taskbar count straight away (the switch in Settings › General). */
 export const refreshTaskbarCount = () => countUnreadBadge();
 
 function saveAccount(a: Account) {
@@ -372,6 +373,7 @@ async function addAccount(kind: Account['kind'], email: string, displayName: str
     indexMessages(msgs);
     await store.putAccount(back);
     toast({ text: `${email} is back, with ${msgs.length.toLocaleString()} emails kept on this computer. Fetching anything new.` });
+    askAiForNewAccount(back.id);
     await syncAccount(back.id);
     refreshContacts();
     refreshEvents();
@@ -397,6 +399,7 @@ async function addAccount(kind: Account['kind'], email: string, displayName: str
   set({ accounts: [...get().accounts, account] });
   await store.putAccount(account);
   if (!settings().defaultFromEmail) useSettings.getState().set({ defaultFromEmail: email }, { quiet: true });
+  if (kind !== 'demo') askAiForNewAccount(account.id);
   await syncAccount(account.id, { full: true });
   refreshContacts();
   refreshEvents();
@@ -971,6 +974,64 @@ export async function deleteEvent(ev: CalendarEvent): Promise<void> {
   void refreshEvents();
   void cal.refreshCalendarCopy();
 }
+
+/** Every calendar events can be put in, account by account, in the order the accounts are listed. */
+export function calendarChoices(): { account: Account; calendars: string[] }[] {
+  return [...get().accounts].sort((x, y) => x.order - y.order)
+    .map((account) => ({ account, calendars: providers.get(account.id)?.createEvent ? writableCalendars(account.id) : [] }))
+    .filter((x) => x.calendars.length);
+}
+
+/** Can this event go to another account from here? Repeating ones go as a whole series. */
+export function canMoveAcross(ev: CalendarEvent): boolean {
+  const p = providers.get(ev.accountId);
+  return Boolean(ev.canEdit && p?.copyOfEvent && (ev.recurring ? p.endSeries : p.deleteEvent));
+}
+
+/** Everything about the event (or its series from this one on), read fresh from its calendar. */
+export async function eventCopy(ev: CalendarEvent, series: boolean): Promise<EventCopy> {
+  const p = providers.get(ev.accountId);
+  if (!p?.copyOfEvent) throw new Error("This calendar can't be copied from here yet");
+  return p.copyOfEvent(ev, { series });
+}
+
+/**
+ * Puts an event in another account's calendar, then takes it out of the first (a series from this one on), only once
+ * the new one is made. Changes from the form go across too. Returns the new event's id.
+ */
+export async function moveEventAcross(ev: CalendarEvent, to: { accountId: string; calendarName: string }, opts: { patch?: EventPatch; copy?: EventCopy; removeOriginal: boolean }): Promise<string> {
+  const from = providers.get(ev.accountId);
+  const dest = providers.get(to.accountId);
+  if (!from || !dest?.createEvent) throw new Error("That calendar can't take events from here yet");
+  const copy = { ...(opts.copy || (await eventCopy(ev, Boolean(ev.recurring)))) };
+  if (copy.repeatUnsupported) throw new Error("This series repeats in a way that can't be copied to another account");
+  const pt = opts.patch || {};
+  if (pt.title !== undefined) copy.title = pt.title;
+  if (pt.start !== undefined) copy.start = pt.start;
+  if (pt.end !== undefined) copy.end = pt.end;
+  if (pt.allDay !== undefined) copy.allDay = pt.allDay;
+  if (pt.location !== undefined) copy.location = pt.location || undefined;
+  if (pt.description !== undefined) copy.description = pt.description || undefined;
+  const newId = await dest.createEvent(to.calendarName, copy);
+  const made: CalendarEvent = { ...ev, id: newId, accountId: to.accountId, accountIds: undefined, calendarName: to.calendarName, title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay, location: copy.location, description: copy.description, htmlLink: undefined, canEdit: true, meetingUrl: copy.video ? undefined : ev.meetingUrl };
+  const cal = await import('./calendarCache');
+  const swap = (list: CalendarEvent[]) => [...(opts.removeOriginal ? list.filter((e) => e.id !== ev.id) : list), made];
+  if (opts.removeOriginal) {
+    try {
+      if (ev.recurring) await from.endSeries!(ev); else await from.deleteEvent!(ev);
+    } catch (e) {
+      void refreshEvents(); void cal.refreshCalendarCopy();
+      throw new Error(`It's now in ${accountName(to.accountId)}, but the original couldn't be removed (${e instanceof Error ? e.message : e}). Delete it there by hand.`);
+    }
+  }
+  set({ events: swap(get().events) });
+  cal.useCalCache.setState((s) => ({ events: swap(s.events) }));
+  void refreshEvents();
+  void cal.refreshCalendarCopy();
+  return newId;
+}
+
+const accountName = (id: string) => { const a = get().accounts.find((x) => x.id === id); return a ? a.label || a.email : 'the other account'; };
 
 /** Answers an invitation. In the calendar itself where the account allows it, otherwise by emailing the organiser. */
 export async function answerInvite(messageId: string, invite: Invite, status: Rsvp, opts: { byEmail?: boolean } = {}): Promise<'calendar' | 'email'> {

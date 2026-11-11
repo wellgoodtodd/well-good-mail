@@ -50,6 +50,8 @@ export interface MenuItem {
   disabled?: boolean;
   /** Items shown in a flyout beside this one, so long lists stay out of the way. */
   submenu?: MenuItem[];
+  /** A colour dot (an account's colour) in place of an icon. */
+  dot?: string;
 }
 
 export function Menu({ anchor, items, onClose, align = 'left' }: { anchor: DOMRect | { x: number; y: number }; items: MenuItem[]; onClose: () => void; align?: 'left' | 'right' }) {
@@ -116,7 +118,7 @@ export function Menu({ anchor, items, onClose, align = 'left' }: { anchor: DOMRe
             </div>
           ) : (
             <button key={i} role="menuitem" className={it.active ? 'active' : ''} disabled={it.disabled} onClick={() => { onClose(); it.onClick?.(); }}>
-              {it.brand ? <BrandMark brand={it.brand} /> : it.icon ? <Icon name={it.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
+              {it.dot ? <span className="menu-dot" style={{ background: it.dot }} /> : it.brand ? <BrandMark brand={it.brand} /> : it.icon ? <Icon name={it.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
               <span>{it.label}</span>
               {it.kbd && <span className="kbd">{it.kbd}</span>}
             </button>

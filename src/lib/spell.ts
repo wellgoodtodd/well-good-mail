@@ -1,6 +1,6 @@
 // Spelling suggestions for the right-click menu in a message. The red underline comes from Windows; this finds the
 // right word. British, American, Canadian or Australian English (Hunspell dictionaries from wordlist.sourceforge.net,
-// MIT and BSD), whichever is chosen in Settings, Composing. Only that one is loaded, the first time it's needed,
+// MIT and BSD), whichever is chosen in Settings › Composing. Only that one is loaded, the first time it's needed,
 // plus your own words from Add to dictionary.
 import { settings, useSettings } from './settings';
 

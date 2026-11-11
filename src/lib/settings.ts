@@ -160,7 +160,7 @@ export interface Settings {
   suggestMuted: string[];
   /** Where Save puts attachments without asking. Empty: ask each time. */
   downloadFolder: string;
-  /** Out of Office: the next time away, as set up in Settings, Out of Office. */
+  /** Out of Office: the next time away, as set up in Settings › Out of Office. */
   ooo: OooPlan;
   /** A time away Well Good Mail turned on, for its extras. */
   oooActive?: OooActive;
@@ -182,7 +182,7 @@ export interface Settings {
   /** Colour of the unread dot in the email list ('' = accent colour). */
   unreadColour: string;
   autoUpdate: boolean;
-  /** Live builds mention a newer test build in Settings, Updates. Test builds always do. */
+  /** Live builds mention a newer test build in Settings › Updates. Test builds always do. */
   testVersionNotices: boolean;
   startWithWindows: boolean;
   /** The window's close button quits the app instead of tucking it into the tray. */

@@ -290,7 +290,7 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       const accountId = String(args.account || '');
       const account = byId(accountId);
       if (!account || !shared.includes(accountId)) throw new Refused('That account is not shared with the AI. Use an id from list_accounts.');
-      if (w.settings.accounts[accountId] !== 'write') throw new Refused(`${accName(account)} is Read only for the AI. The person can change this in Well Good Mail, Settings, AI Connection.`);
+      if (w.settings.accounts[accountId] !== 'write') throw new Refused(`${accName(account)} is Read only for the AI. The person can change this in Well Good Mail, Settings › AI Connection.`);
       const ids = (Array.isArray(args.ids) ? args.ids : []).map(String).filter((id) => w.messages[id]?.accountId === accountId && w.messages[id]?.isDraft);
       if (!ids.length) throw new Error('None of those ids are drafts in that account. Search with folder "drafts" to find them.');
       const wantGroup = typeof args.group === 'string' ? args.group.trim().toLowerCase() : '';
@@ -308,7 +308,7 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       if (!account || !shared.includes(accountId)) throw new Refused('That account is not shared with the AI. Use an id from list_accounts.');
       if (w.settings.accounts[accountId] !== 'write') {
         const writable = w.accounts.filter((a) => w.settings.accounts[a.id] === 'write').map(accName);
-        throw new Refused(`${accName(account)} is Read only for the AI, so no draft was made there. ${writable.length ? `Accounts set to Read and write: ${writable.join(', ')}.` : 'No account is set to Read and write.'} The person can change this in Well Good Mail, Settings, AI Connection.`);
+        throw new Refused(`${accName(account)} is Read only for the AI, so no draft was made there. ${writable.length ? `Accounts set to Read and write: ${writable.join(', ')}.` : 'No account is set to Read and write.'} The person can change this in Well Good Mail, Settings › AI Connection.`);
       }
       const to = (Array.isArray(args.to) ? args.to : args.to ? [args.to] : []).map((x) => parseAddress(String(x))).filter((x): x is { email: string; name?: string } => Boolean(x));
       const cc = (Array.isArray(args.cc) ? args.cc : args.cc ? [args.cc] : []).map((x) => parseAddress(String(x))).filter((x): x is { email: string; name?: string } => Boolean(x));
@@ -365,7 +365,7 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       const ids = (wanted.includes('all') ? writable : wanted.filter((id) => shared.includes(id))).filter((id) => byId(id));
       if (!ids.length) throw new Refused('None of those accounts are shared with the AI. Use ids from list_accounts.');
       const readOnly = ids.filter((id) => w.settings.accounts[id] !== 'write');
-      if (readOnly.length === ids.length) throw new Refused(`${listNames(readOnly.map((id) => accName(byId(id))))} ${readOnly.length === 1 ? 'is' : 'are'} Read only for the AI. The person can change this in Well Good Mail, Settings, AI Connection.`);
+      if (readOnly.length === ids.length) throw new Refused(`${listNames(readOnly.map((id) => accName(byId(id))))} ${readOnly.length === 1 ? 'is' : 'are'} Read only for the AI. The person can change this in Well Good Mail, Settings › AI Connection.`);
       const cannot = ids.filter((id) => !oooSupport(byId(id)!).native);
       const usable = ids.filter((id) => !readOnly.includes(id) && !cannot.includes(id));
       if (!usable.length) throw new Refused('Out of Office can\'t be set from Well Good Mail for those accounts. The person sets it in the account\'s web mail.');

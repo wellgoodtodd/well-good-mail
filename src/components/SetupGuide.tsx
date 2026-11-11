@@ -228,7 +228,7 @@ function FirstRun() {
           ))}
         </div>
       )}
-      <div className="gsafe"><Icon name="alert" size={16} /><span>Until you publish your Google project, Google will ask you to sign in again about once a week. Settings, then Accounts, has a short guide for that when you want it.</span></div>
+      <div className="gsafe"><Icon name="alert" size={16} /><span>Until you publish your Google project, Google will ask you to sign in again about once a week. Settings › Accounts, has a short guide for that when you want it.</span></div>
     </Frame>
   );
 }
@@ -448,7 +448,7 @@ const APP_PASSWORD_STEPS: Record<string, string[]> = {
     'Copy the password it shows.',
   ],
   fastmail: [
-    'Sign in to Fastmail and open Settings, then Privacy and Security, then Integrations.',
+    'Sign in to Fastmail and open Settings › Privacy and Security › Integrations.',
     'Choose New app password, and give it the name below.',
     'For access, choose Mail (IMAP/POP/SMTP), then click Generate.',
     'Copy the password it shows.',

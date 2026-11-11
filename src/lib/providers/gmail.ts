@@ -3,13 +3,14 @@
 import { getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, EventCopy, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { AutoReply } from '../ooo';
 import { htmlToText, isWorkAccount } from '../ooo';
 import { CalendarPermissionError, NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { Invite, Rsvp } from '../invites';
 import { findMeetingUrl } from '../meetings';
 import { cleanPreview } from '../cleanText';
+import { fromRrule, localTimeZone, toRrule } from '../recurrence';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 /** Mail newer than this many days is downloaded with full bodies for offline search. */
@@ -634,6 +635,97 @@ export class GmailProvider implements MailProvider {
     const { calId, eventId } = this.eventParts(ev);
     try {
       await this.call(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, { method: 'DELETE' });
+    } catch (e) { this.permissionOr(e); }
+  }
+
+  async copyOfEvent(ev: CalendarEvent, opts: { series: boolean }): Promise<EventCopy> {
+    const CAL = 'https://www.googleapis.com/calendar/v3';
+    const { calId, eventId } = this.eventParts(ev);
+    type GEvent = { id: string; summary?: string; location?: string; description?: string; hangoutLink?: string; conferenceData?: unknown; recurringEventId?: string; recurrence?: string[]; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; attendees?: { email?: string; displayName?: string; self?: boolean; resource?: boolean }[] };
+    const base = `${CAL}/calendars/${encodeURIComponent(calId)}/events`;
+    const e = await this.call<GEvent>(`${base}/${encodeURIComponent(eventId)}`).catch((err) => this.permissionOr(err));
+    const desc = e.description ? (/<[a-z][sS]*>/i.test(e.description) ? htmlToText(e.description) : e.description) : undefined;
+    const copy: EventCopy = {
+      title: e.summary || ev.title,
+      start: ev.start,
+      end: ev.end,
+      allDay: ev.allDay,
+      location: e.location,
+      description: desc,
+      guests: (e.attendees || []).filter((a) => !a.self && !a.resource && a.email).map((a) => ({ email: a.email!, name: a.displayName })),
+      video: Boolean(e.hangoutLink || e.conferenceData),
+    };
+    if (opts.series && e.recurringEventId) {
+      const master = await this.call<GEvent>(`${base}/${encodeURIComponent(e.recurringEventId)}`);
+      const line = (master.recurrence || []).find((l) => /^RRULE:/i.test(l));
+      const rep = line ? fromRrule(line, ev.start) : undefined;
+      if (!rep) copy.repeatUnsupported = true;
+      else {
+        if (rep.count) {
+          // A set number of times: from this one on, that ends on the day of the last one.
+          let last = 0;
+          let pageToken: string | undefined;
+          do {
+            const params = new URLSearchParams({ maxResults: '2500', timeMin: new Date(ev.start).toISOString() });
+            if (pageToken) params.set('pageToken', pageToken);
+            const r = await this.call<{ items: GEvent[]; nextPageToken?: string }>(`${base}/${encodeURIComponent(e.recurringEventId)}/instances?${params}`);
+            for (const i of r.items) last = Math.max(last, new Date(i.start.dateTime || `${i.start.date}T00:00:00`).getTime());
+            pageToken = r.nextPageToken;
+          } while (pageToken);
+          delete rep.count;
+          const d = new Date(last || ev.start); d.setHours(0, 0, 0, 0); rep.until = d.getTime();
+        }
+        copy.repeat = rep;
+      }
+    }
+    return copy;
+  }
+
+  async createEvent(calendarName: string, copy: EventCopy): Promise<string> {
+    const CAL = 'https://www.googleapis.com/calendar/v3';
+    const calId = this.calIds[calendarName] || 'primary';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+    const local = (ms: number) => { const d = new Date(ms); return `${day(ms)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`; };
+    const tz = localTimeZone();
+    // A repeating event needs its time zone, so it stays at the same time of day through the clock changes.
+    const when = (ms: number) => (copy.allDay ? { date: day(ms) } : { dateTime: local(ms), timeZone: tz });
+    const body: Record<string, unknown> = {
+      summary: copy.title,
+      location: copy.location || undefined,
+      description: copy.description || undefined,
+      start: when(copy.start),
+      end: when(copy.allDay ? Math.max(copy.end, copy.start + 86400000) : copy.end),
+      attendees: copy.guests.length ? copy.guests.map((g) => ({ email: g.email, displayName: g.name })) : undefined,
+      recurrence: copy.repeat ? [toRrule(copy.repeat, copy.allDay)] : undefined,
+      conferenceData: copy.video ? { createRequest: { requestId: `wgm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } } : undefined,
+    };
+    try {
+      const made = await this.call<{ id: string }>(`${CAL}/calendars/${encodeURIComponent(calId)}/events?sendUpdates=all&conferenceDataVersion=1`, { method: 'POST', body: JSON.stringify(body) });
+      return `${this.account.id}|${calId}|${made.id}`;
+    } catch (e) { this.permissionOr(e); }
+  }
+
+  async endSeries(ev: CalendarEvent): Promise<void> {
+    const CAL = 'https://www.googleapis.com/calendar/v3';
+    const { calId, eventId } = this.eventParts(ev);
+    const base = `${CAL}/calendars/${encodeURIComponent(calId)}/events`;
+    try {
+      const one = await this.call<{ recurringEventId?: string }>(`${base}/${encodeURIComponent(eventId)}`);
+      if (!one.recurringEventId) { await this.deleteEvent(ev); return; }
+      const masterUrl = `${base}/${encodeURIComponent(one.recurringEventId)}`;
+      const master = await this.call<{ recurrence?: string[]; start: { dateTime?: string; date?: string } }>(masterUrl);
+      const first = new Date(master.start.dateTime || `${master.start.date}T00:00:00`).getTime();
+      if (ev.start <= first) { await this.call(`${masterUrl}?sendUpdates=all`, { method: 'DELETE' }); return; }
+      // Ends the day before this one: past ones stay, this one and later ones go.
+      const cut = new Date(ev.start); cut.setHours(0, 0, 0, 0);
+      const lastDay = new Date(cut.getTime() - 1000);
+      const p2 = (n: number) => String(n).padStart(2, '0');
+      const until = master.start.date
+        ? `${lastDay.getFullYear()}${p2(lastDay.getMonth() + 1)}${p2(lastDay.getDate())}`
+        : `${lastDay.getUTCFullYear()}${p2(lastDay.getUTCMonth() + 1)}${p2(lastDay.getUTCDate())}T${p2(lastDay.getUTCHours())}${p2(lastDay.getUTCMinutes())}${p2(lastDay.getUTCSeconds())}Z`;
+      const recurrence = (master.recurrence || []).map((l) => (/^RRULE:/i.test(l) ? `${l.replace(/;(COUNT|UNTIL)=[^;]*/gi, '')};UNTIL=${until}` : l));
+      await this.call(`${masterUrl}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify({ recurrence }) });
     } catch (e) { this.permissionOr(e); }
   }
 

@@ -50,6 +50,7 @@ import { AiDrafts } from './components/AiDrafts';
 import { ScheduledScreen } from './components/Scheduled';
 import './lib/sender';
 import { DialogHost } from './components/DialogHost';
+import { NewAccountAi } from './components/NewAccountAi';
 import { SmartMailboxEditor } from './components/SmartMailboxEditor';
 import { useDialogs, askConfirm } from './lib/dialogs';
 import { matchAction, type ShortcutAction } from './lib/shortcuts';
@@ -285,7 +286,7 @@ function MovingChecklist({ configured, onAdd }: { configured: boolean; onAdd: (e
         <span className="move-num" aria-hidden>{configured ? <Icon name="check" size={13} /> : 1}</span>
         <div className="move-body">
           <strong>Restore your Google key</strong>
-          <span>{configured ? (restored ? 'Restored from your backup.' : 'Your Google key is already on this computer.') : 'On your old computer: Settings, Storage, Back up my keys. Then choose that file here. Microsoft, iCloud and other email need no key.'}</span>
+          <span>{configured ? (restored ? 'Restored from your backup.' : 'Your Google key is already on this computer.') : 'On your old computer: Settings › Storage › Back up my keys. Then choose that file here. Microsoft, iCloud and other email need no key.'}</span>
           {error && <span className="status-bad" role="alert">{error}</span>}
           {!configured && (
             <div className="move-actions">
@@ -308,7 +309,7 @@ function MovingChecklist({ configured, onAdd }: { configured: boolean; onAdd: (e
         <span className="move-num" aria-hidden>3</span>
         <div className="move-body">
           <strong>Bring your mail across (optional)</strong>
-          <span>On your old computer: Settings, Storage, Export. Once you've signed in here, Import it from the same place, so nothing has to download twice.</span>
+          <span>On your old computer: Settings › Storage › Export. Once you've signed in here, Import it from the same place, so nothing has to download twice.</span>
         </div>
       </li>
     </ol>
@@ -610,7 +611,7 @@ function MainWindow() {
         <button className="btn primary" onClick={() => startCompose('new')} disabled={!accounts.length} title="New email (Ctrl+N)" aria-label="New email"><Icon name="compose" /><span className="hide-narrow">New email</span></button>
         {accounts.length > 0 && <UndoRedo />}
         <span className="spacer" />
-        {beta && <span className="beta-pill" title="This is a test build. Settings, then Updates, has the version.">BETA {update.currentVersion}</span>}
+        {beta && <span className="beta-pill" title="This is a test build. Settings › Updates, has the version.">BETA {update.currentVersion}</span>}
         <button
           className="icon-btn"
           title={themeIsDark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -697,6 +698,7 @@ function MainWindow() {
       <CommandPalette />
       <Toasts />
       <CrashPrompt />
+      <NewAccountAi />
       <EventEditDialog />
       <Banners />
     </div>

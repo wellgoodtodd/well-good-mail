@@ -5,11 +5,12 @@
 import { getMicrosoftAccessToken } from '../auth/microsoft';
 import { bytesToBase64, buildRawMessage, base64ToBytes } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, CalendarEvent, EventGuest, EventPatch, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventGuest, EventCopy, EventPatch, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import { NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { findMeetingUrl } from '../meetings';
 import { cleanPreview } from '../cleanText';
+import { fromGraph, outlookTimeZone, toGraph, type GraphRecurrence } from '../recurrence';
 
 const G = 'https://graph.microsoft.com/v1.0/me';
 const WELL_KNOWN: Record<Exclude<SystemFolder, 'flagged'>, string> = {
@@ -393,5 +394,82 @@ export class MicrosoftProvider implements MailProvider {
   async deleteEvent(ev: CalendarEvent): Promise<void> {
     const id = ev.id.slice(this.account.id.length + 1);
     await this.call(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' }, ['Calendars.ReadWrite']);
+  }
+
+  async copyOfEvent(ev: CalendarEvent, opts: { series: boolean }): Promise<EventCopy> {
+    const id = ev.id.slice(this.account.id.length + 1);
+    type GEv = { subject?: string; body?: { content?: string }; location?: { displayName?: string }; isOnlineMeeting?: boolean; onlineMeeting?: { joinUrl?: string } | null; seriesMasterId?: string | null; recurrence?: GraphRecurrence | null; start: { dateTime: string }; attendees?: { type?: string; emailAddress?: { name?: string; address?: string } }[] };
+    const e = await this.call<GEv>(`/events/${encodeURIComponent(id)}?$select=subject,body,location,isOnlineMeeting,onlineMeeting,seriesMasterId,attendees`, { headers: { Prefer: 'outlook.body-content-type="text"' } });
+    const me = [this.account.email, ...(this.account.aliases || []).map((a) => a.email)].map((x) => x.toLowerCase());
+    const copy: EventCopy = {
+      title: e.subject || ev.title,
+      start: ev.start,
+      end: ev.end,
+      allDay: ev.allDay,
+      location: e.location?.displayName || undefined,
+      description: e.body?.content?.trim() || undefined,
+      guests: (e.attendees || []).filter((a) => a.type !== 'resource' && a.emailAddress?.address && !me.includes(a.emailAddress.address.toLowerCase())).map((a) => ({ email: a.emailAddress!.address!, name: a.emailAddress!.name })),
+      video: Boolean(e.isOnlineMeeting || e.onlineMeeting?.joinUrl),
+    };
+    if (opts.series && e.seriesMasterId) {
+      const master = await this.call<GEv>(`/events/${encodeURIComponent(e.seriesMasterId)}?$select=recurrence`);
+      const rep = fromGraph(master.recurrence);
+      if (!rep) copy.repeatUnsupported = true;
+      else {
+        if (rep.count) {
+          // A set number of times: from this one on, that ends on the day of the last one.
+          let last = ev.start;
+          let url: string | undefined = `/events/${encodeURIComponent(e.seriesMasterId)}/instances?startDateTime=${new Date(ev.start).toISOString()}&endDateTime=${new Date(ev.start + 20 * 365 * 86400000).toISOString()}&$select=start&$top=500`;
+          while (url) {
+            const page: { value: { start: { dateTime: string } }[]; '@odata.nextLink'?: string } = await this.call(url, { headers: { Prefer: 'outlook.timezone="UTC"' } });
+            for (const i of page.value) last = Math.max(last, new Date(i.start.dateTime + 'Z').getTime());
+            url = page['@odata.nextLink'];
+          }
+          delete rep.count;
+          const d = new Date(last); d.setHours(0, 0, 0, 0); rep.until = d.getTime();
+        }
+        copy.repeat = rep;
+      }
+    }
+    return copy;
+  }
+
+  async createEvent(_calendarName: string, copy: EventCopy): Promise<string> {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const tz = outlookTimeZone();
+    const local = (ms: number, midnight = false) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${midnight ? '00:00' : `${pad(d.getHours())}:${pad(d.getMinutes())}`}:00`; };
+    const when = (ms: number) => ({ dateTime: local(ms, copy.allDay), timeZone: tz });
+    const body: Record<string, unknown> = {
+      subject: copy.title,
+      body: copy.description ? { contentType: 'text', content: copy.description } : undefined,
+      location: copy.location ? { displayName: copy.location } : undefined,
+      isAllDay: copy.allDay,
+      start: when(copy.start),
+      end: when(copy.allDay ? Math.max(copy.end, copy.start + 86400000) : copy.end),
+      attendees: copy.guests.length ? copy.guests.map((g) => ({ type: 'required', emailAddress: { address: g.email, name: g.name || g.email } })) : undefined,
+      recurrence: copy.repeat ? toGraph(copy.repeat, copy.start, tz) : undefined,
+    };
+    const make = (extra: Record<string, unknown>) => this.call<{ id: string }>('/events', { method: 'POST', body: JSON.stringify({ ...body, ...extra }) }, ['Calendars.ReadWrite']);
+    let made: { id: string };
+    // Personal Outlook accounts can't always make a Teams link: then it's made without one.
+    if (copy.video) { try { made = await make({ isOnlineMeeting: true, onlineMeetingProvider: 'teamsForBusiness' }); } catch { made = await make({}); } }
+    else made = await make({});
+    return `${this.account.id}|${made.id}`;
+  }
+
+  async endSeries(ev: CalendarEvent): Promise<void> {
+    const id = ev.id.slice(this.account.id.length + 1);
+    const one = await this.call<{ seriesMasterId?: string | null }>(`/events/${encodeURIComponent(id)}?$select=seriesMasterId`);
+    if (!one.seriesMasterId) { await this.deleteEvent(ev); return; }
+    const masterUrl = `/events/${encodeURIComponent(one.seriesMasterId)}`;
+    const master = await this.call<{ recurrence?: GraphRecurrence | null }>(`${masterUrl}?$select=recurrence`);
+    const r = master.recurrence;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dayBefore = new Date(ev.start); dayBefore.setHours(0, 0, 0, 0); dayBefore.setDate(dayBefore.getDate() - 1);
+    const endDate = `${dayBefore.getFullYear()}-${pad(dayBefore.getMonth() + 1)}-${pad(dayBefore.getDate())}`;
+    if (!r || endDate < r.range.startDate) { await this.call(masterUrl, { method: 'DELETE' }, ['Calendars.ReadWrite']); return; }
+    const range = { ...r.range, type: 'endDate', endDate };
+    delete (range as { numberOfOccurrences?: number }).numberOfOccurrences;
+    await this.call(masterUrl, { method: 'PATCH', body: JSON.stringify({ recurrence: { pattern: r.pattern, range } }) }, ['Calendars.ReadWrite']);
   }
 }

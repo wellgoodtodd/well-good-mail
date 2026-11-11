@@ -162,6 +162,39 @@ export interface CalendarEvent {
   recurring?: boolean;
 }
 
+/** How a series repeats, in a shape both Google and Outlook rules turn into. */
+export interface Repeat {
+  freq: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  interval: number;
+  /** Two-letter days (MO, TU...). Weekly: the days it falls on. Monthly or yearly with nth: the one day. */
+  days?: string[];
+  /** "The second Tuesday": 1 to 4, or -1 for the last. */
+  nth?: number;
+  monthDay?: number;
+  /** 1 to 12, for yearly. */
+  month?: number;
+  /** Local midnight of the last day it can happen on. */
+  until?: number;
+  count?: number;
+}
+
+/** Everything needed to make the same event in another account. */
+export interface EventCopy {
+  title: string;
+  start: number;
+  end: number;
+  allDay: boolean;
+  location?: string;
+  description?: string;
+  guests: { email: string; name?: string }[];
+  /** It had a video link, so the copy gets a new one from its own account. */
+  video: boolean;
+  /** For a whole series: how it repeats, from start on. */
+  repeat?: Repeat;
+  /** The series repeats in a way that can't be copied. */
+  repeatUnsupported?: boolean;
+}
+
 /** What can be changed on an event. Only the fields given are changed. */
 export interface EventPatch {
   title?: string;

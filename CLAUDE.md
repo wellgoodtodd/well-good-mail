@@ -35,7 +35,7 @@ Capitals (agreed 9 Nov 2026): names of places and features take a capital on eac
 
 - IMAP (iCloud, Yahoo, Fastmail, AOL and custom servers) is new and has not been tried against a real account yet. Microsoft 365 is lightly tested.
 - Pictures in some forwarded Apple Mail emails still show as <IMG_1234.jpeg> notes in the text instead of the picture (they are available as attachments). A fix is in `src/lib/render.ts` and `MessageView.tsx` but did not work on a real example yet.
-- Calendar: events you made can be edited and moved within their account; adding from an email always goes into that email's account. Snooze, follow ups and mute are local to the app (Gmail has no snooze API).
+- Calendar: events you made can be edited and moved to any account (another account means made there and deleted from the first; a series is copied from that one on, through `src/lib/recurrence.ts`). Adding from an email always goes into that email's account. Snooze, follow ups and mute are local to the app (Gmail has no snooze API).
 
 ## Roadmap
 

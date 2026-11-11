@@ -1,4 +1,4 @@
-// Settings, AI connection. Once set up it stays compact: the main switch, the connected apps, each account's
+// Settings › AI Connection. Once set up it stays compact: the main switch, the connected apps, each account's
 // level (with its own settings only where you want them), what it can do, and Activity folded away. Setting up a
 // new AI app happens in a pop-up checklist. Only a person in the app can change any of this, never the connection.
 import { useEffect, useState, type ReactNode } from 'react';
@@ -20,7 +20,7 @@ type AppId = Parameters<typeof setupText>[0];
 const APPS: { id: AppId; label: string; auto: boolean; steps: string[] }[] = [
   { id: 'claude-desktop', label: 'Claude Desktop', auto: true, steps: [
     'Click Copy.',
-    'In Claude Desktop, open Settings, then Developer, then Edit config. This opens claude_desktop_config.json.',
+    'In Claude Desktop, open Settings › Developer › Edit config. This opens claude_desktop_config.json.',
     'If the file is empty, paste it all in. If it already has settings, add the "mcpServers" part after the first {, followed by a comma. If it already has "mcpServers", add only the "well-good-mail" part inside it.',
     'Save, quit Claude Desktop fully (from the tray too) and open it again.',
   ] },

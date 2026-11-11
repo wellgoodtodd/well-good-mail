@@ -301,6 +301,8 @@ function GeneralTab() {
 }
 
 type AcctSection = 'signature' | 'sending' | 'calendars' | 'alerts' | 'ai' | 'ooo' | 'mail';
+/** What was open on the Accounts page, so Back (or coming back to Settings) returns to the same account and panel. */
+const acctMemo: { selId?: string; open: Record<string, AcctSection | null> } = { open: {} };
 
 /** One sentence on how the account is doing, with the fix right there when something is wrong. */
 function AccountHealth({ a }: { a: Account }) {
@@ -475,7 +477,8 @@ function AccountSections({ a, sigLine, calLine }: { a: Account; sigLine: (a: Acc
   const calNames = useMail((st) => st.calendarNames);
   const ooo = useOoo((o) => o.byAccount[a.id]);
   const mcp = tidy(s.mcp);
-  const [open, setOpen] = useState<AcctSection | null>(null);
+  const [open, setOpenNow] = useState<AcctSection | null>(() => acctMemo.open[a.id] ?? null);
+  const setOpen = (v: AcctSection | null) => { acctMemo.open[a.id] = v; setOpenNow(v); };
   const [sigAddr, setSigAddr] = useState("");
   const modes = s.signatureModes[a.id] || {};
   const setMode = (k: 'replies' | 'forwards', v: 'same' | 'none') => s.set({ signatureModes: { ...s.signatureModes, [a.id]: { ...modes, [k]: v } } });
@@ -489,12 +492,12 @@ function AccountSections({ a, sigLine, calLine }: { a: Account; sigLine: (a: Acc
   const firstLine = (aliases.find((x) => x.isDefault)?.name || a.displayName || sigLine(a)).trim();
   const sigBits = [modes.replies === 'none' && 'none on replies', modes.forwards === 'none' && 'none on forwards'].filter(Boolean);
   const sigSummary = sigLine(a) === 'None' ? 'None' : `${firstLine.split(' ').slice(0, 3).join(' ')}${sigBits.length ? `, ${sigBits.join(' and ')}` : ''}`;
-  const rows: { id: AcctSection; k: string; v: string }[] = [
+  const rows: { id: AcctSection; k: string; v: string; chip?: string }[] = [
     { id: 'signature', k: 'Signature', v: sigSummary },
     { id: 'sending', k: 'Sending as', v: aliases.length > 1 ? `${aliases.length} addresses` : aliases[0]?.email || a.email },
     { id: 'calendars', k: 'Calendars', v: calLine(a) },
     { id: 'alerts', k: 'Alerts', v: `${alertWords[a.notify]}${s.quietHours.enabled ? ` · quiet ${s.quietHours.from} to ${s.quietHours.to}` : ''}` },
-    { id: 'ai', k: 'AI Connection', v: mcp.enabled ? LEVEL_WORDS[mcp.accounts[a.id] ?? 'off'] : 'Switched off' },
+    { id: 'ai', k: 'AI Connection', v: mcp.enabled ? LEVEL_WORDS[mcp.accounts[a.id] ?? 'off'] : 'Switched off', chip: mcp.enabled && a.kind !== 'demo' && !(a.id in mcp.accounts) ? 'Not decided' : undefined },
     { id: 'ooo', k: 'Out of Office', v: oooSupport(a).native ? (ooo?.needsPermission ? 'Needs one more sign in' : oooStateWords(ooo?.reply).words) : 'Set in its own web mail' },
     { id: 'mail', k: 'Mail and storage', v: `Keep ${(RANGE_OPTS.find((o) => o.v === a.retentionDays)?.l || 'everything').toLowerCase()}${accounts.length > 1 && a.leaveOutOfAll ? ', not in All Inboxes' : ''}` },
   ];
@@ -504,7 +507,7 @@ function AccountSections({ a, sigLine, calLine }: { a: Account; sigLine: (a: Acc
       <div className="acct-sum" role="list">
         {rows.map((r) => (
           <button key={r.id} role="listitem" className={`acct-sum-row ${open === r.id ? 'on' : ''}`} aria-expanded={open === r.id} onClick={() => setOpen(open === r.id ? null : r.id)}>
-            <span className="k">{r.k}</span><span className="v">{r.v}</span><Icon name="chevronRight" size={14} />
+            <span className="k">{r.k}</span><span className="v">{r.v}{r.chip && <span className="acct-chip">{r.chip}</span>}</span><Icon name="chevronRight" size={14} />
           </button>
         ))}
       </div>
@@ -601,7 +604,8 @@ function AccountsTab() {
   ];
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
   const sorted = [...accounts].sort((a, b) => a.order - b.order);
-  const [selId, setSelId] = useState<string | undefined>(undefined);
+  const [selId, setSelIdNow] = useState<string | undefined>(() => acctMemo.selId);
+  const setSelId = (id: string | undefined) => { acctMemo.selId = id; setSelIdNow(id); };
   const [dropOn, setDropOn] = useState<string | null>(null);
   // The account shown on the right: the one you picked, else the first that needs attention, else the first.
   const sel = sorted.find((a) => a.id === selId) || sorted.find((a) => wantsSignIn(a) || a.status === 'error') || sorted[0];
@@ -948,7 +952,7 @@ function AppearanceTab() {
             </span>
           </div>
         </div>
-        <p className="hint">Click any account's dot in the sidebar, or its square in Settings, Accounts, to give it its own colour.</p>
+        <p className="hint">Click any account's dot in the sidebar, or its square in Settings › Accounts, to give it its own colour.</p>
         <Check checked={s.colourBlindAccounts} onChange={(v) => { s.set({ colourBlindAccounts: v }); applyPalette(v ? 'accessible' : `skin-${activeId}`); }}>Colour blind friendly account colours (works with any theme)</Check>
         <Check checked={stripe} onChange={(v) => useSettings.getState().set({ showAccountStripe: v })}>Show the account colour stripe on each email</Check>
       </section>
@@ -1186,7 +1190,7 @@ function RemindersTab() {
       </section>
       <section className="set-section">
         <h2>Alerts from hidden calendars</h2>
-        <p className="hint" style={{ marginTop: 0 }}>Calendars are shown or hidden in Settings, Accounts, under each account's Calendars. This is what happens to the alerts of the hidden ones.</p>
+        <p className="hint" style={{ marginTop: 0 }}>Calendars are shown or hidden in Settings › Accounts, under each account's Calendars. This is what happens to the alerts of the hidden ones.</p>
         <Radio name="hidalerts" value={s.hiddenCalendarsAlerts} onChange={(v) => s.set({ hiddenCalendarsAlerts: v })} options={[
             { value: 'all', label: 'Keep all their alerts', sub: 'Hiding only tidies the views.' },
             { value: 'meetings', label: 'Mute ordinary reminders, keep video meeting alerts', sub: 'Recommended. You will not miss a call because you hid its calendar.' },
@@ -1366,7 +1370,7 @@ function AccessibilityTab() {
       <section className="set-section">
         <h2>Motion</h2>
         <Radio name="motion" value={s.motion} onChange={(v) => s.set({ motion: v })} options={[
-          { value: 'system', label: 'Follow Windows', sub: 'Uses "Animation effects" in Windows Settings, Accessibility, Visual effects.' },
+          { value: 'system', label: 'Follow Windows', sub: 'Uses "Animation effects" in Windows Settings › Accessibility › Visual effects.' },
           { value: 'reduce', label: 'Keep things still', sub: 'No sliding, fading or pulsing anywhere in the app.' },
         ]} />
       </section>

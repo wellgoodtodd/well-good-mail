@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moving an event to another account</title>
+<style>
+:root{--card:#26262b;--line:#3a3a40;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:980px;margin:0 auto;display:grid;gap:30px}
+h1{font-size:18px;margin:4px 0 0}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0;max-width:720px}
+.pair{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.pop{width:460px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.t{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
+.bar{width:4px;height:22px;border-radius:2px;background:#f59e0b}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:5px 12px;background:#2f2f35;font-size:12.5px}
+.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.dng{color:#ff8a8d;margin-left:auto}
+.acts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.f{display:grid;grid-template-columns:78px 1fr;gap:9px 10px;align-items:center;margin-top:12px}
+.f label{color:var(--muted);font-size:12.5px}
+.in{border:1px solid #4a4a52;border-radius:7px;padding:6px 9px;background:#1d1d20}
+.row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sel{border:1px solid #4a4a52;border-radius:7px;padding:6px 9px;background:#1d1d20;display:flex;align-items:center;gap:8px}
+.sel.focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.sel small{color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.menu{margin-top:4px;background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:4px;max-height:none}
+.mh{font-size:11px;color:var(--muted);padding:7px 8px 2px;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between}
+.mh span{text-transform:none;letter-spacing:0}
+.mi{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:6px}
+.mi.on{background:#3a3a44}
+.mi.hover{background:#2b3a5a}
+.mi .tick{margin-left:auto;color:var(--muted)}
+.sw{width:30px;height:18px;border-radius:999px;background:#4a4a52;position:relative;display:inline-block}
+.sw::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+.note{margin-top:12px;border:1px solid #3d4a66;background:#1f2738;border-radius:9px;padding:9px 11px;font-size:12.5px;color:#d5dcec;display:flex;gap:9px}
+.note b{color:#fff}
+.note .i{color:#8fb3ff}
+.toast{display:inline-flex;gap:14px;align-items:center;background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:9px 12px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.toast a{color:#8fb3ff;font-weight:600}
+.line{display:flex;gap:9px;align-items:center;color:#d6d6db;margin-top:9px}
+.ic{width:16px;text-align:center;color:var(--muted)}
+.link{border-bottom:1px dashed #6b6b75;cursor:pointer}
+.grey{opacity:.45}
+.tag{font-size:11px;color:var(--muted)}
+</style></head><body><div class="w">
+
+<div><h1>Moving an event to another account</h1>
+<p class="why" style="margin-top:4px">Like the iPhone: the Calendar list shows every account, and picking one in another account moves the event there. Nothing else in the form changes.</p></div>
+
+<section>
+<div class="lbl">1 · Edit, then Calendar: every account, its own calendars first</div>
+<div class="pair">
+<div class="pop">
+<div class="t"><span class="bar"></span><span class="in" style="flex:1;font-weight:700">Glendale Gaelic PS - Christmas Fayre</span></div>
+<div class="f">
+<label>When</label><div class="row2"><span class="in">28/11/2026</span><span class="in">13:30</span>to<span class="in">15:30</span></div>
+<label>All day</label><div><span class="sw"></span></div>
+<label>Calendar</label><div class="sel focus"><span class="dot" style="background:#f59e0b"></span>tbweller@gmail.com <small>· TBWELLER</small><span style="margin-left:auto">▾</span></div>
+</div>
+</div>
+<div class="menu" style="width:330px">
+<div class="mh">TBWELLER <span>this account</span></div>
+<div class="mi on"><span class="dot" style="background:#f59e0b"></span>tbweller@gmail.com<span class="tick">✓</span></div>
+<div class="mi"><span class="dot" style="background:#f59e0b"></span>Human Trafficking Project</div>
+<div class="mi"><span class="dot" style="background:#f59e0b"></span>SAE Glasgow</div>
+<div class="mh">WGM</div>
+<div class="mi hover"><span class="dot" style="background:#3b82f6"></span>todd@wellgood.media</div>
+<div class="mi"><span class="dot" style="background:#3b82f6"></span>Studio bookings</div>
+<div class="mh">TWF</div>
+<div class="mi"><span class="dot" style="background:#2fae8c"></span>toddwellfilms@gmail.com</div>
+<div class="mi"><span class="dot" style="background:#2fae8c"></span>Family</div>
+<div class="mh">WGM Microsoft</div>
+<div class="mi"><span class="dot" style="background:#ef4444"></span>Calendar</div>
+</div>
+</div>
+<p class="why">Grouped under each account's name and colour, with the event's own account at the top. Only calendars you can write to are listed. Shared calendars you can only read, and iCloud for now, are left out.</p>
+</section>
+
+<section>
+<div class="lbl">2 · Pick a calendar in another account: a note says what happens, and Save becomes Move</div>
+<div class="pop">
+<div class="t"><span class="bar" style="background:#3b82f6"></span><span class="in" style="flex:1;font-weight:700">Glendale Gaelic PS - Christmas Fayre</span></div>
+<div class="f">
+<label>When</label><div class="row2"><span class="in">28/11/2026</span><span class="in">13:30</span>to<span class="in">15:30</span></div>
+<label>All day</label><div><span class="sw"></span></div>
+<label>Calendar</label><div class="sel"><span class="dot" style="background:#3b82f6"></span>todd@wellgood.media <small>· WGM</small><span style="margin-left:auto">▾</span></div>
+<label>Where</label><div class="in">Glendale Primary School</div>
+<label>Notes</label><div class="in" style="min-height:44px">Bring cash for the raffle</div>
+</div>
+<div class="note"><span class="i">ⓘ</span><span>Moves from <b>TBWELLER</b> to <b>WGM</b>. It's added to WGM's calendar and taken out of TBWELLER's, with the title, time, place and notes.</span></div>
+<div class="acts"><span class="btn pri">Move to WGM</span><span class="btn">Cancel</span><span class="btn dng">Delete event</span></div>
+</div>
+<p class="why">Any other changes in the form (a new time, say) go across at the same time. Reminders follow the new calendar's usual reminders.</p>
+</section>
+
+<section>
+<div class="lbl">3 · When it has guests or a video link, the note says so before you move it</div>
+<div class="pop">
+<div class="t"><span class="bar" style="background:#3b82f6"></span><span class="in" style="flex:1;font-weight:700">Edit review with Sam</span></div>
+<div class="f">
+<label>Calendar</label><div class="sel"><span class="dot" style="background:#3b82f6"></span>todd@wellgood.media <small>· WGM</small><span style="margin-left:auto">▾</span></div>
+</div>
+<div class="note"><span class="i">ⓘ</span><span>Moves from <b>TBWELLER</b> to <b>WGM</b>. <b>Your 2 guests</b> get a new invitation from todd@wellgood.media and a cancellation for the old one, so they'll need to answer again. The Google Meet link belongs to the old event, so a new one is made.</span></div>
+<div class="acts"><span class="btn pri">Move to WGM</span><span class="btn">Cancel</span></div>
+</div>
+<p class="why">The video link line only shows when there is one. Moving to Outlook makes a Teams link instead of a Meet one only if the old event had a video link.</p>
+</section>
+
+<section>
+<div class="lbl">4 · Repeating events: copy the whole series to another account (updated)</div>
+<div class="pair">
+<div class="pop">
+<div class="t"><span class="bar" style="background:#3b82f6"></span><span class="in" style="flex:1;font-weight:700">Ballet - Ayla</span></div>
+<div class="f">
+<label>Repeats</label><div style="color:#d6d6db">Every Thursday, 19:00 to 20:00, until 17 Dec</div>
+<label>Calendar</label><div class="sel"><span class="dot" style="background:#3b82f6"></span>todd@wellgood.media <small>· WGM</small><span style="margin-left:auto">▾</span></div>
+</div>
+<div class="note"><span class="i">ⓘ</span><span>Copies <b>the whole series</b> to <b>WGM</b>, repeating the same way, from this Thursday on. <label style="display:flex;gap:7px;align-items:center;margin-top:7px"><span class="sw" style="background:var(--accent)"></span>Then delete it from TBWELLER (this Thursday on)</label></span></div>
+<div class="acts"><span class="btn pri">Copy series to WGM</span><span class="btn">Cancel</span></div>
+</div>
+<div class="pop" style="width:400px">
+<div class="line" style="margin-top:0"><span class="ic">▦</span>tbweller@gmail.com · TBWELLER</div>
+<p class="tag" style="margin:10px 0 0">Invitations from other people stay where they arrived, as the organiser owns them. You can still answer them from the invitation email.</p>
+</div>
+</div>
+<p class="why">No copying and pasting needed: picking another account's calendar on a repeating event copies the series there with the same repeat (every week, every other Monday, the 1st of each month and so on). Past ones stay where they were. With the switch on (the usual), the original series stops, so it's a move; switch it off to keep both. Within the same account, changing the calendar moves just that one, as now. A repeat Outlook or Google can't take (rare) says so instead.</p>
+</section>
+
+<section>
+<div class="lbl">5 · After moving: a note with Undo</div>
+<div class="toast"><span class="dot" style="background:#3b82f6"></span>"Glendale Gaelic PS - Christmas Fayre" moved to WGM.<a>Undo</a></div>
+<p class="why">Undo moves it back the same way. The event shows in WGM's colour straight away.</p>
+</section>
+
+<section>
+<div class="lbl">Shortcut · Click the calendar line on an event, without opening Edit</div>
+<div class="pop" style="width:420px">
+<div class="t"><span class="bar"></span>Glendale Gaelic PS - Christmas Fayre</div>
+<div class="line"><span class="ic">◷</span>Sat 28 Nov, 13:30 to 15:30</div>
+<div class="line"><span class="ic">▦</span><span class="link">tbweller@gmail.com · TBWELLER ▾</span></div>
+<div class="acts"><span class="btn pri">Edit</span><span class="btn">More ▾</span></div>
+</div>
+<p class="why">The calendar line opens the same list, so a quick "that should be in WGM" is two clicks. Optional: say if you'd rather keep it to Edit only.</p>
+</section>
+
+</div></body></html>

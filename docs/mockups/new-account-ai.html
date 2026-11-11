@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>New account and AI Connection</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:900px;margin:0 auto;display:grid;gap:30px}
+h1{font-size:18px;margin:4px 0 0}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0;max-width:700px}
+.dlg{width:440px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;padding:18px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.dlg h3{margin:0 0 6px;font-size:15px;display:flex;align-items:center;gap:8px}
+.dlg p{margin:0 0 12px;color:#cfcfd5}
+.dot{width:9px;height:9px;border-radius:50%;background:#f59e0b;flex:none}
+.opt{display:flex;gap:10px;align-items:flex-start;border:1px solid #44444b;border-radius:9px;padding:9px 11px;margin-top:7px}
+.opt.on{border-color:var(--accent);background:#1f2738}
+.opt .r{width:15px;height:15px;border-radius:50%;border:2px solid #77777f;margin-top:2px;flex:none}
+.opt.on .r{border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--card);background:var(--accent)}
+.opt small{display:block;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;border:1px solid #44444b;border-radius:7px;padding:6px 13px;background:#2f2f35;font-size:12.5px}
+.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.acts{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+.hint{color:var(--muted);font-size:12px;margin-top:10px}
+.noteCard{width:380px;max-width:100%;background:#2c2c32;border:1px solid #4a4a52;border-radius:10px;padding:11px 13px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.noteCard b{display:block;margin-bottom:3px}
+.seg{display:inline-flex;border:1px solid #4a4a52;border-radius:7px;overflow:hidden;margin-top:9px}
+.seg span{padding:5px 11px;font-size:12.5px;border-right:1px solid #4a4a52}
+.seg span:last-child{border-right:0}
+.link{color:#8fb3ff;font-size:12.5px;margin-left:10px}
+.pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:#3a3020;color:#f5c36b;margin-left:6px}
+.row{display:flex;justify-content:space-between;align-items:center;width:440px;max-width:100%;border:1px solid #3a3a40;border-radius:9px;padding:9px 12px;background:#1d1d20}
+.row .k{color:#d6d6db}.row .v{color:var(--muted)}
+</style></head><body><div class="w">
+
+<div><h1>Asking about AI Connection when an account is added</h1>
+<p class="why" style="margin-top:4px">New accounts stay Off, as now. The question just makes sure you know, and lets you choose there and then. It only appears when AI Connection is switched on and the new account has finished its first sync, so it never gets in the way of signing in.</p></div>
+
+<section>
+<div class="lbl">A · A short pop-up (recommended)</div>
+<div class="dlg">
+<h3><span class="dot"></span>Share TBWELLER with AI apps?</h3>
+<p>AI apps like Claude only see the accounts you choose. TBWELLER is off until you say otherwise.</p>
+<div class="opt on"><span class="r"></span><div>Keep it off<small>AI apps can't see this account.</small></div></div>
+<div class="opt"><span class="r"></span><div>Read only<small>They can search and read its mail and calendar.</small></div></div>
+<div class="opt"><span class="r"></span><div>Read and write<small>They can also write drafts and file emails, always asking you first for anything that sends.</small></div></div>
+<div class="acts"><span class="btn">Decide later</span><span class="btn pri">Done</span></div>
+<div class="hint">Change it any time in Settings, Accounts, AI Connection.</div>
+</div>
+<p class="why">Keep it off is picked to start with, so Done never shares anything by accident. Decide later closes it and marks the account (B) so you're reminded.</p>
+</section>
+
+<section>
+<div class="lbl">B · Decide later: a reminder on the account until you choose</div>
+<div class="row"><span class="k">AI Connection</span><span class="v">Off <span class="pill">Not decided</span></span></div>
+<p class="why">On that account's AI Connection row in Settings, Accounts, until you pick any option (Off included). No more pop-ups.</p>
+</section>
+
+<section>
+<div class="lbl">C · Or, quieter: a note at the top instead of a pop-up</div>
+<div class="noteCard"><b>TBWELLER is ready</b>Share it with AI apps? It's off for now.
+<div><span class="seg"><span>Keep off</span><span>Read only</span><span>Read and write</span></span><span class="link">Later</span></div></div>
+<p class="why">Same choices, in the note that already says the account is ready. Easier to miss, which is the trade-off.</p>
+</section>
+
+</div></body></html>
