@@ -1724,3 +1724,8 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .acct-cap-group { padding: 8px 10px 4px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--text) 3%, transparent); }
 .acct-cap-wrap:last-child .acct-cap { border-bottom: 0; }
 .acct-panel .acct-all-cals { border-bottom: 1px solid var(--border-strong, var(--border)) !important; padding-bottom: 8px; }
+/* Updates and Diagnostics sit at the bottom of the Settings list, just above the shortcuts (0.7.2 beta 10) */
+.settings-nav .side-scroll { display: flex; flex-direction: column; }
+.settings-nav .side-scroll > .set-group:last-child { margin-top: auto; padding-top: 12px; }
+.upd-actions { display: inline-flex; gap: 8px; margin-left: 12px; flex: none; }
+.set-row:has(.upd-actions) > span:first-of-type { margin-left: auto; text-align: right; }

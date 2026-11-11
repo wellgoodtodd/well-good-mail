@@ -1594,12 +1594,12 @@ function UpdatesTab() {
             {u.status === 'ready' && `Version ${u.version} is ready`}
             {u.status === 'error' && <span className="status-bad">Couldn't check ({u.error})</span>}
           </span>
+          <span className="upd-actions">
+            {u.status === 'available' && <button className="btn primary" onClick={installFoundUpdate}>Download and restart</button>}
+            {u.status === 'ready' && <button className="btn primary" onClick={restartToUpdate}>Restart to update</button>}
+            <button className="btn" disabled={u.status === 'checking'} onClick={() => { checkForUpdates({ userInitiated: true }); checkForBeta(u.currentVersion, { force: true }); }}>Check now</button>
+          </span>
         </Row>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" onClick={() => { checkForUpdates({ userInitiated: true }); checkForBeta(u.currentVersion, { force: true }); }}>Check now</button>
-          {u.status === 'available' && <button className="btn primary" onClick={installFoundUpdate}>Download and restart</button>}
-          {u.status === 'ready' && <button className="btn primary" onClick={restartToUpdate}>Restart to update</button>}
-        </div>
         {wantsBetaNotices(u.currentVersion) && beta.found && (
           <div className={`beta-card ${onBeta ? 'prominent' : ''}`} role="status">
             <div><strong>{onBeta ? `A newer test version is out: ${beta.found.version}` : `A test version is available: ${beta.found.version}`}</strong><span>{onBeta ? 'It does not install by itself. Read what changed, then download it if you want it.' : 'Optional. You stay on the live version, which only updates to the next full release, unless you download this yourself.'}</span></div>
