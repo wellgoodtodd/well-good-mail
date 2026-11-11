@@ -79,6 +79,10 @@ interface MailState {
   dismissed: Set<string>;
   contacts: Address[];
   toasts: Toast[];
+  /** The last 20 notes, for the Recent list in the toolbar (this session only). */
+  notes: (Toast & { at: number; used?: boolean })[];
+  /** A note arrived since Recent was last opened. */
+  notesUnseen: boolean;
   /** Draft open inline in the reading pane. */
   inlineDraftId?: string;
   screen: 'mail' | 'reminders' | 'settings' | 'help' | 'aidrafts' | 'scheduled';
@@ -135,6 +139,8 @@ export const useMail = create<MailState>(() => ({
   dismissed: new Set(),
   contacts: [],
   toasts: [],
+  notes: [],
+  notesUnseen: false,
   screen: 'mail',
   settingsTab: 'accounts',
   backStack: [],
@@ -153,7 +159,7 @@ const set = useMail.setState;
 export function toast(t: Omit<Toast, 'id'>) {
   const id = Math.random().toString(36).slice(2);
   logLine('note', t.text);
-  set({ toasts: [...get().toasts, { ...t, id }] });
+  set({ toasts: [...get().toasts, { ...t, id }], notes: [{ ...t, id, at: Date.now() }, ...get().notes].slice(0, 20), notesUnseen: true });
   setTimeout(() => dismissToast(id), t.ttl ?? 6000);
   return id;
 }

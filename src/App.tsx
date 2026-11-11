@@ -128,10 +128,12 @@ function Banners() {
 
 function Toasts() {
   const toasts = useMail((s) => s.toasts);
+  // Newest first; only the three newest show, the older two folded behind it.
+  const shown = toasts.slice(-3).reverse();
   return (
-    <div className="toasts" role="status" aria-live="polite">
-      {toasts.map((t) => (
-        <div className="toast" key={t.id}>
+    <div className={`toasts ${shown.length > 1 ? 'stacked' : ''}`} role="status" aria-live="polite" style={{ ['--n' as string]: shown.length }}>
+      {shown.map((t, i) => (
+        <div className="toast" key={t.id} style={{ ['--i' as string]: i, zIndex: 10 - i }}>
           <span className="t">{t.text}</span>
           {t.undo && <button onClick={() => { t.undo!(); dismissToast(t.id); }}>Undo</button>}
           {t.action && <button onClick={() => { t.action!.run(); dismissToast(t.id); }}>{t.action.label}</button>}
@@ -160,25 +162,61 @@ function useMailtoLinks() {
 }
 
 /** Appears once something has been saved from the app: recent saves with Open and Show in folder, like a browser. */
+/** A see-through layer under a small list: clicking it just closes the list, and never clicks what's underneath. */
+function ClickAway({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [onClose]);
+  return <div className="click-away" onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} onContextMenu={(e) => { e.preventDefault(); onClose(); }} />;
+}
+
+/** The last 20 notes, with their buttons still working, for when one went by too quickly. */
+function RecentButton() {
+  const notes = useMail((s) => s.notes);
+  const unseen = useMail((s) => s.notesUnseen);
+  const [open, setOpen] = useState(false);
+  if (!notes.length) return null;
+  const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); };
+  const use = (id: string, run: () => void) => { run(); useMail.setState({ notes: useMail.getState().notes.map((n) => (n.id === id ? { ...n, used: true } : n)) }); };
+  return (
+    <div className="dl-wrap">
+      <button className={`icon-btn dl-btn ${unseen ? 'new' : ''}`} title="Recent notes" aria-label="Recent notes" aria-expanded={open} onClick={() => { setOpen(!open); useMail.setState({ notesUnseen: false }); }}><Icon name="list" /></button>
+      {open && (
+        <>
+          <ClickAway onClose={() => setOpen(false)} />
+          <div className="dl-pop" role="dialog" aria-label="Recent notes">
+            <div className="dl-head"><strong>Recent</strong><button className="link-btn" onClick={() => { useMail.setState({ notes: [] }); setOpen(false); }}>Clear</button></div>
+            {notes.map((n) => (
+              <div key={n.id} className="note-item">
+                <div className="note-text"><span>{n.text}</span><small>{ago(n.at)}</small></div>
+                <div className="note-actions">
+                  {n.undo && <button className="btn small" disabled={n.used} onClick={() => use(n.id, n.undo!)}>{n.used ? 'Undone' : 'Undo'}</button>}
+                  {n.action && <button className="btn small" onClick={() => use(n.id, n.action!.run)}>{n.action.label}</button>}
+                  {n.actions?.map((a) => <button key={a.label} className="btn small" onClick={() => use(n.id, a.run)}>{a.label}</button>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function DownloadsButton() {
   const list = useSaves((x) => x.list);
   const unseen = useSaves((x) => x.unseen);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    window.addEventListener('mousedown', close);
-    window.addEventListener('keydown', esc);
-    return () => { window.removeEventListener('mousedown', close); window.removeEventListener('keydown', esc); };
-  }, [open]);
   if (!list.length) return null;
   const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); };
   const folder = (p: string) => p.slice(0, Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/')));
   return (
     <div className="dl-wrap" ref={ref}>
       <button className={`icon-btn dl-btn ${unseen ? 'new' : ''}`} title="Saved files" aria-label="Saved files" aria-expanded={open} onClick={() => { setOpen(!open); markSavesSeen(); }}><Icon name="download" /></button>
+      {open && <ClickAway onClose={() => setOpen(false)} />}
       {open && (
         <div className="dl-pop" role="dialog" aria-label="Saved files">
           <div className="dl-head"><strong>Saved files</strong><button className="link-btn" onClick={() => void showSaved(list[0].path)}>Open folder</button></div>
@@ -575,6 +613,7 @@ function MainWindow() {
         {accounts.length > 0 && <AiStatusButton />}
         {accounts.length > 0 && <SearchBox />}
         <DownloadsButton />
+        <RecentButton />
         {accounts.length > 0 && (
           <button
             className={`icon-btn ${s.comingUpOpen && screen !== 'reminders' ? 'active' : ''}`}
