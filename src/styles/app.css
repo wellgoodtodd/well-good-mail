@@ -1517,7 +1517,7 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .acct-suggest > span { flex: 1; min-width: 180px; }
 .acct-suggest > svg { color: var(--accent); flex: none; }
 .acct-body { display: grid; gap: 12px; }
-@container (min-width: 640px) { .acct-body.has-panel { grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.15fr); align-items: start; } }
+@container (min-width: 900px) { .acct-body.has-panel { grid-template-columns: minmax(400px, 1fr) minmax(360px, 1fr); align-items: start; } }
 .acct-sum { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
 .acct-sum-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) 14px; gap: 10px; align-items: center; width: 100%; min-height: 40px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .acct-sum-row:last-child { border-bottom: 0; }
@@ -1630,3 +1630,27 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .report-label { font-weight: 600; }
 .report-form textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); color: var(--text); font: inherit; padding: 8px 10px; resize: vertical; }
 .report-log { max-height: 220px; overflow: auto; background: var(--bg-subtle, var(--bg)); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font: 11.5px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+
+/* Accounts round two, tidier (0.7.2 beta 6) */
+.acct-sum-row { min-height: 44px; }
+.acct-sum-row .v { color: var(--text-muted); }
+.acct-sum-row.on .v, .acct-sum-row:hover .v { color: var(--text); }
+.acct-panel .switch-row { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.acct-panel .switch-row:last-of-type { border-bottom: 0; }
+
+/* Settings pages as cards of rows, like the mock-up (0.7.2 beta 6): a heading, then one setting per row,
+   words on the left and the switch, menu or buttons on the right, with a hairline between rows. */
+.set-section { padding: 14px 18px 6px; }
+.set-section > h2:first-child, .set-section > .set-h2-row:first-child h2 { font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0 0 6px; }
+.set-section .check { justify-content: space-between; gap: 16px; padding: 11px 0; min-height: 24px; }
+.set-section .check .check-text { flex: 1; min-width: 0; }
+.set-section .check .switch { margin: 0; }
+.set-section .set-row { justify-content: space-between; padding: 10px 0; min-height: 30px; flex-wrap: nowrap; }
+.set-section .set-row > label:first-child, .set-section .set-row > .label { width: auto; flex: 1; min-width: 0; }
+.set-section > :is(.check, .set-row) + :is(.check, .set-row) { border-top: 1px solid var(--border); }
+.set-section > .hint + :is(.check, .set-row), .set-section > :is(.check, .set-row) + .hint { margin-top: 0; }
+.set-section > .hint { margin: 2px 0 8px; }
+.set-seg { flex: none; }
+.set-seg button { padding: 5px 12px; font-size: 0.92em; }
+.set-seg button.on { background: var(--accent-fill, var(--accent)); color: var(--on-accent, #fff); font-weight: 600; }
+.check-sub { display: block; color: var(--text-muted); font-size: 0.88em; margin-top: 2px; }

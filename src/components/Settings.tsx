@@ -31,7 +31,6 @@ import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate, isBet
 import { useMenu, Dialog, fileSize } from './ui';
 import { UpdateLog } from './WhatsNew';
 import { useBetaNotice, checkForBeta, wantsBetaNotices } from '../lib/betaNotice';
-import { CalendarList } from './ComingUp';
 import { SideFooter } from './Sidebar';
 import type { IconName } from './Icon';
 import { AiConnectionTab } from './AiConnection';
@@ -178,6 +177,13 @@ function Row({ label, children, htmlFor }: { label: string; children: React.Reac
 }
 
 function Radio<T extends string>({ name, value, options, onChange }: { name: string; value: T; options: { value: T; label: string; sub?: string }[]; onChange: (v: T) => void }) {
+  if (options.length <= 4 && options.every((o) => !o.sub && o.label.length <= 26)) {
+    return (
+      <div className="seg set-seg" role="radiogroup" aria-label={name}>
+        {options.map((o) => <button key={o.value} type="button" role="radio" aria-checked={value === o.value} className={value === o.value ? 'on' : ''} onClick={() => onChange(o.value)}>{o.label}</button>)}
+      </div>
+    );
+  }
   return (
     <div className="radio-list" role="radiogroup">
       {options.map((o) => (
@@ -191,7 +197,7 @@ function Radio<T extends string>({ name, value, options, onChange }: { name: str
 }
 
 function Check({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }) {
-  return <label className="check"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /><span>{children}</span></label>;
+  return <label className="check"><span className="check-text">{children}</span><input type="checkbox" role="switch" className="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} /></label>;
 }
 
 // ---------- accounts ----------
@@ -343,14 +349,18 @@ function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLin
   const alertWords = { all: 'Every new email', important: 'Only VIPs', off: 'Off' } as const;
   const calendars = [...new Set<string>([...(calNames[a.id] || []), ...events.filter((e) => e.accountId === a.id).map((e) => e.calendarName), ...s.hiddenCalendars.filter((k) => k.startsWith(`${a.id}|`)).map((k) => k.slice(a.id.length + 1))])].sort((x, y) => Number(y.toLowerCase() === a.email.toLowerCase()) - Number(x.toLowerCase() === a.email.toLowerCase()) || x.localeCompare(y));
   const toggleCal = (name: string, show: boolean) => { const k = `${a.id}|${name}`; s.set({ hiddenCalendars: show ? s.hiddenCalendars.filter((x) => x !== k) : [...s.hiddenCalendars, k] }); };
+  // The signature's first line (usually the name), then only what differs from the usual.
+  const firstLine = (aliases.find((x) => x.isDefault)?.name || a.displayName || sigLine(a)).trim();
+  const sigBits = [modes.replies === 'none' && 'none on replies', modes.forwards === 'none' && 'none on forwards'].filter(Boolean);
+  const sigSummary = sigLine(a) === 'None' ? 'None' : `${firstLine.split(' ').slice(0, 3).join(' ')}${sigBits.length ? `, ${sigBits.join(' and ')}` : ''}`;
   const rows: { id: AcctSection; k: string; v: string }[] = [
-    { id: 'signature', k: 'Signature', v: `${sigLine(a)} · replies ${modes.replies === 'none' ? 'none' : 'same'} · forwards ${modes.forwards === 'none' ? 'none' : 'same'}` },
-    { id: 'sending', k: 'Sending as', v: aliases.length > 2 ? `${aliases.slice(0, 2).map((x) => x.email).join(', ')} and ${aliases.length - 2} more` : aliases.map((x) => x.email).join(', ') },
+    { id: 'signature', k: 'Signature', v: sigSummary },
+    { id: 'sending', k: 'Sending as', v: aliases.length > 1 ? `${aliases.length} addresses` : aliases[0]?.email || a.email },
     { id: 'calendars', k: 'Calendars', v: calLine(a) },
     { id: 'alerts', k: 'Alerts', v: `${alertWords[a.notify]}${s.quietHours.enabled ? ` · quiet ${s.quietHours.from} to ${s.quietHours.to}` : ''}` },
     { id: 'ai', k: 'AI Connection', v: mcp.enabled ? LEVEL_WORDS[mcp.accounts[a.id] ?? 'off'] : 'Switched off' },
     { id: 'ooo', k: 'Out of Office', v: oooSupport(a).native ? (ooo?.needsPermission ? 'Needs one more sign in' : oooStateWords(ooo?.reply).words) : 'Set in its own web mail' },
-    { id: 'mail', k: 'Mail and storage', v: `Keep ${RANGE_OPTS.find((o) => o.v === a.retentionDays)?.l || 'everything'}${accounts.length > 1 ? ` · ${a.leaveOutOfAll ? 'kept out of' : 'in'} All Inboxes` : ''}` },
+    { id: 'mail', k: 'Mail and storage', v: `Keep ${(RANGE_OPTS.find((o) => o.v === a.retentionDays)?.l || 'everything').toLowerCase()}${accounts.length > 1 && a.leaveOutOfAll ? ', not in All Inboxes' : ''}` },
   ];
   const title = rows.find((r) => r.id === open)?.k;
   return (
@@ -390,7 +400,7 @@ function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLin
                 const shown = !s.hiddenCalendars.includes(`${a.id}|${name}`);
                 return <label key={name} className="acct-field switch-row"><span>{name}</span><input type="checkbox" role="switch" className="switch" checked={shown} onChange={(e) => toggleCal(name, e.target.checked)} /></label>;
               }) : <p className="hint">{a.kind === 'imap' ? 'Calendars from this account come through once it has signed in.' : 'Calendars appear here once they have loaded.'}</p>}
-              <div className="acct-field"><span>Alerts from hidden calendars</span><select value={s.hiddenCalendarsAlerts} onChange={(e) => s.set({ hiddenCalendarsAlerts: e.target.value as typeof s.hiddenCalendarsAlerts })}><option value="all">Keep all</option><option value="meetings">Video meetings only</option><option value="none">None</option></select></div>
+              <button className="btn" onClick={() => useMail.setState({ settingsTab: 'calendar' })}>More calendar settings</button>
             </>
           )}
           {open === 'alerts' && (
@@ -546,19 +556,6 @@ function AccountsTab() {
           </details>
         )}
       </section>
-      {accounts.some((a) => a.kind !== 'demo') && (
-        <section className="set-section" id="acct-calendars">
-          <h2>Calendars</h2>
-          <p className="hint">Switch calendars on or off here, or from the Calendars button on the Reminders page and in the Coming up panel. It is the same list, so they always agree.</p>
-          <CalendarList variant="cards" />
-          <h3 className="sub-head">Alerts from hidden calendars</h3>
-          <Radio name="hidalerts" value={s.hiddenCalendarsAlerts} onChange={(v) => s.set({ hiddenCalendarsAlerts: v })} options={[
-            { value: 'all', label: 'Keep all their alerts', sub: 'Hiding only tidies the views.' },
-            { value: 'meetings', label: 'Mute ordinary reminders, keep video meeting alerts', sub: 'Recommended. You will not miss a call because you hid its calendar.' },
-            { value: 'none', label: 'Mute everything from them', sub: 'No reminders, notifications or banner. Meetings you have said No to are always quiet.' },
-          ]} />
-        </section>
-      )}
       {isTauri() && googleOn && keys.own && !s.googlePublished && (
         <section className="set-section">
           <div className="weekly-card">
@@ -1013,6 +1010,15 @@ function RemindersTab() {
         )}
         <Check checked={s.suggestEvents} onChange={(v) => s.set({ suggestEvents: v })}>Offer to add dates and times from emails to my calendar</Check>
         <p className="hint" style={{ margin: '4px 0 0' }}>Only for emails from people, with a clear day and time. Read on this computer, with no AI.{s.suggestMuted.length > 0 && <> {s.suggestMuted.length} sender{s.suggestMuted.length === 1 ? '' : 's'} never suggested: <button className="link-btn" onClick={() => s.set({ suggestMuted: [] })}>Allow again</button></>}</p>
+      </section>
+      <section className="set-section">
+        <h2>Alerts from hidden calendars</h2>
+        <p className="hint" style={{ marginTop: 0 }}>Calendars are shown or hidden in Settings, Accounts, under each account's Calendars. This is what happens to the alerts of the hidden ones.</p>
+        <Radio name="hidalerts" value={s.hiddenCalendarsAlerts} onChange={(v) => s.set({ hiddenCalendarsAlerts: v })} options={[
+            { value: 'all', label: 'Keep all their alerts', sub: 'Hiding only tidies the views.' },
+            { value: 'meetings', label: 'Mute ordinary reminders, keep video meeting alerts', sub: 'Recommended. You will not miss a call because you hid its calendar.' },
+            { value: 'none', label: 'Mute everything from them', sub: 'No reminders, notifications or banner. Meetings you have said No to are always quiet.' },
+          ]} />
       </section>
       <section className="set-section">
         <h2>Reminders</h2>
