@@ -1,0 +1,4 @@
+
+# Dictionaries are read as they are; never change their line endings.
+*.dic -text
+*.aff -text
