@@ -1622,3 +1622,5 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .search-help { border: 0; background: transparent; color: var(--text-faint); padding: 2px; display: inline-flex; cursor: pointer; border-radius: 50%; }
 .search-help:hover { color: var(--text); }
+.rem-under { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.rem-row .title { overflow-wrap: anywhere; }

@@ -90,17 +90,19 @@ export function Reminders() {
                       <div className="grow">
                         <div className="title">{eventFor(r) ? <button className="link-btn" onClick={() => setPreview(eventFor(r)!)}>{r.title}</button> : r.title}</div>
                         <div className="sub">{when(r)} · {r.calendarName || label(r.accountId)}</div>
-                      </div>
-                      {r.kind === 'followup' && <span className="pill important">Follow up</span>}
-                      {/* What varies (Overdue, Join, Open) sits before a fixed end, so star and Done always line up. */}
-                      <div className="rem-extras">
-                        {overdue && r.kind === 'event' && <span className="pill overdue">Overdue</span>}
-                        {eventFor(r)?.meetingUrl && <JoinButton event={eventFor(r)!} small />}
-                        {r.kind === 'followup' && r.threadId && (
-                          <button className="btn" onClick={() => { setView({ scope: { type: 'account', accountId: r.accountId }, mailbox: { kind: 'system', folder: 'sent' } }); selectThread(`${r.accountId}|${r.threadId}`); }}>Open</button>
+                        {/* Join and Open sit under the name, so the name keeps its width and the right side never moves. */}
+                        {(eventFor(r)?.meetingUrl || (r.kind === 'followup' && r.threadId)) && (
+                          <div className="rem-under">
+                            {eventFor(r)?.meetingUrl && <JoinButton event={eventFor(r)!} small />}
+                            {r.kind === 'followup' && r.threadId && (
+                              <button className="btn small" onClick={() => { setView({ scope: { type: 'account', accountId: r.accountId }, mailbox: { kind: 'system', folder: 'sent' } }); selectThread(`${r.accountId}|${r.threadId}`); }}>Open</button>
+                            )}
+                          </div>
                         )}
                       </div>
                       <div className="rem-end">
+                        {r.kind === 'followup' && <span className="pill important">Follow up</span>}
+                        {overdue && r.kind === 'event' && <span className="pill overdue">Overdue</span>}
                         {r.kind === 'event' ? (
                           <button className={`icon-btn ${isImportant(r.title) ? 'active' : ''}`} title={isImportant(r.title) ? 'Important: pops up' : 'Mark as important so it pops up'} aria-label="Important" onClick={() => s.toggleIn('importantEvents', r.title)}>
                             <Icon name="star" />
