@@ -1723,3 +1723,4 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .acct-cap select { height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-input); color: var(--text); padding: 0 6px; font: inherit; }
 .acct-cap-group { padding: 8px 10px 4px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--text) 3%, transparent); }
 .acct-cap-wrap:last-child .acct-cap { border-bottom: 0; }
+.acct-panel .acct-all-cals { border-bottom: 1px solid var(--border-strong, var(--border)) !important; padding-bottom: 8px; }

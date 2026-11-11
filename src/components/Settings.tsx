@@ -490,6 +490,18 @@ function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLin
           )}
           {open === 'calendars' && (
             <>
+              {calendars.length > 1 && (() => {
+                // All of this account's calendars at once: on when every one shows, a dash when some do.
+                const keys = calendars.map((n) => `${a.id}|${n}`);
+                const shownCount = keys.filter((k) => !s.hiddenCalendars.includes(k)).length;
+                return (
+                  <label className="acct-field switch-row acct-all-cals">
+                    <span><b>All calendars</b><small className="acct-note">{shownCount} of {keys.length} shown</small></span>
+                    <input type="checkbox" role="switch" className="switch" checked={shownCount === keys.length} ref={(el) => { if (el) el.indeterminate = shownCount > 0 && shownCount < keys.length; }}
+                      onChange={(e) => s.set({ hiddenCalendars: e.target.checked ? s.hiddenCalendars.filter((k) => !keys.includes(k)) : [...new Set([...s.hiddenCalendars, ...keys])] })} />
+                  </label>
+                );
+              })()}
               {calendars.length ? calendars.map((name) => {
                 const shown = !s.hiddenCalendars.includes(`${a.id}|${name}`);
                 return <label key={name} className="acct-field switch-row"><span>{name}</span><input type="checkbox" role="switch" className="switch" checked={shown} onChange={(e) => toggleCal(name, e.target.checked)} /></label>;
