@@ -3,10 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { useMail, openScreen } from '../lib/mail';
-import { openExternal } from '../lib/platform';
 import { countItems, searchHelp } from '../lib/helpTopics';
-
-const ISSUES = 'https://github.com/wellgoodtodd/well-good-mail/issues';
+import { ReportProblem, emailSupport, SUPPORT } from './Feedback';
 
 let nextQuery = '';
 /** Opens Help already searching for something, like "search tips". */
@@ -18,6 +16,7 @@ export function openHelp(query = '') {
 export function Help() {
   const accounts = useMail((s) => s.accounts);
   const [query, setQuery] = useState(nextQuery);
+  const [reporting, setReporting] = useState(false);
   useEffect(() => { nextQuery = ''; }, []);
   const [openId, setOpenId] = useState<string | null>(null);
   const topics = searchHelp(query);
@@ -66,15 +65,16 @@ export function Help() {
         <section className="help-card help-support" aria-labelledby="help-support">
           <div className="help-head static">
             <span className="help-ico"><Icon name="mail" size={18} /></span>
-            <span className="help-title"><strong id="help-support">Still stuck?</strong><small>Well Good Mail is an early, free app from a small team, shared as it is. We read everything, but can't promise a reply.</small></span>
+            <span className="help-title"><strong id="help-support">Feedback and support</strong><small>Everything goes to {SUPPORT}. Well Good Mail is made by a small team: we read everything, but can't promise a reply.</small></span>
           </div>
           <div className="help-actions">
-            <button className="btn" onClick={() => openExternal(ISSUES)}>Report a problem on GitHub</button>
-            <button className="btn" onClick={() => openExternal('mailto:support@wellgood.media')}>Email support@wellgood.media</button>
-            <button className="btn" onClick={() => openScreen('settings', 'diagnostics')}>Open Diagnostics</button>
-            <button className="btn" onClick={() => openScreen('settings', 'accounts')}>Open Settings</button>
+            <button className="btn" onClick={() => void emailSupport('feature')}>Suggest a feature</button>
+            <button className="btn" onClick={() => setReporting(true)}>Report a problem</button>
+            <button className="btn" onClick={() => void emailSupport('support')}>Email support</button>
+            <button className="btn ghost" onClick={() => openScreen('settings', 'diagnostics')}>Open Diagnostics</button>
           </div>
         </section>
+        {reporting && <ReportProblem onClose={() => setReporting(false)} />}
       </div>
     </div>
   );

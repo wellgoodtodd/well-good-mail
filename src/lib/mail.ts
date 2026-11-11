@@ -1,5 +1,6 @@
 // The app's live state: accounts, messages, what's selected, and every mail
 // action (archive, delete, send...). Syncing with providers happens here.
+import { logLine } from './activityLog';
 import { create } from 'zustand';
 import { store } from './db';
 import { settings, useSettings, isQuietNow } from './settings';
@@ -150,6 +151,7 @@ const set = useMail.setState;
 
 export function toast(t: Omit<Toast, 'id'>) {
   const id = Math.random().toString(36).slice(2);
+  logLine('note', t.text);
   set({ toasts: [...get().toasts, { ...t, id }] });
   setTimeout(() => dismissToast(id), t.ttl ?? 6000);
   return id;

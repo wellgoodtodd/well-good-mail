@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/app.css';
 import { useSettings } from './lib/settings';
+import { startActivityLog } from './lib/activityLog';
+
+startActivityLog();
 import { setDownloadFolder, clearPreviews, isPopout } from './lib/platform';
 
 // Save uses the downloads folder chosen in Settings (in every window), and old previews are tidied once at start.
