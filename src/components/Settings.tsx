@@ -970,8 +970,8 @@ function RemindersTab() {
         <h2>Calendar</h2>
         <Row label="Week starts on" htmlFor="weekstart">
           <select id="weekstart" value={s.weekStart} onChange={(e) => s.set({ weekStart: e.target.value as 'monday' | 'sunday' })}>
-            <option value="monday">Monday</option>
             <option value="sunday">Sunday</option>
+            <option value="monday">Monday</option>
           </select>
         </Row>
         <Check checked={s.weekNumbers} onChange={(v) => s.set({ weekNumbers: v })}>Show week numbers</Check>
