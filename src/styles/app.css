@@ -1541,3 +1541,14 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .acct-aliases li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .acct-panel-foot { display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 12px; padding-top: 8px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.9em; }
 .set-section.acct-section { max-width: 1120px; }
+
+/* Replied and forwarded marks, where the unread dot goes (0.7.2 beta 4) */
+.row .reply-mark { position: absolute; left: 4px; top: 10px; width: 16px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--text-muted); }
+.row.selected .reply-mark { color: inherit; opacity: .75; }
+
+/* Files on a draft open or preview when clicked (0.7.2 beta 4) */
+.comp-attachments .att-open { display: inline-flex; align-items: center; gap: 8px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; padding: 0; cursor: pointer; }
+.comp-attachments .att-open:hover .fname { text-decoration: underline; }
+button.ai-file { background: transparent; font: inherit; cursor: pointer; }
+button.ai-file:hover { color: var(--text); border-color: var(--border-strong, var(--border)); }
+.attview-head .grow { flex: 1; }

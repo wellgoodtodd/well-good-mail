@@ -9,6 +9,8 @@ import { SignaturePicker } from './SignaturePicker';
 import { FormatBar, promptLink, pasteAsQuote } from './FormatBar';
 import { editorExtensions, changeIndent } from './editorExtensions';
 import { Dialog, fileSize, sendLaterOptions, useMenu } from './ui';
+import { DraftFilesPreview, draftFile, openDraftFile, type DraftFile } from './AttachmentPreview';
+import { getAttachmentData } from '../lib/mail';
 import { store } from '../lib/db';
 import { useMail, queueSend, providerFor, toast, broadcast, unschedule } from '../lib/mail';
 import { useSettings } from '../lib/settings';
@@ -33,6 +35,7 @@ function readFileB64(file: File): Promise<string> {
 }
 
 export function Composer({ draftId, variant }: { draftId: string; variant: 'inline' | 'full' }) {
+  const [filePreview, setFilePreview] = useState<number | null>(null);
   // Remember this email is open, so a restart or an update brings it back. Closing it, sending it, or moving
   // on to something else forgets it again; the app just stopping does not.
   useEffect(() => {
@@ -378,6 +381,12 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   const writingCss = writingStyle();
   const laterOptions = sendLaterOptions();
 
+  // The files on this draft (and those carried over from the email being forwarded), for opening and previewing.
+  const draftFiles: DraftFile[] = [
+    ...draft.attachments.map(draftFile),
+    ...(draft.includeSourceAttachments && source ? source.attachments.filter((a) => !a.inline).map((a) => ({ meta: a, load: () => getAttachmentData(source.id, a.id) })) : []),
+  ];
+
   return (
     <div
       ref={rootRef}
@@ -490,19 +499,24 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
 
       {(draft.attachments.length > 0 || (draft.includeSourceAttachments && source?.attachments.some((a) => !a.inline))) && (
         <div className="comp-attachments">
-          {draft.attachments.map((a) => (
+          {draft.attachments.map((a, i) => (
             <span key={a.id} className="attachment">
-              <Icon name="paperclip" />
-              <span className="info"><div className="fname">{a.filename}</div><div className="fsize">{fileSize(a.size)}</div></span>
+              <button className="att-open" title={`Open ${a.filename}`} onClick={() => void openDraftFile(draftFiles, i).then((n) => n !== null && setFilePreview(n))}>
+                <Icon name="paperclip" />
+                <span className="info"><div className="fname">{a.filename}</div><div className="fsize">{fileSize(a.size)}</div></span>
+              </button>
               <button className="icon-btn" aria-label={`Remove ${a.filename}`} onClick={() => update((d) => ({ ...d, attachments: d.attachments.filter((x) => x.id !== a.id), updatedAt: Date.now() }))}><Icon name="close" size={13} /></button>
             </span>
           ))}
-          {draft.includeSourceAttachments && source?.attachments.filter((a) => !a.inline).map((a) => (
+          {draft.includeSourceAttachments && source?.attachments.filter((a) => !a.inline).map((a, j) => (
             <span key={a.id} className="attachment" title="From the original email">
-              <Icon name="forward" />
-              <span className="info"><div className="fname">{a.filename}</div><div className="fsize">{fileSize(a.size)} · forwarded</div></span>
+              <button className="att-open" title={`Open ${a.filename}`} onClick={() => void openDraftFile(draftFiles, draft.attachments.length + j).then((n) => n !== null && setFilePreview(n))}>
+                <Icon name="forward" />
+                <span className="info"><div className="fname">{a.filename}</div><div className="fsize">{fileSize(a.size)} · forwarded</div></span>
+              </button>
             </span>
           ))}
+          {filePreview !== null && <DraftFilesPreview files={draftFiles} start={filePreview} onClose={() => setFilePreview(null)} />}
           <span className="fsize" style={{ alignSelf: 'center', color: 'var(--text-muted)' }}>{fileSize(totalSize)} of 25 MB</span>
         </div>
       )}

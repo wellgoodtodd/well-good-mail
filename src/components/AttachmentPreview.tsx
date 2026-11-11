@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { fileSize } from './ui';
 import { getAttachmentData, toast } from '../lib/mail';
-import { saveFile } from '../lib/platform';
+import { saveFile, openWithApp, isTauri } from '../lib/platform';
+import { base64ToBytes } from '../lib/mime';
 import { docxToHtml } from '../lib/docPreview';
 import { describeFile, isDocx } from '../lib/fileKinds';
 import type { AttachmentMeta } from '../lib/types';
@@ -23,7 +24,7 @@ export function previewKind(a: Pick<AttachmentMeta, 'mimeType' | 'filename'>): K
   return null;
 }
 
-export function AttachmentPreview({ messageId, items, start, onClose, onOpenApp }: { messageId: string; items: AttachmentMeta[]; start: number; onClose: () => void; onOpenApp?: (a: AttachmentMeta) => void }) {
+export function AttachmentPreview({ messageId, items, start, onClose, onOpenApp, load }: { messageId?: string; items: AttachmentMeta[]; start: number; onClose: () => void; onOpenApp?: (a: AttachmentMeta) => void; load?: (a: AttachmentMeta) => Promise<Uint8Array> }) {
   const [at, setAt] = useState(start);
   const a = items[at];
   const kind = previewKind(a);
@@ -37,7 +38,7 @@ export function AttachmentPreview({ messageId, items, start, onClose, onOpenApp 
     let cancelled = false;
     let made: string | undefined;
     setUrl(undefined); setText(undefined); setBytes(undefined); setDoc(undefined); setFailed(false);
-    getAttachmentData(messageId, a.id)
+    (load ? load(a) : getAttachmentData(messageId || '', a.id))
       .then(async (data) => {
         if (cancelled) return;
         setBytes(data);
@@ -98,6 +99,41 @@ export function AttachmentPreview({ messageId, items, start, onClose, onOpenApp 
         </div>
       </div>
     </div>
+  );
+}
+
+/** A file attached to a draft (or carried over from the email being forwarded), as the preview window wants it. */
+export interface DraftFile { meta: AttachmentMeta; load: () => Promise<Uint8Array> }
+
+export const draftFile = (a: { id: string; filename: string; mimeType: string; size: number; dataB64: string }): DraftFile => ({
+  meta: { id: a.id, filename: a.filename, mimeType: a.mimeType, size: a.size, inline: false },
+  load: async () => base64ToBytes(a.dataB64),
+});
+
+/**
+ * Clicking a file on a draft: a preview inside the app when there is one, otherwise it opens in its own app (or
+ * saves, in the browser). Returns the index to preview, or null when it was opened elsewhere.
+ */
+export async function openDraftFile(files: DraftFile[], i: number): Promise<number | null> {
+  const f = files[i];
+  if (previewKind(f.meta)) return i;
+  try {
+    const data = await f.load();
+    if (isTauri()) await openWithApp(f.meta.filename, data, f.meta.mimeType);
+    else await saveFile(f.meta.filename, data, f.meta.mimeType);
+  } catch (e) {
+    toast({ text: `Couldn't open ${f.meta.filename}: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
+  }
+  return null;
+}
+
+/** The preview window for a draft's files. */
+export function DraftFilesPreview({ files, start, onClose }: { files: DraftFile[]; start: number; onClose: () => void }) {
+  const byId = new Map(files.map((f) => [f.meta.id, f]));
+  return (
+    <AttachmentPreview items={files.map((f) => f.meta)} start={start} onClose={onClose}
+      load={(a) => byId.get(a.id)!.load()}
+      onOpenApp={isTauri() ? (a) => { void byId.get(a.id)!.load().then((d) => openWithApp(a.filename, d, a.mimeType)); } : undefined} />
   );
 }
 

@@ -19,6 +19,7 @@ import { useSettings } from '../lib/settings';
 import { store } from '../lib/db';
 import { openDraft } from '../lib/composeActions';
 import { cssToStyle } from './Composer';
+import { DraftFilesPreview, draftFile, openDraftFile } from './AttachmentPreview';
 import { allAliases, draftSignature } from '../lib/compose';
 import { askConfirm, askText } from '../lib/dialogs';
 import { undoSteps, record } from '../lib/history';
@@ -395,6 +396,7 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
   const accounts = useMail((s) => s.accounts);
   const contacts = useMail((s) => s.contacts);
   const aliases = useMemo(() => allAliases(accounts), [accounts]);
+  const [filePreview, setFilePreview] = useState<number | null>(null);
   // Only the reply itself is edited here; earlier emails quoted under it fold away and are kept as they are.
   const parts = useMemo(() => splitQuote(d.html), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [showQuote, setShowQuote] = useState(false);
@@ -494,7 +496,8 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
       )}
       {d.attachments.length > 0 && (
         <div className="ai-files" aria-label="Attachments">
-          {d.attachments.map((a) => <span key={a.id} className="ai-file"><Icon name="paperclip" size={13} /> {a.filename}</span>)}
+          {d.attachments.map((a, i) => <button key={a.id} className="ai-file" title={`Open ${a.filename}`} onClick={() => void openDraftFile(d.attachments.map(draftFile), i).then((n) => n !== null && setFilePreview(n))}><Icon name="paperclip" size={13} /> {a.filename}</button>)}
+          {filePreview !== null && <DraftFilesPreview files={d.attachments.map(draftFile)} start={filePreview} onClose={() => setFilePreview(null)} />}
         </div>
       )}
       <div className="ai-quick-note ai-note-row">

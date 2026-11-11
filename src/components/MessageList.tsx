@@ -12,6 +12,7 @@ import { threadKey, viewTitle, inSystemFolder, type ListItem } from '../lib/mail
 import { messageMenu } from '../lib/actions';
 import { popoutMessage, editServerDraft } from '../lib/composeActions';
 import { myAddresses } from '../lib/compose';
+import { replyMark, replyMarkWords, sentByThread } from '../lib/replyMarks';
 
 export function MessageList({ style }: { style: React.CSSProperties }) {
   const { items: listed, remote } = useViewList();
@@ -77,6 +78,9 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
     scrollTimer.current = setTimeout(() => el.classList.remove('scrolling'), 350);
   };
   const mine = useMemo(() => myAddresses(accounts), [accounts]);
+  // Your sent emails by conversation, for the replied and forwarded marks.
+  const allMessages = useMail((s) => s.messages);
+  const sent = useMemo(() => sentByThread(Object.values(allMessages), mine), [allMessages, mine]);
   const accountColour = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a.colour])), [accounts]);
   const showStripe = useSettings((s) => s.showAccountStripe);
   const showAccount = showStripe && view.scope.type !== 'account' && accounts.length > 1;
@@ -198,7 +202,17 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
         aria-current={selected ? 'true' : undefined}
       >
         {showAccount && <span className="acct" style={{ background: accountColour[m.accountId] }} />}
-        {item.unread && <span className="unread-dot" role="img" aria-label="Unread" />}
+        {item.unread ? <span className="unread-dot" role="img" aria-label="Unread" /> : (() => {
+          const mark = replyMark(m, sent, mine);
+          if (!mark) return null;
+          const words = replyMarkWords(mark);
+          return (
+            <span className="reply-mark" role="img" aria-label={words} title={words}>
+              {mark.repliedAt && <Icon name="reply" size={13} />}
+              {mark.forwardedAt && <Icon name="forward" size={13} />}
+            </span>
+          );
+        })()}
         {senderPhotos && (() => {
           const who = fromMe ? m.to[0] || m.from : m.from;
           const photo = photoOf.get(who.email.toLowerCase());

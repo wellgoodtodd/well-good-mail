@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Settings, calendar and list mock-ups</title>
+<style>
+body{margin:0;background:#141518;color:#e8e8ea;font:14px/1.45 Inter,system-ui,sans-serif;padding:16px}
+.w{max-width:1100px;margin:0 auto;display:grid;gap:30px}
+h1{font-size:18px;margin:0}h2{font-size:15px;margin:0 0 4px}
+.lbl{font-size:12px;font-weight:600;color:#a4a6ad;text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.note{color:#a4a6ad;font-size:12.5px;margin:8px 0 0}
+.frame{display:flex;border:1px solid #3a3b40;border-radius:12px;overflow:hidden;background:#1e1f22;font-size:13px;overflow-x:auto}
+/* settings */
+.nav{width:230px;flex:none;background:#1a1b1e;border-right:1px solid #33353a;padding:10px 8px}
+.search{border:1px solid #3e4046;border-radius:8px;padding:6px 9px;color:#8e9097;font-size:12.5px;margin:4px 2px 10px;background:#222327}
+.item{display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:7px}
+.item.on{background:#2f6fde;color:#fff}
+.ic{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;flex:none}
+.gap{height:10px}
+.page{flex:1;padding:18px 20px;min-width:340px}
+.card{background:#25262a;border:1px solid #34363b;border-radius:10px;margin-bottom:12px;overflow:hidden}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #303237}
+.row:last-child{border-bottom:0}
+.row small{display:block;color:#a4a6ad;font-size:11.5px}
+.sw{width:34px;height:20px;border-radius:999px;background:#2f6fde;position:relative;flex:none}
+.sw::after{content:'';position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.sw.off{background:#4a4c52}.sw.off::after{right:auto;left:2px}
+.sel{border:1px solid #4a4c52;border-radius:6px;padding:4px 9px;background:#2b2c31;font-size:12px}
+/* list */
+.list{width:100%;max-width:420px}
+.mrow{display:grid;grid-template-columns:18px 1fr auto;gap:8px;padding:9px 12px;border-bottom:1px solid #2e3035}
+.st{font-size:12px;color:#8e9097;padding-top:2px}
+.from{font-weight:600}.subj{color:#d6d7db}.prev{color:#8e9097;font-size:12px}
+.time{color:#8e9097;font-size:12px;text-align:right}
+.badge{display:inline-flex;gap:4px;align-items:center;color:#8e9097;font-size:11.5px}
+.unread{width:8px;height:8px;border-radius:50%;background:#4a8cff;margin-top:5px}
+/* calendar */
+.cal{flex:1;min-width:700px}
+.chead{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #33353a}
+.seg{display:flex;border:1px solid #4a4c52;border-radius:7px;overflow:hidden;margin-left:auto}
+.seg span{padding:4px 11px;font-size:12px;border-right:1px solid #4a4c52}.seg span:last-child{border-right:0}
+.seg .on{background:#2f6fde;color:#fff}
+.wk{display:grid;grid-template-columns:44px repeat(7,1fr);font-size:11.5px}
+.wk .h{padding:6px;text-align:center;border-bottom:1px solid #33353a;color:#a4a6ad}
+.wk .h.today{color:#4a8cff;font-weight:600}
+.allday{grid-column:2/9;display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid #33353a;min-height:22px}
+.hour{height:34px;border-bottom:1px solid #2a2c30;border-right:1px solid #2a2c30;position:relative}
+.hl{color:#8e9097;text-align:right;padding-right:6px;font-size:10.5px;height:34px;border-bottom:1px solid #2a2c30}
+.work{background:#202125}
+.ev{position:absolute;left:3px;right:3px;border-radius:5px;padding:2px 5px;font-size:11px;color:#fff;overflow:hidden}
+.now{position:absolute;left:0;right:0;height:2px;background:#e5484d}
+.wn{color:#8e9097;font-size:11px;padding:6px;border-bottom:1px solid #33353a;text-align:center}
+</style></head><body><div class="w">
+<h1>Mock-ups: Settings menu, mail list icons, calendar views</h1>
+
+<section>
+<div class="lbl">1 · Settings, grouped like Apple's, with a new General page</div>
+<div class="frame">
+<div class="nav">
+<div class="search">Search settings</div>
+<div class="item on"><span class="ic" style="background:#6b7280">⚙</span>General</div>
+<div class="gap"></div>
+<div class="item"><span class="ic" style="background:#3b82f6">@</span>Accounts</div>
+<div class="item"><span class="ic" style="background:#8b5cf6">✎</span>Signatures &amp; Addresses</div>
+<div class="item"><span class="ic" style="background:#f59e0b">✈</span>Out of Office</div>
+<div class="item"><span class="ic" style="background:#14b8a6">▦</span>Inbox Groups</div>
+<div class="gap"></div>
+<div class="item"><span class="ic" style="background:#ec4899">◐</span>Appearance</div>
+<div class="item"><span class="ic" style="background:#0ea5e9">✍</span>Composing</div>
+<div class="item"><span class="ic" style="background:#ef4444">🔔</span>Notifications &amp; Reminders</div>
+<div class="item"><span class="ic" style="background:#2563eb">♿</span>Accessibility</div>
+<div class="gap"></div>
+<div class="item"><span class="ic" style="background:#64748b">🔒</span>Privacy</div>
+<div class="item"><span class="ic" style="background:#22c55e">⌕</span>Search &amp; Storage</div>
+<div class="item"><span class="ic" style="background:#a855f7">✦</span>AI Connection</div>
+<div class="item"><span class="ic" style="background:#78716c">⌨</span>Keyboard Shortcuts</div>
+<div class="gap"></div>
+<div class="item"><span class="ic" style="background:#f97316">↻</span>Updates</div>
+<div class="item"><span class="ic" style="background:#57534e">⚕</span>Diagnostics</div>
+</div>
+<div class="page">
+<h2>General</h2>
+<div class="note" style="margin:0 0 12px">How Well Good Mail starts, closes and fits in with Windows.</div>
+<div class="card">
+<div class="row"><div>Open when Windows starts<small>Starts quietly in the tray, so mail and reminders are ready.</small></div><span class="sw"></span></div>
+<div class="row"><div>Closing the window<small>Keep running in the tray, so alerts still arrive.</small></div><span class="sel">Keeps it in the tray ▾</span></div>
+<div class="row"><div>Default mail app<small>Email links in your browser open a new email here.</small></div><span class="sel">Make default</span></div>
+</div>
+<div class="card">
+<div class="row"><div>Check for new mail<small>iCloud and other accounts get new mail straight away.</small></div><span class="sel">Every 2 minutes ▾</span></div>
+<div class="row"><div>Unread count on the taskbar</div><span class="sw"></span></div>
+</div>
+</div>
+</div>
+<p class="note">Order by what you do, not A to Z: General first, then your mail, then how it looks and behaves, then data and connections, with Updates and Diagnostics at the bottom. Each item gets a small coloured icon, as Apple does. Dragging to reorder goes, because fixed groups and your own order would fight.</p>
+</section>
+
+<section>
+<div class="lbl">2 · Mail list: replied, forwarded and other small icons</div>
+<div class="frame" style="padding:0">
+<div class="list">
+<div class="mrow"><span class="st">↩</span><div><div class="from">Isla Grant</div><div class="subj">Brand film: rough cut thoughts</div><div class="prev">Watched it twice with the team and we are…</div></div><div class="time">Yesterday<br><span class="badge">📎</span></div></div>
+<div class="mrow"><span class="st">↪</span><div><div class="from">Ledger &amp; Co</div><div class="subj">Q3 VAT return ready to review</div><div class="prev">Please review and approve by Friday…</div></div><div class="time">Yesterday</div></div>
+<div class="mrow"><span class="unread"></span><div><div class="from">Jamie Ross</div><div class="subj">Five a side on Thursday?</div><div class="prev">We are a man down this week…</div></div><div class="time">10:12</div></div>
+<div class="mrow"><span class="st">↩↪</span><div><div class="from">Calum Reid</div><div class="subj">Board meeting papers</div><div class="prev">Papers for next week attached…</div></div><div class="time">Mon</div></div>
+</div>
+</div>
+<p class="note">↩ you replied, ↪ you forwarded, both when you did both. They sit where the blue unread dot goes, like Apple Mail, so the row doesn't get busier. Hover says when ("You replied on Tuesday at 14:02"). Worked out from your Sent mail for Gmail and Outlook, and from the server's own flags for iCloud.</p>
+</section>
+
+<section>
+<div class="lbl">3 · Calendar: Day, Week and Month, with week numbers</div>
+<div class="frame">
+<div class="cal">
+<div class="chead"><b>Week 46</b><span style="color:#a4a6ad">9 to 15 November 2026</span><span class="sel">‹</span><span class="sel">Today</span><span class="sel">›</span><div class="seg"><span>Day</span><span class="on">Week</span><span>Month</span></div></div>
+<div class="wk">
+<div class="wn">W46</div><div class="h">Mon 9</div><div class="h today">Tue 10</div><div class="h">Wed 11</div><div class="h">Thu 12</div><div class="h">Fri 13</div><div class="h">Sat 14</div><div class="h">Sun 15</div>
+<div class="hl" style="height:22px">all day</div><div class="allday"><span></span><span></span><span></span><span></span><span></span><span style="grid-column:span 2;background:#3b82f6;border-radius:4px;margin:2px;padding:1px 5px;font-size:11px">Away</span></div>
+</div>
+<div class="wk">
+<div><div class="hl">09:00</div><div class="hl">10:00</div><div class="hl">11:00</div><div class="hl">12:00</div><div class="hl">13:00</div><div class="hl">14:00</div><div class="hl">15:00</div></div>
+<div><div class="hour work"></div><div class="hour work" style="position:relative"><span class="ev" style="top:4px;height:56px;background:#3b82f6">Catch up with Euan<br>Google Meet</span></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div></div>
+<div><div class="hour work"></div><div class="hour work"></div><div class="hour work"><span class="now" style="top:12px"></span></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div></div>
+<div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"><span class="ev" style="top:0;height:30px;background:#14b8a6">Lunch, Sam</span></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div></div>
+<div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"><span class="ev" style="top:0;height:64px;background:#a855f7">Studio walkthrough</span></div><div class="hour work"></div></div>
+<div><div class="hour work"></div><div class="hour work"></div><div class="hour work"><span class="ev" style="top:0;height:26px;background:#3b82f6">Edit review</span></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div><div class="hour work"></div></div>
+<div><div class="hour"></div><div class="hour"></div><div class="hour"></div><div class="hour"></div><div class="hour"></div><div class="hour"></div><div class="hour"></div></div>
+<div><div class="hour"></div><div class="hour"></div><div class="hour"></div><div class="hour"></div><div class="hour"></div><div class="hour"></div><div class="hour"></div></div>
+</div>
+</div>
+</div>
+<p class="note">Day, Week and Month switch at the top; Day is the same grid for one day, wider, with the event's details alongside. Working hours are shaded lighter (9 to 5, Monday to Friday, set in Notifications &amp; Reminders), a red line marks now, and it scrolls to the current time. Options next to Week starts on: Show week numbers, Hide weekends, Working hours. Click an event for the same preview with Join as now. Making and moving events stays in Google or Outlook for now.</p>
+</section>
+</div></body></html>
