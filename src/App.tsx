@@ -177,12 +177,18 @@ function RecentButton() {
   const notes = useMail((s) => s.notes);
   const unseen = useMail((s) => s.notesUnseen);
   const [open, setOpen] = useState(false);
+  // The dot catches your eye after something happens, then goes by itself if you carry on working.
+  useEffect(() => {
+    if (!unseen) return;
+    const t = setTimeout(() => useMail.setState({ notesUnseen: false }), 45000);
+    return () => clearTimeout(t);
+  }, [unseen, notes.length]);
   if (!notes.length) return null;
   const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); };
   const use = (id: string, run: () => void) => { run(); useMail.setState({ notes: useMail.getState().notes.map((n) => (n.id === id ? { ...n, used: true } : n)) }); };
   return (
     <div className="dl-wrap">
-      <button className={`icon-btn dl-btn ${unseen ? 'new' : ''}`} title="Recent notes" aria-label="Recent notes" aria-expanded={open} onClick={() => { setOpen(!open); useMail.setState({ notesUnseen: false }); }}><Icon name="history" /></button>
+      <button className={`icon-btn dl-btn ${unseen ? 'new' : ''}`} title="Recent notes" aria-label="Recent notes" aria-expanded={open} onClick={() => { setOpen(!open); useMail.setState({ notesUnseen: false }); }}><Icon name="list" /></button>
       {open && (
         <>
           <ClickAway onClose={() => setOpen(false)} />
