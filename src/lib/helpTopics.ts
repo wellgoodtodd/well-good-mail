@@ -75,13 +75,14 @@ export const TOPICS: HelpTopic[] = [
     items: [
       { q: 'Print an email or save it as a PDF', a: 'Use the printer or PDF buttons above the open email, Print in the top left menu, right click, or Ctrl+P. Both open the Windows print window, with the whole conversation laid out on a clean page. For a PDF, choose Save as PDF as the printer.', keywords: 'print pdf export save' },
       { q: 'Preview or save attachments', a: 'Click an attachment to preview it, hover for a peek, or right click to save one or all of them to a folder. Word documents preview here too (text, tables and pictures; exact layout needs Word), with Open in Word. Files that can\'t be previewed, like Excel or Pages, show what they are when you hover, and open straight away in their own app. Changes made there aren\'t saved back to the email, so use Save to keep a copy. Programs and scripts are never opened straight from an email.', keywords: 'download save all open word excel' },
-      { q: 'Save attachments to one folder', a: 'Settings, then Search & Storage, has Save attachments to: choose a folder and Save puts files there without asking. Nothing is ever overwritten. Choose Ask each time to go back. The same page shows the Previews folder, with Open folder and Clear previews.', keywords: 'downloads folder previews clear' },
+      { q: 'Save attachments to one folder', a: 'Settings, then Storage, has Save attachments to: choose a folder and Save puts files there without asking. Nothing is ever overwritten. Choose Ask each time to go back. The same page shows the Previews folder, with Open folder and Clear previews.', keywords: 'downloads folder previews clear' },
     ],
   },
   {
     id: 'search', title: 'Search and filters', icon: 'search', blurb: 'Finding what you need.',
     items: [
       { q: 'Search where you are', a: 'The search box looks in the mailbox you are in. Use All mail beside the results to search everywhere.', keywords: 'find' },
+      { q: 'Search tips', a: 'Type words to search everything. You can also use from:isla, to:euan, has:attachment, is:unread, is:flagged, after:2026-01-01 and before:2026-06-30, and mix them with words. The ? at the end of the search box opens these tips.', keywords: 'search tips from to has attachment unread flagged before after operators' },
       { q: 'Show only unread', a: 'The unread button above the list filters to unread mail. The button beside it groups replies into conversations or lists every message.', keywords: 'filter' },
     ],
   },
@@ -99,8 +100,8 @@ export const TOPICS: HelpTopic[] = [
     id: 'accounts', title: 'Accounts and your mail', icon: 'user', blurb: 'Signing in, backups and moving.',
     items: [
       { q: 'An account needs signing in again', a: 'A coral dot appears on Settings and on the account. Click Sign in beside it. For iCloud and other app password accounts, you enter a new app password. Your saved mail stays where it is meanwhile.', keywords: 'password sign in error unauthorised' },
-      { q: 'Back up your app keys', a: 'Settings, then Search & Storage, has Back up my keys. It saves the Google key from the setup guide to a file you choose, so a reinstall or a new computer doesn\'t mean another ten minute setup. The file holds your Google secret, so keep it somewhere private.', keywords: 'google key backup restore reinstall client secret' },
-      { q: 'Move your mail to another computer', a: 'Settings, then Search & Storage, has Export and Import under Moving to another computer. The file holds your emails, so keep it somewhere private. On the new computer, Moving from another computer? on the welcome page walks you through it: restore your Google key from Back up my keys, sign in, then import.', keywords: 'transfer new pc export import' },
+      { q: 'Back up your app keys', a: 'Settings, then Storage, has Back up my keys. It saves the Google key from the setup guide to a file you choose, so a reinstall or a new computer doesn\'t mean another ten minute setup. The file holds your Google secret, so keep it somewhere private.', keywords: 'google key backup restore reinstall client secret' },
+      { q: 'Move your mail to another computer', a: 'Settings, then Storage, has Export and Import under Moving to another computer. The file holds your emails, so keep it somewhere private. On the new computer, Moving from another computer? on the welcome page walks you through it: restore your Google key from Back up my keys, sign in, then import.', keywords: 'transfer new pc export import' },
     ],
   },
   {

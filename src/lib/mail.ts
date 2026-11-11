@@ -603,6 +603,7 @@ export async function syncAccount(id: string, opts: { full?: boolean; quiet?: bo
       if (Math.random() < 0.05) provider.listFolders().then((folders) => { set({ folders: { ...get().folders, [id]: folders } }); store.putFolders(id, folders); }).catch(() => {});
     }
     applyRulesToNew(newOnes);
+    warmBodies(newOnes.filter(Boolean).map((m) => m.id));
     if (!opts.quiet) notifyNewMail(newOnes.filter((m) => m.date > startedAt - 10 * 60000));
   } catch (e) {
     if (e instanceof SyncStopped) {
@@ -753,6 +754,55 @@ export async function loadBody(id: string): Promise<Message | undefined> {
     errorToast(e, 'Couldn\'t load email');
     return m;
   }
+}
+
+// ---------- loading emails ahead of time ----------
+// Opening an email is instant when its body is already here. New mail, the top of the Inbox and whatever the
+// pointer rests on are fetched quietly in the background, one at a time, so nothing else is held up.
+const warmQueue: string[] = [];
+let warming = false;
+
+/** Loads these emails' bodies in the background. With first, they jump the queue (the pointer is on them). */
+export function warmBodies(ids: string[], opts: { first?: boolean } = {}) {
+  const todo = ids.filter((id) => { const m = get().messages[id]; return m && !m.bodyLoaded && !m.isDraft && !warmQueue.includes(id); });
+  if (!todo.length) return;
+  if (opts.first) warmQueue.unshift(...todo); else warmQueue.push(...todo);
+  if (warmQueue.length > 200) warmQueue.length = 200;
+  if (!warming) void runWarm();
+}
+
+async function runWarm() {
+  warming = true;
+  try {
+    while (warmQueue.length) {
+      const id = warmQueue.shift()!;
+      const m = get().messages[id];
+      const p = m && providers.get(m.accountId);
+      if (!m || m.bodyLoaded || !p) continue;
+      try {
+        const body = await p.getBody(m);
+        const updated: Message = { ...(get().messages[id] || m), bodyHtml: body.html, bodyText: body.text, attachments: body.attachments, hasAttachments: body.attachments.some((a) => !a.inline), bodyLoaded: true };
+        putMessages([updated]);
+      } catch { /* it loads when opened instead */ }
+      await new Promise((r) => setTimeout(r, 120));
+    }
+  } finally {
+    warming = false;
+  }
+}
+
+/** The newest emails in each Inbox that aren't loaded yet. */
+export function warmInbox(perAccount = 25) {
+  const byAcc = new Map<string, Message[]>();
+  for (const m of Object.values(get().messages)) {
+    if (m.bodyLoaded || m.isDraft || !m.labels.includes('INBOX')) continue;
+    const list = byAcc.get(m.accountId) || [];
+    list.push(m);
+    byAcc.set(m.accountId, list);
+  }
+  const ids: string[] = [];
+  for (const list of byAcc.values()) ids.push(...list.sort((a, b) => b.date - a.date).slice(0, perAccount).map((m) => m.id));
+  warmBodies(ids);
 }
 
 const refetched = new Set<string>();
@@ -1497,4 +1547,12 @@ if (isTauri() && !isPopout()) {
     clearTimeout(imapNudges.get(id));
     imapNudges.set(id, setTimeout(() => { imapNudges.delete(id); void syncAccount(id); }, 2000));
   })).catch(() => undefined);
+}
+
+// After starting: once the accounts have had a moment to sync, load the top of each Inbox.
+let warmedAtStart = false;
+export function warmAfterStart() {
+  if (warmedAtStart) return;
+  warmedAtStart = true;
+  setTimeout(() => warmInbox(), 8000);
 }

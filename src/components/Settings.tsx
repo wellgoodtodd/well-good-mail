@@ -11,7 +11,7 @@ import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalet
 import { useSettings, defaultSettings, type Settings as S } from '../lib/settings';
 import { LEVEL_WORDS, tidy } from '../lib/mcp/permissions';
 import { undoSteps, useHistory } from '../lib/history';
-import { allAliases, signatureFor } from '../lib/compose';
+import { signatureFor } from '../lib/compose';
 import { composeContext } from '../lib/composeActions';
 import { oooSignIn } from '../lib/oooStore';
 import type { Account } from '../lib/types';
@@ -32,6 +32,8 @@ import { useMenu, Dialog, fileSize } from './ui';
 import { UpdateLog } from './WhatsNew';
 import { useBetaNotice, checkForBeta, wantsBetaNotices } from '../lib/betaNotice';
 import { CalendarList } from './ComingUp';
+import { SideFooter } from './Sidebar';
+import type { IconName } from './Icon';
 import { AiConnectionTab } from './AiConnection';
 import { OutOfOfficeTab } from './OutOfOffice';
 import { useOoo } from '../lib/oooStore';
@@ -39,21 +41,34 @@ import { stateWords as oooStateWords, oooSupport } from '../lib/ooo';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../lib/shortcuts';
 
 const TABS = [
+  ['general', 'General'],
   ['accounts', 'Accounts'],
   ['signatures', 'Signatures & Addresses'],
+  ['ooo', 'Out of Office'],
   ['groups', 'Inbox Groups'],
   ['appearance', 'Appearance'],
   ['writing', 'Composing'],
-  ['ooo', 'Out of Office'],
-  ['notifications', 'Notifications & Reminders'],
-  ['privacy', 'Privacy'],
-  ['offline', 'Search & Storage'],
-  ['shortcuts', 'Keyboard Shortcuts'],
+  ['notifications', 'Notifications'],
+  ['calendar', 'Calendar & Reminders'],
   ['access', 'Accessibility'],
+  ['privacy', 'Privacy'],
+  ['offline', 'Storage'],
   ['ai', 'AI Connection'],
+  ['shortcuts', 'Keyboard Shortcuts'],
   ['updates', 'Updates'],
   ['diagnostics', 'Diagnostics'],
 ] as const;
+
+/** The groups in the Settings list, by what you're doing (not A to Z), with a gap between each. */
+const TAB_GROUPS: string[][] = [['general'], ['accounts', 'signatures', 'ooo', 'groups'], ['appearance', 'writing', 'notifications', 'calendar', 'access'], ['privacy', 'offline', 'ai', 'shortcuts'], ['updates', 'diagnostics']];
+
+/** Each tab's icon and colour: a solid, slightly softened tile with a white line icon. */
+const TAB_ICONS: Record<string, [IconName, string]> = {
+  general: ['settings', '#7c7c86'], accounts: ['user', '#3b82f6'], signatures: ['pen', '#8b5cf6'], ooo: ['plane', '#f59e0b'], groups: ['layers', '#14b8a6'],
+  appearance: ['contrast', '#ec4899'], writing: ['compose', '#0ea5e9'], notifications: ['bell', '#ef4444'], calendar: ['calendar', '#e11d48'], access: ['accessibility', '#3b82f6'],
+  privacy: ['shield', '#64748b'], offline: ['database', '#22c55e'], ai: ['sparkle', '#a855f7'], shortcuts: ['keyboard', '#a8a29e'], updates: ['refresh', '#f97316'], diagnostics: ['activity', '#84cc16'],
+};
+const TabIcon = ({ id }: { id: string }) => { const [name, colour] = TAB_ICONS[id] || ['settings', '#888']; return <span className="set-tile" style={{ background: colour }}><Icon name={name} size={13} /></span>; };
 
 /** Things people look for, and where they live. The search box in the Settings sidebar uses this. */
 const SETTINGS_INDEX: [string, string, string?][] = [
@@ -66,8 +81,9 @@ const SETTINGS_INDEX: [string, string, string?][] = [
   ['Text size', 'access', 'bigger font zoom'], ['Interface font', 'appearance', 'font typeface'], ['Row spacing', 'access', 'density compact roomy'],
   ['Unread colour', 'appearance', 'unread'], ['Composing and writing font', 'writing', 'font compose'], ['Templates', 'writing', 'template canned'],
   ['Undo send', 'writing', 'undo send delay'], ['Out of Office', 'ooo', 'vacation holiday auto reply away'],
-  ['New mail alerts', 'notifications', 'notifications sound'], ['Quiet hours', 'notifications', 'do not disturb night'], ['Reminders', 'notifications', 'calendar summary'],
-  ['Week starts on', 'notifications', 'sunday monday calendar first day'], ['Suggested events', 'notifications', 'add to calendar dates'],
+  ['New mail alerts', 'notifications', 'notifications sound'], ['Quiet hours', 'notifications', 'do not disturb night'], ['Reminders', 'calendar', 'calendar summary pop up meeting'],
+  ['Week starts on', 'calendar', 'sunday monday calendar first day'], ['Week numbers, weekends and working hours', 'calendar', 'calendar week number weekend work'], ['Suggested events', 'calendar', 'add to calendar dates'],
+  ['Open when Windows starts', 'general', 'startup start boot autostart'], ['Close button and the tray', 'general', 'quit tray close'], ['Check for new mail', 'general', 'poll refresh sync how often'], ['Same settings on every computer', 'general', 'sync drive'], ['Sidebar Favourites and hidden items', 'appearance', 'sidebar favourites hidden'],
   ['Blocked senders', 'privacy', 'block spam'], ['Pictures in emails', 'privacy', 'remote images trackers'],
   ['Back up my keys', 'offline', 'google key backup'], ['Export and import mail', 'offline', 'move computer cache'], ['Attachments folder and previews', 'offline', 'downloads save'],
   ['Keyboard Shortcuts', 'shortcuts', 'keys hotkeys'], ['Accessibility', 'access', 'contrast focus motion narrator easy read underline borders'],
@@ -97,67 +113,40 @@ function SettingsSearch() {
 }
 
 // Older links to tabs that were folded into others.
-const TAB_ALIAS: Record<string, string> = { reminders: 'notifications', templates: 'writing', people: 'privacy' };
+const TAB_ALIAS: Record<string, string> = { reminders: 'calendar', templates: 'writing', people: 'privacy', storage: 'offline' };
 
 export function SettingsScreen() {
-  const version = useUpdates((u) => u.currentVersion);
+  const sidebarWidth = useSettings((s) => s.sidebarWidth);
   const rawTab = useMail((s) => s.settingsTab);
   const tab = TAB_ALIAS[rawTab] || rawTab;
   const alerts = useSettingsAlerts();
-  const order = useSettings((s) => s.settingsOrder);
-  const ids: string[] = TABS.map(([id]) => id).filter((id) => id !== 'updates');
-  const ordered = [...order.filter((id) => ids.includes(id)), ...ids.filter((id) => !order.includes(id))];
-  const drag = useRef<string | null>(null);
-  const lastMove = useRef(0);
-  const moveTab = (from: string, over: string) => {
-    if (from === over) return;
-    const next = ordered.filter((id) => id !== from);
-    next.splice(next.indexOf(over) + (ordered.indexOf(from) < ordered.indexOf(over) ? 1 : 0), 0, from);
-    if (next.join() !== ordered.join()) useSettings.getState().set({ settingsOrder: next });
-  };
   return (
     <div className="settings" role="main">
-      <nav className="settings-nav" aria-label="Settings sections">
-        <button className="side-item" onClick={() => useMail.setState({ screen: 'mail' })}><Icon name="chevronLeft" /> <span className="name">Back to mail</span></button>
-        <SettingsSearch />
-        <div className="side-heading" style={{ marginTop: 8 }}>Settings</div>
-        {ordered.map((id) => [id, TABS.find(([t]) => t === id)![1]] as const).map(([id, label]) => (
-          <button
-            key={id}
-            className={`side-item ${tab === id ? 'selected' : ''}`}
-            onClick={() => useMail.setState({ settingsTab: id })}
-            draggable
-            title="Drag to change the order"
-            onDragStart={(e) => { drag.current = id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); }}
-            onDragOver={(e) => {
-              if (!drag.current) return;
-              e.preventDefault();
-              // Calmer than before: swap only once the pointer is well into the next tab, and not more than about 4 times a second.
-              const r = e.currentTarget.getBoundingClientRect();
-              const frac = (e.clientY - r.top) / r.height;
-              const down = ordered.indexOf(drag.current) < ordered.indexOf(id);
-              if ((down ? frac > 0.65 : frac < 0.35) && Date.now() - lastMove.current > 250) { lastMove.current = Date.now(); moveTab(drag.current, id); }
-            }}
-            onDrop={(e) => { e.preventDefault(); drag.current = null; }}
-            onDragEnd={() => { drag.current = null; }}
-          >
-            <span className="name">{label}</span>{alerts.tabs[id] ? <span className="attn-dot" title={alerts.tabs[id]} aria-label={alerts.tabs[id]} /> : null}
-          </button>
-        ))}
-        <div className="settings-foot">
-          <button className={`side-item ${tab === 'updates' ? 'selected' : ''}`} onClick={() => useMail.setState({ settingsTab: 'updates' })}>
-            <span className="name" style={{ textTransform: 'uppercase', letterSpacing: '.04em', fontWeight: 600 }}>Updates</span>{alerts.tabs.updates ? <span className="attn-dot" title={alerts.tabs.updates} aria-label={alerts.tabs.updates} /> : null}
-          </button>
-          <div className="settings-version">Version {version || '...'}</div>
+      <nav className="settings-nav" aria-label="Settings sections" style={{ width: sidebarWidth }}>
+        <div className="side-scroll">
+          <button className="side-item" onClick={() => useMail.setState({ screen: 'mail' })}><Icon name="chevronLeft" /> <span className="name">Back to mail</span></button>
+          <SettingsSearch />
+          {TAB_GROUPS.map((group, gi) => (
+            <div key={gi} className="set-group">
+              {group.map((id) => (
+                <button key={id} className={`side-item ${tab === id ? 'selected' : ''}`} aria-current={tab === id ? 'page' : undefined} onClick={() => useMail.setState({ settingsTab: id })}>
+                  <TabIcon id={id} /><span className="name">{TABS.find(([t]) => t === id)![1]}</span>{alerts.tabs[id] ? <span className="attn-dot" title={alerts.tabs[id]} aria-label={alerts.tabs[id]} /> : null}
+                </button>
+              ))}
+            </div>
+          ))}
         </div>
+        <SideFooter inSettings />
       </nav>
       <div className="settings-body">
+        {tab === 'general' && <GeneralTab />}
         {tab === 'accounts' && <AccountsTab />}
         {tab === 'signatures' && <SignaturesTab />}
         {tab === 'groups' && <GroupsTab />}
         {tab === 'appearance' && <AppearanceTab />}
         {tab === 'writing' && <><WritingTab /><TemplatesTab /></>}
-        {tab === 'notifications' && <><NotificationsTab /><RemindersTab /></>}
+        {tab === 'notifications' && <NotificationsTab />}
+        {tab === 'calendar' && <RemindersTab />}
         {tab === 'privacy' && <><PrivacyTab /><PeopleTab /></>}
         {tab === 'offline' && <OfflineTab />}
         {tab === 'shortcuts' && <ShortcutsTab />}
@@ -228,6 +217,35 @@ function KeepMail({ a, compact }: { a: Account; compact?: boolean }) {
     </select>
   );
   return compact ? <label className="keep-mail">Keep mail from {select}</label> : select;
+}
+
+/** How the app starts, closes and checks for mail. */
+function GeneralTab() {
+  const s = useSettings();
+  return (
+    <>
+      <h1>General</h1>
+      <section className="set-section">
+        <h2>Starting and closing</h2>
+        <Check checked={s.startWithWindows} onChange={(v) => { s.set({ startWithWindows: v }); setAutostart(v); }}>Open when Windows starts<span className="check-sub">Starts quietly in the tray, so mail and reminders are ready.</span></Check>
+        <Check checked={!s.closeQuits} onChange={(v) => { s.set({ closeQuits: !v }); setCloseQuits(!v); }}>Keep running in the tray when the window is closed<span className="check-sub">So alerts, reminders and scheduled emails still go out. Quit from the tray icon.</span></Check>
+      </section>
+      <section className="set-section">
+        <h2>Mail</h2>
+        <Row label="Check for new mail every" htmlFor="poll">
+          <select id="poll" value={s.pollSeconds} onChange={(e) => { s.set({ pollSeconds: Number(e.target.value) }); setTimeout(restartPolling); }}>
+            {[15, 30, 60, 120, 300].map((n) => <option key={n} value={n}>{n < 60 ? `${n} seconds` : `${n / 60} minute${n > 60 ? 's' : ''}`}</option>)}
+          </select>
+        </Row>
+        <p className="hint" style={{ margin: '0 0 6px' }}>iCloud and other email accounts get new Inbox mail straight away anyway. F5 or the refresh button checks any time.</p>
+        <Check checked={s.flashTaskbar} onChange={(v) => s.set({ flashTaskbar: v })}>Flash the taskbar icon<span className="check-sub">For reminders and new mail when the app is in the background.</span></Check>
+      </section>
+      <section className="set-section">
+        <h2>Every computer</h2>
+        <Check checked={s.syncSettings} onChange={(v) => { s.set({ syncSettings: v }); if (v) enableSettingsSync(); }}>Keep my settings the same on every computer<span className="check-sub">Uses a small file in your Google Drive. Your keys and mail are never in it.</span></Check>
+      </section>
+    </>
+  );
 }
 
 type AcctSection = 'signature' | 'sending' | 'calendars' | 'alerts' | 'ai' | 'ooo' | 'mail';
@@ -556,51 +574,67 @@ function SignatureEditor({ email, initial, onChange }: { email: string; initial:
 }
 
 function SignaturesTab() {
-  const accounts = useMail((s) => s.accounts);
+  const accounts = useMail((st) => st.accounts);
   const s = useSettings();
-  const aliases = allAliases(accounts);
-  const [selected, setSelected] = useState(aliases[0]?.alias.email || '');
-  const current = aliases.find((a) => a.alias.email === selected);
-  const providerSig = current?.alias.providerSignatureHtml || '';
+  const sorted = [...accounts].sort((a, b) => a.order - b.order);
+  const [accId, setAccId] = useState(() => sorted.find((a) => a.aliases.some((x) => x.email === s.defaultFromEmail))?.id || sorted[0]?.id);
+  const acc = sorted.find((a) => a.id === accId) || sorted[0];
+  const aliases = acc ? (acc.aliases.length ? acc.aliases : [{ email: acc.email, name: acc.displayName, isDefault: true }]) : [];
+  const [selected, setSelected] = useState(() => aliases.find((x) => x.isDefault)?.email || aliases[0]?.email || '');
+  const pick = (id: string) => {
+    const a = sorted.find((x) => x.id === id);
+    setAccId(id);
+    setSelected((a?.aliases.find((x) => x.isDefault) || a?.aliases[0])?.email || a?.email || '');
+  };
+  const current = aliases.find((x) => x.email === selected);
+  const providerSig = current?.providerSignatureHtml || '';
   const value = selected in s.signatures ? s.signatures[selected] : providerSig;
+  const modes = (acc && s.signatureModes[acc.id]) || {};
+  const setMode = (k: 'replies' | 'forwards', v: 'same' | 'none') => acc && s.set({ signatureModes: { ...s.signatureModes, [acc.id]: { ...modes, [k]: v } } });
+  const reload = () => { const keep = selected; setSelected(''); setTimeout(() => setSelected(keep)); };
   return (
     <>
       <h1>Signatures &amp; Addresses</h1>
-      <section className="set-section">
-        <h2>Default From address</h2>
-        <p className="hint">Used for new emails from All Inboxes. Replies always go from whichever address the email was sent to.</p>
-        <Row label="Send new emails from" htmlFor="def-from">
-          <select id="def-from" value={s.defaultFromEmail} onChange={(e) => s.set({ defaultFromEmail: e.target.value })}>
-            {aliases.map(({ alias, account }) => <option key={alias.email} value={alias.email}>{alias.email} ({account.label})</option>)}
-          </select>
-        </Row>
+      <section className="set-section acct-section">
+        {/* Like Accounts: accounts on the left; the address and its signature on the right. */}
+        <div className="acct-md">
+          <div className="acct-list" role="listbox" aria-label="Accounts">
+            {sorted.map((a) => (
+              <button key={a.id} role="option" aria-selected={acc?.id === a.id} className={`acct-item ${acc?.id === a.id ? 'on' : ''}`} onClick={() => pick(a.id)}>
+                <span className="dot" style={{ background: a.colour }} />
+                <span className="acct-item-name">{a.label || a.email}</span>
+                {a.aliases.length > 1 ? <span className="acct-count">{a.aliases.length}</span> : <span />}
+              </button>
+            ))}
+          </div>
+          {acc ? (
+            <div className="acct-detail">
+              <label className="sig-addr">
+                <span className="sr-only">Address</span>
+                <select value={selected} onChange={(e) => setSelected(e.target.value)} aria-label="Address">
+                  {aliases.map((x) => <option key={x.email} value={x.email}>{x.name ? `${x.name} <${x.email}>` : x.email}</option>)}
+                </select>
+              </label>
+              <p className="hint" style={{ margin: '4px 0 12px' }}>{aliases.length > 1 ? `${acc.label} can send from ${aliases.length} addresses. Each has its own signature.` : 'More addresses for this account are added in Gmail\'s own settings (Send mail as), then appear here.'}</p>
+              {selected && <SignatureEditor key={selected} email={selected} initial={value} onChange={(html) => s.set({ signatures: { ...useSettings.getState().signatures, [selected]: html } })} />}
+              <div style={{ display: 'flex', gap: 8, margin: '10px 0 4px', flexWrap: 'wrap' }}>
+                {selected in s.signatures && current?.providerSignatureHtml !== undefined && <button className="btn ghost" onClick={() => { const next = { ...s.signatures }; delete next[selected]; s.set({ signatures: next }); reload(); }}>Use Gmail's signature</button>}
+                <button className="btn ghost" onClick={() => { s.set({ signatures: { ...s.signatures, [selected]: '' } }); reload(); }}>No signature</button>
+              </div>
+              <div className="acct-sum" style={{ marginTop: 10 }}>
+                <div className="acct-sum-row static"><span className="k">Replies</span><span className="v" /><select aria-label="Signature on replies" value={modes.replies || 'same'} onChange={(e) => setMode('replies', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
+                <div className="acct-sum-row static"><span className="k">Forwards</span><span className="v" /><select aria-label="Signature on forwards" value={modes.forwards || 'same'} onChange={(e) => setMode('forwards', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
+                <label className="acct-sum-row static"><span className="k">Use for new emails</span><span className="v" title="New emails from All Inboxes start from this address. Replies always go from the address the email came to." /><input type="checkbox" role="switch" className="switch" checked={s.defaultFromEmail === selected} onChange={(e) => e.target.checked && s.set({ defaultFromEmail: selected })} /></label>
+              </div>
+            </div>
+          ) : <div className="acct-detail empty">Add an account to set signatures.</div>}
+        </div>
       </section>
       <section className="set-section">
-        <h2>Signatures</h2>
-        <p className="hint">Each address can have its own. Gmail signatures are pulled in automatically; edit here to override.</p>
-        <Row label="Address" htmlFor="sig-addr">
-          <select id="sig-addr" value={selected} onChange={(e) => setSelected(e.target.value)}>
-            {aliases.map(({ alias, account }) => <option key={alias.email} value={alias.email}>{alias.email} ({account.label})</option>)}
-          </select>
-        </Row>
-        {selected && <SignatureEditor key={selected} email={selected} initial={value} onChange={(html) => s.set({ signatures: { ...useSettings.getState().signatures, [selected]: html } })} />}
-        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-          {selected in s.signatures && <button className="btn ghost" onClick={() => { const next = { ...s.signatures }; delete next[selected]; s.set({ signatures: next }); setSelected(''); setTimeout(() => setSelected(selected)); }}>Use Gmail's signature</button>}
-          <button className="btn ghost" onClick={() => { s.set({ signatures: { ...s.signatures, [selected]: '' } }); setSelected(''); setTimeout(() => setSelected(selected)); }}>No signature</button>
-        </div>
-        <Row label="Place signature">
+        <h2>Everywhere</h2>
+        <Row label="Place the signature">
           <Radio name="sigplace" value={s.signaturePlacement} onChange={(v) => s.set({ signaturePlacement: v })} options={[{ value: 'above', label: 'Above the quoted email' }, { value: 'below', label: 'Below the quoted email' }]} />
         </Row>
-      </section>
-      <section className="set-section">
-        <h2>Send as addresses</h2>
-        <p className="hint">These come from each Gmail account's "Send mail as" setting. Add new aliases in Gmail on the web, then press Resync on the account.</p>
-        {accounts.map((a) => (
-          <div key={a.id} style={{ marginBottom: 10 }}>
-            <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><span className="dot" style={{ background: a.colour }} />{a.label}</div>
-            {a.aliases.map((al) => <div key={al.email} style={{ paddingLeft: 16, color: 'var(--text-muted)' }}>{al.name} &lt;{al.email}&gt;{al.isDefault ? ' · default' : ''}</div>)}
-          </div>
-        ))}
       </section>
     </>
   );
@@ -648,6 +682,7 @@ function AppearanceTab() {
   const systemDark = typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches;
   const mode = s.theme === 'system' ? (systemDark ? 'dark' : 'light') : s.theme;
   const activeId = mode === 'dark' ? s.darkSkin : s.lightSkin;
+  const [showLooks, setShowLooks] = useState(false);
   const choose = (k: Skin) => {
     s.set({ ...(k.mode === 'dark' ? { darkSkin: k.id } : { lightSkin: k.id }), ...(s.theme !== 'system' ? { theme: k.mode } : {}), accent: k.accent });
     applyPalette(s.colourBlindAccounts ? 'accessible' : `skin-${k.id}`);
@@ -673,8 +708,9 @@ function AppearanceTab() {
       </div>
       <section className="set-section">
         <div className="set-h2-row"><h2>Colour theme</h2>{partReset('Colour theme', { theme: d0.theme, accent: d0.accent, darkSkin: d0.darkSkin, lightSkin: d0.lightSkin, colourBlindAccounts: d0.colourBlindAccounts })}</div>
-        <p className="hint">Each theme changes the whole look and brings its own account colours. Pick one, then change any colour you like.</p>
-        <div className="skin-grid">
+        <p className="hint">Each look changes the whole app and brings its own account colours. Pick one, then change any colour you like.</p>
+        <button className="btn look-toggle" aria-expanded={showLooks} onClick={() => setShowLooks(!showLooks)}>{SKINS.find((k) => k.id === activeId)?.name || 'Choose a look'} <Icon name={showLooks ? 'chevronDown' : 'chevronRight'} size={13} /></button>
+        {showLooks && <div className="skin-grid">
           {SKINS.map((k) => (
             <button key={k.id} className={`skin-tile ${k.id === activeId ? 'on' : ''}`} aria-pressed={k.id === activeId} onClick={() => choose(k)}>
               <span className="skin-sw" style={{ background: k.vars['--bg'] || (k.mode === 'dark' ? '#1c1c1e' : '#ffffff') }}>
@@ -684,7 +720,7 @@ function AppearanceTab() {
               <small>{k.blurb}</small>
             </button>
           ))}
-        </div>
+        </div>}
       </section>
       {/* Every colour choice in one calm card, one row each, instead of separate rows of dots across the page. */}
       <section className="set-section">
@@ -850,12 +886,6 @@ function WritingTab() {
         <Check checked={s.warnings.manyRecipients} onChange={(v) => s.set({ warnings: { ...s.warnings, manyRecipients: v } })}>Sending to more than 10 people</Check>
         <Check checked={s.warnings.fromMismatch} onChange={(v) => s.set({ warnings: { ...s.warnings, fromMismatch: v } })}>Replying from a different address than the email was sent to</Check>
       </section>
-      <section className="set-section">
-        <h2>Sidebar</h2>
-        <p className="hint">Right click anything in the sidebar (or use its ⋯ button) to add it to Favourites or hide it. Drag items into Favourites to pin them, and drag them out to remove them.</p>
-        <button className="btn" onClick={() => s.set({ favourites: ['all|inbox', 'all|vip', 'all|flagged'] })}>Reset Favourites</button>{' '}
-        <button className="btn" disabled={!s.hiddenItems.length} onClick={() => s.set({ hiddenItems: [] })}>Show all hidden items ({s.hiddenItems.length})</button>
-      </section>
     </>
   );
 }
@@ -935,8 +965,9 @@ function RemindersTab() {
   const s = useSettings();
   return (
     <>
-      <h1>Reminders</h1>
+      <h1>Calendar &amp; Reminders</h1>
       <section className="set-section">
+        <h2>Calendar</h2>
         <Row label="Week starts on" htmlFor="weekstart">
           <select id="weekstart" value={s.weekStart} onChange={(e) => s.set({ weekStart: e.target.value as 'monday' | 'sunday' })}>
             <option value="monday">Monday</option>
@@ -951,6 +982,11 @@ function RemindersTab() {
             <span className="work-hours"><input id="workfrom" type="time" value={s.workHours.from} onChange={(e) => s.set({ workHours: { ...s.workHours, from: e.target.value } })} /> to <input type="time" aria-label="Working hours end" value={s.workHours.to} onChange={(e) => s.set({ workHours: { ...s.workHours, to: e.target.value } })} /></span>
           </Row>
         )}
+        <Check checked={s.suggestEvents} onChange={(v) => s.set({ suggestEvents: v })}>Offer to add dates and times from emails to my calendar</Check>
+        <p className="hint" style={{ margin: '4px 0 0' }}>Only for emails from people, with a clear day and time. Read on this computer, with no AI.{s.suggestMuted.length > 0 && <> {s.suggestMuted.length} sender{s.suggestMuted.length === 1 ? '' : 's'} never suggested: <button className="link-btn" onClick={() => s.set({ suggestMuted: [] })}>Allow again</button></>}</p>
+      </section>
+      <section className="set-section">
+        <h2>Reminders</h2>
         <p className="hint">Reminders always collect in the Reminders list. These settings only control interruptions.</p>
         <Radio name="remmode" value={s.reminderMode} onChange={(v) => s.set({ reminderMode: v })} options={[
           { value: 'never', label: 'Never pop up', sub: 'Just add them to the list. Check it when you want.' },
@@ -961,7 +997,6 @@ function RemindersTab() {
         {(s.reminderMode === 'daily' || s.reminderMode === 'important') && (
           <Row label="Summary time" htmlFor="sumtime"><input id="sumtime" type="time" value={s.summaryTime} onChange={(e) => s.set({ summaryTime: e.target.value })} /></Row>
         )}
-        <Check checked={s.flashTaskbar} onChange={(v) => s.set({ flashTaskbar: v })}>Flash the taskbar icon for reminders and new mail when the app is in the background</Check>
         <h3 className="sub-head">Video meeting notifications</h3>
         <p className="hint">For events that have a Teams, Zoom or Google Meet link. Pick a time from the list, or type your own number of minutes. Other events use the reminder time set in your calendar.</p>
         <div className="min-grid"><div className="min-row"><Check checked={s.meetingAlert1On} onChange={(v) => s.set({ meetingAlert1On: v })}>First notification</Check><MinutesPicker label="First notification" value={s.meetingAlert1Mins} onChange={(n) => s.set({ meetingAlert1Mins: n })} /><span>before</span></div>
@@ -985,11 +1020,6 @@ function NotificationsTab() {
   return (
     <>
       <h1>Notifications</h1>
-      <section className="set-section">
-        <h2>Suggested events</h2>
-        <Check checked={s.suggestEvents} onChange={(v) => s.set({ suggestEvents: v })}>Offer to add dates and times from emails to my calendar</Check>
-        <p className="hint" style={{ margin: '4px 0 0' }}>Only for emails from people (not newsletters or receipts), and only when there's a clear day and time. Read on this computer, with no AI. Nothing is added unless you click.{s.suggestMuted.length > 0 && <> {s.suggestMuted.length} sender{s.suggestMuted.length === 1 ? '' : 's'} never suggested: <button className="link-btn" onClick={() => s.set({ suggestMuted: [] })}>Allow again</button></>}</p>
-      </section>
       <section className="set-section">
         <h2>New mail</h2>
         <Radio name="newmail" value={s.newMailAlerts} onChange={(v) => s.set({ newMailAlerts: v })} options={[
@@ -1179,11 +1209,10 @@ function OfflineTab() {
   const opts = RANGE_OPTS;
   return (
     <>
-      <h1>Search &amp; Storage</h1>
+      <h1>Storage</h1>
       <AttachmentsSection />
       <section className="set-section">
         <h2>Moving to another computer</h2>
-        <Check checked={s.syncSettings} onChange={(v) => { s.set({ syncSettings: v }); if (v) enableSettingsSync(); }}>Keep my settings the same on every computer (uses a small file in your Google Drive)</Check>
         <p className="hint">Export saves the mail kept on this PC into one file (no passwords in it). Import reads that file on another computer so it doesn't have to download everything again. Sign in to your accounts there as usual, then import: each account only fetches what's new.</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn" onClick={() => exportCache().catch((e) => toast({ text: `Export failed: ${e instanceof Error ? e.message : e}` }))}>Export mail cache...</button>
@@ -1220,19 +1249,6 @@ function OfflineTab() {
             {opts.map((o) => <option key={String(o.v)} value={String(o.v)}>{o.l}</option>)}
           </select>
         </Row>
-      </section>
-      <section className="set-section">
-        <h2>Checking for mail</h2>
-        <Row label="Check every" htmlFor="poll">
-          <select id="poll" value={s.pollSeconds} onChange={(e) => { s.set({ pollSeconds: Number(e.target.value) }); setTimeout(restartPolling); }}>
-            {[15, 30, 60, 120, 300].map((n) => <option key={n} value={n}>{n < 60 ? `${n} seconds` : `${n / 60} minute${n > 60 ? 's' : ''}`}</option>)}
-          </select>
-        </Row>
-        <p className="hint">You can also press F5 or the refresh button any time.</p>
-      </section>
-      <section className="set-section">
-        <h2>Search tips</h2>
-        <p className="hint">Type words to search everything. You can also use from:isla, to:euan, has:attachment, is:unread, is:flagged, after:2026-01-01 and before:2026-06-30.</p>
       </section>
     </>
   );
@@ -1463,11 +1479,6 @@ function UpdatesTab() {
         )}
         <Check checked={s.autoUpdate} onChange={(v) => s.set({ autoUpdate: v })}>Download updates in the background (installs when the app opens, or when you choose Restart)</Check>
         <Check checked={onBeta || s.testVersionNotices} onChange={(v) => { if (!onBeta) s.set({ testVersionNotices: v }); }}>Tell me about test versions{onBeta ? ' (always on while you are on a test version)' : ''}</Check>
-      </section>
-      <section className="set-section">
-        <h2>Startup and window</h2>
-        <Check checked={s.startWithWindows} onChange={(v) => { s.set({ startWithWindows: v }); setAutostart(v); }}>Start with Windows (sits quietly in the tray)</Check>
-        <Check checked={s.closeQuits} onChange={(v) => { s.set({ closeQuits: v }); setCloseQuits(v); }}>The close button quits the app (otherwise it keeps running in the tray, so mail and reminders still arrive)</Check>
       </section>
       <UpdateLog />
       <p className="hint" style={{ marginTop: 18 }}>© 2026 Well Good Media Ltd. Free and open source under the MIT licence. <button className="link-btn" onClick={() => openExternal('https://github.com/wellgoodtodd/well-good-mail/blob/main/LICENSE')}>Read the licence</button></p>

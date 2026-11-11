@@ -1,4 +1,5 @@
 // The main window and pop out windows.
+import { openHelp } from './components/Help';
 import { useSaves, openSaved, showSaved, clearSaves, markSavesSeen } from './lib/saves';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './components/Icon';
@@ -221,7 +222,7 @@ function MovingChecklist({ configured, onAdd }: { configured: boolean; onAdd: (e
         <span className="move-num" aria-hidden>{configured ? <Icon name="check" size={13} /> : 1}</span>
         <div className="move-body">
           <strong>Restore your Google key</strong>
-          <span>{configured ? (restored ? 'Restored from your backup.' : 'Your Google key is already on this computer.') : 'On your old computer: Settings, Search & Storage, Back up my keys. Then choose that file here. Microsoft, iCloud and other email need no key.'}</span>
+          <span>{configured ? (restored ? 'Restored from your backup.' : 'Your Google key is already on this computer.') : 'On your old computer: Settings, Storage, Back up my keys. Then choose that file here. Microsoft, iCloud and other email need no key.'}</span>
           {error && <span className="status-bad" role="alert">{error}</span>}
           {!configured && (
             <div className="move-actions">
@@ -244,7 +245,7 @@ function MovingChecklist({ configured, onAdd }: { configured: boolean; onAdd: (e
         <span className="move-num" aria-hidden>3</span>
         <div className="move-body">
           <strong>Bring your mail across (optional)</strong>
-          <span>On your old computer: Settings, Search & Storage, Export. Once you've signed in here, Import it from the same place, so nothing has to download twice.</span>
+          <span>On your old computer: Settings, Storage, Export. Once you've signed in here, Import it from the same place, so nothing has to download twice.</span>
         </div>
       </li>
     </ol>
@@ -295,6 +296,7 @@ function SearchBox() {
           if (e.key === 'Enter') runSearch(text);
         }}
       />
+      <button type="button" className="search-help" title="Search tips" aria-label="Search tips" onClick={(e) => { e.preventDefault(); openHelp('search tips'); }}><Icon name="help" size={14} /></button>
       {view.mailbox.kind === 'search' && view.mailbox.within && (
         <button type="button" className="search-widen" title="Search all your mail instead" onClick={(e) => { e.preventDefault(); runSearch(text, { everywhere: true }); }}>Search all mail</button>
       )}

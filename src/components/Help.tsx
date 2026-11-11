@@ -1,6 +1,6 @@
 // Help: a stack of cards, one for each subject. Click a card to open it (the one before closes), and the questions are
 // inside. The search box looks through everything and opens whatever matches.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { useMail, openScreen } from '../lib/mail';
 import { openExternal } from '../lib/platform';
@@ -8,9 +8,17 @@ import { countItems, searchHelp } from '../lib/helpTopics';
 
 const ISSUES = 'https://github.com/wellgoodtodd/well-good-mail/issues';
 
+let nextQuery = '';
+/** Opens Help already searching for something, like "search tips". */
+export function openHelp(query = '') {
+  nextQuery = query;
+  useMail.setState({ screen: 'help' });
+}
+
 export function Help() {
   const accounts = useMail((s) => s.accounts);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(nextQuery);
+  useEffect(() => { nextQuery = ''; }, []);
   const [openId, setOpenId] = useState<string | null>(null);
   const topics = searchHelp(query);
   const found = countItems(topics);

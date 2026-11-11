@@ -5,7 +5,7 @@ import { openSmartEditor } from './SmartMailboxEditor';
 import { listTime, useMenu, snoozeOptions, avatarColour, initials, type MenuItem } from './ui';
 import { setFilters, activeFilterCount, NO_FILTERS, type ListFilters } from '../lib/mail';
 import type { Account, Message } from '../lib/types';
-import { useMail, messagesInThread, runSearch, selectThread, archive, trash, toggleFlag, snooze, idsForKeys, markRead, adoptRemote, providerFor } from '../lib/mail';
+import { useMail, messagesInThread, runSearch, selectThread, archive, trash, toggleFlag, snooze, idsForKeys, markRead, adoptRemote, providerFor, warmBodies, warmAfterStart } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { useViewList } from '../lib/useList';
 import { threadKey, viewTitle, inSystemFolder, type ListItem } from '../lib/mailbox';
@@ -78,6 +78,8 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
     scrollTimer.current = setTimeout(() => el.classList.remove('scrolling'), 350);
   };
   const mine = useMemo(() => myAddresses(accounts), [accounts]);
+  const warmTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => { if (accounts.length) warmAfterStart(); }, [accounts.length]);
   // Your sent emails by conversation, for the replied and forwarded marks.
   const allMessages = useMail((s) => s.messages);
   const sent = useMemo(() => sentByThread(Object.values(allMessages), mine), [allMessages, mine]);
@@ -186,6 +188,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
         className={`row ${item.unread ? 'unread' : ''} ${selected ? 'selected' : ''} `}
         onClick={(e) => onClick(e, item, list)}
         onDoubleClick={() => (isDraftMsg(m) ? editServerDraft(m) : popoutMessage(key))}
+        onMouseEnter={() => { clearTimeout(warmTimer.current); warmTimer.current = setTimeout(() => warmBodies(item.thread.slice(0, 3).map((x) => x.id), { first: true }), 120); }}
         onContextMenu={(e) => {
           e.preventDefault();
           const keys = selectedKeys.includes(key) ? selectedKeys : [key];

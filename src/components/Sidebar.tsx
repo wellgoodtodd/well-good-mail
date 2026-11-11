@@ -8,6 +8,7 @@ import { Icon, type IconName } from './Icon';
 import { useMenu, type MenuItem } from './ui';
 import { useSettings, type Settings } from '../lib/settings';
 import { useSettingsAlerts } from '../lib/alerts';
+import { useUpdates } from '../lib/updater';
 import { useMail, setView, openScreen, providerFor, archive, trash, markSpam, moveToInbox, moveToLabel, idsForKeys, reconnectAccount, markViewRead, toast, syncAccount, editAccount } from '../lib/mail';
 import { ColourPicker } from './ColourPicker';
 import { addAccountItems } from '../lib/accountMenu';
@@ -468,23 +469,17 @@ export function Sidebar({ width }: { width: number }) {
   const view = useMail((s) => s.view);
   const screen = useMail((s) => s.screen);
   const snoozes = useMail((s) => s.snoozes);
-  const events = useMail((s) => s.events);
-  const followups = useMail((s) => s.followups);
-  const dismissed = useMail((s) => s.dismissed);
   const s = useSettings();
   const counts = useCounts();
-  const alerts = useSettingsAlerts();
   const menu = useMenu();
   const [favDrop, setFavDrop] = useState<number | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
   const pickColour = (accountId: string, anchor: { x: number; y: number }) => setPicker({ accountId, anchor });
-  const hiddenCals = useSettings((s) => s.hiddenCalendars);
   const aiDrafts = useAiDrafts((s) => s.list);
   const draftFilter = useAiDrafts((s) => s.filter);
   const allMessages = useDeferredValue(useMail((st) => st.messages));
   const [showHiddenSmart, setShowHiddenSmart] = useState(false);
-  const scheduledCount = useMail((m) => m.outbox.filter((o) => o.kind === 'scheduled').length);
   // Unread count for each Smart Mailbox, worked out once per change rather than on every render.
   const smartUnread = useMemo(() => {
     const boxes = s.smartMailboxes || [];
@@ -499,8 +494,6 @@ export function Sidebar({ width }: { width: number }) {
     return out;
   }, [allMessages, s.smartMailboxes, s.vips, accounts]);
   const aiOn = useSettings((s) => Boolean(s.mcp?.enabled));
-  const alertsMode = useSettings((s) => s.hiddenCalendarsAlerts);
-  const reminderCount = useMemo(() => dueReminders(events, followups, dismissed, Date.now(), alertMute({ hiddenCalendars: hiddenCals, hiddenCalendarsAlerts: alertsMode })).length, [events, followups, dismissed, hiddenCals, alertsMode]);
 
   const ctx = { accounts, folders, groups: s.groups, counts, badges: s.badges, badgeHidden: new Set(s.badgeHidden), names: s.sidebarNames };
   const hidden = new Set(s.hiddenItems);
@@ -762,28 +755,7 @@ s.groups.length > 0 && (
       )}
 
       </div>
-      <div className="side-footer">
-        <div className="side-row">
-          <button className={`side-item ${screen === 'scheduled' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'scheduled' ? 'mail' : 'scheduled')}>
-            <Icon name="clock" /><span className="name">Scheduled</span>{scheduledCount ? <span className="count">{scheduledCount}</span> : null}
-          </button>
-        </div>
-        <div className="side-row">
-          <button className={`side-item ${screen === 'reminders' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'reminders' ? 'mail' : 'reminders')}>
-            <Icon name="bell" /><span className="name">Reminders</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}
-          </button>
-        </div>
-        <div className="side-row">
-          <button className={`side-item ${screen === 'help' ? 'selected' : ''}`} onClick={() => openScreen('help')}>
-            <Icon name="help" /><span className="name">Help</span>
-          </button>
-        </div>
-        <div className="side-row">
-          <button className={`side-item ${screen === 'settings' ? 'selected' : ''}`} onClick={() => openScreen('settings')}>
-            <Icon name="settings" /><span className="name">Settings</span>{alerts.any ? <span className="attn-dot" title={Object.values(alerts.tabs).join('. ')} aria-label={Object.values(alerts.tabs).join('. ')} /> : null}
-          </button>
-        </div>
-      </div>
+      <SideFooter />
       {menu.node}
       {picker && (
         <ColourPicker
@@ -806,4 +778,56 @@ function textOn(hex: string): string {
   const lin = (c: number) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
   const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
   return L > 0.36 ? '#2a1a14' : '#ffffff';
+}
+
+/**
+ * The shortcuts at the bottom of the sidebar, the same on every screen: Scheduled, Reminders, Help & Feedback and
+ * Settings. In Settings, the Settings line gives way to the version number.
+ */
+export function SideFooter({ inSettings }: { inSettings?: boolean }) {
+  const screen = useMail((s) => s.screen);
+  const scheduledCount = useMail((m) => m.outbox.filter((o) => o.kind === 'scheduled').length);
+  const reminderCount = useReminderCount();
+  const alerts = useSettingsAlerts();
+  const version = useUpdates((u) => u.currentVersion);
+  return (
+    <div className="side-footer">
+      <div className="side-row">
+        <button className={`side-item ${screen === 'scheduled' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'scheduled' ? 'mail' : 'scheduled')}>
+          <Icon name="clock" /><span className="name">Scheduled</span>{scheduledCount ? <span className="count">{scheduledCount}</span> : null}
+        </button>
+      </div>
+      <div className="side-row">
+        <button className={`side-item ${screen === 'reminders' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'reminders' ? 'mail' : 'reminders')}>
+          <Icon name="bell" /><span className="name">Reminders</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}
+        </button>
+      </div>
+      <div className="side-row">
+        <button className={`side-item ${screen === 'help' ? 'selected' : ''}`} onClick={() => openScreen('help')}>
+          <Icon name="help" /><span className="name">Help &amp; Feedback</span>
+        </button>
+      </div>
+      <div className="side-row">
+        {inSettings ? (
+          <button className="side-item side-version" onClick={() => useMail.setState({ settingsTab: 'updates' })} title="Updates">
+            <span className="name">Version {version || '...'}</span>{alerts.tabs.updates ? <span className="attn-dot" title={alerts.tabs.updates} aria-label={alerts.tabs.updates} /> : null}
+          </button>
+        ) : (
+          <button className={`side-item ${screen === 'settings' ? 'selected' : ''}`} onClick={() => openScreen('settings')}>
+            <Icon name="settings" /><span className="name">Settings</span>{alerts.any ? <span className="attn-dot" title={Object.values(alerts.tabs).join('. ')} aria-label={Object.values(alerts.tabs).join('. ')} /> : null}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** How many reminders are waiting, for the count beside Reminders. */
+function useReminderCount() {
+  const events = useMail((s) => s.events);
+  const followups = useMail((s) => s.followups);
+  const dismissed = useMail((s) => s.dismissed);
+  const hiddenCals = useSettings((s) => s.hiddenCalendars);
+  const alertsMode = useSettings((s) => s.hiddenCalendarsAlerts);
+  return useMemo(() => dueReminders(events, followups, dismissed, Date.now(), alertMute({ hiddenCalendars: hiddenCals, hiddenCalendarsAlerts: alertsMode })).length, [events, followups, dismissed, hiddenCals, alertsMode]);
 }
