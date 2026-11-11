@@ -1,27 +1,42 @@
 // Spelling suggestions for the right-click menu in a message. The red underline comes from Windows; this finds the
-// right word. British English (the -ise dictionary from wordlist.sourceforge.net), loaded the first time it's
-// needed, plus your own words from Add to dictionary.
+// right word. British, American, Canadian or Australian English (Hunspell dictionaries from wordlist.sourceforge.net,
+// MIT and BSD), whichever is chosen in Settings, Composing. Only that one is loaded, the first time it's needed,
+// plus your own words from Add to dictionary.
 import { settings, useSettings } from './settings';
 
-interface Speller { correct(word: string): boolean; suggest(word: string): string[]; add(word: string): Speller }
+interface Speller { correct(word: string): boolean; suggest(word: string): string[]; add(word: string): unknown }
+export type SpellLang = 'en-GB' | 'en-US' | 'en-CA' | 'en-AU';
 
-let speller: Speller | null = null;
-let loading: Promise<Speller | null> | null = null;
+export const SPELL_LANGS: { id: SpellLang; name: string }[] = [
+  { id: 'en-GB', name: 'English (UK)' },
+  { id: 'en-US', name: 'English (US)' },
+  { id: 'en-CA', name: 'English (Canada)' },
+  { id: 'en-AU', name: 'English (Australia)' },
+];
 
-/** Loads the dictionary (once). Resolves null if it can't. */
-export function loadSpeller(): Promise<Speller | null> {
-  if (speller) return Promise.resolve(speller);
-  loading ??= Promise.all([
-    import('../assets/dict/en-GB.aff?raw'),
-    import('../assets/dict/en-GB.dic?raw'),
-    import('nspell'),
-  ]).then(([aff, dic, nspell]) => {
-    const make = (nspell as unknown as { default: (d: { aff: string; dic: string }) => Speller }).default;
-    speller = make({ aff: aff.default, dic: dic.default });
-    for (const w of settings().spellWords || []) speller.add(w);
-    return speller;
-  }).catch(() => null);
-  return loading;
+// Each dictionary is its own small download inside the app, fetched only when it's the one in use.
+const FILES: Record<SpellLang, () => Promise<[{ default: string }, { default: string }]>> = {
+  'en-GB': () => Promise.all([import('../assets/dict/en-GB.aff?raw'), import('../assets/dict/en-GB.dic?raw')]),
+  'en-US': () => Promise.all([import('../assets/dict/en-US.aff?raw'), import('../assets/dict/en-US.dic?raw')]),
+  'en-CA': () => Promise.all([import('../assets/dict/en-CA.aff?raw'), import('../assets/dict/en-CA.dic?raw')]),
+  'en-AU': () => Promise.all([import('../assets/dict/en-AU.aff?raw'), import('../assets/dict/en-AU.dic?raw')]),
+};
+
+const spellers = new Map<SpellLang, Promise<Speller | null>>();
+const lang = (): SpellLang => (settings().spellLang && FILES[settings().spellLang] ? settings().spellLang : 'en-GB');
+
+/** Loads the chosen dictionary (once each). Resolves null if it can't. */
+export function loadSpeller(which: SpellLang = lang()): Promise<Speller | null> {
+  let p = spellers.get(which);
+  if (!p) {
+    p = Promise.all([FILES[which](), import('nspell')]).then(([[aff, dic], nspell]) => {
+      const s = (nspell.default as unknown as (d: { aff: string; dic: string }) => Speller)({ aff: aff.default, dic: dic.default });
+      for (const w of settings().spellWords || []) s.add(w);
+      return s;
+    }).catch(() => null);
+    spellers.set(which, p);
+  }
+  return p;
 }
 
 const strip = (w: string) => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
@@ -39,7 +54,7 @@ export async function suggestFor(word: string): Promise<string[] | null> {
 export function addToDictionary(word: string) {
   const w = strip(word);
   if (!w) return;
-  speller?.add(w);
+  for (const p of spellers.values()) void p.then((s) => s?.add(w));
   const list = settings().spellWords || [];
   if (!list.includes(w)) useSettings.getState().set({ spellWords: [...list, w] });
 }

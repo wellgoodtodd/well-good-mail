@@ -406,7 +406,7 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
   const editor = useEditor({
     extensions: editorExtensions(),
     content: parts.own,
-    editorProps: { attributes: { spellcheck: 'true', lang: 'en-GB', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message', class: 'ai-rich' } },
+    editorProps: { attributes: { spellcheck: 'true', lang: useSettings.getState().spellLang || 'en-GB', role: 'textbox', 'aria-multiline': 'true', 'aria-label': 'Message', class: 'ai-rich' } },
     onUpdate: ({ editor: ed }) => change({ html: ed.getHTML() }),
     onBlur: () => void flush(),
   });

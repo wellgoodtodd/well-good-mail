@@ -181,7 +181,9 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   // Spelling underlines follow the setting, and change straight away when it is switched.
   useEffect(() => {
     editor?.view.dom.setAttribute('spellcheck', s.spellCheck ? 'true' : 'false');
-  }, [editor, s.spellCheck]);
+    // The language follows Settings, Composing, Spelling, so Windows' underlines match the suggestions.
+    editor?.view.dom.setAttribute('lang', s.spellLang || 'en-GB');
+  }, [editor, s.spellCheck, s.spellLang]);
 
   /** Where typing starts: in To when nobody is on the email yet (a forward or a new email), otherwise in the message. */
   const startTyping = (d: { to: unknown[]; cc: unknown[]; bcc: unknown[] }) => {
@@ -466,7 +468,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
       {showBcc && <RecipientField label="Bcc" value={draft.bcc} contacts={contacts} onAdd={(l) => addRecipients('bcc', l)} onRemove={(e) => removeRecipient('bcc', e)} />}
       <div className="comp-field">
         <label htmlFor={`subj-${draft.id}`}>Subject</label>
-        <input id={`subj-${draft.id}`} className="plain" value={draft.subject} onChange={(e) => update({ subject: e.target.value })} onKeyDown={(e) => { /* Tab goes straight to the message, past the formatting bar. */ if (e.key === 'Tab' && !e.shiftKey && editor) { e.preventDefault(); editor.commands.focus(); } }} spellCheck lang="en-GB" style={{ fontWeight: 600 }} />
+        <input id={`subj-${draft.id}`} className="plain" value={draft.subject} onChange={(e) => update({ subject: e.target.value })} onKeyDown={(e) => { /* Tab goes straight to the message, past the formatting bar. */ if (e.key === 'Tab' && !e.shiftKey && editor) { e.preventDefault(); editor.commands.focus(); } }} spellCheck lang={s.spellLang || 'en-GB'} style={{ fontWeight: 600 }} />
       </div>
 
       <FormatBar

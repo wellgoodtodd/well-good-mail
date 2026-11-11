@@ -11,6 +11,7 @@ import { useSettings, defaultSettings, type Settings as S } from '../lib/setting
 import { LEVEL_WORDS, tidy, CAPABILITIES, effectiveMode, type Mode } from '../lib/mcp/permissions';
 import { undoSteps, useHistory } from '../lib/history';
 import { signatureFor } from '../lib/compose';
+import { SPELL_LANGS } from '../lib/spell';
 import { composeContext } from '../lib/composeActions';
 import { oooSignIn, refreshOoo, turnOnOoo, turnOffOoo, oooToastResult } from '../lib/oooStore';
 import type { Account } from '../lib/types';
@@ -78,7 +79,7 @@ const SETTINGS_INDEX: [string, string, string?][] = [
   ['Inbox Groups', 'groups', 'groups'], ['Theme, light and dark', 'appearance', 'dark mode light colours skin'], ['Accent colour', 'appearance', 'colour'],
   ['Text size', 'access', 'bigger font zoom'], ['Interface font', 'appearance', 'font typeface'], ['Row spacing', 'access', 'density compact roomy'],
   ['Unread colour', 'appearance', 'unread'], ['Composing and writing font', 'writing', 'font compose'], ['Templates', 'writing', 'template canned'],
-  ['Undo send', 'writing', 'undo send delay'], ['Out of Office', 'ooo', 'vacation holiday auto reply away'],
+  ['Undo send', 'writing', 'undo send delay'], ['Spelling: UK, US, Canadian or Australian English', 'writing', 'spelling dictionary language american british us uk'], ['Out of Office', 'ooo', 'vacation holiday auto reply away'],
   ['New mail alerts', 'notifications', 'notifications sound'], ['Quiet hours', 'notifications', 'do not disturb night'], ['Reminders', 'calendar', 'calendar summary pop up meeting'],
   ['Week starts on', 'calendar', 'sunday monday calendar first day'], ['Week numbers, weekends and working hours', 'calendar', 'calendar week number weekend work'], ['Suggested events', 'calendar', 'add to calendar dates'],
   ['Open when Windows starts', 'general', 'startup start boot autostart'], ['Close button and the tray', 'general', 'quit tray close'], ['Check for new mail', 'general', 'poll refresh sync how often'], ['Same settings on every computer', 'general', 'sync drive'], ['Sidebar Favourites and hidden items', 'appearance', 'sidebar favourites hidden'],
@@ -997,6 +998,11 @@ function WritingTab() {
         </Row>
         <Check checked={s.popOutCompose} onChange={(v) => s.set({ popOutCompose: v })}>Always open replies in their own window</Check>
         <Check checked={s.spellCheck} onChange={(v) => s.set({ spellCheck: v })}>Underline spelling mistakes while I write</Check>
+        <Row label="Spelling" htmlFor="spelllang">
+          <select id="spelllang" value={s.spellLang} onChange={(e) => s.set({ spellLang: e.target.value as typeof s.spellLang })}>
+            {SPELL_LANGS.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+        </Row>
       </section>
       <section className="set-section">
         <h2>Warnings before sending</h2>
