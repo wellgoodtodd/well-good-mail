@@ -182,7 +182,7 @@ function RecentButton() {
   const use = (id: string, run: () => void) => { run(); useMail.setState({ notes: useMail.getState().notes.map((n) => (n.id === id ? { ...n, used: true } : n)) }); };
   return (
     <div className="dl-wrap">
-      <button className={`icon-btn dl-btn ${unseen ? 'new' : ''}`} title="Recent notes" aria-label="Recent notes" aria-expanded={open} onClick={() => { setOpen(!open); useMail.setState({ notesUnseen: false }); }}><Icon name="list" /></button>
+      <button className={`icon-btn dl-btn ${unseen ? 'new' : ''}`} title="Recent notes" aria-label="Recent notes" aria-expanded={open} onClick={() => { setOpen(!open); useMail.setState({ notesUnseen: false }); }}><Icon name="history" /></button>
       {open && (
         <>
           <ClickAway onClose={() => setOpen(false)} />
