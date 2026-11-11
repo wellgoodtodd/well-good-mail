@@ -17,7 +17,7 @@ export interface DraftGroup { id: string; name: string; colour?: string }
 export interface Settings {
   theme: ThemeSetting;
   accent: string;
-  density: 'compact' | 'comfortable';
+  density: 'compact' | 'comfortable' | 'roomy';
   textScale: number;
   panePosition: PanePosition;
   previewLines: 0 | 1 | 2 | 3;
@@ -130,6 +130,10 @@ export interface Settings {
   motion: 'system' | 'reduce';
   /** A bolder ring around whatever has keyboard focus. */
   focusRing: 'standard' | 'bold';
+  /** Links underlined in emails and the app, so they don't rely on colour alone. */
+  underlineLinks: boolean;
+  /** Clearer edges on buttons, boxes and cards. */
+  strongBorders: boolean;
   /** A card at the top of an email that mentions a future date and time, offering to add it to the calendar. */
   suggestEvents: boolean;
   /** Emails whose suggestion was answered with Not now. */
@@ -275,6 +279,8 @@ export const defaultSettings: Settings = {
   suggestEvents: true,
   motion: 'system',
   focusRing: 'standard',
+  underlineLinks: false,
+  strongBorders: false,
   suggestHidden: [],
   suggestMuted: [],
   oooDismissed: [],
@@ -308,7 +314,7 @@ const SETTING_NAMES: Record<string, string> = {
   hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
-  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders',
 };
 let lastStep: { id: string; keys: string; at: number } | null = null;
 

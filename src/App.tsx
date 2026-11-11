@@ -71,10 +71,14 @@ function useTheme() {
   const lightSkin = useSettings((s) => s.lightSkin);
   const motion = useSettings((s) => s.motion);
   const focusRing = useSettings((s) => s.focusRing);
+  const underlineLinks = useSettings((s) => s.underlineLinks);
+  const strongBorders = useSettings((s) => s.strongBorders);
   useEffect(() => {
     document.documentElement.dataset.motion = motion;
     document.documentElement.dataset.focus = focusRing;
-  }, [motion, focusRing]);
+    document.documentElement.dataset.links = underlineLinks ? 'underline' : 'plain';
+    document.documentElement.dataset.borders = strongBorders ? 'strong' : 'standard';
+  }, [motion, focusRing, underlineLinks, strongBorders]);
   const [systemDark, setSystemDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
     const mq = matchMedia('(prefers-color-scheme: dark)');

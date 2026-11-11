@@ -16,6 +16,8 @@ export interface RenderOptions {
   /** contentId -> data: URL for inline images we already have. */
   inlineImages: Record<string, string>;
   font: string;
+  /** Accessibility: underline every link. */
+  underlineLinks?: boolean;
 }
 
 export interface RenderResult {
@@ -176,7 +178,7 @@ export function renderEmail(bodyHtml: string | undefined, bodyText: string | und
       body { font-family: ${opts.font}, 'Segoe UI', system-ui, sans-serif; font-size: 15px; line-height: 1.55; color: #1d1d1f; background: #ffffff; padding: 14px 16px 24px; overflow-wrap: anywhere; }
       img { max-width: 100%; height: auto; }
       img.wgm-blocked { display: inline-block; min-width: 24px; min-height: 24px; background: repeating-linear-gradient(45deg,#f2f2f4,#f2f2f4 6px,#e9e9ec 6px,#e9e9ec 12px); border-radius: 4px; }
-      a { color: #0a66d8; }
+      a { color: #0a66d8; }${opts.underlineLinks ? ' a[href] { text-decoration: underline !important; }' : ''}
       a[data-wgm-mismatch] { outline: 2px solid #e5484d; outline-offset: 1px; border-radius: 2px; }
       blockquote { margin: 0 0 0 .8ex; border-left: 2px solid #c8c8cc; padding-left: 1ex; color: #555; }
       pre { white-space: pre-wrap; }

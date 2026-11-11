@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 import { Person } from './Person';
 import { EmailFrame } from './EmailFrame';
 import { InviteCard } from './InviteCard';
-import { AttachmentPeek, AttachmentPreview, previewKind } from './AttachmentPreview';
+import { AttachmentPeek, AttachmentPreview, FileCard, previewKind } from './AttachmentPreview';
 import { avatarColour, fileSize, fullDate, initials, useMenu } from './ui';
 import { renderEmail, plainTextOf } from '../lib/render';
 import { loadBody, refetchBody, looksGarbled, getAttachmentData, markRead, messagesInThread, useMail, unsubscribe, toggleVip, toast } from '../lib/mail';
@@ -109,7 +109,7 @@ export function MessageView({ message, expanded, onToggle }: { message: Message;
   const dark = darkOverride ?? (darkEmails && appDark);
 
   const rendered = useMemo(
-    () => (expanded && (loaded || message.bodyLoaded) ? renderEmail(message.bodyHtml, message.bodyText, { allowRemote, blockTrackers, dark, inlineImages: inline, font: readingFont }) : null),
+    () => (expanded && (loaded || message.bodyLoaded) ? renderEmail(message.bodyHtml, message.bodyText, { allowRemote, blockTrackers, dark, inlineImages: inline, font: readingFont, underlineLinks: useSettings.getState().underlineLinks }) : null),
     [expanded, loaded, message.bodyLoaded, message.bodyHtml, message.bodyText, allowRemote, blockTrackers, dark, inline, readingFont],
   );
   const onLinkHover = useCallback((h: { href: string; mismatch?: string } | null) => setHover(h), []);
@@ -260,7 +260,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
                 ...(isTauri() ? [{ label: 'Open in its own app', icon: 'popout' as const, onClick: () => openApp(a.id, a.filename, a.mimeType) }] : []),
                 { label: useSettings.getState().downloadFolder ? 'Save to downloads folder' : 'Save...', icon: 'download' as const, onClick: () => download(a.id, a.filename, a.mimeType) },
                 ...(attachments.length > 1 ? [{ label: `Save all ${attachments.length} to a folder...`, icon: 'folder' as const, onClick: saveAll }] : []),
-              ]); }} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); clearTimeout(peekTimer.current); if (canPreview && !big) peekTimer.current = setTimeout(() => setPeek({ i, rect }), 400); }} onMouseLeave={() => { clearTimeout(peekTimer.current); setPeek(null); }}>
+              ]); }} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); clearTimeout(peekTimer.current); if (!canPreview || !big) peekTimer.current = setTimeout(() => setPeek({ i, rect }), 400); }} onMouseLeave={() => { clearTimeout(peekTimer.current); setPeek(null); }}>
                 <button className="open" onClick={() => (canPreview ? (setPeek(null), setPreviewAt(i)) : isTauri() ? openApp(a.id, a.filename, a.mimeType) : download(a.id, a.filename, a.mimeType))} title={canPreview ? (big ? `Large file: click to preview ${a.filename}` : `Preview ${a.filename}`) : isTauri() ? `Open ${a.filename} in its own app` : `Save ${a.filename}`}>
                   <span className={`ftile ${fileTone(a)}`} aria-hidden="true">{fileTag(a)}</span>
                   <span className="info">
@@ -270,6 +270,9 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
                 </button>
                 {single && canPreview && <button className="btn small" onClick={() => { setPeek(null); setPreviewAt(i); }}>Preview</button>}
                 <button className="icon-btn" onClick={() => download(a.id, a.filename, a.mimeType)} title={`Save ${a.filename}`} aria-label={`Save ${a.filename}`}><Icon name="download" /></button>
+                {!canPreview && peek?.i === i && previewAt === null && (
+                  <FileCard item={a} at={peek.rect} onOpen={isTauri() ? () => { setPeek(null); void openApp(a.id, a.filename, a.mimeType); } : undefined} onSave={() => { setPeek(null); void download(a.id, a.filename, a.mimeType); }} />
+                )}
               </div>
             );
           })}
@@ -279,8 +282,8 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
         </div>
       )}
 
-      {peek && previewAt === null && attachments[peek.i] && <AttachmentPeek messageId={message.id} item={attachments[peek.i]} at={peek.rect} />}
-      {previewAt !== null && <AttachmentPreview messageId={message.id} items={attachments} start={previewAt} onClose={() => setPreviewAt(null)} />}
+      {peek && previewAt === null && attachments[peek.i] && previewKind(attachments[peek.i]) && <AttachmentPeek messageId={message.id} item={attachments[peek.i]} at={peek.rect} />}
+      {previewAt !== null && <AttachmentPreview messageId={message.id} items={attachments} start={previewAt} onClose={() => setPreviewAt(null)} onOpenApp={isTauri() ? (a) => void openApp(a.id, a.filename, a.mimeType) : undefined} />}
 
       {hover && (
         <div className={`link-status ${hover.mismatch ? 'bad' : ''}`}>

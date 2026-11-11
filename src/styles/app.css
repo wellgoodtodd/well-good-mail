@@ -4,6 +4,8 @@
 @import '@fontsource/inter/600.css';
 @import '@fontsource/inter/700.css';
 @import '@fontsource/rubik/400.css';
+@import '@fontsource/atkinson-hyperlegible/400.css';
+@import '@fontsource/atkinson-hyperlegible/700.css';
 @import '@fontsource/rubik/500.css';
 @import '@fontsource/rubik/700.css';
 
@@ -1472,3 +1474,25 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 /* AI Drafts: a draft's attachments (0.7.2 beta 2) */
 .ai-files { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
 .ai-file { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9em; color: var(--text-muted); }
+
+/* Word preview and the file card (0.7.2 beta 3) */
+.attview-body iframe.attview-doc { background: #fff; }
+.peek iframe.peek-doc { height: 300px; }
+.file-card { position: fixed; z-index: 50; width: 280px; padding: 12px; background: var(--bg-elev, var(--bg)); border: 1px solid var(--border-strong, var(--border)); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.35); font-size: 13px; cursor: default; }
+/* A bridge under the card, so moving the pointer from the attachment up onto it doesn't close it. */
+.file-card::after { content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 12px; }
+.file-card-top { display: flex; flex-direction: column; gap: 2px; }
+.file-card-name { font-weight: 600; overflow-wrap: anywhere; }
+.file-card-kind { color: var(--text-muted); font-size: 12px; }
+.file-card p { margin: 8px 0 10px; color: var(--text-muted); line-height: 1.4; }
+.file-card-actions { display: flex; gap: 8px; }
+
+/* Accessibility extras (0.7.2 beta 3) */
+.win-settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.density-roomy .row { padding-top: 13px; padding-bottom: 14px; }
+.density-roomy .side-item { padding-top: 9px; padding-bottom: 9px; min-height: 36px; }
+[data-links='underline'] a[href], [data-links='underline'] .link-btn { text-decoration: underline !important; }
+[data-borders='strong'] { --border: var(--border-strong); }
+[data-borders='strong'] .btn, [data-borders='strong'] input, [data-borders='strong'] select, [data-borders='strong'] textarea { border-color: var(--text-muted) !important; }
+.check-sub { display: block; color: var(--text-muted); font-size: 0.9em; margin-top: 1px; }
+.win-settings .btn { display: inline-flex; justify-content: center; text-align: center; }

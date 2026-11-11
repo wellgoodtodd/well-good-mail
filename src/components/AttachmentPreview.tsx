@@ -1,18 +1,21 @@
-// Quick look at an attachment without saving it: PDFs, pictures, text, audio and video open in a window inside the app.
+// Quick look at an attachment without saving it: PDFs, pictures, Word documents, text, audio and video open in a window inside the app.
 // The file is held in memory only, so nothing is written to disk and there is nothing to clean up.
 import { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { fileSize } from './ui';
 import { getAttachmentData, toast } from '../lib/mail';
 import { saveFile } from '../lib/platform';
+import { docxToHtml } from '../lib/docPreview';
+import { describeFile, isDocx } from '../lib/fileKinds';
 import type { AttachmentMeta } from '../lib/types';
 
-type Kind = 'pdf' | 'image' | 'text' | 'audio' | 'video';
+type Kind = 'pdf' | 'image' | 'text' | 'audio' | 'video' | 'word';
 
 export function previewKind(a: Pick<AttachmentMeta, 'mimeType' | 'filename'>): Kind | null {
   const m = a.mimeType.toLowerCase();
   const n = a.filename.toLowerCase();
   if (m === 'application/pdf' || n.endsWith('.pdf')) return 'pdf';
+  if (isDocx(a.filename, a.mimeType)) return 'word';
   if (m.startsWith('image/') && !m.includes('svg') && !m.includes('tiff')) return 'image';
   if (m.startsWith('audio/')) return 'audio';
   if (m.startsWith('video/')) return 'video';
@@ -20,24 +23,26 @@ export function previewKind(a: Pick<AttachmentMeta, 'mimeType' | 'filename'>): K
   return null;
 }
 
-export function AttachmentPreview({ messageId, items, start, onClose }: { messageId: string; items: AttachmentMeta[]; start: number; onClose: () => void }) {
+export function AttachmentPreview({ messageId, items, start, onClose, onOpenApp }: { messageId: string; items: AttachmentMeta[]; start: number; onClose: () => void; onOpenApp?: (a: AttachmentMeta) => void }) {
   const [at, setAt] = useState(start);
   const a = items[at];
   const kind = previewKind(a);
   const [url, setUrl] = useState<string>();
   const [text, setText] = useState<string>();
   const [bytes, setBytes] = useState<Uint8Array>();
+  const [doc, setDoc] = useState<string>();
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     let made: string | undefined;
-    setUrl(undefined); setText(undefined); setBytes(undefined); setFailed(false);
+    setUrl(undefined); setText(undefined); setBytes(undefined); setDoc(undefined); setFailed(false);
     getAttachmentData(messageId, a.id)
-      .then((data) => {
+      .then(async (data) => {
         if (cancelled) return;
         setBytes(data);
         if (kind === 'text') return setText(new TextDecoder().decode(data.slice(0, 400_000)));
+        if (kind === 'word') { const html = await docxToHtml(data); if (!cancelled) setDoc(html); return; }
         made = URL.createObjectURL(new Blob([data as BlobPart], { type: a.mimeType }));
         setUrl(made);
       })
@@ -77,12 +82,14 @@ export function AttachmentPreview({ messageId, items, start, onClose }: { messag
             </>
           )}
           <button className="btn" onClick={save} disabled={!bytes}><Icon name="download" /> Save</button>
+          {onOpenApp && kind === 'word' && <button className="btn primary" onClick={() => onOpenApp(a)}>Open in {describeFile(a.filename).app || 'its own app'}</button>}
           <button className="icon-btn" aria-label="Close preview" onClick={onClose}><Icon name="close" /></button>
         </div>
         <div className="attview-body">
           {failed ? <div className="empty">Couldn't load this file</div>
             : !kind ? <div className="empty">No preview for this kind of file. Use Save to keep it.</div>
             : kind === 'text' ? (text === undefined ? <div className="empty">Loading...</div> : <pre className="attview-text">{text}</pre>)
+            : kind === 'word' ? (doc === undefined ? <div className="empty">Loading...</div> : <iframe className="attview-doc" title={a.filename} sandbox="" srcDoc={doc} />)
             : !url ? <div className="empty">Loading...</div>
             : kind === 'pdf' ? <iframe title={a.filename} src={url} />
             : kind === 'image' ? <img src={url} alt={a.filename} />
@@ -99,15 +106,17 @@ export function AttachmentPeek({ messageId, item, at }: { messageId: string; ite
   const kind = previewKind(item);
   const [url, setUrl] = useState<string>();
   const [text, setText] = useState<string>();
+  const [doc, setDoc] = useState<string>();
 
   useEffect(() => {
     if (!kind || kind === 'audio' || kind === 'video' || item.size > 8_000_000) return;
     let cancelled = false;
     let made: string | undefined;
     getAttachmentData(messageId, item.id)
-      .then((data) => {
+      .then(async (data) => {
         if (cancelled) return;
         if (kind === 'text') return setText(new TextDecoder().decode(data.slice(0, 1500)));
+        if (kind === 'word') { const html = await docxToHtml(data); if (!cancelled) setDoc(html); return; }
         made = URL.createObjectURL(new Blob([data as BlobPart], { type: item.mimeType }));
         setUrl(kind === 'pdf' ? `${made}#toolbar=0&navpanes=0&view=FitH` : made);
       })
@@ -115,13 +124,35 @@ export function AttachmentPeek({ messageId, item, at }: { messageId: string; ite
     return () => { cancelled = true; if (made) URL.revokeObjectURL(made); };
   }, [messageId, item.id, item.mimeType, item.size, kind]);
 
-  if (!url && text === undefined) return null;
+  if (!url && text === undefined && doc === undefined) return null;
   const left = Math.max(8, Math.min(at.left, window.innerWidth - 328));
   return (
     <div className="peek" style={{ left, bottom: window.innerHeight - at.top + 8 }}>
       {kind === 'image' && url && <img src={url} alt="" />}
       {kind === 'pdf' && url && <iframe title={item.filename} src={url} tabIndex={-1} />}
       {kind === 'text' && <pre>{text}</pre>}
+      {kind === 'word' && doc && <iframe title={item.filename} sandbox="" srcDoc={doc} tabIndex={-1} className="peek-doc" />}
+    </div>
+  );
+}
+
+/** For files that can't be shown here: what it is, what opens it, and Open or Save. Stays while the pointer is on it. */
+export function FileCard({ item, at, onOpen, onSave }: { item: AttachmentMeta; at: DOMRect; onOpen?: () => void; onSave: () => void }) {
+  const d = describeFile(item.filename);
+  const left = Math.max(8, Math.min(at.left, window.innerWidth - 288));
+  return (
+    <div className="file-card" style={{ left, bottom: window.innerHeight - at.top + 8 }} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="file-card-top">
+        <span className="file-card-name">{item.filename}</span>
+        <span className="file-card-kind">{d.kind} · {fileSize(item.size)}</span>
+      </div>
+      <p>{d.blocked ? 'Programs and scripts are never opened from an email. Save it only if you trust who sent it.'
+        : onOpen ? `Opens in ${d.app || 'its own app'}. Changes there aren't saved back to the email.`
+        : 'No preview for this kind of file. Save it to open it.'}</p>
+      <div className="file-card-actions">
+        {onOpen && !d.blocked && <button className="btn primary small" onClick={onOpen}>Open{d.app ? ` in ${d.app}` : ''}</button>}
+        <button className="btn small" onClick={onSave}><Icon name="download" size={13} /> Save</button>
+      </div>
     </div>
   );
 }

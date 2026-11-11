@@ -113,7 +113,7 @@ const SEEDS: Seed[] = [
   },
   {
     acc: 'demo-wgm', from: { name: 'Calum Reid', email: 'calum@thewell.example' }, to: [me('alex@studio.example')],
-    subject: 'Board meeting papers', ago: 5 * D, labels: [], attach: [{ filename: 'Agenda.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 48210 }],
+    subject: 'Board meeting papers', ago: 5 * D, labels: [], attach: [{ filename: 'Agenda.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 48210 }, { filename: 'Budget.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size: 22140 }],
     html: '<p>Hi Alex, papers for next week attached. Archived for reference.</p>',
   },
   {
@@ -308,6 +308,7 @@ export class DemoProvider implements MailProvider {
   async getAttachment(msg: Message, attachmentId: string): Promise<Uint8Array> {
     const att = msg.attachments.find((a) => a.id === attachmentId);
     if (att?.mimeType === 'image/png') return Uint8Array.from(atob(PNG_B64), (c) => c.charCodeAt(0));
+    if (att?.filename.endsWith('.docx')) return Uint8Array.from(atob(DOCX_B64), (c) => c.charCodeAt(0));
     return new TextEncoder().encode(`Demo attachment: ${att?.filename}\n`);
   }
 
@@ -388,3 +389,6 @@ export class DemoProvider implements MailProvider {
     return `https://drive.example.com/file/${encodeURIComponent(name)}`;
   }
 }
+
+/** A tiny real Word document, so the demo can show the Word preview. */
+const DOCX_B64 = 'UEsDBBQAAAAIANy+al15bjPX7AAAAK0BAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbH2Qy07DMBBFf8XyFsUOLBBCcbrgsQQW5QMse5JYtWcsjxvSv0dpSxeosL6Pc3W7zZKimKFwIDTyVrVSADryAUcjP7evzYMUXC16GwnByAOw3PTd9pCBxZIispFTrflRa3YTJMuKMuCS4kAl2cqKyqizdTs7gr5r23vtCCtgberaIfvuGQa7j1W8LBXwtKNAZCmeTsaVZaTNOQZnayDUM/pflOZMUAXi0cNTyHyzpCj1VcKq/A04595nKCV4EB+21DebwEj9RcVrT26fAKv6v+bKThqG4OCSX9tyIQfMAccU1UVJNuDPfn28u/8GUEsDBBQAAAAIANy+al2b/TfqsQAAACkBAAALAAAAX3JlbHMvLnJlbHONz8FqwzAQBNBfEXuv5eQQQrDsSwjkWtwPENLaFpV2hVZNnb/PJYc49NDrMLxhumFNUd2wSGAysGtaUEiOfaDZwNd4+TiCkmrJ28iEBu4oMPTdJ0ZbA5MsIYtaUyQxsNSaT1qLWzBZaTgjrSlOXJKt0nCZdbbu286o92170OXVgK2prt5AufodqPGe8T82T1NweGb3k5DqHxNvDVCjLTNWA79cvPbPuFlTBN13enOxfwBQSwMEFAAAAAgA3L5qXRl/HKfuAAAAZQEAABEAAAB3b3JkL2RvY3VtZW50LnhtbG2QQU/DMAyF/4qV82jKkBCq2u4G4oDEAbRz1mRttMSuYndt+fUoRbALl+8dbL+n5/qwxABXl9gTNuq+KBU47Mh67Bv1+fF896SAxaA1gdA1anWsDm09V5a6KToUWGJAruZGDSJjpTV3g4uGCxodLjGcKUUjXFDq9UzJjok6x+yxj0Hvy/JRR+NRZcsT2TXrmJE2vG9y0pn8BXN1NaFRD3ul21r/zaU9uhDghcjCm/EBxLHsINGEFmSmvCo/Bxu3gFuKtK9nWGmCziAkZyzI4Bk8wpGS3YERMd2QyzKY5GCmdPHYF//Y6t8W+vah9htQSwECFAAUAAAACADcvmpdeW4z1+wAAACtAQAAEwAAAAAAAAAAAAAAgAEAAAAAW0NvbnRlbnRfVHlwZXNdLnhtbFBLAQIUABQAAAAIANy+al2b/TfqsQAAACkBAAALAAAAAAAAAAAAAACAAR0BAABfcmVscy8ucmVsc1BLAQIUABQAAAAIANy+al0Zfxyn7gAAAGUBAAARAAAAAAAAAAAAAACAAfcBAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAAAwADALkAAAAUAwAAAAA=';

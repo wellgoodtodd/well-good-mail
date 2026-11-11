@@ -570,7 +570,7 @@ function AppearanceTab() {
           <TextSizeSlider id="scale" />
         </Row>
         <Row label="List spacing">
-          <Radio name="density" value={s.density} onChange={(v) => s.set({ density: v })} options={[{ value: 'comfortable', label: 'Comfortable' }, { value: 'compact', label: 'Compact' }]} />
+          <Radio name="density" value={s.density} onChange={(v) => s.set({ density: v })} options={[{ value: 'comfortable', label: 'Comfortable' }, { value: 'compact', label: 'Compact' }, { value: 'roomy', label: 'Roomy' }]} />
         </Row>
       </section>
       <section className="set-section">
@@ -638,7 +638,7 @@ function WritingTab() {
       <section className="set-section">
         <h2>Fonts</h2>
         <Row label="Interface font" htmlFor="uifont">
-          <select id="uifont" value={s.interfaceFont} onChange={(e) => s.set({ interfaceFont: e.target.value })}>{['Inter', 'Segoe UI', 'Rubik'].map((f) => <option key={f}>{f}</option>)}</select>
+          <select id="uifont" value={s.interfaceFont} onChange={(e) => s.set({ interfaceFont: e.target.value })}>{['Inter', 'Segoe UI', 'Rubik', 'Atkinson Hyperlegible'].map((f) => <option key={f}>{f}</option>)}</select>
         </Row>
         <Row label="Writing font" htmlFor="wfont">
           <select id="wfont" value={s.writingFont} onChange={(e) => s.set({ writingFont: e.target.value })}>{FONT_CHOICES.map((f) => <option key={f}>{f}</option>)}</select>
@@ -909,8 +909,12 @@ function TextSizeSlider({ id }: { id: string }) {
   );
 }
 
+/** Opens a page of Windows Settings. */
+const winSettings = (page: string) => () => { void openExternal(`ms-settings:${page}`); };
+
 function AccessibilityTab() {
   const s = useSettings();
+  const easy = s.interfaceFont === 'Atkinson Hyperlegible';
   return (
     <>
       <h1>Accessibility</h1>
@@ -919,13 +923,32 @@ function AccessibilityTab() {
         <Row label="Text size" htmlFor="scale-a11y">
           <TextSizeSlider id="scale-a11y" />
         </Row>
+        <Row label="Row spacing" htmlFor="density-a11y">
+          <select id="density-a11y" value={s.density} onChange={(e) => s.set({ density: e.target.value as 'compact' | 'comfortable' | 'roomy' })}>
+            <option value="compact">Compact</option>
+            <option value="comfortable">Comfortable</option>
+            <option value="roomy">Roomy, bigger targets</option>
+          </select>
+        </Row>
         <Row label="Keyboard focus" htmlFor="focusring">
           <select id="focusring" value={s.focusRing} onChange={(e) => s.set({ focusRing: e.target.value as 'standard' | 'bold' })}>
             <option value="standard">Standard ring</option>
             <option value="bold">Bold ring, easier to spot</option>
           </select>
         </Row>
-        <p className="hint" style={{ margin: '4px 0 0' }}>Windows high contrast themes (Settings, Accessibility, Contrast themes) are followed, with selected rows and buttons outlined.</p>
+        <Check checked={easy} onChange={(v) => s.set({ interfaceFont: v ? 'Atkinson Hyperlegible' : 'Inter' })} >Easy-read font<span className="check-sub">Atkinson Hyperlegible, made for people with low vision. Also in Appearance.</span></Check>
+        <Check checked={s.underlineLinks} onChange={(v) => s.set({ underlineLinks: v })} >Underline links<span className="check-sub">In emails and the app, so links don't rely on colour alone.</span></Check>
+        <Check checked={s.strongBorders} onChange={(v) => s.set({ strongBorders: v })} >Stronger borders<span className="check-sub">Clearer edges on buttons, boxes and cards.</span></Check>
+      </section>
+      <section className="set-section">
+        <h2>Windows Settings</h2>
+        <p className="hint" style={{ margin: '0 0 10px' }}>Well Good Mail follows these. Each button opens the page in Windows Settings.</p>
+        <div className="win-settings">
+          <button className="btn" onClick={winSettings('easeofaccess-highcontrast')}>Contrast themes</button>
+          <button className="btn" onClick={winSettings('easeofaccess-visualeffects')}>Animation effects</button>
+          <button className="btn" onClick={winSettings('easeofaccess-display')}>Text size</button>
+          <button className="btn" onClick={winSettings('easeofaccess-mousepointer')}>Mouse pointer and caret</button>
+        </div>
       </section>
       <section className="set-section">
         <h2>Motion</h2>
