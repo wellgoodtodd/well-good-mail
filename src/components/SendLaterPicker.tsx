@@ -89,7 +89,7 @@ export function SendLaterPicker({ initial, title = 'Send later', confirmLabel = 
 
   const cells = useMemo(() => {
     const first = new Date(month);
-    const lead = (first.getDay() + 6) % 7; // Monday first
+    const lead = useSettings.getState().weekStart === 'sunday' ? first.getDay() : (first.getDay() + 6) % 7;
     return Array.from({ length: 42 }, (_, i) => new Date(month.getFullYear(), month.getMonth(), 1 - lead + i));
   }, [month]);
   const today = new Date();
@@ -120,7 +120,7 @@ export function SendLaterPicker({ initial, title = 'Send later', confirmLabel = 
               <button className="icon-btn" aria-label="Next month" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><Icon name="chevronRight" size={14} /></button>
             </div>
             <div className="slp-grid">
-              {DAYS.map((x) => <span key={x} className="slp-dow">{x}</span>)}
+              {(useSettings.getState().weekStart === 'sunday' ? ['Su', ...DAYS.slice(0, 6)] : DAYS).map((x) => <span key={x} className="slp-dow">{x}</span>)}
               {cells.map((c) => {
                 const before = c.getTime() < new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
                 return (

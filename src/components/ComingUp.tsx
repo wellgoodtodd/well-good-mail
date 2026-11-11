@@ -2,7 +2,7 @@
 // preview with a Join button, a month view, and the bar that appears just before a video meeting.
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast } from '../lib/mail';
+import { useMail, refreshEvents, lastEventsRefresh, openScreen, toast, eventsBetween } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { upcoming, alertMute } from '../lib/reminders';
 import { meetingService, meetingsSoon, dedupeEvents, visibleEvents, guestTally, guestAnswerWord, inviteText, meetingPhase, meetingPhaseText } from '../lib/meetings';
@@ -375,15 +375,27 @@ export function ComingUpPanel() {
 
 /** A month at a time, each event a coloured chip. */
 export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
-  const allEvents = useMail((s) => s.events);
+  const nearEvents = useMail((s) => s.events);
   const hidden = useSettings((s) => s.hiddenCalendars);
-  const events = useMemo(() => visibleEvents(allEvents, hidden), [allEvents, hidden]);
+  const sunday = useSettings((s) => s.weekStart) === 'sunday';
   const colour = useColour();
   const [month, setMonth] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
   const first = new Date(month);
-  const offset = (first.getDay() + 6) % 7; // weeks start on Monday
+  const offset = sunday ? first.getDay() : (first.getDay() + 6) % 7;
   const gridStart = new Date(first); gridStart.setDate(1 - offset);
   const days = Array.from({ length: 42 }, (_, i) => { const d = new Date(gridStart); d.setDate(gridStart.getDate() + i); return d; });
+  // The app keeps only the next week or so of events; the month shown is fetched as well.
+  const [far, setFar] = useState<CalendarEvent[]>([]);
+  useEffect(() => {
+    let gone = false;
+    const end = new Date(gridStart); end.setDate(end.getDate() + 42);
+    void eventsBetween(gridStart.getTime(), end.getTime()).then((list) => { if (!gone) setFar(list); });
+    return () => { gone = true; };
+  }, [month.getTime(), sunday]); // eslint-disable-line react-hooks/exhaustive-deps
+  const events = useMemo(() => {
+    const seen = new Set(nearEvents.map((e) => e.id));
+    return visibleEvents([...nearEvents, ...far.filter((e) => !seen.has(e.id))], hidden);
+  }, [nearEvents, far, hidden]);
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
     for (const e of dedupeEvents(events)) {
@@ -408,7 +420,7 @@ export function MonthView({ onPick }: { onPick: (e: CalendarEvent) => void }) {
         <button className="btn ghost" onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonth(d); }}>Today</button>
       </div>
       <div className="month-grid" role="grid">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((n) => <div key={n} className="month-dow">{n}</div>)}
+        {(sunday ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).map((n) => <div key={n} className="month-dow">{n}</div>)}
         {days.map((d) => {
           const list = byDay.get(d.toDateString()) || [];
           return (

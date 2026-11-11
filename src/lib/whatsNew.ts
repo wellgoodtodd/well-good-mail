@@ -33,6 +33,8 @@ export const RELEASES: Release[] = [
       'Setting up a second computer? The welcome page has Moving from another computer: restore your Google key from a backup file, sign in, then bring your mail across.',
       'Word documents preview inside the app, on hover and when clicked, with Open in Word. Other files show what they are and what opens them when you hover. Accessibility adds row spacing, an easy-read font, underlined links, stronger borders and buttons for the Windows settings it follows.',
       'iCloud and other email accounts stay connected instead of signing in for every job, so the service no longer pauses sign ins and asks for a new password. New mail in the Inbox arrives within seconds. A refused sign in on a password that worked waits and tries again by itself.',
+      'Settings, Accounts is rebuilt: a line on how each account is doing (with the fix when something is wrong), a suggestion when there is one, and a summary of every setting. Click one to change it below, or to the right on a wide window. Changes save straight away with Undo. Replies and forwards can have no signature. Search settings at the top of the Settings list.',
+      'Choose whether weeks start on Monday or Sunday (Notifications & Reminders). The month view now shows the whole month, not just the next week.',
       'Text size is in Accessibility as well as Appearance. Drafts made in Gmail keep their attachments in AI Drafts, and bounce and no-reply addresses no longer come up as suggestions.',
     ],
   },

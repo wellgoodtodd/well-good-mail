@@ -20,6 +20,13 @@ const msg = (over: Partial<Message> = {}): Message => ({
 });
 
 describe('compose', () => {
+  it('leaves the signature off replies or forwards when the account says so', () => {
+    const modes = { signatureModes: { a1: { forwards: 'none' as const } } };
+    expect(createDraft('forward', msg(), { ...ctx, ...modes }).signatureOf).toBe('');
+    expect(createDraft('reply', msg(), { ...ctx, ...modes }).signatureOf).toBeUndefined();
+    expect(createDraft('reply', msg(), { ...ctx, signatureModes: { a1: { replies: 'none' as const } } }).signatureOf).toBe('');
+  });
+
   it('replies from the alias the email was sent to', () => {
     const d = createDraft('reply', msg(), ctx);
     expect(d.fromEmail).toBe('accounts@studio.example');

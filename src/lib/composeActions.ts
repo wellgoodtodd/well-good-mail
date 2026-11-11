@@ -8,7 +8,7 @@ import type { ComposeMode, Draft, Message } from './types';
 
 export function composeContext() {
   const s = settings();
-  return { accounts: useMail.getState().accounts, defaultFromEmail: s.defaultFromEmail, signatures: s.signatures, signaturePlacement: s.signaturePlacement, bodyStyle: writingStyle() };
+  return { accounts: useMail.getState().accounts, defaultFromEmail: s.defaultFromEmail, signatures: s.signatures, signaturePlacement: s.signaturePlacement, bodyStyle: writingStyle(), signatureModes: s.signatureModes };
 }
 
 /** The default writing font, size and colour from Settings, as inline CSS. */

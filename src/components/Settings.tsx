@@ -1,5 +1,6 @@
 // Settings: accounts, signatures, groups, look and feel, reminders, privacy, updates.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import DOMPurify from 'dompurify';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Icon } from './Icon';
 import { FormatBar } from './FormatBar';
@@ -9,8 +10,10 @@ import { PALETTES } from '../lib/palettes';
 import { useMail, setLeaveOutOfAll, openScreen, refreshAccountPhotos, applyPalette, removeAccount, updateAccount, reconnectAccount, syncAccount, isSyncing, reorderAccounts, startDemo, leaveDemo, restartPolling, toast, restartSync, editAccount, syncWakes } from '../lib/mail';
 import { useSettings, defaultSettings, type Settings as S } from '../lib/settings';
 import { LEVEL_WORDS, tidy } from '../lib/mcp/permissions';
-import { undoSteps } from '../lib/history';
-import { allAliases } from '../lib/compose';
+import { undoSteps, useHistory } from '../lib/history';
+import { allAliases, signatureFor } from '../lib/compose';
+import { composeContext } from '../lib/composeActions';
+import { oooSignIn } from '../lib/oooStore';
 import type { Account } from '../lib/types';
 import { useGoogleConfigured, useGoogleKeys } from '../lib/auth/google';
 import { SKINS, type Skin } from '../lib/skins';
@@ -18,7 +21,7 @@ import { openGuide } from './SetupGuide';
 import { IMAP_PRESETS } from '../lib/imapUtil';
 import { addAccountItems } from '../lib/accountMenu';
 import { exportCache, importCache } from '../lib/cacheTransfer';
-import { exportKeys, importKeys } from '../lib/backup';
+import { exportKeys, importKeys, backupDue } from '../lib/backup';
 import { paceInfo } from '../lib/providers/gmail';
 import { enableSettingsSync } from '../lib/settingsSync';
 import { isTauri, setAutostart, setCloseQuits, notify, openExternal, previewsSize, clearPreviews, openPreviewsFolder, chooseFolder } from '../lib/platform';
@@ -52,6 +55,47 @@ const TABS = [
   ['diagnostics', 'Diagnostics'],
 ] as const;
 
+/** Things people look for, and where they live. The search box in the Settings sidebar uses this. */
+const SETTINGS_INDEX: [string, string, string?][] = [
+  ['Add account', 'accounts', 'new gmail outlook icloud yahoo'], ['Account name and colour', 'accounts', 'rename label'], ['Remove account', 'accounts', 'delete sign out'],
+  ['Signatures on replies and forwards', 'accounts', 'signature reply forward none'], ['Sending as (addresses)', 'accounts', 'alias send as from'],
+  ['Calendars to show', 'accounts', 'hide calendar'], ['Alerts for an account', 'accounts', 'notifications mute'], ['Keep mail from', 'accounts', 'how much mail offline retention storage'],
+  ['Show in All Inboxes', 'accounts', 'combined unified'], ['Resync an account', 'accounts', 'refresh sync'],
+  ['Signatures', 'signatures', 'signature sign off'], ['Addresses and default From', 'signatures', 'alias from default'],
+  ['Inbox Groups', 'groups', 'groups'], ['Theme, light and dark', 'appearance', 'dark mode light colours skin'], ['Accent colour', 'appearance', 'colour'],
+  ['Text size', 'access', 'bigger font zoom'], ['Interface font', 'appearance', 'font typeface'], ['Row spacing', 'access', 'density compact roomy'],
+  ['Unread colour', 'appearance', 'unread'], ['Composing and writing font', 'writing', 'font compose'], ['Templates', 'writing', 'template canned'],
+  ['Undo send', 'writing', 'undo send delay'], ['Out of Office', 'ooo', 'vacation holiday auto reply away'],
+  ['New mail alerts', 'notifications', 'notifications sound'], ['Quiet hours', 'notifications', 'do not disturb night'], ['Reminders', 'notifications', 'calendar summary'],
+  ['Week starts on', 'notifications', 'sunday monday calendar first day'], ['Suggested events', 'notifications', 'add to calendar dates'],
+  ['Blocked senders', 'privacy', 'block spam'], ['Pictures in emails', 'privacy', 'remote images trackers'],
+  ['Back up my keys', 'offline', 'google key backup'], ['Export and import mail', 'offline', 'move computer cache'], ['Attachments folder and previews', 'offline', 'downloads save'],
+  ['Keyboard Shortcuts', 'shortcuts', 'keys hotkeys'], ['Accessibility', 'access', 'contrast focus motion narrator easy read underline borders'],
+  ['AI Connection', 'ai', 'claude mcp assistant'], ['Updates and test versions', 'updates', 'beta version'], ['Diagnostics', 'diagnostics', 'logs problem'],
+];
+
+function SettingsSearch() {
+  const [q, setQ] = useState('');
+  const term = q.trim().toLowerCase();
+  const hits = term ? SETTINGS_INDEX.filter(([label, , words]) => `${label} ${words || ''}`.toLowerCase().includes(term)).slice(0, 8) : [];
+  const go = (tab: string) => { useMail.setState({ settingsTab: tab }); setQ(''); };
+  return (
+    <div className="set-search">
+      <input type="search" placeholder="Search settings" aria-label="Search settings" value={q} onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && hits[0]) go(hits[0][1]); if (e.key === 'Escape') setQ(''); }} />
+      {term && (
+        <div className="set-search-hits" role="listbox" aria-label="Matching settings">
+          {hits.length ? hits.map(([label, tab]) => (
+            <button key={label} role="option" aria-selected={false} className="set-search-hit" onClick={() => go(tab)}>
+              <span>{label}</span><small>{TABS.find(([t]) => t === tab)?.[1]}</small>
+            </button>
+          )) : <div className="set-search-none">Nothing matches</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Older links to tabs that were folded into others.
 const TAB_ALIAS: Record<string, string> = { reminders: 'notifications', templates: 'writing', people: 'privacy' };
 
@@ -75,6 +119,7 @@ export function SettingsScreen() {
     <div className="settings" role="main">
       <nav className="settings-nav" aria-label="Settings sections">
         <button className="side-item" onClick={() => useMail.setState({ screen: 'mail' })}><Icon name="chevronLeft" /> <span className="name">Back to mail</span></button>
+        <SettingsSearch />
         <div className="side-heading" style={{ marginTop: 8 }}>Settings</div>
         {ordered.map((id) => [id, TABS.find(([t]) => t === id)![1]] as const).map(([id, label]) => (
           <button
@@ -185,6 +230,165 @@ function KeepMail({ a, compact }: { a: Account; compact?: boolean }) {
   return compact ? <label className="keep-mail">Keep mail from {select}</label> : select;
 }
 
+type AcctSection = 'signature' | 'sending' | 'calendars' | 'alerts' | 'ai' | 'ooo' | 'mail';
+
+/** One sentence on how the account is doing, with the fix right there when something is wrong. */
+function AccountHealth({ a }: { a: Account }) {
+  const messages = useMail((st) => st.messages);
+  const ooo = useOoo((o) => o.byAccount[a.id]);
+  const count = useMemo(() => Object.values(messages).filter((m) => m.accountId === a.id).length, [messages, a.id]);
+  const checked = a.lastSync ? new Date(a.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
+  if (wantsSignIn(a)) return <div className="acct-health bad" role="status"><span>Needs signing in again before mail can come through.</span><button className="btn primary small" onClick={() => reconnectAccount(a.id)}>Sign in</button></div>;
+  if (a.status === 'error') return <div className="acct-health bad" role="status"><span title={a.error}>Problem syncing{a.error ? `: ${a.error.replace(/\s+/g, ' ').slice(0, 90)}` : ''}</span><button className="btn small" onClick={() => restartSync(a.id)}>Try again</button></div>;
+  if (a.status === 'syncing') return <div className="acct-health busy" role="status"><span>Syncing{a.syncDone ? `, ${a.syncDone.toLocaleString()} so far` : ''}.</span></div>;
+  if (ooo?.needsPermission) return <div className="acct-health warn" role="status"><span>Out of Office needs one more sign in for this account.</span><button className="btn small" onClick={() => void oooSignIn([a.id])}>Sign in</button></div>;
+  return <div className="acct-health ok" role="status"><span>All good.{checked ? ` Checked at ${checked},` : ''} {count.toLocaleString()} emails on this computer.</span></div>;
+}
+
+const DISMISSED_KEY = 'wgm-acct-suggestions-dismissed';
+const readDismissed = (): string[] => { try { return JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]'); } catch { return []; } };
+
+/** One suggestion at a time, worked out on this computer. One click to act, or Not now. */
+function AccountSuggestion({ a }: { a: Account }) {
+  const s = useSettings();
+  const keys = useGoogleKeys();
+  const [dismissed, setDismissed] = useState(readDismissed);
+  const own = a.aliases.find((x) => x.isDefault)?.email || a.email;
+  const hasSig = Boolean(signatureFor(own, composeContext()).replace(/<[^>]+>/g, '').trim());
+  const list: { id: string; text: string; action: string; run: () => void }[] = [];
+  if (isTauri() && a.kind === 'gmail' && backupDue(Boolean(keys.own), s.keysBackedUpAt)) list.push({ id: 'backup', text: 'Back up your Google key, so setting up another computer takes a minute.', action: 'Back up', run: () => openScreen('settings', 'offline') });
+  if (a.kind !== 'demo' && !hasSig) list.push({ id: `sig|${a.id}`, text: `${a.label || a.email} has no signature. Add one?`, action: 'Add signature', run: () => openScreen('settings', 'signatures') });
+  const next = list.find((x) => !dismissed.includes(x.id));
+  if (!next) return null;
+  const hide = () => { const d = [...dismissed, next.id]; setDismissed(d); try { localStorage.setItem(DISMISSED_KEY, JSON.stringify(d)); } catch { /* fine */ } };
+  return (
+    <div className="acct-suggest">
+      <Icon name="sparkle" size={15} />
+      <span>{next.text}</span>
+      <button className="btn primary small" onClick={next.run}>{next.action}</button>
+      <button className="btn small" onClick={hide}>Not now</button>
+    </div>
+  );
+}
+
+/** "Saved" with Undo, for a moment after any change made here. Every change saves straight away. */
+function SavedNote() {
+  const top = useHistory((h) => h.past[h.past.length - 1]);
+  const [, bump] = useState(0);
+  useEffect(() => { const t = setTimeout(() => bump((x) => x + 1), 6000); return () => clearTimeout(t); }, [top?.id]);
+  if (!top || Date.now() - top.at > 6000) return null;
+  return <span className="acct-saved" aria-live="polite">Saved · <button className="link-btn" onClick={() => void undoSteps(1)}>Undo</button></span>;
+}
+
+/** The summary rows; clicking one opens its settings below, or to the right on a wide window. */
+function AccountSections({ a, sigLine, calLine, onRemove }: { a: Account; sigLine: (a: Account) => string; calLine: (a: Account) => string; onRemove: () => void }) {
+  const s = useSettings();
+  const accounts = useMail((st) => st.accounts);
+  const events = useMail((st) => st.events);
+  const calNames = useMail((st) => st.calendarNames);
+  const ooo = useOoo((o) => o.byAccount[a.id]);
+  const mcp = tidy(s.mcp);
+  const [open, setOpen] = useState<AcctSection | null>(null);
+  const modes = s.signatureModes[a.id] || {};
+  const setMode = (k: 'replies' | 'forwards', v: 'same' | 'none') => s.set({ signatureModes: { ...s.signatureModes, [a.id]: { ...modes, [k]: v } } });
+  const aliases = a.aliases.length ? a.aliases : [{ email: a.email, name: a.displayName, isDefault: true }];
+  const own = aliases.find((x) => x.isDefault)?.email || a.email;
+  const alertWords = { all: 'Every new email', important: 'Only VIPs', off: 'Off' } as const;
+  const calendars = [...new Set<string>([...(calNames[a.id] || []), ...events.filter((e) => e.accountId === a.id).map((e) => e.calendarName), ...s.hiddenCalendars.filter((k) => k.startsWith(`${a.id}|`)).map((k) => k.slice(a.id.length + 1))])].sort((x, y) => Number(y.toLowerCase() === a.email.toLowerCase()) - Number(x.toLowerCase() === a.email.toLowerCase()) || x.localeCompare(y));
+  const toggleCal = (name: string, show: boolean) => { const k = `${a.id}|${name}`; s.set({ hiddenCalendars: show ? s.hiddenCalendars.filter((x) => x !== k) : [...s.hiddenCalendars, k] }); };
+  const rows: { id: AcctSection; k: string; v: string }[] = [
+    { id: 'signature', k: 'Signature', v: `${sigLine(a)} · replies ${modes.replies === 'none' ? 'none' : 'same'} · forwards ${modes.forwards === 'none' ? 'none' : 'same'}` },
+    { id: 'sending', k: 'Sending as', v: aliases.length > 2 ? `${aliases.slice(0, 2).map((x) => x.email).join(', ')} and ${aliases.length - 2} more` : aliases.map((x) => x.email).join(', ') },
+    { id: 'calendars', k: 'Calendars', v: calLine(a) },
+    { id: 'alerts', k: 'Alerts', v: `${alertWords[a.notify]}${s.quietHours.enabled ? ` · quiet ${s.quietHours.from} to ${s.quietHours.to}` : ''}` },
+    { id: 'ai', k: 'AI Connection', v: mcp.enabled ? LEVEL_WORDS[mcp.accounts[a.id] ?? 'off'] : 'Switched off' },
+    { id: 'ooo', k: 'Out of Office', v: oooSupport(a).native ? (ooo?.needsPermission ? 'Needs one more sign in' : oooStateWords(ooo?.reply).words) : 'Set in its own web mail' },
+    { id: 'mail', k: 'Mail and storage', v: `Keep ${RANGE_OPTS.find((o) => o.v === a.retentionDays)?.l || 'everything'}${accounts.length > 1 ? ` · ${a.leaveOutOfAll ? 'kept out of' : 'in'} All Inboxes` : ''}` },
+  ];
+  const title = rows.find((r) => r.id === open)?.k;
+  return (
+    <div className={`acct-body ${open ? 'has-panel' : ''}`}>
+      <div className="acct-sum" role="list">
+        {rows.map((r) => (
+          <button key={r.id} role="listitem" className={`acct-sum-row ${open === r.id ? 'on' : ''}`} aria-expanded={open === r.id} onClick={() => setOpen(open === r.id ? null : r.id)}>
+            <span className="k">{r.k}</span><span className="v">{r.v}</span><Icon name="chevronRight" size={14} />
+          </button>
+        ))}
+      </div>
+      {open && (
+        <div className="acct-panel" role="region" aria-label={title}>
+          <div className="acct-panel-head"><strong>{title}</strong><SavedNote /><button className="icon-btn" aria-label="Close" onClick={() => setOpen(null)}><Icon name="close" size={14} /></button></div>
+          {open === 'signature' && (
+            <>
+              <div className="acct-field"><span>Replies</span><select value={modes.replies || 'same'} onChange={(e) => setMode('replies', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
+              <div className="acct-field"><span>Forwards</span><select value={modes.forwards || 'same'} onChange={(e) => setMode('forwards', e.target.value as 'same' | 'none')}><option value="same">Same as new emails</option><option value="none">No signature</option></select></div>
+              <div className="acct-mail-preview">
+                <div className="hd">A new email from {own}</div>
+                <p>Hi Sam,</p><p>Thanks for this, see you Thursday.</p>
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signatureFor(own, composeContext()) || '<span style="color:#888">No signature yet</span>') }} />
+              </div>
+              <button className="btn" onClick={() => openScreen('settings', 'signatures')}>Edit signature</button>
+            </>
+          )}
+          {open === 'sending' && (
+            <>
+              <ul className="acct-aliases">{aliases.map((x) => <li key={x.email}><span>{x.name ? `${x.name} <${x.email}>` : x.email}</span>{x.isDefault && <span className="acct-pill ok">Default</span>}</li>)}</ul>
+              <p className="hint">{a.kind === 'gmail' ? 'Addresses come from Gmail\'s "Send mail as" settings.' : 'Addresses this account can send from.'}</p>
+              <button className="btn" onClick={() => openScreen('settings', 'signatures')}>Signatures & Addresses</button>
+            </>
+          )}
+          {open === 'calendars' && (
+            <>
+              {calendars.length ? calendars.map((name) => {
+                const shown = !s.hiddenCalendars.includes(`${a.id}|${name}`);
+                return <label key={name} className="acct-field switch-row"><span>{name}</span><input type="checkbox" role="switch" className="switch" checked={shown} onChange={(e) => toggleCal(name, e.target.checked)} /></label>;
+              }) : <p className="hint">{a.kind === 'imap' ? 'Calendars from this account come through once it has signed in.' : 'Calendars appear here once they have loaded.'}</p>}
+              <div className="acct-field"><span>Alerts from hidden calendars</span><select value={s.hiddenCalendarsAlerts} onChange={(e) => s.set({ hiddenCalendarsAlerts: e.target.value as typeof s.hiddenCalendarsAlerts })}><option value="all">Keep all</option><option value="meetings">Video meetings only</option><option value="none">None</option></select></div>
+            </>
+          )}
+          {open === 'alerts' && (
+            <>
+              <div className="acct-field"><span>New mail alerts</span><select value={a.notify} onChange={(e) => editAccount(a.id, { notify: e.target.value as Account['notify'] }, 'alerts')}><option value="all">Every new email</option><option value="important">Only VIPs</option><option value="off">Off</option></select></div>
+              <p className="hint">Quiet hours {s.quietHours.enabled ? `are on, ${s.quietHours.from} to ${s.quietHours.to}, for every account` : 'are off'}.</p>
+              <button className="btn" onClick={() => openScreen('settings', 'notifications')}>Notifications & Reminders</button>
+            </>
+          )}
+          {open === 'ai' && (
+            mcp.enabled ? (
+              <>
+                <div className="acct-field"><span>What AI apps can do</span><select value={mcp.accounts[a.id] ?? 'off'} onChange={(e) => s.set({ mcp: { ...mcp, accounts: { ...mcp.accounts, [a.id]: e.target.value as 'off' | 'read' | 'write' } } })}><option value="off">{LEVEL_WORDS.off}</option><option value="read">{LEVEL_WORDS.read}</option><option value="write">{LEVEL_WORDS.write}</option></select></div>
+                <p className="hint">Sending always asks you first, whatever is set here.</p>
+                <button className="btn" onClick={() => openScreen('settings', 'ai')}>AI Connection</button>
+              </>
+            ) : (
+              <>
+                <p className="hint">AI Connection is switched off, so no AI app can see this account.</p>
+                <button className="btn" onClick={() => openScreen('settings', 'ai')}>Set up AI Connection</button>
+              </>
+            )
+          )}
+          {open === 'ooo' && (
+            <>
+              <p className="hint">{oooSupport(a).native ? (ooo?.needsPermission ? 'This account needs one more sign in before Out of Office can be set.' : oooStateWords(ooo?.reply).words) : 'This kind of account sets Out of Office in its own web mail.'}</p>
+              {ooo?.needsPermission ? <button className="btn primary" onClick={() => void oooSignIn([a.id])}>Sign in</button> : <button className="btn" onClick={() => openScreen('settings', 'ooo')}>Open Out of Office</button>}
+            </>
+          )}
+          {open === 'mail' && (
+            <>
+              {accounts.length > 1 && <label className="acct-field switch-row"><span>Show in All Inboxes</span><input type="checkbox" role="switch" className="switch" checked={!a.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(a.id, !e.target.checked)} /></label>}
+              <div className="acct-field"><span>Keep mail from</span><KeepMail a={a} /></div>
+              <div className="acct-panel-foot">
+                <span>{a.lastSync ? `Checked ${new Date(a.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Not checked yet'} · <button className="link-btn" onClick={() => restartSync(a.id)}>Resync</button></span>
+                <button className="link-btn danger" onClick={onRemove}>Remove account</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AccountsTab() {
   const accounts = useMail((s) => s.accounts);
   const demo = useSettings((s) => s.demoMode);
@@ -199,8 +403,6 @@ function AccountsTab() {
   const [dropOn, setDropOn] = useState<string | null>(null);
   // The account shown on the right: the one you picked, else the first that needs attention, else the first.
   const sel = sorted.find((a) => a.id === selId) || sorted.find((a) => wantsSignIn(a) || a.status === 'error') || sorted[0];
-  const oooAcc = useOoo((o) => (sel ? o.byAccount[sel.id] : undefined));
-  const mcp = tidy(s.mcp);
   const events = useMail((st) => st.events);
   const calNames = useMail((st) => st.calendarNames);
   const kindName = (a: Account) => (a.kind === 'gmail' ? 'Google' : a.kind === 'microsoft' ? 'Microsoft 365' : a.kind === 'demo' ? 'Demo' : IMAP_PRESETS.find((p) => p.host === a.imap?.host)?.name || 'IMAP');
@@ -269,50 +471,9 @@ function AccountsTab() {
                   : <span className={`acct-pill ${sel.status === 'error' ? 'bad' : sel.status === 'syncing' ? 'busy' : 'ok'}`} title={sel.status === 'error' ? sel.error : undefined}>{statusWords(sel)}</span>}
               </div>
 
-              {sel.kind !== 'demo' && (
-                <>
-                  <div className="acct-group">Mail</div>
-                  {sorted.length > 1 && (
-                    <div className="acct-line">
-                      <span className="k">Show in All Inboxes</span>
-                      <span className="v">{sel.leaveOutOfAll ? 'Kept out' : 'Included'}</span>
-                      <input type="checkbox" role="switch" className="switch" aria-label="Show in All Inboxes" checked={!sel.leaveOutOfAll} onChange={(e) => setLeaveOutOfAll(sel.id, !e.target.checked)} />
-                    </div>
-                  )}
-                  <div className="acct-line">
-                    <span className="k">Keep mail from</span>
-                    <span className="v"><KeepMail a={sel} /></span>
-                    <span />
-                  </div>
-                  <div className="acct-line">
-                    <span className="k">Signature</span>
-                    <span className="v">{sigLine(sel)}</span>
-                    <button className="link-btn" onClick={() => openScreen('settings', 'signatures')}>Edit in Signatures</button>
-                  </div>
-
-                  <div className="acct-group">Calendar and AI</div>
-                  <div className="acct-line">
-                    <span className="k">Calendars</span>
-                    <span className="v">{calLine(sel)}</span>
-                    <button className="link-btn" onClick={() => document.getElementById('acct-calendars')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Choose</button>
-                  </div>
-                  <div className="acct-line">
-                    <span className="k">Out of Office</span>
-                    <span className="v">{oooSupport(sel).native ? (oooAcc?.needsPermission ? 'Needs one more sign in' : oooStateWords(oooAcc?.reply).words) : 'Set in its own web mail'}</span>
-                    <button className="link-btn" onClick={() => openScreen('settings', 'ooo')}>Open Out of Office</button>
-                  </div>
-                  <div className="acct-line">
-                    <span className="k">AI Connection</span>
-                    <span className="v">{mcp.enabled ? LEVEL_WORDS[mcp.accounts[sel.id] ?? 'off'] : 'Switched off'}</span>
-                    <button className="link-btn" onClick={() => openScreen('settings', 'ai')}>Open AI Connection</button>
-                  </div>
-                </>
-              )}
-
-              <div className="acct-foot">
-                <span>{sel.lastSync ? `Checked ${new Date(sel.lastSync).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Not checked yet'} · <button className="link-btn" onClick={() => restartSync(sel.id)}>Resync</button></span>
-                <button className="link-btn danger" onClick={() => setConfirm(sel.id)}>Remove account</button>
-              </div>
+              <AccountHealth a={sel} />
+              <AccountSuggestion a={sel} />
+              <AccountSections key={sel.id} a={sel} sigLine={sigLine} calLine={calLine} onRemove={() => setConfirm(sel.id)} />
             </div>
           ) : (
             <div className="acct-detail empty">Add an account to get started.</div>
@@ -776,6 +937,12 @@ function RemindersTab() {
     <>
       <h1>Reminders</h1>
       <section className="set-section">
+        <Row label="Week starts on" htmlFor="weekstart">
+          <select id="weekstart" value={s.weekStart} onChange={(e) => s.set({ weekStart: e.target.value as 'monday' | 'sunday' })}>
+            <option value="monday">Monday</option>
+            <option value="sunday">Sunday</option>
+          </select>
+        </Row>
         <p className="hint">Reminders always collect in the Reminders list. These settings only control interruptions.</p>
         <Radio name="remmode" value={s.reminderMode} onChange={(v) => s.set({ reminderMode: v })} options={[
           { value: 'never', label: 'Never pop up', sub: 'Just add them to the list. Check it when you want.' },

@@ -130,6 +130,10 @@ export interface Settings {
   motion: 'system' | 'reduce';
   /** A bolder ring around whatever has keyboard focus. */
   focusRing: 'standard' | 'bold';
+  /** The first day of the week in month views and date pickers. */
+  weekStart: 'monday' | 'sunday';
+  /** Per account: the signature on replies and forwards, the same as new emails or none. */
+  signatureModes: Record<string, { replies?: 'same' | 'none'; forwards?: 'same' | 'none' }>;
   /** Links underlined in emails and the app, so they don't rely on colour alone. */
   underlineLinks: boolean;
   /** Clearer edges on buttons, boxes and cards. */
@@ -281,6 +285,8 @@ export const defaultSettings: Settings = {
   focusRing: 'standard',
   underlineLinks: false,
   strongBorders: false,
+  weekStart: 'monday',
+  signatureModes: {},
   suggestHidden: [],
   suggestMuted: [],
   oooDismissed: [],
@@ -314,7 +320,7 @@ const SETTING_NAMES: Record<string, string> = {
   hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
-  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', signatureModes: 'signatures on replies and forwards',
 };
 let lastStep: { id: string; keys: string; at: number } | null = null;
 

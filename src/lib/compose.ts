@@ -10,6 +10,8 @@ export interface ComposeContext {
   signaturePlacement: 'above' | 'below';
   /** Default writing style applied to the sent email, e.g. "font-family:Rubik;font-size:11pt". */
   bodyStyle?: string;
+  /** Per account: no signature on replies or forwards. */
+  signatureModes?: Record<string, { replies?: 'same' | 'none'; forwards?: 'same' | 'none' }>;
 }
 
 const lc = (s: string) => s.toLowerCase();
@@ -103,7 +105,11 @@ const newId = () => 'd' + Date.now().toString(36) + Math.random().toString(36).s
 
 export function createDraft(mode: ComposeMode, source: Message | undefined, ctx: ComposeContext, extra: Partial<Draft> = {}): Draft {
   const { to, cc } = autoRecipients(mode, source, ctx.accounts);
+  const accountId = source ? source.accountId : findAlias(ctx.accounts, defaultFrom(ctx))?.account.id;
+  const modes = (accountId && ctx.signatureModes?.[accountId]) || {};
+  const noSig = (mode === 'forward' && modes.forwards === 'none') || ((mode === 'reply' || mode === 'replyAll') && modes.replies === 'none');
   return {
+    ...(noSig ? { signatureOf: '' } : {}),
     id: newId(),
     mode,
     sourceMessageId: source?.id,

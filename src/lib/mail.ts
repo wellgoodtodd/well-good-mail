@@ -1251,6 +1251,15 @@ export async function refreshEvents(): Promise<string[]> {
   return failed;
 }
 
+/** Events for any stretch of time, straight from each account (the month view). Accounts that fail are skipped. */
+export async function eventsBetween(from: number, to: number): Promise<CalendarEvent[]> {
+  const out: CalendarEvent[] = [];
+  await Promise.all(get().accounts.map(async (a) => {
+    try { out.push(...(await providers.get(a.id)!.listEvents(from, to))); } catch { /* shown elsewhere */ }
+  }));
+  return out;
+}
+
 export async function dismissReminders(ids: string[]) {
   await store.dismiss(ids);
   const next = new Set(get().dismissed);

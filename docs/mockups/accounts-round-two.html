@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accounts mock-up</title>
+<style>
+body{margin:0;background:#141518;color:#e8e8ea;font:14px/1.45 Inter,system-ui,sans-serif;padding:16px}
+.w{max-width:1000px;margin:0 auto;display:grid;gap:18px}
+h1{font-size:18px;margin:0}
+.lbl{font-size:12px;font-weight:600;color:#a4a6ad;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.frame{display:flex;border:1px solid #3a3b40;border-radius:12px;overflow:hidden;background:#1e1f22;font-size:13px;overflow-x:auto}
+.list{width:210px;flex:none;border-right:1px solid #33353a;background:#1a1b1e;padding:10px 8px}
+.search{border:1px solid #3e4046;border-radius:8px;padding:6px 9px;color:#8e9097;font-size:12.5px;margin-bottom:10px;background:#222327}
+.acc{display:flex;gap:8px;align-items:center;padding:7px 8px;border-radius:8px;margin-bottom:2px}
+.acc.on{background:#2f6fde;color:#fff}.acc.on .muted{color:#dbe6ff}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.flag{margin-left:auto;font-size:10.5px;background:#5a3a00;color:#ffcf7a;border-radius:5px;padding:1px 6px}
+.muted{color:#a4a6ad;font-size:11.5px}
+.col{padding:16px;flex:1;min-width:300px}
+.ask{display:flex;gap:8px;align-items:center;border:1px solid #4a5a85;background:linear-gradient(90deg,#222a3d,#25223a);border-radius:10px;padding:9px 12px;margin-bottom:14px;color:#c8cff0}
+.ask span{flex:1;color:#9aa3c7}
+.btn{border:1px solid #4a4c52;background:#2b2c31;color:#e8e8ea;border-radius:7px;padding:5px 11px;font-size:12.5px;display:inline-block}
+.pri{background:#2f6fde;border-color:#2f6fde;color:#fff}
+.name{font-weight:600;font-size:16px}
+.health{display:flex;gap:8px;align-items:center;margin:8px 0 12px;padding:8px 11px;border-radius:8px;background:#1f3326;color:#9fe0b4;font-size:12.5px}
+.sug{border:1px dashed #5a5f75;border-radius:9px;padding:10px 12px;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sug div{flex:1;min-width:200px}
+.sum{border:1px solid #34363b;border-radius:9px;overflow:hidden}
+.r{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px solid #2e3035}
+.r:last-child{border-bottom:0}.r b{font-weight:500;color:#a4a6ad}
+.r span{text-align:right}
+.r.on{background:#2a3550;box-shadow:inset 3px 0 0 #4a8cff}
+.panel{margin-top:12px;border:1px solid #3b4b70;background:#222836;border-radius:9px;padding:12px}
+.ph{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:8px}
+.sel{display:inline-block;border:1px solid #4a4c52;border-radius:6px;padding:5px 10px;background:#2b2c31;margin:4px 6px 4px 0}
+.mail{background:#fff;color:#222;border-radius:8px;padding:12px 14px;margin:10px 0;font-size:12.5px;line-height:1.5}
+.mail .hd{color:#777;font-size:11.5px;border-bottom:1px solid #eee;padding-bottom:6px;margin-bottom:8px}
+.saved{display:inline-flex;gap:8px;align-items:center;font-size:12px;color:#a4a6ad}
+.saved a{color:#8fb4ff;text-decoration:none}
+.ideas{background:#1e1f22;border:1px solid #3a3b40;border-radius:12px;padding:14px;font-size:13px}
+.ideas li{margin:5px 0}
+</style></head><body><div class="w">
+<h1>Settings, Accounts: modern layout (A, editor below)</h1>
+<div>
+<div class="frame">
+<div class="list">
+<div class="search">Search settings</div>
+<div class="acc on"><span class="dot" style="background:#4a8cff"></span><div>WGM<div class="muted">Gmail</div></div></div>
+<div class="acc"><span class="dot" style="background:#f0a020"></span><div>TBWELLER<div class="muted">Gmail</div></div></div>
+<div class="acc"><span class="dot" style="background:#3cc48a"></span><div>TWF (gmail)<div class="muted">Gmail</div></div></div>
+<div class="acc"><span class="dot" style="background:#a070f0"></span><div>TWF<div class="muted">Workspace</div></div></div>
+<div class="acc"><span class="dot" style="background:#e05050"></span><div>WGM Microsoft<div class="muted">Microsoft</div></div><span class="flag">Sign in</span></div>
+<div class="acc"><span class="dot" style="background:#aaa"></span><div>iCloud<div class="muted">iCloud</div></div></div>
+<div class="muted" style="padding:8px">+ Add account</div>
+</div>
+<div class="col">
+<div class="ask">✦ <span>Ask: "no signature on forwards for all my accounts"</span><span class="btn">Ask</span></div>
+<div class="name">WGM</div><div class="muted">todd@wellgood.media · Gmail</div>
+<div class="health">● All good. Synced 2 minutes ago, 12,480 emails, 1.2 GB on this computer.</div>
+<div class="sug"><div><b>Suggestion</b><br><span class="muted">TWF and TWF (gmail) use different signatures. Use the WGM one for both?</span></div><span class="btn pri">Use it</span><span class="btn">Not now</span></div>
+<div class="sum">
+<div class="r"><b>Name and colour</b><span>WGM · blue ›</span></div>
+<div class="r on"><b>Signature</b><span>WGM · replies short · forwards none ›</span></div>
+<div class="r"><b>Sending as</b><span>todd@ · info@ ›</span></div>
+<div class="r"><b>Calendars</b><span>3 of 5 shown ›</span></div>
+<div class="r"><b>Notifications</b><span>Everyone · quiet after 7pm ›</span></div>
+<div class="r"><b>AI Connection</b><span>Read: Allow · Drafts: Ask ›</span></div>
+<div class="r"><b>Out of Office</b><span>Off ›</span></div>
+<div class="r"><b>Mail and storage</b><span>Keep 1 year · in All Inboxes ›</span></div>
+</div>
+<div class="panel">
+<div class="ph">Signature <span class="saved">Saved · <a href="#">Undo</a></span></div>
+<span class="muted">New emails</span> <span class="sel">WGM signature ▾</span>
+<span class="muted">Replies</span> <span class="sel">WGM short ▾</span>
+<span class="muted">Forwards</span> <span class="sel">None ▾</span>
+<div class="mail"><div class="hd">Preview: a new email from WGM</div>Hi Sam,<br><br>Thanks for this, see you Thursday.<br><br>Todd Weller<br>Well Good Media · 07429 607283<br>wellgood.media</div>
+<span class="btn">Edit signature</span>
+</div>
+</div>
+</div>
+</div>
+<div class="ideas">
+<b>What's new in this version</b>
+<ul>
+<li><b>Search settings</b> at the top of the list, and the account needing attention is flagged there (Sign in).</li>
+<li><b>Ask</b>: type what you want; it shows the change and nothing happens until you click Apply.</li>
+<li><b>Health line</b>: one sentence on how the account is doing, with a fix button when something's wrong.</li>
+<li><b>Suggestions</b>: one at a time, one click to accept or dismiss.</li>
+<li><b>Live preview</b> of a real email with the signature in it.</li>
+<li><b>Saves as you go</b>, with Undo. No Save buttons.</li>
+<li>New rows: <b>Sending as</b> (aliases) and <b>Notifications</b> per account, including quiet hours.</li>
+<li>On a wide window the editor sits in a third column to the right, like Apple's System Settings.</li>
+</ul>
+</div>
+</div></body></html>
