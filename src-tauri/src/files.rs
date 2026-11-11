@@ -76,6 +76,29 @@ pub fn open_attachment(app: AppHandle, name: String, data: String) -> Result<(),
     tauri_plugin_opener::open_path(&path, None::<&str>).map_err(|e| e.to_string())
 }
 
+/// Opens a file the app saved, with its own program. Programs and scripts are never opened.
+#[tauri::command]
+pub fn open_saved(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.is_file() {
+        return Err("It has been moved or deleted.".into());
+    }
+    if NEVER_OPEN.contains(&extension(&path).as_str()) {
+        return Err("For safety, programs and scripts aren't opened from here. Open it from its folder if you trust it.".into());
+    }
+    tauri_plugin_opener::open_path(&p, None::<&str>).map_err(|e| e.to_string())
+}
+
+/// Shows a saved file in File Explorer, selected.
+#[tauri::command]
+pub fn reveal_saved(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        return Err("It has been moved or deleted.".into());
+    }
+    tauri_plugin_opener::reveal_item_in_dir(&p).map_err(|e| e.to_string())
+}
+
 /// Saves a file into a folder chosen in Settings, without asking. Returns where it went.
 #[tauri::command]
 pub fn save_to_folder(folder: String, name: String, data: String) -> Result<String, String> {

@@ -1,5 +1,6 @@
 // At the top of an email that is a calendar invitation: when it is, who's invited, a Join button,
 // Yes / No / Maybe, and Add to calendar.
+import { noteSaved } from '../lib/saves';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { GuestList, JoinButton } from './ComingUp';
@@ -117,7 +118,7 @@ export function InviteCard({ message }: { message: Message }) {
   const saveFileCopy = async () => {
     const f = files[fileIndex];
     if (!f) return;
-    try { await saveFile(f.filename || 'invite.ics', await getAttachmentData(message.id, f.id), 'text/calendar'); } catch (e) { toast({ text: `Couldn't save it: ${e instanceof Error ? e.message : e}` }); }
+    try { const where = await saveFile(f.filename || 'invite.ics', await getAttachmentData(message.id, f.id), 'text/calendar'); if (where) noteSaved([where]); } catch (e) { toast({ text: `Couldn't save it: ${e instanceof Error ? e.message : e}` }); }
   };
 
   return (

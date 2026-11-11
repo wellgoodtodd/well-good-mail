@@ -29,7 +29,7 @@ export async function exportCache(): Promise<void> {
   const data: CacheFile = { format: 'wgm-cache', version: 1, exportedAt: Date.now(), messages, contacts };
   const bytes = await gzip(JSON.stringify(data));
   const day = new Date().toISOString().slice(0, 10);
-  await saveFile(`well-good-mail-cache-${day}.wgmcache`, bytes, 'application/gzip');
+  await saveFile(`well-good-mail-cache-${day}.wgmcache`, bytes, 'application/gzip', { ask: true });
   toast({ text: 'Mail cache saved. Copy it to the other computer and choose Import there.' });
 }
 

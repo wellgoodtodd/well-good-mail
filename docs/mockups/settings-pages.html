@@ -49,12 +49,28 @@ h2{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;le
 .chip{border:1px solid #3e3e45;border-radius:999px;padding:3px 10px;font-size:12px}
 .sw-c{width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid transparent}
 .page{display:none}.page.on{display:block}
+.styles{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.styles .on{background:var(--accent);border-color:var(--accent);color:#fff}
+.st{cursor:pointer}
+body.mid .tile{background:var(--c)!important;color:#fff!important;filter:saturate(.75) brightness(.92)}
+body.mid .tile svg{stroke-width:1.8}
+body.solid .tile{background:var(--c)!important;color:#fff!important}
+body.solid .tile svg{stroke-width:2.2}
+.looks{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;padding:12px 14px}
+.look{border:1px solid #3e3e45;border-radius:9px;overflow:hidden;font-size:12px}
+.look.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.look .sw2{height:46px;display:flex}.look .sw2 span{flex:1}
+.look div.n{padding:5px 8px}
+.split{display:flex;border-top:1px solid var(--line)}
+.split .l2{width:190px;border-right:1px solid var(--line);padding:8px}
+.split .r2{flex:1;padding:12px 14px;min-width:0}
+.alias{padding-left:22px;color:var(--muted);font-size:12.5px}
 .note{max-width:720px;color:var(--muted);font-size:12px;margin:8px 2px 0}
 .acc{display:flex;align-items:center;gap:8px}.dot{width:9px;height:9px;border-radius:50%}
 .kbd{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;border:1px solid #3e3e45;border-radius:5px;padding:1px 6px;background:#2a2a2f}
 .sig{background:#fff;color:#222;border-radius:7px;padding:10px 12px;font-size:12.5px;line-height:1.5;margin:10px 14px}
 </style></head><body>
-<p class="intro"><b>Every Settings page, clickable.</b> Click the list on the left. <span class="new">New</span> marks something that doesn't exist yet; <span class="moved">Moved</span> marks something that moves from another page. Everything else is what's there now, tidied into Apple-style cards. Icons are drawn in the app's own line style on a soft tint of their colour.</p>
+<div class="intro styles">Icon style: <span class="btn st on" data-s="tint">1 · Tinted (last time)</span><span class="btn st" data-s="mid">2 · In between</span><span class="btn st" data-s="solid">3 · Solid colour</span></div>
+<p class="intro"><b>Every Settings page, round two.</b> Click the list on the left. <span class="new">New</span> marks something that doesn't exist yet; <span class="moved">Moved</span> marks something that moves from another page. Everything else is what's there now, tidied into Apple-style cards. Icons are drawn in the app's own line style on a soft tint of their colour.</p>
 <div class="app">
 <nav id="nav">
 <div class="back">‹ Back to mail</div>
@@ -79,9 +95,11 @@ const I = {
   shortcuts:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
   updates:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
   diagnostics:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  calendar:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
 };
-const C = { general:'#8b8b95', accounts:'#3b82f6', signatures:'#8b5cf6', ooo:'#f59e0b', groups:'#14b8a6', appearance:'#ec4899', composing:'#0ea5e9', notifications:'#ef4444', access:'#3b82f6', privacy:'#64748b', storage:'#22c55e', ai:'#a855f7', shortcuts:'#a8a29e', updates:'#f97316', diagnostics:'#84cc16' };
-const tile = (k, big) => `<span class="tile" style="color:${C[k]};background:${C[k]}26"><svg viewBox="0 0 24 24">${I[k]}</svg></span>`;
+const C = { general:'#8b8b95', accounts:'#3b82f6', signatures:'#8b5cf6', ooo:'#f59e0b', groups:'#14b8a6', appearance:'#ec4899', composing:'#0ea5e9', notifications:'#ef4444', access:'#3b82f6', privacy:'#64748b', storage:'#22c55e', ai:'#a855f7', shortcuts:'#a8a29e', updates:'#f97316', diagnostics:'#84cc16', calendar:'#e11d48', help:'#06b6d4' };
+const tile = (k, big) => `<span class="tile" style="--c:${C[k]};color:${C[k]};background:${C[k]}26"><svg viewBox="0 0 24 24">${I[k]}</svg></span>`;
 const sw = (on=true) => `<span class="sw ${on?'':'off'}"></span>`;
 const sel = (t) => `<span class="sel">${t} ▾</span>`;
 const row = (l, s, ctl, tag='') => `<div class="row"><div class="l">${l}${tag}${s?`<small>${s}</small>`:''}</div>${ctl||''}</div>`;
@@ -90,8 +108,8 @@ const card = (title, rows) => `${title?`<h2>${title}</h2>`:''}<div class="card">
 const NAV = [
  ['general','General'],0,
  ['accounts','Accounts'],['signatures','Signatures & Addresses'],['ooo','Out of Office'],['groups','Inbox Groups'],0,
- ['appearance','Appearance'],['composing','Composing'],['notifications','Notifications & Reminders'],['access','Accessibility'],0,
- ['privacy','Privacy'],['storage','Search & Storage'],['ai','AI Connection'],['shortcuts','Keyboard Shortcuts'],
+ ['appearance','Appearance'],['composing','Composing'],['notifications','Notifications'],['calendar','Calendar & Reminders'],['access','Accessibility'],0,
+ ['privacy','Privacy'],['storage','Storage'],['ai','AI Connection'],['shortcuts','Keyboard Shortcuts'],
 ];
 const P = {
 general: ['How Well Good Mail starts, closes and fits in with Windows.',
@@ -113,33 +131,42 @@ accounts: ['Each account: how it is doing, then every setting. Click a line to c
   <div style="background:#1f3326;border-radius:8px;padding:7px 11px;margin:8px 0;font-size:12.5px">● All good. Checked at 09:42, 12,480 emails on this computer.</div>
   <div class="card">${row('Signature','','<span style="color:var(--muted)">WGM · replies same · forwards none ›</span>')}${row('Sending as','','<span style="color:var(--muted)">todd@wellgood.media ›</span>')}${row('Calendars','','<span style="color:var(--muted)">3 of 5 shown ›</span>')}${row('Alerts','','<span style="color:var(--muted)">Every new email ›</span>')}${row('AI Connection','','<span style="color:var(--muted)">Read and write ›</span>')}${row('Out of Office','','<span style="color:var(--muted)">Off ›</span>')}${row('Mail and storage','','<span style="color:var(--muted)">Keep 1 year · in All Inboxes ›</span>')}</div></div></div></div>`
   + `<p class="note">As built today. The separate Calendars list under the accounts goes: each account's calendars now live in its Calendars line. "Use your own app keys" stays as a small link at the bottom.</p>`],
-signatures: ['Which address new emails come from, the signature for each address, and where it sits.',
-  card('Sending', [ row('Send new emails from','',sel('todd@wellgood.media')) ])
-  + card('Signatures', [ row('Address','',sel('todd@wellgood.media')), `<div class="sig">Todd Weller<br>Well Good Media · 07429 607283<br>wellgood.media</div>`, row('Edit','The formatting bar, pictures and links, as now.','<span class="btn">Edit signature</span>'), row('Place the signature','','<span class="seg"><span class="on">Above the quoted email</span><span>Below</span></span>') ])
-  + card('Send as addresses', [ row('todd@wellgood.media','WGM · default',''), row('info@toddwellerfilms.com','TWF',''), row('','Added in Gmail\'s own settings (Send mail as). They show up here by themselves.','') ])],
+signatures: ['Each account on the left, with its other addresses under it. Pick one to set its signature.',
+  `<div class="card" style="max-width:none"><div class="split"><div class="l2">
+    <div class="it"><span class="acc"><span class="dot" style="background:#3b82f6"></span>WGM</span></div><div class="it alias on">todd@wellgood.media</div><div class="it alias">hello@wellgood.media</div>
+    <div class="it"><span class="acc"><span class="dot" style="background:#a855f7"></span>TWF</span></div><div class="it alias">info@toddwellerfilms.com</div>
+    <div class="it"><span class="acc"><span class="dot" style="background:#f59e0b"></span>TBWELLER</span></div>
+  </div><div class="r2"><b>todd@wellgood.media</b><div style="color:var(--muted);font-size:12px;margin-bottom:8px">WGM · the default address for new emails</div>
+  <div class="sig" style="margin:0 0 10px">Todd Weller<br>Founder &amp; Creative Director<br>Well Good Media · 07429 607283</div>
+  <div class="card">${row('Edit signature','','<span class="btn">Edit</span>')}${row('Replies','',sel('Same as new emails'))}${row('Forwards','',sel('No signature'))}${row('Use this address for new emails','',sw())}</div></div></div></div>`
+  + card('Everywhere', [ row('Place the signature','','<span class="seg"><span class="on">Above the quoted email</span><span>Below</span></span>') ])
+  + `<p class="note">Replies and Forwards are the same switches as in Accounts, so either place changes both. New addresses are added in Gmail's own settings and appear here by themselves.</p>`],
 ooo: ['Set inside each Google and Microsoft account, so replies go out with this computer off.',
   card('', [ row('Accounts','Ticked accounts, each showing Off, On until… or Scheduled.','<span class="btn">Turn off now</span>'), row('When','From now until I turn it off, or Between dates.',''), row('Who gets the reply','Everyone, my contacts only, or my organisation only.',''), row('Message','Subject, the reply itself, templates and the back date.',''), row('While I\'m away','Away event, decline new invitations, a reminder the day before, pause alerts.','') ])
-  + `<p class="note">The page itself stays as it is now (it's new and working); only its cards pick up the same look as the rest.</p>`],
+  + `<p class="note">Kept as it is rather than an account list: Out of Office is usually set for several accounts at once, which a one-at-a-time list makes slower. Its cards pick up the same look as the rest.</p>`],
 groups: ['Groups gather accounts into one place in the sidebar, like Work and Personal.',
   card('Your groups', [ row('<b>Work</b>','WGM, TWF, WGM Microsoft','<span class="btn">Edit</span>'), row('<b>Personal</b>','TBWELLER, iCloud','<span class="btn">Edit</span>'), row('','','<span class="btn">New group</span>') ])],
 appearance: ['How the app looks. Text size and spacing also live in Accessibility.',
-  card('Theme', [ row('Appearance','','<span class="seg"><span>Light</span><span>Dark</span><span class="on">Match Windows</span></span>'), row('Look','Dark and light looks, as now.',sel('Graphite')) ])
+  card('Theme', [ row('Appearance','','<span class="seg"><span>Light</span><span>Dark</span><span class="on">Match Windows</span></span>'), row('Look','Click to see them all.','<span class="btn">Graphite ▾</span>'), `<div class="looks">${[['Graphite','#1c1c1f','#232327','#3b82f6',1],['Midnight','#0f172a','#1e293b','#38bdf8'],['Forest','#13201a','#1b2b23','#22c55e'],['Plum','#1d1424','#2a1d33','#c084fc'],['Paper','#f6f5f2','#ffffff','#2563eb'],['Sand','#f3eee6','#fbf8f3','#d97706']].map(([n,a,b,x,on]) => `<div class="look ${on?'on':''}"><div class="sw2"><span style="background:${a}"></span><span style="background:${b}"></span><span style="background:${x};flex:.35"></span></div><div class="n">${n}</div></div>`).join('')}</div>` ])
   + card('Colours', [ row('Accent colour','','<span class="chips"><span class="sw-c" style="background:#3b82f6;border-color:#fff"></span><span class="sw-c" style="background:#8b5cf6"></span><span class="sw-c" style="background:#ec4899"></span><span class="sw-c" style="background:#f59e0b"></span><span class="sw-c" style="background:#22c55e"></span></span>'), row('Account colours','',sel('Studio')), row('Colour blind friendly account colours','',sw(false)), row('Account colour stripe on each email','',sw()), row('Unread colour','',sel('Accent')) ])
   + card('Text and layout', [ row('Text size','','<span class="slider"></span> 100%'), row('List spacing','','<span class="seg"><span>Compact</span><span class="on">Comfortable</span><span>Roomy</span></span>'), row('Reading pane','','<span class="seg"><span class="on">On the right</span><span>Below</span><span>Off</span></span>'), row('Preview lines','',sel('2 lines')), row('Group replies into conversations','',sw()), row('Newest message first in a conversation','',sw(false)), row('Show the mailbox sidebar','Ctrl+Shift+S',sw()) ])
   + card('Unread counts', [ row('Show unread counts','',sw()), row('Count in','Inbox, Drafts, labels, Junk, Flagged','<span class="btn">Choose</span>'), row('Style','',sel('Coloured badge')) ])
-  + card('Pictures', [ row('Google profile pictures for accounts in the sidebar','',sw(false)), row('Photo or initials beside each email in the list','',sw(false)) ])],
+  + card('Pictures', [ row('Google profile pictures for accounts in the sidebar','',sw(false)), row('Photo or initials beside each email in the list','',sw(false)) ])
+  + card('Sidebar', [ row('Favourites','Right click anything in the sidebar to add it.','<span class="btn">Reset Favourites</span>', MOVED), row('Hidden items','','<span class="btn">Show all (3)</span>') ])],
 composing: ['Writing, sending and templates.',
   card('Fonts', [ row('Interface font','',sel('Inter')), row('Writing font','',sel('Rubik')), row('Writing size','',sel('11 pt')), row('Writing colour','',sel('Automatic')), row('Reading font for plain emails','',sel('Inter')) ])
   + card('Sending', [ row('Undo send','',sel('10 seconds')), row('Scheduled email when the app is closed','',sel('Wake the computer')), row('Closing an unsent email','',sel('Keep as a draft')), row('Reply button does','','<span class="seg"><span class="on">Reply</span><span>Reply All</span></span>'), row('Open replies in their own window','',sw(false)), row('Underline spelling mistakes','',sw()) ])
   + card('Warnings before sending', [ row('No subject line','',sw()), row('An attachment is mentioned but nothing is attached','',sw()), row('Sending to more than 10 people','',sw()), row('Replying from a different address than the email went to','',sw()) ])
   + card('Templates', [ row('Away','','<span class="btn">Edit</span>'), row('Thanks, will reply','','<span class="btn">Edit</span>'), row('','','<span class="btn">New template</span>') ])
-  + card('Sidebar', [ row('Favourites','Right click anything in the sidebar to add it.','<span class="btn">Reset Favourites</span>'), row('Hidden items','','<span class="btn">Show all (3)</span>') ])],
+],
 notifications: ['What interrupts you, and when.',
   card('New mail', [ row('Alert me for','',sel('All new mail')), row('How alerts appear','',sel('A Windows notification')), row('Quiet hours','No notifications 22:00 to 07:00.',sw(false)) ])
-  + card('Per account', [ row('<span class="acc"><span class="dot" style="background:#3b82f6"></span>WGM</span>','',sel('Every new email')), row('<span class="acc"><span class="dot" style="background:#f59e0b"></span>TBWELLER</span>','',sel('Only VIPs')), row('<span class="acc"><span class="dot" style="background:#a855f7"></span>TWF</span>','',sel('Every new email')) ])
+  + card('Per account', [ row('<span class="acc"><span class="dot" style="background:#3b82f6"></span>WGM</span>','',sel('Every new email')), row('<span class="acc"><span class="dot" style="background:#f59e0b"></span>TBWELLER</span>','',sel('Only VIPs')), row('<span class="acc"><span class="dot" style="background:#a855f7"></span>TWF</span>','',sel('Every new email')) ])],
+calendar: ['How the calendar looks, and how reminders reach you.',
+  card('Calendar', [ row('Week starts on','','<span class="seg"><span>Sunday</span><span class="on">Monday</span></span>'), row('Show week numbers','',sw()), row('Hide weekends','In Week and Month.',sw(false)), row('Working hours','Shaded lighter in Day and Week.','<span class="sel">09:00</span> to <span class="sel">17:00</span>'), row('Suggest events from emails','Dates and times in emails from people.',sw()) ])
   + card('Reminders', [ row('Pop-ups','',sel('Important only, plus a daily summary')), row('Daily summary at','','<span class="sel">08:00</span>') ])
   + card('Video meetings', [ row('First notification','',sel('10 minutes before')), row('Second notification','',sel('1 minute before')), row('Banner in the app with a Join button','',sel('2 minutes before')) ])
-  + card('Calendar', [ row('Week starts on','','<span class="seg"><span class="on">Monday</span><span>Sunday</span></span>'), row('Show week numbers','',sw(),NEW), row('Hide weekends','',sw(false),NEW), row('Working hours','Shaded lighter in Day and Week.','<span class="sel">09:00</span> to <span class="sel">17:00</span> '+sel('Mon to Fri'),NEW), row('Suggest events from emails','Dates and times in emails from people.',sw()) ])],
+  + `<p class="note">Split from Notifications, since the calendar now has its own options. Each account's calendars stay in Accounts.</p>`],
 access: ['Make the app easier to see and use.',
   card('Seeing', [ row('Text size','','<span class="slider"></span> 100%'), row('Row spacing','',sel('Comfortable')), row('Keyboard focus','',sel('Standard ring')), row('Easy-read font','Atkinson Hyperlegible, made for low vision.',sw(false)), row('Underline links','',sw(false)), row('Stronger borders','',sw(false)) ])
   + card('Motion', [ row('Animation','','<span class="seg"><span class="on">Follow Windows</span><span>Keep things still</span></span>') ])
@@ -149,18 +176,24 @@ privacy: ['What senders can see, and who you hear from.',
   card('Pictures in emails', [ row('Load pictures','Recommended: senders can\'t tell when you open their email.',sel('Hide until I load them')), row('Block tracking pixels, even when pictures load','',sw()), row('Show emails in dark mode when the app is dark','',sw()) ])
   + card('People', [ row('Important senders (VIPs)','12 people','<span class="btn">Manage</span>'), row('Trusted senders','Pictures always load. 8 people.','<span class="btn">Manage</span>'), row('Blocked senders','3 people','<span class="btn">Manage</span>'), row('Muted conversations','2','<span class="btn">Manage</span>') ])],
 storage: ['What is kept on this computer, and moving to another one.',
-  card('Mail on this computer', [ row('New accounts keep','Each account can differ, in Accounts.',sel('1 year')), row('Space used','1.8 GB for 41,200 emails',''), row('Search tips','from:, to:, has:attachment, before: and more.','<span class="btn">Show</span>') ])
+  card('Mail on this computer', [ row('New accounts keep','Each account can differ, in Accounts.',sel('1 year')), row('Space used','1.8 GB for 41,200 emails','') ])
   + card('Attachments', [ row('Save attachments to','',sel('Ask each time')), row('Previews folder','2 files, 1 KB. Cleared after 30 days.','<span class="btn">Open folder</span> <span class="btn">Clear</span>') ])
-  + card('Moving to another computer', [ row('Back up my keys','Last backed up: never','<span class="btn pri">Back up</span>'), row('Export mail','So the new computer doesn\'t download it all again.','<span class="btn">Export</span> <span class="btn">Import</span>') ])],
+  + card('Moving to another computer', [ row('Back up my keys','Last backed up: never','<span class="btn pri">Back up</span>'), row('Export mail','So the new computer doesn\'t download it all again.','<span class="btn">Export</span> <span class="btn">Import</span>') ])
+  + `<p class="note">Search tips move to Help, and the search box gets a small ? that opens them.</p>`],
+help: ['Answers, search tips, and how to reach us.',
+  card('', [ row('Help topics','Out of Office, signatures, attachments, iCloud and more.','<span class="btn">Open Help</span>'), row('Search tips','from:, to:, has:attachment, before:, in:sent and more.','<span class="btn">Show</span>', MOVED), row('Keyboard Shortcuts','','<span class="btn">Show</span>') ])
+  + card('Feedback', [ row('Suggest a feature','A short form. You can add a screenshot.','<span class="btn">Suggest</span>', NEW), row('Report a problem','Includes the Diagnostics report if you tick it. No email text.','<span class="btn">Report</span>', NEW), row('Email support','','<span class="btn">Email us</span>', NEW) ])
+  + `<p class="note">Also at the bottom of the Help screen itself. Where these go (an email address, or a form) is your call.</p>`],
 ai: ['Let AI apps like Claude read mail and write drafts. Off until you switch it on.',
   card('', [ row('AI Connection','',sw()) ]) + card('Connected AI apps', [ row('Claude Desktop','Connected','<span class="btn">Disconnect</span>'), row('','','<span class="btn">Connect another app</span>') ])
   + card('Accounts', [ row('<span class="acc"><span class="dot" style="background:#3b82f6"></span>WGM</span>','',sel('Read and write')), row('<span class="acc"><span class="dot" style="background:#f59e0b"></span>TBWELLER</span>','',sel('Off')) ])
   + card('What it can do', [ row('Read and search mail','',sel('Allow')), row('Write drafts','',sel('Ask')), row('Out of Office','Always asks, with the whole reply.','') ])
-  + card('Drafting', [ row('Draft groups and writer names','As now.','') ])],
+  + card('Drafting', [ row('Draft groups and writer names','As now.','') ])
+  + `<p class="note">Kept as one page: each account's level is also in Accounts, on its AI Connection line, so there's already a per-account view.</p>`],
 shortcuts: ['Based on Apple Mail, with Ctrl in place of Cmd. Click one to change it.',
   card('', [ row('Single key shortcuts','Like E to archive, J and K to move, when you aren\'t typing.',sw(false)) ])
   + card('Mail', [ row('New email','','<span class="kbd">Ctrl+N</span>'), row('Reply','','<span class="kbd">Ctrl+R</span>'), row('Archive','','<span class="kbd">Ctrl+E</span>'), row('Search','','<span class="kbd">Ctrl+F</span>') ])
-  + `<p class="note">Grouped into Mail, Reading, Writing and App, instead of one long list.</p>`],
+  + `<p class="note">Grouped into Mail, Reading, Writing and App, instead of one long list. Any action can have its keys changed, or more keys added (Add). New actions can't be invented, only the app's own.</p>`],
 updates: ['Version 0.7.2 beta 4',
   card('', [ row('Status','You\'re up to date. Checked 2 minutes ago.','<span class="btn">Check now</span>'), row('Download updates in the background','Installs when the app opens, or when you choose Restart.',sw()), row('Tell me about test versions','',sw()) ])
   + `<h2>What's new</h2><div class="card">${row('0.7.2','November 2026','<span class="btn">Show</span>')}${row('0.7.1','November 2026','<span class="btn">Show</span>')}${row('0.6.x','4 releases','›')}</div>`
@@ -175,15 +208,19 @@ let current = 'general';
 function show(k) {
   current = k;
   document.querySelectorAll('.it[data-k]').forEach((e) => e.classList.toggle('on', e.dataset.k === k));
-  const title = (NAV.find((n) => n && n[0] === k) || [k, k === 'updates' ? 'Updates' : 'Diagnostics'])[1];
+  const title = (NAV.find((n) => n && n[0] === k) || [k, { updates: 'Updates', diagnostics: 'Diagnostics', help: 'Help & Feedback' }[k]])[1];
   main.innerHTML = `<div class="ph">${tile(k)}<h1>${title}</h1></div><p class="lead">${P[k][0]}</p>${P[k][1]}`;
   main.scrollTop = 0;
 }
 let html = '';
 for (const n of NAV) html += n ? `<div class="it" data-k="${n[0]}">${tile(n[0])}<span class="nm">${n[1]}</span></div>` : '<div class="gap"></div>';
-html += `<div class="foot"><div class="it" data-k="updates">${tile('updates')}<span class="nm">Updates</span></div><div class="it" data-k="diagnostics">${tile('diagnostics')}<span class="nm">Diagnostics</span></div><div class="ver">Version 0.7.2-beta.4</div></div>`;
+html += `<div class="foot"><div class="it" data-k="updates">${tile('updates')}<span class="nm">Updates</span></div><div class="it" data-k="diagnostics">${tile('diagnostics')}<span class="nm">Diagnostics</span></div><div class="it" data-k="help">${tile('help')}<span class="nm">Help &amp; Feedback</span></div><div class="ver">Version 0.7.2-beta.4</div></div>`;
 nav.insertAdjacentHTML('beforeend', html);
 nav.addEventListener('click', (e) => { const it = e.target.closest('.it[data-k]'); if (it) show(it.dataset.k); });
 show('general');
+document.querySelectorAll('.st').forEach((b) => b.addEventListener('click', () => {
+  document.body.className = b.dataset.s === 'tint' ? '' : b.dataset.s;
+  document.querySelectorAll('.st').forEach((x) => x.classList.toggle('on', x === b));
+}));
 </script>
 </body></html>

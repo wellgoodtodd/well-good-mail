@@ -6,6 +6,7 @@ import { fileSize } from './ui';
 import { getAttachmentData, toast } from '../lib/mail';
 import { saveFile, openWithApp, isTauri } from '../lib/platform';
 import { base64ToBytes } from '../lib/mime';
+import { noteSaved } from '../lib/saves';
 import { docxToHtml } from '../lib/docPreview';
 import { describeFile, isDocx } from '../lib/fileKinds';
 import type { AttachmentMeta } from '../lib/types';
@@ -63,7 +64,7 @@ export function AttachmentPreview({ messageId, items, start, onClose, onOpenApp,
 
   const save = async () => {
     try {
-      if (bytes) await saveFile(a.filename, bytes, a.mimeType);
+      if (bytes) { const where = await saveFile(a.filename, bytes, a.mimeType, { ask: true }); if (where) noteSaved([where]); }
     } catch (e) {
       toast({ text: `Couldn't save ${a.filename}: ${e instanceof Error ? e.message : e}` });
     }
@@ -82,7 +83,7 @@ export function AttachmentPreview({ messageId, items, start, onClose, onOpenApp,
               <button className="icon-btn" aria-label="Next attachment" disabled={at === items.length - 1} onClick={() => setAt(at + 1)}><Icon name="chevronRight" /></button>
             </>
           )}
-          <button className="btn" onClick={save} disabled={!bytes}><Icon name="download" /> Save</button>
+          <button className="btn" onClick={save} disabled={!bytes} title="Choose where to save it"><Icon name="download" /> Save…</button>
           {onOpenApp && kind === 'word' && <button className="btn primary" onClick={() => onOpenApp(a)}>Open in {describeFile(a.filename).app || 'its own app'}</button>}
           <button className="icon-btn" aria-label="Close preview" onClick={onClose}><Icon name="close" /></button>
         </div>
@@ -120,7 +121,7 @@ export async function openDraftFile(files: DraftFile[], i: number): Promise<numb
   try {
     const data = await f.load();
     if (isTauri()) await openWithApp(f.meta.filename, data, f.meta.mimeType);
-    else await saveFile(f.meta.filename, data, f.meta.mimeType);
+    else { const where = await saveFile(f.meta.filename, data, f.meta.mimeType); if (where) noteSaved([where]); }
   } catch (e) {
     toast({ text: `Couldn't open ${f.meta.filename}: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
   }

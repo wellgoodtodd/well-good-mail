@@ -47,6 +47,8 @@ export interface Toast {
   text: string;
   undo?: () => void;
   action?: { label: string; run: () => void };
+  /** Several buttons, like Open and Show in folder. */
+  actions?: { label: string; run: () => void }[];
   ttl?: number;
 }
 

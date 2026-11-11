@@ -1,4 +1,5 @@
 // The main window and pop out windows.
+import { useSaves, openSaved, showSaved, clearSaves, markSavesSeen } from './lib/saves';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './components/Icon';
 import { Sidebar } from './components/Sidebar';
@@ -131,9 +132,46 @@ function Toasts() {
           <span className="t">{t.text}</span>
           {t.undo && <button onClick={() => { t.undo!(); dismissToast(t.id); }}>Undo</button>}
           {t.action && <button onClick={() => { t.action!.run(); dismissToast(t.id); }}>{t.action.label}</button>}
+          {t.actions?.map((a) => <button key={a.label} onClick={() => { a.run(); dismissToast(t.id); }}>{a.label}</button>)}
           <button className="x" aria-label="Dismiss" onClick={() => dismissToast(t.id)}><Icon name="close" size={13} /></button>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Appears once something has been saved from the app: recent saves with Open and Show in folder, like a browser. */
+function DownloadsButton() {
+  const list = useSaves((x) => x.list);
+  const unseen = useSaves((x) => x.unseen);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('mousedown', close);
+    window.addEventListener('keydown', esc);
+    return () => { window.removeEventListener('mousedown', close); window.removeEventListener('keydown', esc); };
+  }, [open]);
+  if (!list.length) return null;
+  const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : new Date(t).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); };
+  const folder = (p: string) => p.slice(0, Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/')));
+  return (
+    <div className="dl-wrap" ref={ref}>
+      <button className={`icon-btn dl-btn ${unseen ? 'new' : ''}`} title="Saved files" aria-label="Saved files" aria-expanded={open} onClick={() => { setOpen(!open); markSavesSeen(); }}><Icon name="download" /></button>
+      {open && (
+        <div className="dl-pop" role="dialog" aria-label="Saved files">
+          <div className="dl-head"><strong>Saved files</strong><button className="link-btn" onClick={() => void showSaved(list[0].path)}>Open folder</button></div>
+          {list.map((f) => (
+            <div key={f.path + f.at} className="dl-item">
+              <button className="dl-name" title={`Open ${f.name}`} onClick={() => void openSaved(f.path)}><span>{f.name}</span><small>{folder(f.path)} · {ago(f.at)}</small></button>
+              <button className="icon-btn" title="Show in folder" aria-label={`Show ${f.name} in its folder`} onClick={() => void showSaved(f.path)}><Icon name="folder" size={15} /></button>
+            </div>
+          ))}
+          <button className="link-btn dl-clear" onClick={() => { clearSaves(); setOpen(false); }}>Clear list</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -516,6 +554,7 @@ function MainWindow() {
         ><Icon name={themeIsDark ? 'sun' : 'moon'} /></button>
         {accounts.length > 0 && <AiStatusButton />}
         {accounts.length > 0 && <SearchBox />}
+        <DownloadsButton />
         {accounts.length > 0 && (
           <button
             className={`icon-btn ${s.comingUpOpen && screen !== 'reminders' ? 'active' : ''}`}

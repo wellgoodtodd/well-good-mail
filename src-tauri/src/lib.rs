@@ -213,6 +213,8 @@ pub fn run() {
             wake::cancel_wake,
             files::open_attachment,
             files::save_to_folder,
+            files::open_saved,
+            files::reveal_saved,
             files::previews_size,
             files::clear_previews,
             files::open_previews_folder

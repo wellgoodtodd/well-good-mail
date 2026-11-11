@@ -102,12 +102,17 @@ export async function chooseFolder(title: string): Promise<string | undefined> {
  * Save bytes to a file. With a downloads folder chosen in Settings it goes straight there (never overwriting);
  * otherwise the person picks where. Returns where it went, or undefined if cancelled.
  */
-export async function saveFile(filename: string, data: Uint8Array, mimeType: string): Promise<string | undefined> {
-  if (isTauri() && downloadFolder) return invoke<string>('save_to_folder', { folder: downloadFolder, name: filename, data: toBase64(data) });
+/**
+ * Saves a file. A quick save goes straight to the saved folder when there is one. With ask (any button that says
+ * Save…), the Windows Save As box opens in that folder, so the file can be renamed or put somewhere else.
+ */
+export async function saveFile(filename: string, data: Uint8Array, mimeType: string, opts: { ask?: boolean } = {}): Promise<string | undefined> {
+  if (isTauri() && downloadFolder && !opts.ask) return invoke<string>('save_to_folder', { folder: downloadFolder, name: filename, data: toBase64(data) });
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog');
     const { writeFile } = await import('@tauri-apps/plugin-fs');
-    const path = await save({ defaultPath: safeFileName(filename) });
+    const name = safeFileName(filename);
+    const path = await save({ defaultPath: downloadFolder ? `${downloadFolder.replace(/[\\/]+$/, '')}\\${name}` : name });
     if (path) await writeFile(path, data);
     return path || undefined;
   }
@@ -131,21 +136,22 @@ export function safeFileName(name: string): string {
   return n.slice(0, 180);
 }
 
-export async function saveFilesToFolder(files: { filename: string; data: Uint8Array; mimeType: string }[]): Promise<number> {
+export async function saveFilesToFolder(files: { filename: string; data: Uint8Array; mimeType: string }[]): Promise<string[]> {
   if (!isTauri()) {
     for (const f of files) await saveFile(f.filename, f.data, f.mimeType);
-    return files.length;
+    return files.map((f) => f.filename);
   }
   if (downloadFolder) {
-    for (const f of files) await invoke('save_to_folder', { folder: downloadFolder, name: f.filename, data: toBase64(f.data) });
-    return files.length;
+    const out: string[] = [];
+    for (const f of files) out.push(await invoke<string>('save_to_folder', { folder: downloadFolder, name: f.filename, data: toBase64(f.data) }));
+    return out;
   }
   const { open } = await import('@tauri-apps/plugin-dialog');
   const { writeFile, exists } = await import('@tauri-apps/plugin-fs');
   const dir = await open({ directory: true, recursive: true, title: 'Choose a folder for these files' });
-  if (!dir || typeof dir !== 'string') return 0;
+  if (!dir || typeof dir !== 'string') return [];
   const sep = dir.includes('\\') ? '\\' : '/';
-  let saved = 0;
+  const saved: string[] = [];
   for (const f of files) {
     // Never overwrite something already in the folder: add (2), (3)... to the name instead.
     const clean = safeFileName(f.filename);
@@ -155,7 +161,7 @@ export async function saveFilesToFolder(files: { filename: string; data: Uint8Ar
     let name = clean;
     for (let n = 2; await exists(`${dir}${sep}${name}`); n++) name = `${stem} (${n})${ext}`;
     await writeFile(`${dir}${sep}${name}`, f.data);
-    saved++;
+    saved.push(`${dir}${sep}${name}`);
   }
   return saved;
 }

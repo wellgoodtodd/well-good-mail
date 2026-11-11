@@ -11,6 +11,7 @@ import { loadBody, refetchBody, looksGarbled, getAttachmentData, markRead, messa
 import { useSettings } from '../lib/settings';
 import { SuggestedEvent } from './SuggestedEvent';
 import { saveFile, saveFilesToFolder, openExternal, openWithApp, isTauri } from '../lib/platform';
+import { noteSaved } from '../lib/saves';
 import { askConfirm } from '../lib/dialogs';
 import { bytesToBase64 } from '../lib/mime';
 import { startCompose, editServerDraft } from '../lib/composeActions';
@@ -140,7 +141,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
   const download = async (id: string, filename: string, mime: string) => {
     try {
       const where = await saveFile(filename, await getAttachmentData(message.id, id), mime);
-      if (where && isTauri() && useSettings.getState().downloadFolder) toast({ text: `Saved to ${where}` });
+      if (where) noteSaved([where]);
     } catch (e) {
       toast({ text: `Couldn't save ${filename}: ${e instanceof Error ? e.message : e}` });
     }
@@ -157,8 +158,8 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
   const saveAll = async () => {
     try {
       const files = await Promise.all(attachments.map(async (a) => ({ filename: a.filename, mimeType: a.mimeType, data: await getAttachmentData(message.id, a.id) })));
-      const n = await saveFilesToFolder(files);
-      if (n) toast({ text: n === 1 ? 'Saved 1 file' : `Saved ${n} files` });
+      const paths = await saveFilesToFolder(files);
+      if (paths.length) noteSaved(paths);
     } catch (e) {
       toast({ text: `Couldn't save the files: ${e instanceof Error ? e.message : e}` });
     }

@@ -92,17 +92,22 @@ export function Reminders() {
                         <div className="sub">{when(r)} · {r.calendarName || label(r.accountId)}</div>
                       </div>
                       {r.kind === 'followup' && <span className="pill important">Follow up</span>}
-                      {eventFor(r)?.meetingUrl && <JoinButton event={eventFor(r)!} small />}
-                      {overdue && r.kind === 'event' && <span className="pill overdue">Overdue</span>}
-                      {r.kind === 'event' && (
-                        <button className={`icon-btn ${isImportant(r.title) ? 'active' : ''}`} title={isImportant(r.title) ? 'Important: pops up' : 'Mark as important so it pops up'} aria-label="Important" onClick={() => s.toggleIn('importantEvents', r.title)}>
-                          <Icon name="star" />
-                        </button>
-                      )}
-                      {r.kind === 'followup' && r.threadId && (
-                        <button className="btn" onClick={() => { setView({ scope: { type: 'account', accountId: r.accountId }, mailbox: { kind: 'system', folder: 'sent' } }); selectThread(`${r.accountId}|${r.threadId}`); }}>Open</button>
-                      )}
-                      <button className="btn primary" onClick={() => dismissReminders([r.id])}>Done</button>
+                      {/* What varies (Overdue, Join, Open) sits before a fixed end, so star and Done always line up. */}
+                      <div className="rem-extras">
+                        {overdue && r.kind === 'event' && <span className="pill overdue">Overdue</span>}
+                        {eventFor(r)?.meetingUrl && <JoinButton event={eventFor(r)!} small />}
+                        {r.kind === 'followup' && r.threadId && (
+                          <button className="btn" onClick={() => { setView({ scope: { type: 'account', accountId: r.accountId }, mailbox: { kind: 'system', folder: 'sent' } }); selectThread(`${r.accountId}|${r.threadId}`); }}>Open</button>
+                        )}
+                      </div>
+                      <div className="rem-end">
+                        {r.kind === 'event' ? (
+                          <button className={`icon-btn ${isImportant(r.title) ? 'active' : ''}`} title={isImportant(r.title) ? 'Important: pops up' : 'Mark as important so it pops up'} aria-label="Important" onClick={() => s.toggleIn('importantEvents', r.title)}>
+                            <Icon name="star" />
+                          </button>
+                        ) : <span className="rem-star-space" aria-hidden />}
+                        <button className="btn primary" onClick={() => dismissReminders([r.id])}>Done</button>
+                      </div>
                     </div>
                   );
                 })}

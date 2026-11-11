@@ -30,7 +30,7 @@ export async function exportKeys(): Promise<boolean> {
     return false;
   }
   const data: KeysFile = { format: 'wgm-keys', version: 1, exportedAt: Date.now(), keys };
-  await saveFile('well-good-mail-keys.json', new TextEncoder().encode(JSON.stringify(data, null, 2)), 'application/json');
+  await saveFile('well-good-mail-keys.json', new TextEncoder().encode(JSON.stringify(data, null, 2)), 'application/json', { ask: true });
   useSettings.getState().set({ keysBackedUpAt: Date.now() });
   toast({ text: 'Keys saved. Keep that file somewhere private: it holds your Google secret.', ttl: 8000 });
   return true;

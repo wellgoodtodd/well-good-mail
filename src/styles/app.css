@@ -1581,3 +1581,22 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .tg-now { position: absolute; left: -1px; right: 0; height: 2px; background: #e5484d; z-index: 2; }
 .tg-now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #e5484d; }
 .work-hours { display: inline-flex; align-items: center; gap: 8px; }
+/* Reminders: star and Done always on the right (0.7.2 beta 4) */
+.rem-row { flex-wrap: nowrap; }
+.rem-row .grow { flex: 1 1 auto; }
+.rem-extras { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.rem-end { display: flex; align-items: center; gap: 8px; flex: none; }
+.rem-star-space { width: 32px; height: 32px; }
+
+/* Saved files: the toolbar button and its list (0.7.2 beta 4) */
+.dl-wrap { position: relative; }
+.dl-btn.new::after { content: ''; position: absolute; right: 5px; top: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.dl-btn { position: relative; }
+.dl-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: 360px; max-height: 420px; overflow-y: auto; background: var(--bg-elev, var(--bg)); border: 1px solid var(--border-strong, var(--border)); border-radius: 10px; box-shadow: 0 14px 34px rgba(0,0,0,.35); padding: 6px; }
+.dl-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px 6px; }
+.dl-item { display: flex; align-items: center; gap: 4px; border-radius: 7px; }
+.dl-item:hover { background: var(--bg-hover); }
+.dl-name { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; padding: 6px 8px; cursor: pointer; }
+.dl-name span, .dl-name small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-name small { color: var(--text-muted); font-size: 0.82em; }
+.dl-clear { display: block; margin: 4px auto 2px; }
