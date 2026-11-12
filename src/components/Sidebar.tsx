@@ -9,11 +9,10 @@ import { useMenu, type MenuItem } from './ui';
 import { useSettings, type Settings } from '../lib/settings';
 import { useSettingsAlerts } from '../lib/alerts';
 import { useUpdates } from '../lib/updater';
-import { useMail, setView, openScreen, providerFor, archive, trash, markSpam, moveToInbox, moveToLabel, idsForKeys, reconnectAccount, markViewRead, toast, syncAccount, editAccount } from '../lib/mail';
+import { useMail, countsFor, setView, openScreen, providerFor, archive, trash, markSpam, moveToInbox, moveToLabel, idsForKeys, reconnectAccount, markViewRead, toast, syncAccount, editAccount } from '../lib/mail';
 import { ColourPicker } from './ColourPicker';
 import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
-import { inSystemFolder } from '../lib/mailbox';
 import { dueReminders, alertMute } from '../lib/reminders';
 import { useAiDrafts, groupCounts, setDraftFilter, groupColour } from '../lib/mcp/aiDrafts';
 import { groupItems, newGroup } from './AiDrafts';
@@ -34,29 +33,15 @@ const FOLDERS: { folder: SystemFolder; icon: IconName; name: string; all: string
 ];
 const FOLDER_BY_KEY = Object.fromEntries(FOLDERS.map((f) => [f.folder, f]));
 
-type Counts = Record<string, number>;
+type Counts = Readonly<Record<string, number>>;
 
 function useCounts(): Counts {
-  // Counted just after the list updates (not before), so archiving or deleting answers at once.
+  // Counted just after the list updates (not before), so archiving or deleting answers at once. Only emails that
+  // changed are counted again (see messageIndex.ts).
   const messages = useDeferredValue(useMail((s) => s.messages));
   const snoozes = useMail((s) => s.snoozes);
   const accounts = useMail((s) => s.accounts);
-  return useMemo(() => {
-    const c: Counts = {};
-    const snoozed = new Set(snoozes.map((s) => s.messageId));
-    const inc = (k: string) => (c[k] = (c[k] || 0) + 1);
-    const leftOut = new Set(accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id));
-    for (const m of Object.values(messages)) {
-      const p = providerFor(m.accountId);
-      const all = (k: string) => { if (!leftOut.has(m.accountId)) inc(k); };
-      if (m.unread && !snoozed.has(m.id) && inSystemFolder(m, 'inbox', p)) { inc(`${m.accountId}|inbox`); all('all|inbox'); }
-      if (m.unread && inSystemFolder(m, 'junk', p)) { inc(`${m.accountId}|junk`); all('all|junk'); }
-      if (inSystemFolder(m, 'drafts', p)) { inc(`${m.accountId}|drafts`); all('all|drafts'); }
-      if (m.flagged && inSystemFolder(m, 'flagged', p)) all('all|flagged');
-      if (m.unread) for (const l of m.labels) if (l.startsWith('Label_') || l.length > 12) inc(`${m.accountId}|label|${l}`);
-    }
-    return c;
-  }, [messages, snoozes, accounts]);
+  return useMemo(() => countsFor(messages, accounts, snoozes), [messages, snoozes, accounts]);
 }
 
 interface Desc {

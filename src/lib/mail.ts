@@ -24,10 +24,24 @@ import { showBanner } from './banners';
 import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout, invoke } from './platform';
 import { myAddresses } from './compose';
 import { bytesToBase64 } from './mime';
+import { MessageIndex, type Counts } from './messageIndex';
 import { paletteById, colourFor } from './palettes';
 import type { Account, Address, CalendarEvent, EventCopy, EventPatch, Draft, EventGuest, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
 
 const providers = new Map<string, MailProvider>();
+
+/** Conversations and unread counts, kept up to date as emails change (see messageIndex.ts). */
+const index = new MessageIndex((id) => providers.get(id));
+function indexNow(): MessageIndex {
+  const s = get();
+  index.update(s.messages, s.accounts, s.snoozes);
+  return index;
+}
+/** The sidebar's counts for a given set of messages (the sidebar passes a slightly delayed copy so lists answer first). */
+export function countsFor(messages: Record<string, Message>, accounts: Account[], snoozes: Snooze[]): Counts {
+  index.update(messages, accounts, snoozes);
+  return index.counts();
+}
 export const providerFor = (accountId: string) => providers.get(accountId);
 
 function makeProvider(a: Account): MailProvider {
@@ -265,11 +279,7 @@ function updateUnreadBadge() {
   badgeTimer = setTimeout(countUnreadBadge, 400);
 }
 function countUnreadBadge() {
-  let n = 0;
-  const leftOut = new Set(get().accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id));
-  for (const m of Object.values(get().messages)) {
-    if (m.unread && !leftOut.has(m.accountId) && inSystemFolder(m, 'inbox', providers.get(m.accountId))) n++;
-  }
+  const n = indexNow().counts().badge || 0;
   setUnreadCount(settings().taskbarCount === false ? 0 : n);
 }
 /** Shows or clears the taskbar count straight away (the switch in Settings › General). */
@@ -814,9 +824,8 @@ export function selectThread(key: string | undefined, opts: { additive?: boolean
 }
 
 export function messagesInThread(key: string): Message[] {
-  return Object.values(get().messages)
-    .filter((m) => threadKey(m) === key)
-    .sort((a, b) => a.date - b.date);
+  const all = get().messages;
+  return indexNow().idsIn(key).map((id) => all[id]).filter(Boolean).sort((a, b) => a.date - b.date);
 }
 
 export function openScreen(screen: MailState['screen'], settingsTab?: string) {
@@ -1136,8 +1145,8 @@ const sys = (f: SystemFolder) => (p: MailProvider) => [p.systemFolderId(f) || ''
 const none = () => [] as string[];
 
 export function idsForKeys(keys: string[]): string[] {
-  const set = new Set(keys);
-  return Object.values(get().messages).filter((m) => set.has(threadKey(m))).map((m) => m.id);
+  const ix = indexNow();
+  return [...new Set(keys)].flatMap((k) => ix.idsIn(k));
 }
 
 /** Message ids for the current selection, limited to what the view shows. */
