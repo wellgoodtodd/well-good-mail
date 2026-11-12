@@ -2,6 +2,10 @@
 
 Things noted but not built yet. Newest first. Nothing here is promised for a date.
 
+## 0.7.3 beta 4 (built 12 Nov 2026)
+
+Beta 3 plus under the hood: email bodies out of memory (loaded on open, last 50 cached), search index about half the size (first 4,000 characters of each email, indexed once), iCloud calendar addresses remembered, mail.ts split into src/lib/mail/ (mail.ts re-exports everything), and Tiptap 3.33.1. Test list: docs/testing-0.7.3-beta4.md. Behaviour changes to watch: words beyond the first 4,000 characters aren't found in search, and Smart Mailboxes "Any text" matches whole words or word starts in the body.
+
 ## 0.7.3 beta 3 (built 12 Nov 2026)
 
 Aim: the last 0.7.3 beta before live, so one round of testing, not several. Test list: docs/testing-0.7.3-beta3.md.
