@@ -16,6 +16,10 @@ Aim: the last 0.7.3 beta before live, so one round of testing, not several. Test
 - **Proposed extras (Todd to say yes):** Help and What's new for everything in 0.7.3, so beta 3 can go live as it is; Gmail's first sync fetching each email once (audit round 3, small); a look at why some emails take a moment to open (invitations looking up guests).
 - **Left for later:** the rest of audit round 3 (bodies loaded on open, a smaller search index, iCloud calendar addresses), splitting mail.ts, Tiptap 3, tasks, place suggestions in Location.
 
+## Tasks and place suggestions (mock-ups shown 12 Nov 2026, for beta 5 or 6)
+
+Mock-up: docs/mockups/tasks-and-places.html. To decide: Tasks as a third view in Calendar & Reminders (my pick) or its own sidebar place; kept in step with Google Tasks and Microsoft To Do (my pick; Google Tasks has due dates but no due time over its API) or app-only; tasks with a due time shown in Day and Week view; make a task from an email (right-click or T, linked back to it); AI apps can add tasks, asking first. Places: suggestions from places used before and contacts' addresses (private, my pick), map search (Google Places or Azure Maps, needs a key and has costs) only as an opt-in switch; Directions in the event pop-up.
+
 ## Future idea: tasks (12 Nov 2026)
 
 Todd keeps reminders as tasks in Apple Reminders. Idea: a task list here instead, alongside Calendar & Reminders. Overlaps with the business hub and project management plans, so park it until those are clearer. Google Tasks and Microsoft To Do both have APIs, so tasks could sync rather than live only in the app.

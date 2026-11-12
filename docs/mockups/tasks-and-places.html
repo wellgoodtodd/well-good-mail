@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tasks and places</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6;--line:#33333a;--amber:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1040px;margin:0 auto;display:grid;gap:40px}
+h1{font-size:18px;margin:4px 0 0}
+h2{font-size:16px;margin:0 0 4px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.opt{display:inline-block;font-size:11px;font-weight:700;background:#2b3a5a;color:#9fc0ff;border-radius:5px;padding:1px 7px;margin-right:6px}
+.rec{background:#1f3a2e;color:#7fe0b4}
+.why{color:var(--muted);font-size:12.5px;margin:8px 0 0;max-width:760px}
+.pair{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.grow{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:4px 11px;background:#2f2f35;font-size:12.5px;white-space:nowrap}
+.ghost{background:transparent}.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.seg{display:inline-flex;border:1px solid #44444b;border-radius:7px;overflow:hidden}
+.seg span{padding:4px 11px;font-size:12.5px}.seg .on{background:#3a3a42}
+.app{background:#1b1b1e;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.head b{font-size:16px}
+.side{width:190px;border-right:1px solid var(--line);padding:8px;flex:none}
+.si{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:13px}
+.si.on{background:#2b3a5a}
+.si .n{margin-left:auto;color:var(--muted);font-size:11.5px}
+.sh{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:10px 8px 4px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.body{display:flex;min-height:300px}
+.list{flex:1;padding:6px 0}
+.add{margin:8px 14px;border:1px solid #4a4a52;border-radius:8px;padding:7px 10px;color:var(--muted);background:#1d1d20}
+.add b{color:var(--text);font-weight:500}
+.t{display:flex;gap:10px;align-items:flex-start;padding:8px 14px;border-top:1px solid var(--line)}
+.t:first-of-type{border-top:0}
+.ring{width:17px;height:17px;border-radius:50%;border:1.5px solid #7a7a84;flex:none;margin-top:1px}
+.ring.done{background:var(--accent);border-color:var(--accent)}
+.t small{display:block;color:var(--muted);font-size:12px}
+.due{color:#fbbf24}.late{color:#ff8a8d}
+.mail{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:#8fb3ff}
+.pill{font-size:11px;border-radius:999px;padding:1px 8px;border:1px solid #44444b;color:var(--muted)}
+.pop{width:400px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.r{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.k{width:66px;color:var(--muted);font-size:12px;flex:none}
+.in{border:1px solid #4a4a52;border-radius:7px;padding:5px 9px;background:#1d1d20;font-size:12.5px}
+.in.focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.menu{background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:4px;width:300px;margin-top:4px}
+.mi{display:flex;gap:9px;align-items:flex-start;padding:6px 8px;border-radius:6px}
+.mi.hover{background:#2b3a5a}
+.mi small{display:block;color:var(--muted);font-size:11.5px}
+.mh{font-size:11px;color:var(--muted);padding:7px 8px 2px;text-transform:uppercase;letter-spacing:.04em}
+.ic{width:18px;text-align:center;color:var(--muted);flex:none}
+.grid{display:grid;grid-template-columns:44px 1fr;background:#1b1b1e;border:1px solid var(--line);border-radius:10px;overflow:hidden;width:380px;max-width:100%}
+.hr{font-size:10.5px;color:var(--muted);text-align:right;padding-right:6px;height:36px;border-top:1px solid #2a2a30}
+.col{position:relative;border-left:1px solid var(--line)}
+.ev{position:absolute;left:4px;right:4px;border-radius:6px;padding:3px 6px;font-size:11.5px}
+.task{position:absolute;left:4px;right:4px;border-radius:6px;padding:3px 6px;font-size:11.5px;border:1.5px dashed #8fb3ff;background:rgba(59,130,246,.12);display:flex;gap:6px;align-items:center}
+.q{border-left:3px solid var(--amber);padding:4px 0 4px 12px;color:#e8d7b5;font-size:12.5px;max-width:760px}
+table{border-collapse:collapse;font-size:12.5px;max-width:760px;width:100%}
+td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600}
+</style></head><body><div class="w">
+
+<div><h1>Tasks, and place suggestions in Location</h1>
+<p class="why" style="margin-top:4px">Two ideas for after 0.7.3. Tasks: keep your to-dos here instead of Apple Reminders, kept in step with Google Tasks and Microsoft To Do so they're on your phone too. Places: suggestions as you type a location.</p></div>
+
+<!-- ================= TASKS ================= -->
+<section>
+<div class="lbl">Tasks · 1 · Where they live</div>
+<div class="cols">
+<div>
+<p style="margin:0 0 8px"><span class="opt rec">A · MY PICK</span>A third view in Calendar & Reminders</p>
+<div class="app"><div class="head"><b>Calendar &amp; Reminders</b><span class="seg"><span>List</span><span>Calendar</span><span class="on">Tasks</span></span><span class="grow"></span><span class="btn pri">+ New task</span></div>
+<div class="add">Add a task… <b>e.g. "Call the bank tomorrow 10am"</b></div>
+<div class="t"><span class="ring"></span><div class="grow">Renew wellgood.media domain<small><span class="late">Overdue, Tue</span> · Admin</small></div></div>
+<div class="t"><span class="ring"></span><div class="grow">Send Glen the March quote<small><span class="due">Today, 14:00</span> · Work · <span class="mail">✉ from Glen Corrie</span></small></div></div>
+<div class="t"><span class="ring"></span><div class="grow">Back up SD cards<small>Fri · Studio</small></div></div>
+</div>
+<p class="why">Next to your reminders and calendar, where your day already is. No new sidebar line; the Calendar & Reminders count includes tasks due today.</p>
+</div>
+<div>
+<p style="margin:0 0 8px"><span class="opt">B</span>Its own place in the sidebar, like Apple Reminders</p>
+<div class="app"><div class="body">
+<div class="side">
+<div class="si on">Today <span class="n">3</span></div><div class="si">Scheduled <span class="n">8</span></div><div class="si">Flagged <span class="n">1</span></div><div class="si">All <span class="n">14</span></div>
+<div class="sh">Lists</div>
+<div class="si"><span class="dot" style="background:#3b82f6"></span>Work <span class="n">6</span></div><div class="si"><span class="dot" style="background:#e879f9"></span>Personal <span class="n">5</span></div><div class="si"><span class="dot" style="background:#22c55e"></span>Studio <span class="n">3</span></div>
+</div>
+<div class="list"><div class="t"><span class="ring"></span><div class="grow">Send Glen the March quote<small><span class="due">Today, 14:00</span></small></div></div><div class="t"><span class="ring done"></span><div class="grow" style="color:var(--muted);text-decoration:line-through">Book train to London<small>Done 09:12</small></div></div></div>
+</div></div>
+<p class="why">More room for lists, smart lists and lots of tasks. One more place in the sidebar.</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">Tasks · 2 · Making one, and from an email</div>
+<div class="pair">
+<div class="pop">
+<div class="in focus" style="font-weight:600">Send Glen the March quote</div>
+<div class="r"><span class="k">Due</span><span class="in">Today</span><span class="in">14:00</span><span class="btn ghost">✕</span></div>
+<div class="r"><span class="k">List</span><span class="in"><span class="dot" style="background:#3b82f6"></span> Work · Google Tasks ▾</span></div>
+<div class="r"><span class="k">Repeat</span><span class="in">Never ▾</span></div>
+<div class="r"><span class="k">Email</span><span class="mail">✉ Re: March event quote, from Glen Corrie</span></div>
+<div class="r"><span class="k">Notes</span><span class="in grow" style="color:var(--muted)">Add notes</span></div>
+<div class="r" style="margin-top:14px"><span class="btn ghost">Flag</span><span class="grow"></span><span class="btn">Cancel</span><span class="btn pri">Add task</span></div>
+</div>
+<div style="max-width:420px">
+<p class="why" style="margin-top:0"><b>Quick add</b> reads the date from what you type, like New event does. <b>From an email:</b> right-click › Make a task, or press T: the subject becomes the title, and the task links back to the email. Ticking the task off can also archive the email (a switch, off by default).</p>
+<p class="why"><b>AI apps</b> could add tasks too ("make a task to reply to Glen on Friday"), asking first like everything else.</p>
+<p class="why"><b>Due times</b> show as a dashed block in Day and Week view, and on the day in Month view, with a tick box. Ticking it off there marks it done.</p>
+<div class="grid" style="margin-top:10px">
+<div class="hr">13:00</div><div class="col" style="grid-row:span 3"><div class="ev" style="top:2px;height:32px;background:#1e3a66;border-left:3px solid #3b82f6">Lunch with Sam</div><div class="task" style="top:38px;height:28px"><span class="ring" style="width:13px;height:13px"></span>Send Glen the March quote</div></div>
+<div class="hr">14:00</div><div class="hr">15:00</div>
+</div>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">Tasks · 3 · Where they're kept</div>
+<table>
+<tr><th></th><th>Kept in step with Google Tasks and Microsoft To Do (my pick)</th><th>Only in Well Good Mail</th></tr>
+<tr><td>On your phone</td><td>Yes: Google Tasks, the Gmail app, Outlook, Microsoft To Do</td><td>No</td></tr>
+<tr><td>Lists</td><td>Each account's own lists, all shown together</td><td>Any you make</td></tr>
+<tr><td>Limits</td><td>Google Tasks has due dates but no due time over its API, and no flag; Outlook has both</td><td>None</td></tr>
+<tr><td>Sign in</td><td>One more sign-in per account the first time</td><td>None</td></tr>
+</table>
+<p class="why">Apple Reminders can't be read from Windows, so tasks there would need moving across once (I could make an import from a list you copy out of Reminders).</p>
+</section>
+
+<!-- ================= PLACES ================= -->
+<section>
+<div class="lbl">Places · Suggestions in Location</div>
+<div class="pair">
+<div>
+<div class="in focus" style="width:320px">Univ|</div>
+<div class="menu">
+<div class="mh">Used before</div>
+<div class="mi hover"><span class="ic">↺</span><div>University of Glasgow<small>Used in 2 events</small></div></div>
+<div class="mh">From your contacts</div>
+<div class="mi"><span class="ic">👤</span><div>Glen Corrie<small>University Avenue, Glasgow G12 8QQ</small></div></div>
+<div class="mh">Places</div>
+<div class="mi"><span class="ic">⌖</span><div>University of Strathclyde<small>16 Richmond St, Glasgow</small></div></div>
+<div class="mi"><span class="ic">⌖</span><div>University Café<small>87 Byres Rd, Glasgow</small></div></div>
+</div>
+</div>
+<div style="max-width:440px">
+<p style="margin:0 0 8px"><span class="opt rec">MY PICK</span>Your own places first, map places optional</p>
+<p class="why" style="margin-top:0"><b>Used before</b> and <b>from your contacts</b> need nothing new and never leave your computer. That covers most of what you type.</p>
+<p class="why"><b>Places</b> (map search) needs a maps service: Google Places or Microsoft (Azure) Maps. Both need a key and charge past a free monthly allowance, and what you type goes to them. I'd add it as a switch, off by default.</p>
+<p class="why">Either way, events with a place get <b>Directions</b> in their pop-up, which opens Google Maps (or Apple Maps on a phone link) in the browser.</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">Things to decide</div>
+<div class="q">1. Tasks: A (a Tasks view in Calendar & Reminders) or B (its own place in the sidebar)?<br>2. Keep tasks in step with Google Tasks and Microsoft To Do, or only in the app?<br>3. Show tasks with a due time in the calendar?<br>4. Places: just your own and contacts' places, or also map search with a key (off by default)?</div>
+</section>
+
+</div></body></html>
