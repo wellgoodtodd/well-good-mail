@@ -12,6 +12,26 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.7.3',
+    date: 'November 2026',
+    highlights: [
+      'Make events: + New event, double-click the calendar or press Ctrl+Alt+N, with repeats, alerts, invitees and Google Meet or Teams',
+      'Drag events to move them or change how long they are, and change the name and time right in the pop-up',
+      'Invitations in one place: answer every invitation from one button, and change your answer just as quickly',
+      'Calendar Groups, Out of Office templates and a simpler Out of Office page',
+    ],
+    more: [
+      'New events: words in the title like "tomorrow at 2pm" set the time. More options adds repeat (with Custom and an end), two alerts, invitees, a place, a video call and notes. Undo or Ctrl+Z takes a new event out again.',
+      'Changing events: click one to change its name, day and times in the pop-up; More options opens the full form, where a video call can be added or removed and Meeting settings opens it in Google Calendar or Outlook. Repeating events ask whether to change only this one, this and all future ones, or all of them, and events with guests ask whether to tell them.',
+      'Day and Week view: drag an event to another time or day, or drag its bottom edge to change its length, in 15-minute steps. Ctrl + mouse wheel or the new slider zooms in, down to 5-minute lines. Month view: drag an event to another day. The arrows now sit either side of the title, with Today beside them.',
+      'Pick several events with Ctrl-click or by drawing a box round them, or tick them in List view, then move them all to another calendar or delete them.',
+      'Invitations: the envelope button lists new invitations (with any clashes) and ones you have answered. Accept, Maybe or Decline, with a note to the organiser if you like. A sidebar line shows only while some are waiting, and Coming up marks meetings you have not answered.',
+      'Calendar Groups gather calendars from any account, like Work and Personal, and the calendar, List view, Coming up and the sidebar count follow the group you pick. You can choose to be alerted only by that group.',
+      'Out of Office: one tidy page of cards, accounts as switches, a different message for each account if you like, and a sentence that reads back exactly what will happen. Templates keep any mix of parts, notice when you change them, and AI apps can turn one on by name.',
+      'Calendar changes made on your phone show within about a minute while Calendar is open, and only the events that changed are redrawn. Marking a conversation unread now marks one email, not all of them. Under the hood: steadier syncing and sign-ins, quicker counts and lists, and a first sync of Gmail that fetches each email once.',
+    ],
+  },
+  {
     version: '0.7.2',
     date: 'November 2026',
     highlights: [

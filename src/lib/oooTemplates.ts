@@ -129,3 +129,42 @@ export function copyTemplate(t: OooTemplate, taken: string[]): OooTemplate {
 
 /** The template with this name, ignoring capitals and spaces at the ends. */
 export const findTemplate = (list: OooTemplate[], name: string) => list.find((t) => t.name.trim().toLowerCase() === name.trim().toLowerCase());
+
+/** Plain JSON with the keys in order, so two values that mean the same compare equal. */
+const stable = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).filter(([, y]) => y !== undefined).sort(([a], [b]) => a.localeCompare(b))) : x));
+
+/** One part of a template, as the value that matters for comparing. */
+function partValue(t: OooTemplate, p: OooPart): unknown {
+  const v = t.values;
+  switch (p) {
+    case 'subject': return t.message?.subject;
+    case 'message': return t.message?.html;
+    case 'outside': return t.message?.outsideHtml || undefined;
+    case 'days': return t.days;
+    case 'times': return [v.useTimes, v.startTime, v.backTime];
+    case 'outsideAudience': return [v.outsideAudience, v.outsideDifferent];
+    case 'accounts': return v.accounts ? [...v.accounts].sort() : undefined;
+    default: return v[p as 'mode' | 'audience' | 'addEvent' | 'own'];
+  }
+}
+
+/**
+ * The parts a template keeps that are set differently on the page now, for the Changed pill. `editing` is the account
+ * whose own message the template went into when it was applied, if any.
+ */
+export function templateChanges(t: OooTemplate, plan: OooPlan, editing?: string): OooPart[] {
+  const now = templateFromPlan(t.name, t.parts, plan, { id: t.id, editing });
+  return t.parts.filter((p) => stable(partValue(now, p)) !== stable(partValue(t, p)));
+}
+
+/** The groups those parts belong to, in words: "the message and who gets it". */
+export function changedWords(parts: OooPart[]): string {
+  const names: Record<string, string> = { message: 'the message', when: 'when', who: 'who gets it', away: "what happens while you're away", accounts: 'the accounts' };
+  const groups = PART_GROUPS.filter((g) => g.parts.some((p) => parts.includes(p.id))).map((g) => names[g.id]);
+  return groups.length <= 1 ? groups.join('') : `${groups.slice(0, -1).join(', ')} and ${groups[groups.length - 1]}`;
+}
+
+/** The template on the page again: the parts it keeps, saved from the page as it is now. */
+export function updateTemplateFromPlan(t: OooTemplate, plan: OooPlan, editing?: string): OooTemplate {
+  return { ...templateFromPlan(t.name, t.parts, plan, { id: t.id, editing }), copiedFrom: t.copiedFrom };
+}

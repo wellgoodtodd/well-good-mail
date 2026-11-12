@@ -2,7 +2,7 @@
 
 Things noted but not built yet. Newest first. Nothing here is promised for a date.
 
-## Plan for 0.7.3 beta 3 (12 Nov 2026, all designs agreed; build when Todd says)
+## 0.7.3 beta 3 (built 12 Nov 2026)
 
 Aim: the last 0.7.3 beta before live, so one round of testing, not several. Test list: docs/testing-0.7.3-beta3.md.
 

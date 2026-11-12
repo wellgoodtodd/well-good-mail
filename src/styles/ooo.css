@@ -1,0 +1,87 @@
+/* Settings › Out of Office, the card layout (0.7.3 beta 3): the Template bar, then Accounts, Message, When,
+   Who gets it and While I'm away as cards of rows like the other Settings pages, the read-back and the buttons. */
+
+.ooo-page { max-width: 760px; }
+.ooo-muted { color: var(--text-muted); font-weight: 400; }
+.ooo-page .grow { flex: 1; min-width: 0; }
+
+/* The Template bar */
+.ooo-tplbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; margin: 0 0 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-subtle); }
+.ooo-tplbar-label { color: var(--text-muted); font-size: 0.92em; }
+.ooo-tplbar-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.ooo-dd { display: inline-flex; align-items: center; gap: 6px; height: 30px; max-width: 280px; padding: 0 8px 0 10px; border: 1px solid var(--border-strong, var(--border)); border-radius: 7px; background: var(--bg-input); color: var(--text); font: inherit; cursor: pointer; }
+.ooo-dd > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ooo-dd > svg { flex: none; color: var(--text-muted); }
+.ooo-dd:hover { border-color: var(--text-muted); }
+.ooo-changed { font-size: 0.78em; font-weight: 600; padding: 2px 9px; border-radius: 999px; color: #8f5400; background: color-mix(in srgb, var(--amber) 16%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 55%, transparent); white-space: nowrap; }
+[data-theme='dark'] .ooo-changed { color: #fbc35a; }
+
+/* Accounts: one row each, the switch on the right */
+.ooo-acc { display: flex; align-items: center; gap: 12px; padding: 10px 0; min-height: 30px; }
+.ooo-card > .ooo-acc + .ooo-acc { border-top: 1px solid var(--border); }
+.ooo-acc .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.ooo-acc-text { display: flex; flex-direction: column; gap: 1px; }
+.ooo-acc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ooo-acc-state { color: var(--text-muted); font-size: 0.86em; }
+.ooo-warnword { color: #8f5400; font-weight: 600; }
+[data-theme='dark'] .ooo-warnword, [data-theme='dark'] .ooo-state.on, [data-theme='dark'] .ooo-state.scheduled { color: #fbc35a; }
+.ooo-card .ooo-others { margin: 4px 0 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+.ooo-card .ooo-signin { margin: 4px 0 8px; }
+
+/* Message: the switch in the label row, then a tab for each account */
+.ooo-cap-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.ooo-cap-row h2 { margin: 0 !important; }
+.ooo-cap-switch { display: inline-flex; align-items: center; gap: 10px; font-size: 0.92em; cursor: pointer; }
+.ooo-cap-switch .switch:disabled { opacity: 0.45; cursor: not-allowed; }
+.ooo-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 2px; }
+.ooo-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font: inherit; font-size: 0.92em; cursor: pointer; }
+.ooo-tabs button:hover { background: var(--bg-hover); }
+.ooo-tabs button.on { background: var(--bg-hover); color: var(--text); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
+.ooo-tabs .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.ooo-page .set-section .ooo-subject-row > label:first-child { width: 70px; flex: none; }
+.ooo-page .set-section .ooo-subject-row #ooo-subj { flex: 1; max-width: none; min-width: 0; border-color: var(--border-strong, var(--border)); }
+.ooo-card .ooo-editor { margin: 4px 0 12px; }
+.ooo-card .ooo-h3 { margin: 4px 0 0; font-weight: 600; }
+
+/* When */
+.ooo-datetime { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ooo-datetime input { height: 30px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 7px; padding: 0 8px; background: var(--bg-input); color: var(--text); font: inherit; }
+.ooo-datetime input[type=date] { width: 150px; }
+.ooo-datetime input[type=time] { width: 100px; min-width: 0 !important; }
+.ooo-page .set-section > .set-row + .check, .ooo-page .set-section > .check + .set-row { border-top: 1px solid var(--border); }
+
+/* Who gets it */
+.ooo-page .set-section > .hint.ooo-small { font-size: 0.85em; margin: -6px 0 8px; }
+.ooo-page .set-section > .hint.ooo-gmail { margin: 2px 0 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+/* While I'm away: folded into one row until opened */
+.ooo-fold { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 0; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ooo-fold > svg { flex: none; color: var(--text-muted); }
+.ooo-fold .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ooo-fold .ooo-muted { flex: none; font-size: 0.9em; }
+.ooo-fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.ooo-extras { border-top: 1px solid var(--border); }
+.ooo-extras .switch-line { padding: 10px 0; }
+.ooo-extras .switch-line + .switch-line { border-top: 1px solid var(--border); }
+
+/* The read-back and the buttons */
+.ooo-readback { margin: 0 0 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--accent) 9%, var(--bg-elev)); line-height: 1.5; }
+.ooo-readback b { font-weight: 600; }
+.ooo-readback.problem { border-color: var(--border); background: var(--bg-subtle); color: var(--text-muted); }
+.ooo-readback:empty { display: none; }
+.ooo-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 24px; }
+
+/* Manage templates: the name with one short line under it */
+.tpl-row-text { display: flex; flex-direction: column; min-width: 0; }
+.tpl-row-text small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .ooo-page .set-section .set-row { flex-wrap: wrap; }
+  .ooo-page .set-section .set-row select { min-width: 0; max-width: 100%; }
+  .ooo-cap-row { flex-wrap: wrap; }
+  .ooo-tplbar .grow { display: none; }
+}
+
+/* "Update [name] too?": the three answers wrap rather than run out of the window */
+.ooo-q-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+.ooo-q-actions .grow { flex: 1; min-width: 0; }

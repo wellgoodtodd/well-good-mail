@@ -1,6 +1,7 @@
 // Demo mode: pretend accounts and emails so the whole app can be tried and
 // tested without signing in to anything. Nothing leaves the computer.
-import type { Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, Folder, GuestAnswer, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Rsvp } from '../invites';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { htmlToText } from '../mime';
@@ -366,7 +367,15 @@ export class DemoProvider implements MailProvider {
   /** Demo: changes are only kept until the calendar refreshes. */
   private evEdits: Record<string, Partial<CalendarEvent> | null> = {};
   writableCalendars(): string[] { return this.account.id === 'demo-wgm' ? ['Studio', 'Shoots'] : ['Personal']; }
-  async editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> { const { calendarName, ...rest } = patch; this.evEdits[ev.id] = { ...(this.evEdits[ev.id] || {}), ...rest, ...(calendarName ? { calendarName } : {}) }; }
+  async editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> {
+    const { calendarName, alerts, guests, video, repeat, ...rest } = patch;
+    const extra: Partial<CalendarEvent> = {};
+    if (alerts !== undefined) extra.reminderMinutes = alerts;
+    if (guests !== undefined) extra.guests = guests.length ? [{ email: this.account.email, self: true, organiser: true, answer: 'yes' }, ...guests.map((g) => ({ ...g, answer: (ev.guests || []).find((x) => x.email === g.email)?.answer || ('waiting' as const) }))] : undefined;
+    if (video !== undefined) extra.meetingUrl = video ? 'https://meet.google.com/demo-call-xyz' : undefined;
+    if (repeat !== undefined) extra.recurring = Boolean(repeat);
+    this.evEdits[ev.id] = { ...(this.evEdits[ev.id] || {}), ...rest, ...extra, ...(calendarName ? { calendarName } : {}) };
+  }
   async deleteEvent(ev: CalendarEvent): Promise<void> { this.evEdits[ev.id] = null; this.made = this.made.filter((e) => e.id !== ev.id); }
   /** Demo: events moved in from another account. */
   private made: CalendarEvent[] = [];
@@ -386,7 +395,43 @@ export class DemoProvider implements MailProvider {
   async endSeries(ev: CalendarEvent): Promise<void> { this.evEdits[ev.id] = null; }
 
   async listEvents(): Promise<CalendarEvent[]> {
-    return [...(await this.demoEvents()), ...this.made].filter((e) => this.evEdits[e.id] !== null).map((e) => ({ ...e, ...(this.evEdits[e.id] || {}), canEdit: true }));
+    return [...(await this.demoEvents()), ...this.invitations(), ...this.made].filter((e) => this.evEdits[e.id] !== null).map((e) => ({ ...e, ...(this.evEdits[e.id] || {}), canEdit: e.canEdit ?? true }));
+  }
+
+  /** Demo: answering an invitation just remembers the answer (until the page reloads). */
+  async respondToEvent(ev: CalendarEvent, status: Rsvp): Promise<void> {
+    await new Promise((r) => setTimeout(r, 250));
+    const answer = status === 'accepted' ? 'yes' as const : status === 'declined' ? 'no' as const : 'maybe' as const;
+    this.evEdits[ev.id] = { ...(this.evEdits[ev.id] || {}), myResponse: answer, guests: ev.guests?.map((g) => (g.self ? { ...g, answer } : g)) };
+  }
+
+  /** Demo invitations from other people: some waiting for an answer (one clashes with Edit day), one cancelled, some answered. */
+  private invitations(): CalendarEvent[] {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const t = today.getTime();
+    const me = this.account.email;
+    const inv = (id: string, title: string, start: number, durH: number, cal: string, from: { email: string; name: string }, answer: GuestAnswer, extra: Partial<CalendarEvent> = {}): CalendarEvent => ({
+      id: `${this.account.id}|${id}`, accountId: this.account.id, calendarName: cal, title, start, end: start + durH * H, allDay: false, reminderMinutes: [10], canEdit: false,
+      organiser: { email: from.email, name: from.name },
+      guests: [{ email: from.email, name: from.name, answer: 'yes', organiser: true }, { email: me, name: 'Alex Morgan', answer, self: true }, { email: 'kim@example.com', name: 'Kim Reid', answer: 'waiting' }],
+      myResponse: answer,
+      ...extra,
+    });
+    if (this.account.id === 'demo-wgm') return [
+      inv('i1', 'Podcast planning', t + 2 * D + 14 * H, 1, 'Studio', { email: 'sam@morganaudio.example', name: 'Sam Morgan' }, 'waiting', { meetingUrl: 'https://meet.google.com/pod-plan-now', location: 'Google Meet' }),
+      inv('i3', 'Generative AI Engineering', t + 3 * D + 14 * H, 2, 'Studio', { email: 'events@outskill.example', name: 'Outskill' }, 'waiting', { cancelled: true }),
+      inv('i7', 'Quarterly review with Glen Corrie', t + 6 * D + 11 * H, 1, 'Studio', { email: 'glen@glencorrie.example', name: 'Glen Corrie' }, 'waiting', { location: 'Glen Corrie offices, Glasgow' }),
+      inv('i4', 'Cut & Style', t + 13 * D + 10.75 * H, 1, 'Studio', { email: 'bookings@unitone.example', name: 'Unit One Salon' }, 'yes'),
+    ];
+    if (this.account.id === 'demo-personal') return [
+      { ...inv('i2', "Jen's birthday", t + 9 * D, 24, 'Personal', { email: 'jen@example.com', name: 'Jen Macdonald' }, 'waiting'), allDay: true, recurring: true, repeatText: 'every year' },
+      inv('i5', 'Team drinks', t + 16 * D + 18 * H, 3, 'Personal', { email: 'alex.brown@example.com', name: 'Alex Brown' }, 'no'),
+    ];
+    if (this.account.id === 'demo-church') return [
+      inv('i6', 'Choir rehearsal', t + 5 * D + 19 * H, 1.5, 'Club', { email: 'leader@club.example', name: 'Morag Fraser' }, 'maybe'),
+    ];
+    return [];
   }
 
   private async demoEvents(): Promise<CalendarEvent[]> {

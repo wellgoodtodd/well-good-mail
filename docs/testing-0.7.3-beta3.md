@@ -1,6 +1,6 @@
 # 0.7.3 beta 3: what to test
 
-Beta 3 isn't built yet. This list is ready for when it is. It has the new things first, then everything from betas 1 and 2 that hasn't been ticked off yet. Things you've already ticked aren't repeated, but if any of them break, that still counts. Anything that feels slower, looks off or behaves differently counts as a problem.
+Beta 3 has the new things first, then everything from betas 1 and 2 that hasn't been ticked off yet. Things you've already ticked aren't repeated, but if any of them break, that still counts. Anything that feels slower, looks off or behaves differently counts as a problem.
 
 ## Calendar: changing events
 

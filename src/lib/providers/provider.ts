@@ -1,5 +1,5 @@
 // The contract every mail service (Gmail, Microsoft 365, IMAP, demo) fulfils.
-import type { Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, ChangeOptions, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Invite, Rsvp } from '../invites';
 import type { AutoReply } from '../ooo';
 
@@ -54,9 +54,9 @@ export interface MailProvider {
   /** Calendars in this account that events can be written to (known after listEvents). */
   writableCalendars?(): string[];
   /** Changes an event you can edit. Guests, if any, are told. */
-  editEvent?(event: CalendarEvent, patch: EventPatch): Promise<void>;
-  /** Deletes an event you made. Guests, if any, are told. */
-  deleteEvent?(event: CalendarEvent): Promise<void>;
+  editEvent?(event: CalendarEvent, patch: EventPatch, opts?: ChangeOptions): Promise<void>;
+  /** Deletes an event you made. Guests are told unless notify is false. Scope 'all' deletes the whole series. */
+  deleteEvent?(event: CalendarEvent, opts?: ChangeOptions): Promise<void>;
   /** Everything about an event (or, with series, its whole series from this one on), to make it in another account. */
   copyOfEvent?(event: CalendarEvent, opts: { series: boolean }): Promise<EventCopy>;
   /** Makes an event in one of this account's calendars, inviting any guests. Returns the app's id for it. */
@@ -67,8 +67,10 @@ export interface MailProvider {
   /** The calendars this account has, as last seen, even if none has an event. */
   knownCalendars?(): string[];
   inviteStatus?(uid: string): Promise<{ inCalendar: boolean; response?: Rsvp; guests?: EventGuest[] }>;
-  /** Answers an invitation in the calendar itself, telling the organiser. False when it isn't in the calendar. */
-  respondToInvite?(uid: string, status: Rsvp): Promise<boolean>;
+  /** Answers an invitation in the calendar itself, telling the organiser (with a note, if given). False when it isn't in the calendar. */
+  respondToInvite?(uid: string, status: Rsvp, note?: string): Promise<boolean>;
+  /** Answers an invitation found in the calendar (an event where you are a guest), telling the organiser, with an optional note. */
+  respondToEvent?(event: CalendarEvent, status: Rsvp, note?: string): Promise<void>;
   /** Puts an invitation in the calendar. */
   /** Adds an event; may return the calendar's own id for it, so it can be changed later. */
   addInviteToCalendar?(invite: Invite): Promise<string | void>;

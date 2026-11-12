@@ -5,12 +5,13 @@
 import { getMicrosoftAccessToken } from '../auth/microsoft';
 import { bytesToBase64, buildRawMessage, base64ToBytes } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, CalendarEvent, EventGuest, EventCopy, EventPatch, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import { NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { findMeetingUrl } from '../meetings';
 import { cleanPreview } from '../cleanText';
 import { fromGraph, outlookTimeZone, toGraph, type GraphRecurrence } from '../recurrence';
+import type { Rsvp } from '../invites';
 
 const G = 'https://graph.microsoft.com/v1.0/me';
 const WELL_KNOWN: Record<Exclude<SystemFolder, 'flagged'>, string> = {
@@ -71,7 +72,10 @@ export function graphGuests(
   if (org && !list.some((g) => g.email === org) && list.length) list.unshift({ email: org, name: e.organizer?.emailAddress?.name || undefined, answer: 'yes', organiser: true, self: mine.has(org) || undefined });
   if (!list.length) return {};
   const me = list.find((g) => g.self);
-  return { guests: list.slice(0, 60), myResponse: me?.answer ?? (e.isOrganizer ? 'yes' : e.responseStatus ? answer(e.responseStatus.response) : undefined) };
+  // Your own copy of an invitation often lists everyone as "none", you included: the event's own responseStatus is your real answer.
+  const yours = e.isOrganizer ? 'yes' : e.responseStatus?.response && e.responseStatus.response !== 'none' ? answer(e.responseStatus.response) : undefined;
+  if (me && yours) me.answer = yours;
+  return { guests: list.slice(0, 60), myResponse: yours ?? me?.answer ?? (e.responseStatus ? answer(e.responseStatus.response) : undefined) };
 }
 
 export class MicrosoftProvider implements MailProvider {
@@ -342,7 +346,7 @@ export class MicrosoftProvider implements MailProvider {
 
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
     // Every page, not just the first 250 (a busy calendar passes that within weeks, and later events went missing).
-    type Page = { '@odata.nextLink'?: string; value: { id: string; subject: string; seriesMasterId?: string | null; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null; isOrganizer?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { type?: string; status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] }[] };
+    type Page = { '@odata.nextLink'?: string; value: { id: string; subject: string; seriesMasterId?: string | null; start: { dateTime: string }; end: { dateTime: string }; isAllDay: boolean; isReminderOn: boolean; reminderMinutesBeforeStart: number; webLink: string; location?: { displayName?: string }; bodyPreview?: string; onlineMeeting?: { joinUrl?: string } | null; onlineMeetingUrl?: string | null; isOrganizer?: boolean; isCancelled?: boolean; responseStatus?: { response?: string }; organizer?: { emailAddress?: { name?: string; address?: string } }; attendees?: { type?: string; status?: { response?: string }; emailAddress?: { name?: string; address?: string } }[] }[] };
     const all: Page['value'] = [];
     let url: string | undefined = `/calendarView?startDateTime=${new Date(fromMs).toISOString()}&endDateTime=${new Date(toMs).toISOString()}&$top=250`;
     while (url) {
@@ -367,13 +371,49 @@ export class MicrosoftProvider implements MailProvider {
       ...graphGuests(e, [this.account.email, ...(this.account.aliases || []).map((a) => a.email)]),
       canEdit: e.isOrganizer !== false,
       recurring: Boolean(e.seriesMasterId),
+      organiser: e.organizer?.emailAddress?.address ? { email: e.organizer.emailAddress.address.toLowerCase(), name: e.organizer.emailAddress.name || undefined, self: e.isOrganizer || undefined } : undefined,
+      cancelled: e.isCancelled || undefined,
     }));
+  }
+
+  /** Accept, tentatively accept or decline an event in the calendar; Outlook tells the organiser, with the note. */
+  private async answerById(id: string, status: Rsvp, note?: string): Promise<void> {
+    const verb = status === 'accepted' ? 'accept' : status === 'declined' ? 'decline' : 'tentativelyAccept';
+    await this.call(`/events/${encodeURIComponent(id)}/${verb}`, { method: 'POST', body: JSON.stringify({ sendResponse: true, ...(note?.trim() ? { comment: note.trim() } : {}) }) }, ['Calendars.ReadWrite']);
+  }
+
+  async respondToEvent(ev: CalendarEvent, status: Rsvp, note?: string): Promise<void> {
+    await this.answerById(ev.id.slice(this.account.id.length + 1), status, note);
+  }
+
+  async respondToInvite(uid: string, status: Rsvp, note?: string): Promise<boolean> {
+    const found = await this.call<{ value: { id: string; isOrganizer?: boolean }[] }>(`/events?$filter=${encodeURIComponent(`iCalUId eq '${uid.replace(/'/g, "''")}'`)}&$select=id,isOrganizer&$top=1`).catch(() => ({ value: [] as { id: string; isOrganizer?: boolean }[] }));
+    const ev = found.value[0];
+    if (!ev || ev.isOrganizer) return false;
+    await this.answerById(ev.id, status, note);
+    return true;
   }
 
   writableCalendars(): string[] { return ['Calendar']; }
 
-  async editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> {
-    const id = ev.id.slice(this.account.id.length + 1);
+  /** Outlook tells guests itself, so notify can't be turned off here. Scope 'all' changes the series. */
+  async editEvent(ev: CalendarEvent, patch: EventPatch, opts: ChangeOptions = {}): Promise<void> {
+    let id = ev.id.slice(this.account.id.length + 1);
+    if (ev.recurring && (opts.scope === 'all' || patch.repeat !== undefined)) {
+      const one = await this.call<{ seriesMasterId?: string | null }>(`/events/${encodeURIComponent(id)}?$select=seriesMasterId`);
+      if (one.seriesMasterId) {
+        // The series keeps its own first date: only the title, place, notes, alerts, guests and repeat change from here.
+        id = one.seriesMasterId;
+        patch = { ...patch, start: undefined, end: undefined, allDay: undefined };
+      }
+    }
+    const extra: Record<string, unknown> = {};
+    if (patch.alerts !== undefined) Object.assign(extra, patch.alerts.length ? { isReminderOn: true, reminderMinutesBeforeStart: Math.max(...patch.alerts) } : { isReminderOn: false });
+    if (patch.guests !== undefined) extra.attendees = patch.guests.map((g) => ({ type: 'required', emailAddress: { address: g.email, name: g.name || g.email } }));
+    if (patch.video === true) Object.assign(extra, { isOnlineMeeting: true, onlineMeetingProvider: 'teamsForBusiness' });
+    if (patch.video === false) extra.isOnlineMeeting = false;
+    if (patch.repeat !== undefined) extra.recurrence = patch.repeat ? toGraph(patch.repeat, patch.start ?? ev.start, outlookTimeZone()) : null;
+    if (Object.keys(extra).length) await this.call(`/events/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(extra) }, ['Calendars.ReadWrite']);
     const allDay = patch.allDay ?? ev.allDay;
     const start = patch.start ?? ev.start;
     const end = patch.end ?? ev.end;
@@ -392,9 +432,20 @@ export class MicrosoftProvider implements MailProvider {
     if (Object.keys(body).length) await this.call(`/events/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }, ['Calendars.ReadWrite']);
   }
 
-  async deleteEvent(ev: CalendarEvent): Promise<void> {
-    const id = ev.id.slice(this.account.id.length + 1);
-    await this.call(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' }, ['Calendars.ReadWrite']);
+  /** Deletes one event, or with scope 'all' its series. Already gone counts as done. */
+  async deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<void> {
+    let id = ev.id.slice(this.account.id.length + 1);
+    try {
+      if (ev.recurring && opts.scope === 'all') {
+        const one = await this.call<{ seriesMasterId?: string | null }>(`/events/${encodeURIComponent(id)}?$select=seriesMasterId`);
+        if (one.seriesMasterId) id = one.seriesMasterId;
+      }
+      await this.call(`/events/${encodeURIComponent(id)}`, { method: 'DELETE' }, ['Calendars.ReadWrite']);
+    } catch (e) {
+      const status = (e as { status?: number }).status;
+      if (status === 404 || status === 410) return;
+      throw e;
+    }
   }
 
   async copyOfEvent(ev: CalendarEvent, opts: { series: boolean }): Promise<EventCopy> {

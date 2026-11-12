@@ -3,7 +3,7 @@
 // press Refresh). Going further than that fetches the extra weeks once and keeps them.
 import { create } from 'zustand';
 import { store } from './db';
-import { eventsBetween } from './mail';
+import { eventsBetween, recentlyDeletedEvent } from './mail';
 import type { CalendarEvent } from './types';
 
 const KEY = 'calendar-range';
@@ -31,7 +31,7 @@ function save() {
 
 /** Fetches a stretch of time and puts it into the copy, replacing whatever the copy had for those days. */
 async function fill(from: number, to: number) {
-  const fresh = await eventsBetween(from, to);
+  const fresh = (await eventsBetween(from, to)).filter((e) => !recentlyDeletedEvent(e.id));
   const st = useCalCache.getState();
   const kept = st.events.filter((e) => e.end <= from || e.start >= to);
   const seen = new Set(kept.map((e) => e.id));
@@ -42,10 +42,13 @@ async function fill(from: number, to: number) {
 
 const startOfMonth = (t: number, add = 0) => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth() + add, 1).getTime(); };
 
+/** A refresh asked for while one is running: it runs again straight after, so a change made meanwhile isn't missed. */
+let again = false;
+
 /** The usual stretch: three months back to twelve ahead. */
-export async function refreshCalendarCopy() {
+export async function refreshCalendarCopy(): Promise<void> {
   await loadSaved();
-  if (useCalCache.getState().loading) return;
+  if (useCalCache.getState().loading) { again = true; return; }
   useCalCache.setState({ loading: true });
   try {
     const from = startOfMonth(Date.now(), -3);
@@ -56,6 +59,7 @@ export async function refreshCalendarCopy() {
   } catch { /* tries again later */ } finally {
     useCalCache.setState({ loading: false });
   }
+  if (again) { again = false; await refreshCalendarCopy(); }
 }
 
 /** Makes sure the copy covers these days; fetches only what's missing. */

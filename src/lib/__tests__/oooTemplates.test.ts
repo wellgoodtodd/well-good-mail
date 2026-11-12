@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defaultPlan, type OooPlan } from '../ooo';
-import { applyTemplate, copyTemplate, daysWords, findTemplate, nextWeekday, templateFromPlan, templateSummary } from '../oooTemplates';
+import { defaultPlan, messageFor, perAccountOn, setAccountOn, setPerAccount, type OooPlan } from '../ooo';
+import { applyTemplate, changedWords, copyTemplate, daysWords, findTemplate, nextWeekday, templateChanges, templateFromPlan, templateSummary, updateTemplateFromPlan } from '../oooTemplates';
 import { handleRpc, type AskRequest, type McpWorld } from '../mcp/handlers';
 import { defaultMcp } from '../mcp/permissions';
 import { groupCalendars, inGroupView, visibleEvents } from '../meetings';
@@ -144,5 +144,80 @@ describe('Calendar Groups', () => {
     const { w, save } = world('off');
     await handleRpc(w, call('set_calendar_group', { name: 'Personal', calendars: [{ account: 'a', calendar: 'Family' }] }));
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe('Out of Office: the Changed pill', () => {
+  it('is unchanged straight after applying, even on other dates', () => {
+    const t = templateFromPlan('Friday afternoons', ['message', 'days', 'times', 'audience', 'accounts'], fridays());
+    const after = applyTemplate({ ...defaultPlan(), firstDay: '2027-02-01', backOn: '2027-02-09' }, t, { now: NOW + 30 * 86400000 });
+    expect(templateChanges(t, after)).toEqual([]);
+  });
+
+  it('notices only changes to the parts the template keeps', () => {
+    const t = templateFromPlan('Friday afternoons', ['message', 'audience'], fridays());
+    const after = applyTemplate(defaultPlan(), t, { now: NOW });
+    // Not kept by the template: no change.
+    expect(templateChanges(t, { ...after, pauseAlerts: !after.pauseAlerts, mode: 'open' })).toEqual([]);
+    const changed = { ...after, audience: 'contacts' as const, message: { ...after.message, html: '<p>Back Tuesday.</p>' } };
+    expect(templateChanges(t, changed)).toEqual(['message', 'audience']);
+    expect(changedWords(templateChanges(t, changed))).toBe('the message and who gets it');
+  });
+
+  it('ignores the order accounts were switched on in', () => {
+    const t = templateFromPlan('Both', ['accounts'], { ...fridays(), accounts: ['a', 'b'] });
+    expect(templateChanges(t, { ...fridays(), accounts: ['b', 'a'] })).toEqual([]);
+    expect(templateChanges(t, { ...fridays(), accounts: ['a'] })).toEqual(['accounts']);
+  });
+
+  it('compares the account message the template went into', () => {
+    const plan: OooPlan = { ...fridays(), accounts: ['a', 'b'], own: { a: { subject: 'A', html: '<p>A</p>' }, b: { subject: 'B', html: '<p>B</p>' } } };
+    const t = templateFromPlan('For B', ['subject', 'message'], plan, { editing: 'b' });
+    expect(templateChanges(t, plan, 'b')).toEqual([]);
+    expect(templateChanges(t, plan, 'a')).toEqual(['subject', 'message']);
+  });
+
+  it('Update template saves only the parts it keeps, and then shows no change', () => {
+    const t = { ...templateFromPlan('Friday afternoons', ['message', 'times'], fridays()), copiedFrom: 'Fridays' };
+    const page = { ...fridays(), startTime: '14:00', audience: 'contacts' as const };
+    const u = updateTemplateFromPlan(t, page);
+    expect(u.id).toBe(t.id);
+    expect(u.parts).toEqual(t.parts);
+    expect(u.values).toEqual({ useTimes: true, startTime: '14:00', backTime: '09:00' });
+    expect(u.copiedFrom).toBe('Fridays');
+    expect(templateChanges(u, page)).toEqual([]);
+  });
+});
+
+describe('Out of Office: a different message for each account', () => {
+  const base = (): OooPlan => ({ ...defaultPlan(), accounts: ['a', 'b'], message: { subject: 'Shared', html: '<p>Shared</p>' } });
+
+  it('starts each switched-on account with a copy of the shared message', () => {
+    const on = setPerAccount(base(), true);
+    expect(perAccountOn(on)).toBe(true);
+    expect(Object.keys(on.own).sort()).toEqual(['a', 'b']);
+    expect(messageFor(on, 'a')).toEqual({ subject: 'Shared', html: '<p>Shared</p>' });
+    expect(on.own.a).not.toBe(on.message);
+  });
+
+  it('switching off uses the shared message but keeps the own ones for switching back on', () => {
+    let p = setPerAccount(base(), true);
+    p = { ...p, own: { ...p.own, a: { subject: 'Studio', html: '<p>Studio</p>' } } };
+    const off = setPerAccount(p, false);
+    expect(perAccountOn(off)).toBe(false);
+    expect(messageFor(off, 'a').subject).toBe('Shared');
+    const back = setPerAccount(off, true);
+    expect(back.own.a.subject).toBe('Studio');
+    expect(back.own.b.subject).toBe('Shared');
+    expect(back.ownParked).toEqual({});
+  });
+
+  it('an account switched on later gets its own message too, only while it is on', () => {
+    const on = setAccountOn(setPerAccount(base(), true), 'c', true);
+    expect(on.accounts).toEqual(['a', 'b', 'c']);
+    expect(on.own.c.subject).toBe('Shared');
+    const plain = setAccountOn(base(), 'c', true);
+    expect(plain.own).toEqual({});
+    expect(setAccountOn(plain, 'a', false).accounts).toEqual(['b', 'c']);
   });
 });

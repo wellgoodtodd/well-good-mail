@@ -1,5 +1,6 @@
 // Calendar invitations that arrive by email: reading the .ics, and building the reply for Yes, No and Maybe.
 import { findMeetingUrl } from './meetings';
+import type { CalendarEvent, GuestAnswer } from './types';
 import { parseProp, parseTime, unescapeText, unfold } from './dav';
 
 export type Rsvp = 'accepted' | 'declined' | 'tentative';
@@ -119,11 +120,15 @@ export function buildReply(invite: Invite, me: InvitePerson, status: Rsvp, now =
   ].join('\r\n');
 }
 
+/** The words for each answer: the button (Accept / Maybe / Decline, as in Apple Calendar and Outlook), the reply subject, and how it reads afterwards. */
 export const RSVP_WORDS: Record<Rsvp, { label: string; subject: string; past: string }> = {
-  accepted: { label: 'Yes', subject: 'Accepted', past: 'Going' },
-  declined: { label: 'No', subject: 'Declined', past: 'Not going' },
+  accepted: { label: 'Accept', subject: 'Accepted', past: 'Going' },
+  declined: { label: 'Decline', subject: 'Declined', past: 'Not going' },
   tentative: { label: 'Maybe', subject: 'Tentatively accepted', past: 'Maybe' },
 };
+
+/** The order the answer buttons go in. */
+export const RSVP_ORDER: Rsvp[] = ['accepted', 'tentative', 'declined'];
 
 /** Turns the PARTSTAT from an invitation into one of our answers, if the person has already replied. */
 export function statusOf(p?: InvitePerson): Rsvp | undefined {
@@ -134,3 +139,64 @@ export function statusOf(p?: InvitePerson): Rsvp | undefined {
     default: return undefined;
   }
 }
+
+// ---------- Invitations in one place ----------
+
+/** A calendar answer as one of ours (waiting is no answer yet). */
+export const rsvpOfAnswer = (a?: GuestAnswer): Rsvp | undefined => (a === 'yes' ? 'accepted' : a === 'no' ? 'declined' : a === 'maybe' ? 'tentative' : undefined);
+export const answerOfRsvp = (r: Rsvp): GuestAnswer => (r === 'accepted' ? 'yes' : r === 'declined' ? 'no' : 'maybe');
+
+/** An event someone else invited you to: you're a guest on it and not the organiser. */
+export function isInvitation(e: CalendarEvent): boolean {
+  if (!e.myResponse || e.organiser?.self) return false;
+  const me = e.guests?.find((g) => g.self);
+  if (me?.organiser) return false;
+  // Something you made with no guests has no answer to give.
+  return Boolean(e.organiser || e.guests?.some((g) => !g.self));
+}
+
+/** The same invitation on two of your calendars counts once. */
+export const inviteKey = (e: CalendarEvent) => `${e.title.trim().toLowerCase()}|${e.start}|${e.end}|${e.allDay}`;
+
+export interface InvitationLists {
+  /** Not answered yet (and cancelled ones still in your calendar), soonest first. */
+  fresh: CalendarEvent[];
+  /** Answered, still to come, soonest first. */
+  replied: CalendarEvent[];
+}
+
+/** Splits upcoming invitations into New and Replied. Past events drop off. */
+export function invitationLists(events: CalendarEvent[], now = Date.now()): InvitationLists {
+  const seen = new Map<string, CalendarEvent>();
+  for (const e of events) {
+    if (e.end <= now || !isInvitation(e)) continue;
+    const k = inviteKey(e);
+    const have = seen.get(k);
+    // Keep the copy still waiting for an answer, so it isn't hidden by an answered twin.
+    if (!have || (have.myResponse !== 'waiting' && e.myResponse === 'waiting')) seen.set(k, e);
+  }
+  const all = [...seen.values()].sort((a, b) => a.start - b.start);
+  return {
+    fresh: all.filter((e) => e.cancelled || e.myResponse === 'waiting'),
+    replied: all.filter((e) => !e.cancelled && e.myResponse !== 'waiting'),
+  };
+}
+
+/** How many invitations wait for an answer (cancelled ones are left out of the count). */
+export const newInvitationCount = (l: InvitationLists) => l.fresh.filter((e) => !e.cancelled).length;
+
+/** The first other event at the same time that you're going to (or might), for "Clashes with...". All-day events don't clash. */
+export function clashFor(inv: CalendarEvent, events: CalendarEvent[]): CalendarEvent | undefined {
+  if (inv.allDay || inv.cancelled) return undefined;
+  const k = inviteKey(inv);
+  return events
+    .filter((e) => e.id !== inv.id && !e.allDay && !e.cancelled && !e.declined && e.myResponse !== 'no' && inviteKey(e) !== k && e.start < inv.end && e.end > inv.start)
+    .sort((a, b) => a.start - b.start)[0];
+}
+
+/** Every copy of an invitation (yours on several addresses), so one answer goes to all of them. */
+export const copiesOf = (inv: CalendarEvent, events: CalendarEvent[]) => {
+  const k = inviteKey(inv);
+  const list = events.filter((e) => inviteKey(e) === k && isInvitation(e));
+  return list.length ? list : [inv];
+};

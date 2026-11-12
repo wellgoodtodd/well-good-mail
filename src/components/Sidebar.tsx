@@ -23,6 +23,7 @@ import { myAddresses } from '../lib/compose';
 import type { Account, AccountGroup, Folder, Scope, SystemFolder, View } from '../lib/types';
 import { useOoo } from '../lib/oooStore';
 import { isAway } from '../lib/ooo';
+import { useInvitations, openInvitations } from './Invitations';
 
 const FOLDERS: { folder: SystemFolder; icon: IconName; name: string; all: string }[] = [
   { folder: 'inbox', icon: 'inbox', name: 'Inbox', all: 'All Inboxes' },
@@ -774,6 +775,7 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
   const screen = useMail((s) => s.screen);
   const scheduledCount = useMail((m) => m.outbox.filter((o) => o.kind === 'scheduled').length);
   const reminderCount = useReminderCount();
+  const invitations = useInvitations().count;
   const alerts = useSettingsAlerts();
   const version = useUpdates((u) => u.currentVersion);
   return (
@@ -788,6 +790,14 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
           <Icon name="calendar" /><span className="name">Calendar</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}
         </button>
       </div>
+      {/* Only while new invitations wait for an answer. */}
+      {invitations > 0 && (
+        <div className="side-row">
+          <button className="side-item" title="Answer your new invitations" onClick={openInvitations}>
+            <Icon name="mail" /><span className="name">Invitations</span><span className="count inv-count">{invitations}</span>
+          </button>
+        </div>
+      )}
       <div className="side-row">
         <button className={`side-item ${screen === 'help' ? 'selected' : ''}`} onClick={() => openScreen('help')}>
           <Icon name="help" /><span className="name">Help &amp; Feedback</span>

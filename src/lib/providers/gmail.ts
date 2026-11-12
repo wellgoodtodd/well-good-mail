@@ -3,7 +3,7 @@
 import { forgetGoogleAccessToken, getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, EventCopy, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { AutoReply } from '../ooo';
 import { htmlToText, isWorkAccount, ymd } from '../ooo';
 import { CalendarPermissionError, NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
@@ -211,6 +211,11 @@ export function guestsOf(attendees?: { email?: string; displayName?: string; res
   return { guests, myResponse: me ? answerOf(me.responseStatus) : undefined };
 }
 
+/** The guest list with your own answer (and note) changed. A blank note clears an old one. */
+function answered<T extends { self?: boolean; comment?: string }>(list: T[], status: Rsvp, note?: string): T[] {
+  return list.map((a) => (a.self ? { ...a, responseStatus: status, ...(note !== undefined ? { comment: note.trim() } : {}) } : a));
+}
+
 export class GmailProvider implements MailProvider {
   constructor(public readonly account: Account) {}
 
@@ -299,17 +304,26 @@ export class GmailProvider implements MailProvider {
     const fullCutoff = Date.now() - FULL_BODY_DAYS * 86400000;
     let pageToken: string | undefined;
     const q = sinceDays ? `newer_than:${sinceDays}d` : '';
+    // Each email is fetched once: recent ones (newest first) with their full text straight away, older ones as
+    // details only. It used to fetch recent ones twice, details first and then the full text.
+    const seen = new Set<string>();
+    let recent = true;
+    const fetchSome = async (ids: string[]) => {
+      const todo = ids.filter((id) => !seen.has(id) && !isKnown?.(id));
+      todo.forEach((id) => seen.add(id));
+      if (!todo.length) return;
+      const msgs = (await pool(todo, CONCURRENCY, (id) => this.fetchMessage(id, recent))).filter(Boolean) as Message[];
+      if (msgs.length) await onBatch(msgs);
+      // Once a page reaches past the full-text window, the rest only need their details.
+      if (recent && msgs.some((m) => m.date < fullCutoff)) recent = false;
+    };
     // First, the newest 25 in the Inbox, shown straight away: that's what you look at while the rest comes in.
     try {
       const inboxQ = ['in:inbox', q].filter(Boolean).join(' ');
       const top = await this.call<{ messages?: { id: string }[] }>(`/messages?${new URLSearchParams({ maxResults: '25', q: inboxQ })}`);
-      const ids = (top.messages || []).map((m) => m.id).filter((id) => !isKnown?.(id));
-      if (ids.length) {
-        const metas = (await pool(ids, CONCURRENCY, (id) => this.fetchMessage(id, false))).filter(Boolean) as Message[];
-        await onBatch(metas);
-        const full = (await pool(metas.filter((m) => m.date >= fullCutoff), CONCURRENCY, (m) => this.fetchMessage(m.providerId, true))).filter(Boolean) as Message[];
-        if (full.length) await onBatch(full);
-      }
+      const wasRecent = recent;
+      await fetchSome((top.messages || []).map((m) => m.id));
+      recent = wasRecent;
     } catch { /* the full pass below fetches them anyway */ }
     // Then everything, a small page first so more keeps appearing quickly.
     let first = true;
@@ -320,15 +334,7 @@ export class GmailProvider implements MailProvider {
       if (pageToken) params.set('pageToken', pageToken);
       const page = await this.call<{ messages?: { id: string }[]; nextPageToken?: string }>(`/messages?${params}`);
       // Mail kept from an earlier, interrupted attempt is not fetched again.
-      const ids = (page.messages || []).map((m) => m.id).filter((id) => !isKnown?.(id));
-      // Newest first: the first pages get bodies, older ones metadata only.
-      const metas = await pool(ids, CONCURRENCY, (id) => this.fetchMessage(id, false));
-      const msgs = metas.filter(Boolean) as Message[];
-      // Show them now (sender, subject, preview), then fill in the full text of the recent ones.
-      await onBatch(msgs);
-      const needBodies = msgs.filter((m) => m.date >= fullCutoff);
-      const full = (await pool(needBodies, CONCURRENCY, (m) => this.fetchMessage(m.providerId, true))).filter(Boolean) as Message[];
-      if (full.length) await onBatch(full);
+      await fetchSome((page.messages || []).map((m) => m.id));
       pageToken = page.nextPageToken;
     } while (pageToken);
     return { cursor: profile.historyId };
@@ -560,7 +566,7 @@ export class GmailProvider implements MailProvider {
         let pageToken: string | undefined;
         do {
         if (pageToken) params.set('pageToken', pageToken);
-        const { items, nextPageToken } = await this.call<{ nextPageToken?: string; items: { id: string; summary?: string; status?: string; recurringEventId?: string; organizer?: { self?: boolean }; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] }; attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[] }[] }>(
+        const { items, nextPageToken } = await this.call<{ nextPageToken?: string; items: { id: string; summary?: string; status?: string; recurringEventId?: string; organizer?: { self?: boolean; email?: string; displayName?: string }; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] }; attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[] }[] }>(
           `${CAL}/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
         );
         for (const e of items) {
@@ -587,6 +593,7 @@ export class GmailProvider implements MailProvider {
             ...guestsOf(e.attendees),
             canEdit: (cal.accessRole === 'owner' || cal.accessRole === 'writer') && (e.organizer?.self ?? true),
             recurring: Boolean(e.recurringEventId),
+            organiser: e.organizer?.email ? { email: e.organizer.email.toLowerCase(), name: e.organizer.displayName, self: e.organizer.self || undefined } : undefined,
           });
         }
         pageToken = nextPageToken;
@@ -609,37 +616,99 @@ export class GmailProvider implements MailProvider {
     return { calId: rest.slice(0, cut), eventId: rest.slice(cut + 1) };
   }
 
-  async editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> {
+  /**
+   * Changes one event, or with scope 'all' its whole series (the series' own times move by the same amount).
+   * Guests are emailed unless notify is false. "This and following" is done by the app (end the series, make a new one).
+   */
+  async editEvent(ev: CalendarEvent, patch: EventPatch, opts: ChangeOptions = {}): Promise<void> {
     const CAL = 'https://www.googleapis.com/calendar/v3';
-    const { calId, eventId } = this.eventParts(ev);
-    const allDay = patch.allDay ?? ev.allDay;
-    const start = patch.start ?? ev.start;
-    const end = patch.end ?? ev.end;
-    const body: Record<string, unknown> = {};
-    if (patch.title !== undefined) body.summary = patch.title;
-    if (patch.location !== undefined) body.location = patch.location;
-    if (patch.description !== undefined) body.description = patch.description;
-    if (patch.start !== undefined || patch.end !== undefined || patch.allDay !== undefined) {
-      // Google's all-day end is the day after the last day.
-      body.start = allDay ? { date: ymd(start), dateTime: null } : { dateTime: new Date(start).toISOString(), date: null };
-      body.end = allDay ? { date: ymd(Math.max(end, start + 86400000)), dateTime: null } : { dateTime: new Date(end).toISOString(), date: null };
-    }
+    const { calId } = this.eventParts(ev);
+    let { eventId } = this.eventParts(ev);
+    const send = opts.notify === false ? 'none' : 'all';
+    const base = `${CAL}/calendars/${encodeURIComponent(calId)}/events`;
+    type GAtt = { email?: string; displayName?: string; self?: boolean; organizer?: boolean; resource?: boolean; responseStatus?: string };
+    type GEv = { id: string; recurringEventId?: string; recurrence?: string[]; attendees?: GAtt[]; start: { dateTime?: string; date?: string; timeZone?: string }; end: { dateTime?: string; date?: string } };
     try {
+      // A change to the repeat itself, or to "all events", is made on the series.
+      let shift = 0;
+      let master: GEv | undefined;
+      const wholeSeries = ev.recurring && (opts.scope === 'all' || patch.repeat !== undefined);
+      if (wholeSeries) {
+        const one = await this.call<GEv>(`${base}/${encodeURIComponent(eventId)}`);
+        if (one.recurringEventId) {
+          master = await this.call<GEv>(`${base}/${encodeURIComponent(one.recurringEventId)}`);
+          eventId = master.id;
+          if (patch.start !== undefined) shift = patch.start - ev.start;
+        }
+      }
+      const allDay = patch.allDay ?? ev.allDay;
+      const body: Record<string, unknown> = {};
+      if (patch.title !== undefined) body.summary = patch.title;
+      if (patch.location !== undefined) body.location = patch.location;
+      if (patch.description !== undefined) body.description = patch.description;
+      const tz = localTimeZone();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const local = (ms: number) => { const d = new Date(ms); return `${ymd(ms)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`; };
+      const when = (ms: number) => (allDay ? { date: ymd(ms), dateTime: null } : { dateTime: local(ms), timeZone: tz, date: null });
+      if (patch.start !== undefined || patch.end !== undefined || patch.allDay !== undefined || patch.repeat !== undefined) {
+        let start = patch.start ?? ev.start;
+        let end = patch.end ?? ev.end;
+        if (master) {
+          // The series keeps its own first date; only the time of day and length change.
+          const mStart = new Date(master.start.dateTime || `${master.start.date}T00:00:00`).getTime();
+          start = mStart + shift;
+          end = start + ((patch.end ?? ev.end) - (patch.start ?? ev.start));
+        }
+        // Google's all-day end is the day after the last day.
+        body.start = when(start);
+        body.end = when(allDay ? Math.max(end, start + 86400000) : end);
+      }
+      if (patch.repeat !== undefined) {
+        const keep = (master?.recurrence || []).filter((l) => !/^RRULE:/i.test(l));
+        body.recurrence = patch.repeat ? [...keep, toRrule(patch.repeat, allDay)] : [];
+      }
+      if (patch.alerts !== undefined) body.reminders = { useDefault: false, overrides: patch.alerts.slice(0, 5).map((minutes) => ({ method: 'popup', minutes })) };
+      if (patch.guests !== undefined) {
+        // Keep everyone's answers, and you; only add and take away.
+        const now = master || (await this.call<GEv>(`${base}/${encodeURIComponent(eventId)}`));
+        const old = now.attendees || [];
+        const wanted = new Map(patch.guests.map((g) => [g.email.toLowerCase(), g]));
+        const kept = old.filter((a) => a.self || a.resource || (a.email && wanted.has(a.email.toLowerCase())));
+        const have = new Set(kept.map((a) => (a.email || '').toLowerCase()));
+        const added = [...wanted.values()].filter((g) => !have.has(g.email.toLowerCase())).map((g) => ({ email: g.email, displayName: g.name }));
+        const list = [...kept, ...added];
+        body.attendees = list.length > 1 || added.length ? list : [];
+      }
+      if (patch.video === true) body.conferenceData = { createRequest: { requestId: `wgm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } };
+      if (patch.video === false) body.conferenceData = null;
       if (Object.keys(body).length) {
-        await this.call(`${CAL}/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify(body) });
+        await this.call(`${base}/${encodeURIComponent(eventId)}?sendUpdates=${send}&conferenceDataVersion=1`, { method: 'PATCH', body: JSON.stringify(body) });
       }
       const dest = patch.calendarName && this.calIds[patch.calendarName];
       if (dest && dest !== calId) {
-        await this.call(`${CAL}/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}/move?destination=${encodeURIComponent(dest)}&sendUpdates=all`, { method: 'POST' });
+        await this.call(`${base}/${encodeURIComponent(eventId)}/move?destination=${encodeURIComponent(dest)}&sendUpdates=${send}`, { method: 'POST' });
       }
     } catch (e) { this.permissionOr(e); }
   }
 
-  async deleteEvent(ev: CalendarEvent): Promise<void> {
-    const { calId, eventId } = this.eventParts(ev);
+  /** Deletes one event, or with scope 'all' its whole series. Already gone counts as done. */
+  async deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<void> {
+    const CAL = 'https://www.googleapis.com/calendar/v3';
+    const { calId } = this.eventParts(ev);
+    let { eventId } = this.eventParts(ev);
+    const send = opts.notify === false ? 'none' : 'all';
+    const base = `${CAL}/calendars/${encodeURIComponent(calId)}/events`;
     try {
-      await this.call(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`, { method: 'DELETE' });
-    } catch (e) { this.permissionOr(e); }
+      if (ev.recurring && opts.scope === 'all') {
+        const one = await this.call<{ recurringEventId?: string }>(`${base}/${encodeURIComponent(eventId)}`);
+        if (one.recurringEventId) eventId = one.recurringEventId;
+      }
+      await this.call(`${base}/${encodeURIComponent(eventId)}?sendUpdates=${send}`, { method: 'DELETE' });
+    } catch (e) {
+      const status = (e as { status?: number }).status;
+      if (status === 404 || status === 410) return;
+      this.permissionOr(e);
+    }
   }
 
   async copyOfEvent(ev: CalendarEvent, opts: { series: boolean }): Promise<EventCopy> {
@@ -756,16 +825,29 @@ export class GmailProvider implements MailProvider {
     return { inCalendar: true, response, guests: guestsOf(ev.attendees).guests };
   }
 
-  async respondToInvite(uid: string, status: Rsvp): Promise<boolean> {
+  async respondToInvite(uid: string, status: Rsvp, note?: string): Promise<boolean> {
     const ev = await this.findInvite(uid);
     if (!ev || !ev.attendees.some((a) => a.self)) return false;
     try {
       await this.call(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(ev.id)}?sendUpdates=all`, {
         method: 'PATCH',
-        body: JSON.stringify({ attendees: ev.attendees.map((a) => (a.self ? { ...a, responseStatus: status } : a)) }),
+        body: JSON.stringify({ attendees: answered(ev.attendees, status, note) }),
       });
     } catch (e) { this.permissionOr(e); }
     return true;
+  }
+
+  /** Answers an invitation from the calendar itself: your own line in the guest list gets the answer (and the note, as Google's comment). */
+  async respondToEvent(event: CalendarEvent, status: Rsvp, note?: string): Promise<void> {
+    const { calId, eventId } = this.eventParts(event);
+    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}`;
+    type Att = { email?: string; self?: boolean; responseStatus?: string; comment?: string };
+    try {
+      const ev = await this.call<{ attendees?: Att[] }>(url);
+      const list = ev.attendees || [];
+      if (!list.some((a) => a.self)) throw new Error("You aren't on the guest list for this one");
+      await this.call(`${url}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify({ attendees: answered(list, status, note) }) });
+    } catch (e) { this.permissionOr(e); }
   }
 
   async addInviteToCalendar(invite: Invite): Promise<void> {

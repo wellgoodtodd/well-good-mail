@@ -35,6 +35,23 @@ export function DialogHost() {
       </Dialog>
     );
   }
+  if (pending.kind === 'choice') {
+    const list = pending.choices || [];
+    const main = list.find((c) => c.primary) || list[list.length - 1];
+    return (
+      <Dialog
+        title={pending.title}
+        onClose={() => closeDialog(null)}
+        actions={<>
+          <button className="btn" onClick={() => closeDialog(null)}>{pending.cancelLabel || 'Cancel'}</button>
+          <span className="grow" />
+          {list.map((c) => <button key={c.id} className={`btn ${c === main ? (c.danger ? 'danger-fill' : 'primary') : c.danger ? 'danger' : ''}`} onClick={() => closeDialog(c.id)}>{c.label}</button>)}
+        </>}
+      >
+        {pending.message && <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{pending.message}</p>}
+      </Dialog>
+    );
+  }
   const ok = () => {
     if (optOut) pending.onOptOut?.();
     closeDialog(pending.kind === 'text' ? value : true);

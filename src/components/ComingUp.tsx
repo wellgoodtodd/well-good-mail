@@ -13,6 +13,8 @@ import { AccountDots, JoinButton, Switch, dayText, timeText, useMinute, useCalen
 import { CalendarGroupsDialog, pickGroup } from './CalendarGroups';
 import { startNewEvent } from './NewEvent';
 import { EventPreview } from './EventPopup';
+import { NotAnsweredTag } from './Invitations';
+import { isInvitation } from '../lib/invites';
 
 
 /** Account types that have a calendar to show (plain IMAP mailboxes don't, but iCloud does). */
@@ -240,6 +242,7 @@ export function ComingUpList({ limit = 8, onPick }: { limit?: number; onPick: (e
             <div style={{ fontWeight: 500 }}>{e.title}</div>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>{dayText(e.start)}{!e.allDay && `, ${timeText(e.start)}`} · {e.calendarName}</div>
           </div>
+          {e.myResponse === 'waiting' && !e.cancelled && isInvitation(e) && <NotAnsweredTag />}
           {e.meetingUrl && <JoinButton event={e} small />}
         </div>
       ))}

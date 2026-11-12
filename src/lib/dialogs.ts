@@ -3,7 +3,9 @@
 import { create } from 'zustand';
 
 interface Pending {
-  kind: 'confirm' | 'text' | 'keep';
+  kind: 'confirm' | 'text' | 'keep' | 'choice';
+  /** For a choice: the buttons, left to right; the last is the main one unless one says primary. */
+  choices?: Choice[];
   title: string;
   message?: string;
   confirmLabel: string;
@@ -15,6 +17,8 @@ interface Pending {
   optOutLabel?: string;
   resolve: (v: string | boolean | null) => void;
 }
+
+export interface Choice { id: string; label: string; primary?: boolean; danger?: boolean }
 
 export const useDialogs = create<{ pending: Pending | null }>(() => ({ pending: null }));
 
@@ -36,6 +40,13 @@ export function askKeepDraft(): Promise<{ choice: 'save' | 'discard' | 'cancel';
         },
       },
     });
+  });
+}
+
+/** A question with several answers (besides Cancel). Resolves to the id picked, or null for Cancel. */
+export function askChoice(title: string, message: string | undefined, choices: Choice[], cancelLabel = 'Cancel'): Promise<string | null> {
+  return new Promise((resolve) => {
+    useDialogs.setState({ pending: { kind: 'choice', title, message, confirmLabel: '', cancelLabel, choices, resolve: (v) => resolve(typeof v === 'string' ? v : null) } });
   });
 }
 

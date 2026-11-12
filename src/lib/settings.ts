@@ -142,6 +142,8 @@ export interface Settings {
   taskbarCount: boolean;
   /** The calendar on the Reminders screen: one day, a week, or a month. */
   calendarMode: 'day' | 'week' | 'month';
+  /** Day and Week view: how tall an hour is, in pixels (Ctrl + wheel or the slider). */
+  calendarZoom: number;
   /** Week numbers in the calendar views. */
   weekNumbers: boolean;
   /** Leave Saturday and Sunday out of the Week and Month views. */
@@ -313,6 +315,7 @@ export const defaultSettings: Settings = {
   strongBorders: false,
   weekStart: 'monday',
   calendarMode: 'week',
+  calendarZoom: 48,
   taskbarCount: true,
   spellWords: [],
   spellLang: 'en-GB',
@@ -349,7 +352,7 @@ export const defaultSettings: Settings = {
 };
 
 /** Changes that happen by themselves, or are too small to be worth a step in Undo (dragging a divider, folding a section). */
-const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'calendarMode', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden']);
+const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'calendarMode', 'calendarZoom', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden']);
 /** Friendly names for the Undo menu. Anything else is just "settings". */
 const SETTING_NAMES: Record<string, string> = {
   theme: 'appearance', accent: 'accent colour', density: 'density', textScale: 'text size', palette: 'account colours', darkSkin: 'dark look', lightSkin: 'light look',

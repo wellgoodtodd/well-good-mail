@@ -26,7 +26,7 @@ import { myAddresses } from './compose';
 import { bytesToBase64 } from './mime';
 import { MessageIndex, type Counts } from './messageIndex';
 import { paletteById, colourFor } from './palettes';
-import type { Account, Address, CalendarEvent, EventCopy, EventPatch, Draft, EventGuest, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
+import type { Account, Address, CalendarEvent, ChangeOptions, EventCopy, EventPatch, Draft, EventGuest, Folder, FollowUp, MailboxRef, Message, OutboxItem, Snooze, SystemFolder, View } from './types';
 
 const providers = new Map<string, MailProvider>();
 
@@ -363,8 +363,11 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   refreshAll();
   setTimeout(refreshEvents, 3000);
   setTimeout(refreshAccountPhotos, 4000);
-  // Every few minutes, so a meeting added at the last minute still gets its notification and banner.
-  setInterval(refreshEvents, 3 * 60 * 1000);
+  // Every few minutes, so a meeting added at the last minute still gets its notification and banner. Every minute
+  // while Calendar & Reminders is open, and on coming back to the window, so changes made on a phone show soon.
+  setInterval(() => { if (get().screen !== 'reminders' || Date.now() - eventsFetchedAt > 170000) void refreshEvents(); }, 3 * 60 * 1000);
+  setInterval(() => { if (get().screen === 'reminders' && document.visibilityState === 'visible' && Date.now() - eventsFetchedAt > 55000) void refreshEvents(); }, 60 * 1000);
+  window.addEventListener('focus', () => { if (Date.now() - eventsFetchedAt > 45000) void refreshEvents(); });
   setInterval(refreshContacts, 12 * 60 * 60 * 1000);
 }
 
@@ -987,11 +990,40 @@ export function writableCalendars(accountId: string): string[] {
   return providers.get(accountId)?.writableCalendars?.() || [];
 }
 
-/** Changes an event in its own calendar, then shows the change here straight away and refreshes the copy. */
-export async function editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> {
+/** Puts the form's changes onto a copy of an event, for making it again. */
+export function applyPatch(copy: EventCopy, pt: EventPatch): EventCopy {
+  const c = { ...copy };
+  if (pt.title !== undefined) c.title = pt.title;
+  if (pt.start !== undefined) c.start = pt.start;
+  if (pt.end !== undefined) c.end = pt.end;
+  if (pt.allDay !== undefined) c.allDay = pt.allDay;
+  if (pt.location !== undefined) c.location = pt.location || undefined;
+  if (pt.description !== undefined) c.description = pt.description || undefined;
+  if (pt.alerts !== undefined) c.alerts = pt.alerts;
+  if (pt.guests !== undefined) c.guests = pt.guests;
+  if (pt.video !== undefined) c.video = pt.video;
+  if (pt.repeat !== undefined) { c.repeat = pt.repeat || undefined; c.repeatUnsupported = false; }
+  return c;
+}
+
+/**
+ * Changes an event in its own calendar, then shows the change here straight away and refreshes the copy.
+ * For a series: scope 'one' (this one), 'all' (the whole series) or 'following' (this one on: the series is ended
+ * the day before and made again from here, so guests get a new invitation for that part).
+ */
+export async function editEvent(ev: CalendarEvent, patch: EventPatch, opts: ChangeOptions = {}): Promise<void> {
   const p = providers.get(ev.accountId);
   if (!p?.editEvent) throw new Error("This calendar can't be changed from here yet");
-  await p.editEvent(ev, patch);
+  if (ev.recurring && opts.scope === 'following' && p.copyOfEvent && p.endSeries && p.createEvent) {
+    const copy = applyPatch(await p.copyOfEvent(ev, { series: true }), patch);
+    if (copy.repeatUnsupported) throw new Error("This series repeats in a way that can't be split here. Change all of them, or just this one.");
+    await p.endSeries(ev);
+    await p.createEvent(patch.calendarName || ev.calendarName, copy);
+    await afterCalendarChange();
+    return;
+  }
+  await p.editEvent(ev, patch, opts);
+  if (ev.recurring && (opts.scope === 'all' || patch.repeat !== undefined)) { await afterCalendarChange(); return; }
   const changed = (e: CalendarEvent): CalendarEvent => (e.id === ev.id ? { ...e, ...(patch.title !== undefined ? { title: patch.title } : {}), ...(patch.start !== undefined ? { start: patch.start } : {}), ...(patch.end !== undefined ? { end: patch.end } : {}), ...(patch.allDay !== undefined ? { allDay: patch.allDay } : {}), ...(patch.location !== undefined ? { location: patch.location || undefined } : {}), ...(patch.description !== undefined ? { description: patch.description || undefined } : {}), ...(patch.calendarName ? { calendarName: patch.calendarName } : {}) } : e);
   set({ events: get().events.map(changed) });
   const cal = await import('./calendarCache');
@@ -1000,11 +1032,21 @@ export async function editEvent(ev: CalendarEvent, patch: EventPatch): Promise<v
   void cal.refreshCalendarCopy();
 }
 
-/** Deletes an event you made, from its own calendar and from here. */
-export async function deleteEvent(ev: CalendarEvent): Promise<void> {
+/** Refreshes the calendar here and the long copy after a change that touches more than one event. */
+async function afterCalendarChange(): Promise<void> {
+  const cal = await import('./calendarCache');
+  await refreshEvents();
+  void cal.refreshCalendarCopy();
+}
+
+/** Deletes an event you made, from its own calendar and from here. A series: just this one, this one on, or all. */
+export async function deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<void> {
   const p = providers.get(ev.accountId);
   if (!p?.deleteEvent) throw new Error("This calendar can't be changed from here yet");
-  await p.deleteEvent(ev);
+  if (ev.recurring && opts.scope === 'following' && p.endSeries) { await p.endSeries(ev); await afterCalendarChange(); return; }
+  await p.deleteEvent(ev, opts);
+  forgetEvent(ev.id);
+  if (ev.recurring && opts.scope === 'all') { await afterCalendarChange(); return; }
   set({ events: get().events.filter((e) => e.id !== ev.id) });
   const cal = await import('./calendarCache');
   cal.useCalCache.setState((s) => ({ events: s.events.filter((e) => e.id !== ev.id) }));
@@ -1091,27 +1133,43 @@ export async function createNewEvent(to: { accountId: string; calendarName: stri
 const accountName = (id: string) => { const a = get().accounts.find((x) => x.id === id); return a ? a.label || a.email : 'the other account'; };
 
 /** Answers an invitation. In the calendar itself where the account allows it, otherwise by emailing the organiser. */
-export async function answerInvite(messageId: string, invite: Invite, status: Rsvp, opts: { byEmail?: boolean } = {}): Promise<'calendar' | 'email'> {
+export async function answerInvite(messageId: string, invite: Invite, status: Rsvp, opts: { byEmail?: boolean; note?: string } = {}): Promise<'calendar' | 'email'> {
   const m = get().messages[messageId];
   const p = m && providers.get(m.accountId);
   const account = m && get().accounts.find((a) => a.id === m.accountId);
   if (!m || !p || !account) throw new Error('Email not found');
-  if (!opts.byEmail && p.respondToInvite && (await p.respondToInvite(invite.uid, status))) { refreshEvents(); return 'calendar'; }
+  if (!opts.byEmail && p.respondToInvite && (await p.respondToInvite(invite.uid, status, opts.note))) { refreshEvents(); return 'calendar'; }
   if (!invite.organizer) throw new Error("This invitation doesn't say who to reply to");
   const senderName = account.aliases.find((a) => a.isDefault)?.name || account.aliases[0]?.name || account.label;
   const me = whichIsMe(invite, inviteAddresses(m.accountId, m)) || { email: account.email.toLowerCase(), name: senderName };
   const words = RSVP_WORDS[status];
-  const text = `${me.name || me.email} has replied ${words.label} to "${invite.title}".`;
+  const text = `${me.name || me.email} has ${words.subject.toLowerCase()} "${invite.title}".${opts.note?.trim() ? `\n\n${opts.note.trim()}` : ''}`;
   await p.send({
     from: { email: account.email, name: senderName },
     to: [{ email: invite.organizer.email, name: invite.organizer.name }],
     cc: [], bcc: [],
     subject: `${words.subject}: ${invite.title}`,
-    html: `<p>${text.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`,
+    html: text.split('\n\n').map((para) => `<p>${para.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`).join(''),
     text,
     attachments: [{ filename: 'invite.ics', mimeType: 'text/calendar; method=REPLY; charset=UTF-8', data: new TextEncoder().encode(buildReply(invite, me, status)) }],
   });
   return 'email';
+}
+
+/** Answers invitations straight from the calendar (Invitations), each copy in its own account, and shows the answer here at once. */
+export async function answerEvent(copies: CalendarEvent[], status: Rsvp, note?: string): Promise<void> {
+  for (const ev of copies) {
+    const p = providers.get(ev.accountId);
+    if (!p?.respondToEvent) throw new Error("This calendar can't answer invitations from here yet");
+    await p.respondToEvent(ev, status, note);
+  }
+  const ids = new Set(copies.map((e) => e.id));
+  const answer = status === 'accepted' ? 'yes' as const : status === 'declined' ? 'no' as const : 'maybe' as const;
+  const changed = (e: CalendarEvent): CalendarEvent => (ids.has(e.id) ? { ...e, myResponse: answer, declined: answer === 'no', guests: e.guests?.map((g) => (g.self ? { ...g, answer } : g)) } : e);
+  set({ events: get().events.map(changed) });
+  const cal = await import('./calendarCache');
+  cal.useCalCache.setState((s) => ({ events: s.events.map(changed) }));
+  void refreshEvents();
 }
 
 export async function getAttachmentData(messageId: string, attachmentId: string): Promise<Uint8Array> {
@@ -1187,7 +1245,27 @@ function describeIds(ids: string[]): string {
 }
 
 /** Marking as unread is recorded so it can be undone; marking as read happens by itself when you open an email, so it isn't. */
-export async function markRead(ids: string[], read = true, opts: { silent?: boolean } = {}) {
+/** One email per conversation: the newest of those given. */
+export function latestPerConversation(ids: string[]): string[] {
+  const msgs = get().messages;
+  const best = new Map<string, Message>();
+  const loose: string[] = [];
+  for (const id of ids) {
+    const m = msgs[id];
+    if (!m) { loose.push(id); continue; }
+    const k = threadKey(m);
+    const was = best.get(k);
+    if (!was || m.date > was.date) best.set(k, m);
+  }
+  return [...[...best.values()].map((m) => m.id), ...loose];
+}
+
+/**
+ * Marks emails read or unread. Unread marks only one email in each conversation (its latest), so a conversation of
+ * ten doesn't suddenly count as ten unread. `exact` marks just the emails given ("Mark as unread from here").
+ */
+export async function markRead(ids: string[], read = true, opts: { silent?: boolean; exact?: boolean } = {}) {
+  if (!read && !opts.exact) ids = latestPerConversation(ids);
   const changing = read ? ids.filter((id) => get().messages[id]?.unread) : ids;
   if (!changing.length) return;
   const settle = await lookFirst(changing, { unread: !read });
@@ -1195,7 +1273,7 @@ export async function markRead(ids: string[], read = true, opts: { silent?: bool
   else {
     const was = ids.filter((id) => !get().messages[id]?.unread);
     await modify(ids, () => ['UNREAD'], none);
-    if (!opts.silent && was.length) record(`Mark as unread: ${describeIds(ids)}`, () => markRead(was, true, { silent: true }), () => markRead(ids, false, { silent: true }));
+    if (!opts.silent && was.length) record(`Mark as unread: ${describeIds(ids)}`, () => markRead(was, true, { silent: true }), () => markRead(ids, false, { silent: true, exact: true }));
   }
   settle();
 }
@@ -1541,6 +1619,24 @@ export async function refreshAccountPhotos() {
 }
 
 let eventsFetchedAt = 0;
+
+/** Events deleted here in the last minute: a fetch that set off before the delete can't bring them back. */
+const goneEvents = new Map<string, number>();
+export const recentlyDeletedEvent = (id: string) => (goneEvents.get(id) || 0) > Date.now() - 60000;
+function forgetEvent(id: string) { goneEvents.set(id, Date.now()); }
+
+/** Keeps the same object for every event that hasn't changed, so only changed events are drawn again. */
+function keepUnchanged(prev: CalendarEvent[], next: CalendarEvent[]): CalendarEvent[] | null {
+  const old = new Map(prev.map((e) => [e.id, e]));
+  let same = prev.length === next.length;
+  const out = next.map((e) => {
+    const was = old.get(e.id);
+    if (was && JSON.stringify(was) === JSON.stringify(e)) return was;
+    same = false;
+    return e;
+  });
+  return same && out.every((e, i) => e === prev[i]) ? null : out;
+}
 /** When the calendars were last fetched, in milliseconds. */
 export const lastEventsRefresh = () => eventsFetchedAt;
 
@@ -1571,8 +1667,10 @@ export async function refreshEvents(): Promise<string[]> {
     }
   }));
   if (run !== eventsRun) return failed;
-  for (const [id, events] of Object.entries(fresh)) store.replaceEvents(id, events);
-  set({ events: all, calendarErrors: errors, calendarNames: names });
+  const kept = all.filter((e) => !recentlyDeletedEvent(e.id));
+  for (const [id, events] of Object.entries(fresh)) store.replaceEvents(id, events.filter((e) => !recentlyDeletedEvent(e.id)));
+  const events = keepUnchanged(get().events, kept);
+  set({ ...(events ? { events } : {}), calendarErrors: errors, calendarNames: names });
   return failed;
 }
 

@@ -8,8 +8,10 @@ import { inGroupView } from '../lib/meetings';
 import { startNewEvent } from './NewEvent';
 import { CalendarPicker, ComingUpList, PickedDay } from './ComingUp';
 import { EventPreview } from './EventPopup';
+import { InvitationsButton } from './Invitations';
 import { JoinButton } from './calendarBits';
 import { MonthView, TimeGridView, CalendarModes } from './CalendarViews';
+import { SelectionBar, clearSelected, toggleSelected, useEventSelection } from './EventSelection';
 import { refreshCalendarCopy, startCalendarCopy } from '../lib/calendarCache';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
 
@@ -38,6 +40,9 @@ export function Reminders() {
   // The List view follows the Calendar Group you're looking at, like the calendar.
   const items = useMemo(() => dueReminders(inGroupView(events, s), followups, dismissed, Date.now(), mute), [events, followups, dismissed, tick, s.hiddenCalendars, s.hiddenCalendarsAlerts, s.calendarGroups, s.calendarGroup]); // eslint-disable-line react-hooks/exhaustive-deps
   const [preview, setPreview] = useState<CalendarEvent | null>(null);
+  // Ticked rows in the List view: the same picking as in the calendar.
+  const picked = useEventSelection((x) => x.ids);
+  useEffect(() => () => clearSelected(), []);
   const [refreshing, setRefreshing] = useState(false);
   useEffect(() => { startCalendarCopy(); }, []);
   const refresh = async () => {
@@ -75,6 +80,7 @@ export function Reminders() {
             <span className="grow" />
             {/* Kept together, so on a narrow window they move to the next line as one row. */}
             <div className="rem-actions">
+              <InvitationsButton />
               <CalendarPicker />
               <button className="icon-btn rem-refresh" disabled={refreshing} title={refreshing ? 'Refreshing the calendars' : 'Refresh the calendars'} aria-label={refreshing ? 'Refreshing the calendars' : 'Refresh the calendars'} onClick={refresh}><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span></button>
               {s.remindersView === 'list' && <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>}
@@ -89,11 +95,14 @@ export function Reminders() {
                 <div style={{ marginTop: 8, fontSize: '1.1em', color: 'var(--text)' }}>All clear</div>
               </div>
             ) : (
-              <div className="card">
+              <>
+              {picked.length > 0 && <SelectionBar extra={<button className="btn primary" onClick={() => { const ids = items.filter((r) => { const e = eventFor(r); return e && picked.includes(e.id); }).map((r) => r.id); void dismissReminders(ids); clearSelected(); }}>Done for {picked.length}</button>} />}
+              <div className={`card ${picked.length ? 'rem-picking' : ''}`}>
                 {items.map((r) => {
                   const overdue = r.eventStart !== undefined && r.eventStart < Date.now() - 3600000;
                   return (
-                    <div className="rem-row" key={r.id}>
+                    <div className={`rem-row ${eventFor(r) && picked.includes(eventFor(r)!.id) ? 'picked' : ''}`} key={r.id}>
+                      {eventFor(r) ? <input type="checkbox" className="rem-tick" aria-label={`Pick ${r.title}`} checked={picked.includes(eventFor(r)!.id)} onChange={() => toggleSelected(eventFor(r)!.id)} /> : <span className="rem-tick-space" aria-hidden />}
                       <span className="bar" style={{ background: colour(r.accountId) }} />
                       <div className="grow">
                         <div className="title">{eventFor(r) ? <button className="link-btn" onClick={() => setPreview(eventFor(r)!)}>{r.title}</button> : r.title}</div>
@@ -122,6 +131,7 @@ export function Reminders() {
                   );
                 })}
               </div>
+              </>
             )}
           </div>
         </div>

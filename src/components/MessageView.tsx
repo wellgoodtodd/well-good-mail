@@ -207,7 +207,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
             { label: 'Forward', icon: 'forward', onClick: () => startCompose('forward', message) },
             { divider: true },
             { label: 'Mark as unread', icon: 'mail', onClick: () => markRead([message.id], false) },
-            { label: 'Mark as unread from here', icon: 'mail', onClick: () => markRead(messagesInThread(threadKey(message)).filter((m) => m.date >= message.date).map((m) => m.id), false) },
+            { label: 'Mark as unread from here', icon: 'mail', onClick: () => markRead(messagesInThread(threadKey(message)).filter((m) => m.date >= message.date).map((m) => m.id), false, { exact: true }) },
             { divider: true },
             { label: vips.includes(sender) ? 'Remove from important senders' : 'Mark sender as important', icon: 'star', onClick: () => toggleVip(sender) },
             { label: trusted.includes(sender) ? 'Stop loading images from this sender' : 'Always load images from this sender', icon: 'imageOff', onClick: () => toggleIn('trustedSenders', sender) },

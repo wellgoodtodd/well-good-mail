@@ -44,6 +44,10 @@ export interface OooPlan {
   message: OooMessage;
   /** Accounts with their own message instead of the default. */
   own: Record<string, OooMessage>;
+  /** Accounts' own messages put aside while "Different message for each account" is off, so switching it back on brings them back. */
+  ownParked?: Record<string, OooMessage>;
+  /** The saved template last applied on the page (and the account message it went into), for the Changed pill. */
+  lastTemplate?: { id: string; editing?: string };
   addEvent: boolean;
   remindBefore: boolean;
   decline: boolean;
@@ -157,6 +161,37 @@ export function fillBackDate(text: string, end?: number): string {
 
 /** The message an account will use: its own, or the default. */
 export const messageFor = (p: OooPlan, accountId: string): OooMessage => p.own[accountId] || p.message;
+
+/** "Different message for each account" is on: an account that's switched on has its own message. */
+export const perAccountOn = (p: OooPlan): boolean => p.accounts.some((id) => Boolean(p.own[id]));
+
+/**
+ * Switches "Different message for each account" on or off. On: every switched-on account gets its own message, the
+ * one put aside earlier or else a copy of the shared one. Off: the own messages are put aside (not lost), so the
+ * shared message is used everywhere until it's switched back on.
+ */
+export function setPerAccount(p: OooPlan, on: boolean): OooPlan {
+  if (on) {
+    const own = { ...p.own };
+    const parked = { ...(p.ownParked || {}) };
+    for (const id of p.accounts) {
+      if (own[id]) continue;
+      own[id] = parked[id] ? { ...parked[id] } : { ...p.message };
+      delete parked[id];
+    }
+    return { ...p, own, ownParked: parked };
+  }
+  return { ...p, own: {}, ownParked: { ...(p.ownParked || {}), ...p.own } };
+}
+
+/** Switches one account on or off. With different messages on, an account switched on gets its own message too. */
+export function setAccountOn(p: OooPlan, id: string, on: boolean): OooPlan {
+  if (!on) return { ...p, accounts: p.accounts.filter((x) => x !== id) };
+  if (p.accounts.includes(id)) return p;
+  const perAccount = perAccountOn(p);
+  const next = { ...p, accounts: [...p.accounts, id] };
+  return perAccount ? setPerAccount(next, true) : next;
+}
 
 /** What a kind of account can do. */
 export interface OooSupport {

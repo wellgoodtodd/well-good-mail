@@ -5,15 +5,16 @@ import DOMPurify from 'dompurify';
 import { Icon } from './Icon';
 import { FormatBar } from './FormatBar';
 import { editorExtensions } from './editorExtensions';
-import { Dialog, SwitchLine } from './ui';
+import { Check, Dialog, Seg, SwitchLine } from './ui';
 import { useMail, providerFor, reconnectAccount, selectThread, setView, toast, openScreen } from '../lib/mail';
 import { threadKey } from '../lib/mailbox';
 import { useSettings } from '../lib/settings';
 import { allAliases } from '../lib/compose';
-import { BACK_TOKEN, htmlToText, messageFor, oooSupport, planProblem, stateWords, whenSentence, windowOf, type OooMessage, type OooPlan } from '../lib/ooo';
+import { BACK_TOKEN, fillBackDate, htmlToText, messageFor, oooSupport, perAccountOn, planProblem, setAccountOn, setPerAccount, stateWords, whenSentence, windowOf, type OooMessage, type OooPlan } from '../lib/ooo';
 import { awayAccounts, awayDigest, closeSummary, dismissSuggestion, nativeAccounts, refreshOoo, replyFor, turnOffOoo, turnOnOoo, useOoo, applySuggestion, oooToastResult, oooSignIn, oooSignInDue, shortReason } from '../lib/oooStore';
 import type { Account, Message } from '../lib/types';
-import { TemplatesMenu } from './OooTemplates';
+import { TemplateBar, UpdateTemplateQuestion, shouldAskAboutTemplate } from './OooTemplates';
+import '../styles/ooo.css';
 
 const nameOf = (a: Account) => a.label || a.email;
 /** The sign in pop-up shows once each time the app runs; the bar above the accounts stays until it's done. */
@@ -69,12 +70,15 @@ export function OutOfOfficeTab() {
   const plan = useSettings((s) => s.ooo);
   const suggestOn = useSettings((s) => s.oooSuggest);
   const set = (patch: Partial<OooPlan>) => useSettings.getState().set({ ooo: { ...useSettings.getState().ooo, ...patch } });
+  const setPlan = (f: (p: OooPlan) => OooPlan) => useSettings.getState().set({ ooo: f(useSettings.getState().ooo) });
   const accounts = useMail((s) => s.accounts);
   const by = useOoo((s) => s.byAccount);
   const busy = useOoo((s) => s.busy);
   const suggestion = useOoo((s) => s.suggestion);
-  const [editing, setEditing] = useState<string>('default');
+  const [tab, setTab] = useState<string>('');
   const [preview, setPreview] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const [asking, setAsking] = useState(false);
   useEffect(() => {
     void refreshOoo().then(() => {
       if (askedSignIn || !oooSignInDue().length) return;
@@ -86,29 +90,33 @@ export function OutOfOfficeTab() {
   const native = accounts.filter((a) => oooSupport(a).native);
   const others = accounts.filter((a) => !oooSupport(a).native);
   const ticked = native.filter((a) => plan.accounts.includes(a.id));
-  const allTicked = native.length > 0 && ticked.length === native.length;
   const anyOn = native.some((a) => by[a.id]?.reply?.on && stateWords(by[a.id]?.reply).state !== 'off');
   const supOrg = ticked.some((a) => oooSupport(a).org);
   const supOutside = ticked.some((a) => oooSupport(a).outside);
   const supDecline = ticked.some((a) => oooSupport(a).decline);
-  const supSubject = ticked.length === 0 || ticked.some((a) => oooSupport(a).subject);
   const problem = planProblem(plan);
-  const { start } = windowOf(plan);
+  const { start, end } = windowOf(plan);
   const scheduling = Boolean(start);
-  const editAcc = editing === 'default' ? undefined : accounts.find((a) => a.id === editing);
+  const perAccount = perAccountOn(plan);
+  // The tab showing: one of the switched-on accounts while each has its own message, otherwise the shared message.
+  const editAcc = perAccount ? ticked.find((a) => a.id === tab) || ticked[0] : undefined;
   const msg: OooMessage = editAcc ? messageFor(plan, editAcc.id) : plan.message;
+  const supSubject = editAcc ? oooSupport(editAcc).subject : ticked.length === 0 || ticked.some((a) => oooSupport(a).subject);
   const setMsg = (patch: Partial<OooMessage>) => {
     const p = useSettings.getState().ooo;
-    if (editAcc && p.own[editAcc.id]) set({ own: { ...p.own, [editAcc.id]: { ...p.own[editAcc.id], ...patch } } });
+    if (editAcc) set({ own: { ...p.own, [editAcc.id]: { ...messageFor(p, editAcc.id), ...patch } } });
     else set({ message: { ...p.message, ...patch } });
   };
-  const toggle = (id: string) => set({ accounts: plan.accounts.includes(id) ? plan.accounts.filter((x) => x !== id) : [...plan.accounts, id] });
-  const setOwn = (id: string, on: boolean) => {
-    const own = { ...plan.own };
-    if (on) own[id] = { ...plan.message }; else delete own[id];
-    set({ own });
-    setEditing(on ? id : 'default');
-  };
+  const outsideOn = supOutside && plan.outsideDifferent && plan.audience !== 'org';
+  const extras = [
+    { on: plan.addEvent, off: plan.mode === 'open', short: 'Away event' },
+    { on: plan.remindBefore, off: plan.mode === 'open', short: 'Reminder the day before' },
+    { on: plan.decline, off: !supDecline || plan.mode === 'open' || !plan.addEvent, short: 'Decline new invitations' },
+    { on: plan.pauseAlerts, off: false, short: 'Pause new-mail alerts' },
+    { on: plan.awaySummary, off: false, short: '"While you were away" when I\'m back' },
+  ];
+  const extrasOn = extras.filter((x) => x.on && !x.off);
+  const mainLabel = busy ? 'Working...' : `${ticked.some((a) => stateWords(by[a.id]?.reply).state !== 'off') ? 'Update' : scheduling ? 'Schedule' : 'Turn on'}${ticked.length ? ` for ${ticked.length > 2 ? `${ticked.length} accounts` : listNames(ticked.map(nameOf))}` : ''}`;
 
   const turnOn = async () => {
     const plan = useSettings.getState().ooo;
@@ -127,13 +135,18 @@ export function OutOfOfficeTab() {
     if (r.done.length) toast({ text: `Out of Office ${scheduling ? 'is scheduled' : 'is on'} for ${listNames(names)}.` });
     oooToastResult(r, scheduling ? 'scheduled' : 'turned on');
   };
+  // A template that's been changed since it was applied: ask once whether to update it, then go ahead either way.
+  const pressMain = () => {
+    if (shouldAskAboutTemplate(useSettings.getState().ooo, useSettings.getState().oooTemplates)) setAsking(true);
+    else void turnOn();
+  };
   const turnOff = async () => {
     const r = await turnOffOoo();
     if (r.done.length) toast({ text: 'Out of Office is off.' });
     oooToastResult(r, 'turned off');
   };
   const sendTest = async () => {
-    const a = ticked[0];
+    const a = editAcc || ticked[0];
     if (!a) return;
     const p = providerFor(a.id);
     const reply = replyFor(useSettings.getState().ooo, a);
@@ -143,8 +156,18 @@ export function OutOfOfficeTab() {
     } catch (e) { toast({ text: `The test couldn't be sent: ${(e as Error).message}`, ttl: 9000 }); }
   };
 
-  return (
+  // The read-back: who, which accounts, the subject, when, and whether alerts are paused.
+  const who = plan.audience === 'contacts' ? 'Your contacts who email' : plan.audience === 'org' ? 'People in your organisation who email' : 'Everyone who emails';
+  const subjects = [...new Set(ticked.filter((a) => oooSupport(a).subject).map((a) => fillBackDate(messageFor(plan, a.id).subject, end)))];
+  const gets = !subjects.length ? 'your away message' : subjects.length > 1 ? "each account's own message" : subjects[0] ? <>"{subjects[0]}"</> : 'your away message (no subject)';
+  const readBack = ticked.length ? (
     <>
+      {who}{' '}{ticked.map((a, i) => <span key={a.id}>{i > 0 && (i === ticked.length - 1 ? ' or ' : ', ')}<b>{nameOf(a)}</b></span>)} gets {gets}. {whenSentence(plan)}{plan.pauseAlerts ? ' New-mail alerts are paused while you\'re away.' : ''}
+    </>
+  ) : null;
+
+  return (
+    <div className="ooo-page">
       <div className="set-title-row"><h1>Out of Office</h1></div>
       <p className="hint ooo-intro">Set inside each account, so replies go out even when this computer is off, and Gmail and Outlook show it too.</p>
 
@@ -157,41 +180,30 @@ export function OutOfOfficeTab() {
         </div>
       )}
 
-      <section className="set-section">
-        <div className="set-h2-row"><h2>Accounts</h2>{anyOn && <button className="btn" disabled={busy} onClick={turnOff}>Turn off now</button>}</div>
-        {native.length === 0 && <p className="hint">None of your accounts can have Out of Office set from here yet.</p>}
-        {native.length > 1 && (
-          <label className="check ooo-all"><input type="checkbox" checked={allTicked} onChange={(e) => set({ accounts: e.target.checked ? native.map((a) => a.id) : [] })} /><span>All accounts</span></label>
-        )}
+      <TemplateBar editing={editAcc?.id} onBuiltIn={(t) => setMsg({ subject: t.subject, html: t.html })} />
+
+      <section className="set-section ooo-card">
+        <h2>Accounts</h2>
         <OooSignInBar />
-        <div className="ooo-chips">
-          {native.map((a) => {
-            const x = by[a.id];
-            const st = stateWords(x?.reply);
-            const own = Boolean(plan.own[a.id]);
-            const on = plan.accounts.includes(a.id);
-            return (
-              <div key={a.id} className={`ooo-chip ${on ? 'on' : ''}`}>
-                <label className="ooo-chip-main">
-                  <input type="checkbox" checked={on} onChange={() => toggle(a.id)} />
-                  <span className="dot" style={{ background: a.colour }} />
-                  <span className="ooo-chip-text">
-                    <b>{nameOf(a)}</b>
-                    <small>
-                      {x?.loading ? 'Checking...' : x?.needsPermission ? 'Needs one more sign in' : x?.error ? <span className="status-bad" title={x.error}>Couldn't check: {shortReason(x.error)}</span> : <span className={`ooo-state ${st.state}`}>{st.state !== 'off' && <Icon name="plane" size={12} />}{st.words}</span>}
-                      {on && <span className="ooo-which-msg">{own ? 'Own message' : 'Default message'}</span>}
-                    </small>
-                  </span>
-                </label>
-                {x?.needsPermission ? (
-                  <button className="btn" onClick={async () => { await reconnectAccount(a.id); void refreshOoo([a.id]); }}>Sign in</button>
-                ) : on && (
-                  <button className="btn ghost" aria-pressed={own} onClick={() => setOwn(a.id, !own)} title={own ? 'Go back to the default message' : 'Give this account its own message'}>{own ? 'Use default' : 'Own message'}</button>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        {native.length === 0 && <p className="hint">None of your accounts can have Out of Office set from here yet.</p>}
+        {native.map((a) => {
+          const x = by[a.id];
+          const st = stateWords(x?.reply);
+          const on = plan.accounts.includes(a.id);
+          return (
+            <div key={a.id} className="ooo-row ooo-acc">
+              <span className="dot" style={{ background: a.colour }} />
+              <span className="grow ooo-acc-text">
+                <span className="ooo-acc-name">{nameOf(a)}</span>
+                <span className="ooo-acc-state">
+                  {x?.loading ? 'Checking...' : x?.needsPermission ? <span className="ooo-warnword">Needs one more sign in</span> : x?.error ? <span className="status-bad" title={x.error}>Couldn't check: {shortReason(x.error)}</span> : <span className={`ooo-state ${st.state}`}>{st.state !== 'off' && <Icon name="plane" size={12} />}{st.words}</span>}
+                </span>
+              </span>
+              {x?.needsPermission && <button className="btn small" onClick={async () => { await reconnectAccount(a.id); void refreshOoo([a.id]); }}>Sign in</button>}
+              <input type="checkbox" role="switch" className="switch" aria-label={`Out of Office for ${nameOf(a)}`} checked={on} onChange={(e) => setPlan((p) => setAccountOn(p, a.id, e.target.checked))} />
+            </div>
+          );
+        })}
         {others.length > 0 && (
           <p className="hint ooo-others">
             {others.map((a) => {
@@ -202,102 +214,126 @@ export function OutOfOfficeTab() {
         )}
       </section>
 
-      <section className="set-section ooo-message">
-        <div className="set-h2-row">
+      <section className="set-section ooo-card">
+        <div className="set-h2-row ooo-cap-row">
           <h2>Message</h2>
-          <TemplatesMenu editing={editAcc?.id} onBuiltIn={(t) => setMsg({ subject: t.subject, html: t.html })} />
+          <label className="ooo-cap-switch">
+            <span>Different message for each account</span>
+            <input type="checkbox" role="switch" className="switch" checked={perAccount} disabled={!ticked.length} title={ticked.length ? '' : 'Switch on an account first'} onChange={(e) => setPlan((p) => setPerAccount(p, e.target.checked))} />
+          </label>
         </div>
-        {Object.keys(plan.own).some((id) => plan.accounts.includes(id)) && (
-          <div className="seg ooo-which" role="tablist" aria-label="Which message">
-            <button role="tab" aria-selected={editing === 'default'} className={editing === 'default' ? 'on' : ''} onClick={() => setEditing('default')}>Default message</button>
-            {native.filter((a) => plan.own[a.id] && plan.accounts.includes(a.id)).map((a) => (
-              <button key={a.id} role="tab" aria-selected={editing === a.id} className={editing === a.id ? 'on' : ''} onClick={() => setEditing(a.id)}>{nameOf(a)}</button>
+        {editAcc && (
+          <div className="ooo-tabs" role="tablist" aria-label="Which account's message">
+            {ticked.map((a) => (
+              <button key={a.id} role="tab" aria-selected={a.id === editAcc.id} className={a.id === editAcc.id ? 'on' : ''} onClick={() => setTab(a.id)}>
+                <span className="dot" style={{ background: a.colour }} />{nameOf(a)}
+              </button>
             ))}
           </div>
         )}
         {supSubject && (
-          <div className="set-row">
-            <label htmlFor="ooo-subj">Subject{ticked.some((a) => !oooSupport(a).subject) ? ' (Gmail)' : ''}</label>
+          <div className="set-row ooo-subject-row">
+            <label htmlFor="ooo-subj">Subject{!editAcc && ticked.some((a) => !oooSupport(a).subject) ? ' (Gmail)' : ''}</label>
             <input id="ooo-subj" type="text" value={msg.subject} onChange={(e) => setMsg({ subject: e.target.value })} />
           </div>
         )}
-        <MessageEditor key={`in-${editing}`} label="Away message" html={msg.html} onChange={(html) => setMsg({ html })} />
-        {supOutside && plan.outsideDifferent && plan.audience !== 'org' && (
+        <MessageEditor key={`in-${editAcc?.id || 'shared'}`} label={editAcc ? `Away message for ${nameOf(editAcc)}` : 'Away message'} html={msg.html} onChange={(html) => setMsg({ html })} />
+        {outsideOn && (
           <>
-            <h3 className="ooo-h3">For people outside my organisation</h3>
-            <MessageEditor key={`out-${editing}`} label="Away message for outside the organisation" html={msg.outsideHtml || msg.html} onChange={(outsideHtml) => setMsg({ outsideHtml })} />
+            <h3 className="ooo-h3">Message for people outside my organisation</h3>
+            <MessageEditor key={`out-${editAcc?.id || 'shared'}`} label="Message for people outside my organisation" html={msg.outsideHtml || msg.html} onChange={(outsideHtml) => setMsg({ outsideHtml })} />
           </>
         )}
         {plan.mode === 'open' && msg.html.includes(BACK_TOKEN) && <p className="hint ooo-warn">The message has a [back date], but there are no dates. It will say "soon" instead.</p>}
       </section>
 
-      <div className="ooo-two">
-      <section className="set-section ooo-when">
+      <section className="set-section ooo-card">
         <h2>When</h2>
-        <div className="seg set-seg" role="radiogroup" aria-label="When">
-          <button type="button" role="radio" aria-checked={plan.mode === 'open'} className={plan.mode === 'open' ? 'on' : ''} onClick={() => set({ mode: 'open' })}>Until I turn it off</button>
-          <button type="button" role="radio" aria-checked={plan.mode === 'dates'} className={plan.mode === 'dates' ? 'on' : ''} onClick={() => set({ mode: 'dates' })}>Between dates</button>
+        <div className="set-row">
+          <span className="label">Replies go out</span>
+          <Seg label="Replies go out" value={plan.mode} onChange={(v) => set({ mode: v })} options={[{ value: 'open', label: 'Until I turn it off' }, { value: 'dates', label: 'Between dates' }]} />
         </div>
         {plan.mode === 'dates' && (
-          <div className={`ooo-dates ${plan.useTimes ? 'with-times' : ''}`}>
-            <label htmlFor="ooo-first">First day away</label>
-            <input id="ooo-first" type="date" value={plan.firstDay} onChange={(e) => set({ firstDay: e.target.value })} />
-            {plan.useTimes && <input type="time" aria-label="From" value={plan.startTime} onChange={(e) => set({ startTime: e.target.value })} />}
-            <label htmlFor="ooo-back">Back on</label>
-            <input id="ooo-back" type="date" value={plan.backOn} onChange={(e) => set({ backOn: e.target.value })} />
-            {plan.useTimes && <input type="time" aria-label="Back at" value={plan.backTime} onChange={(e) => set({ backTime: e.target.value })} />}
-          </div>
+          <>
+            <div className="set-row">
+              <label htmlFor="ooo-first">First day away</label>
+              <span className="ooo-datetime">
+                <input id="ooo-first" type="date" value={plan.firstDay} onChange={(e) => set({ firstDay: e.target.value })} />
+                {plan.useTimes && <input type="time" aria-label="From" value={plan.startTime} onChange={(e) => set({ startTime: e.target.value })} />}
+              </span>
+            </div>
+            <div className="set-row">
+              <label htmlFor="ooo-back">Back on</label>
+              <span className="ooo-datetime">
+                <input id="ooo-back" type="date" value={plan.backOn} onChange={(e) => set({ backOn: e.target.value })} />
+                {plan.useTimes && <input type="time" aria-label="Back at" value={plan.backTime} onChange={(e) => set({ backTime: e.target.value })} />}
+              </span>
+            </div>
+            <Check checked={plan.useTimes} onChange={(v) => set({ useTimes: v })}>Part days (set times)</Check>
+          </>
         )}
-        {plan.mode === 'dates' && <SwitchLine className="" checked={plan.useTimes} onChange={(v) => set({ useTimes: v })}>Part days (set times)</SwitchLine>}
-        <p className="ooo-sentence" aria-live="polite">{whenSentence(plan)}</p>
       </section>
-      <section className="set-section ooo-who">
+
+      <section className="set-section ooo-card">
         <h2>Who gets it</h2>
-        <div className="radio-list" role="radiogroup">
-          <label><input type="radio" name="oooaud" checked={plan.audience === 'all'} onChange={() => set({ audience: 'all' })} /><span>Everyone who emails me</span></label>
-          <label><input type="radio" name="oooaud" checked={plan.audience === 'contacts'} onChange={() => set({ audience: 'contacts' })} /><span>My contacts only<br /><span className="sub">Mailing lists and strangers don't get one.</span></span></label>
-          <label className={supOrg ? '' : 'off'}><input type="radio" name="oooaud" disabled={!supOrg} checked={plan.audience === 'org'} onChange={() => set({ audience: 'org' })} /><span>People in my organisation only<br /><span className="sub">{supOrg ? 'Work accounts (Google Workspace, Microsoft 365). Personal accounts that are ticked reply to everyone.' : 'For work accounts (Google Workspace, Microsoft 365).'}</span></span></label>
+        <div className="set-row">
+          <label htmlFor="ooo-aud">Who gets a reply</label>
+          <select id="ooo-aud" value={plan.audience} onChange={(e) => set({ audience: e.target.value as OooPlan['audience'] })}>
+            <option value="all">Everyone who emails me</option>
+            <option value="contacts">My contacts only</option>
+            <option value="org" disabled={!supOrg}>People in my organisation only{supOrg ? '' : ' (work accounts)'}</option>
+          </select>
         </div>
+        {plan.audience === 'contacts' && <p className="hint ooo-small">Mailing lists and strangers don't get one.</p>}
+        {plan.audience === 'org' && <p className="hint ooo-small">Work accounts (Google Workspace, Microsoft 365). Personal accounts that are on reply to everyone.</p>}
+        {!supOrg && <p className="hint ooo-small">People in my organisation only needs a work account (Google Workspace or Microsoft 365) switched on above.</p>}
         {supOutside && plan.audience !== 'org' && (
           <>
             <div className="set-row">
-              <label htmlFor="ooo-out">Outside my organisation (Microsoft)</label>
+              <label htmlFor="ooo-out">People outside my organisation <span className="ooo-muted">· Microsoft</span></label>
               <select id="ooo-out" value={plan.outsideAudience} onChange={(e) => set({ outsideAudience: e.target.value as OooPlan['outsideAudience'] })}>
                 <option value="all">Everyone</option>
                 <option value="contacts">My contacts only</option>
                 <option value="none">Nobody</option>
               </select>
             </div>
-            <SwitchLine checked={plan.outsideDifferent} onChange={(v) => set({ outsideDifferent: v })}>A different message for people outside my organisation</SwitchLine>
+            <Check checked={plan.outsideDifferent} onChange={(v) => set({ outsideDifferent: v })}>Separate message for people outside my organisation</Check>
           </>
         )}
-        <p className="hint" style={{ margin: '8px 0 0' }}>Gmail replies to each person once every 4 days, however many times they email.</p>
+        <p className="hint ooo-small ooo-gmail">Gmail replies to each person once every 4 days, however many times they email.</p>
       </section>
 
-      </div>
-
-      <section className="set-section">
+      <section className="set-section ooo-card">
         <h2>While I'm away</h2>
-        <SwitchLine off={plan.mode === 'open'} disabled={plan.mode === 'open'} checked={plan.addEvent} onChange={(v) => set({ addEvent: v })}>Add an Away event to my calendar</SwitchLine>
-        <SwitchLine off={plan.mode === 'open'} disabled={plan.mode === 'open'} checked={plan.remindBefore} onChange={(v) => set({ remindBefore: v })}>Remind me the day before it ends</SwitchLine>
-        <SwitchLine off={!(supDecline && plan.mode === 'dates' && plan.addEvent)} disabled={!supDecline || plan.mode === 'open' || !plan.addEvent} checked={plan.decline} onChange={(v) => set({ decline: v })}>
-          Decline new invitations while I'm away<br /><span className="sub">{supDecline ? 'Google Workspace accounts, through the Away event.' : 'Google Workspace accounts only. Microsoft and personal Gmail can\'t do this from here yet.'}</span>
-        </SwitchLine>
-        <SwitchLine checked={plan.pauseAlerts} onChange={(v) => set({ pauseAlerts: v })}>Pause new-mail alerts while I'm away</SwitchLine>
-        <SwitchLine checked={plan.awaySummary} onChange={(v) => set({ awaySummary: v })}>Show "While you were away" when I'm back</SwitchLine>
-        <SwitchLine checked={suggestOn} onChange={(v) => useSettings.getState().set({ oooSuggest: v })}>Suggest Out of Office from Holiday and Annual leave in my calendar</SwitchLine>
+        <button type="button" className="ooo-fold" aria-expanded={extrasOpen} onClick={() => setExtrasOpen(!extrasOpen)}>
+          <Icon name={extrasOpen ? 'chevronDown' : 'chevronRight'} size={14} />
+          <span className="grow">{extrasOn.length ? extrasOn.map((x) => x.short).join(', ') : 'Nothing extra'}</span>
+          <span className="ooo-muted">{extrasOn.length} of {extras.length} on</span>
+        </button>
+        {extrasOpen && (
+          <div className="ooo-extras">
+            <SwitchLine off={plan.mode === 'open'} disabled={plan.mode === 'open'} checked={plan.addEvent} onChange={(v) => set({ addEvent: v })}>Add an Away event to my calendar{plan.mode === 'open' && <span className="check-sub">Needs dates.</span>}</SwitchLine>
+            <SwitchLine off={plan.mode === 'open'} disabled={plan.mode === 'open'} checked={plan.remindBefore} onChange={(v) => set({ remindBefore: v })}>Remind me the day before it ends</SwitchLine>
+            <SwitchLine off={!(supDecline && plan.mode === 'dates' && plan.addEvent)} disabled={!supDecline || plan.mode === 'open' || !plan.addEvent} checked={plan.decline} onChange={(v) => set({ decline: v })}>
+              Decline new invitations while I'm away<span className="check-sub">{supDecline ? 'Google Workspace accounts, through the Away event.' : 'Google Workspace accounts only. Microsoft and personal Gmail can\'t do this from here yet.'}</span>
+            </SwitchLine>
+            <SwitchLine checked={plan.pauseAlerts} onChange={(v) => set({ pauseAlerts: v })}>Pause new-mail alerts while I'm away</SwitchLine>
+            <SwitchLine checked={plan.awaySummary} onChange={(v) => set({ awaySummary: v })}>Show "While you were away" when I'm back</SwitchLine>
+          </div>
+        )}
       </section>
 
-      <div className="ooo-actions">
-        {anyOn && <button className="btn" disabled={busy} onClick={turnOff}>Turn off now</button>}
-        {problem && <span className="ooo-problem">{problem}</span>}
-        <span className="grow" />
+      <p className={`ooo-readback ${problem ? 'problem' : ''}`} aria-live="polite">{problem ? (ticked.length ? problem : 'Switch on at least one account above.') : readBack}</p>
+      <div className="ooo-foot">
         <button className="btn" disabled={!ticked.length} onClick={() => setPreview(true)}>Preview</button>
-        <button className="btn" disabled={!ticked.length || busy} onClick={sendTest} title={ticked[0] ? `Sends the reply to ${ticked[0].email}, so you can see it as others will` : ''}>Send me a test</button>
-        <button className="btn primary" disabled={Boolean(problem) || busy} onClick={turnOn}>{busy ? 'Working...' : `${ticked.some((a) => stateWords(by[a.id]?.reply).state !== 'off') ? 'Update' : scheduling ? 'Schedule' : 'Turn on'}${ticked.length ? ` for ${ticked.length > 2 ? `${ticked.length} accounts` : listNames(ticked.map(nameOf))}` : ''}`}</button>
+        <button className="btn" disabled={!ticked.length || busy} onClick={sendTest} title={(editAcc || ticked[0]) ? `Sends the reply to ${(editAcc || ticked[0])!.email}, so you can see it as others will` : ''}>Send me a test</button>
+        <span className="grow" />
+        {anyOn && <button className="btn" disabled={busy} onClick={turnOff}>Turn off now</button>}
+        <button className="btn primary" disabled={Boolean(problem) || busy} onClick={pressMain}>{mainLabel}</button>
       </div>
       {preview && <OooPreview plan={plan} accounts={ticked} onClose={() => setPreview(false)} />}
-    </>
+      {asking && <UpdateTemplateQuestion onClose={() => setAsking(false)} onDone={() => { setAsking(false); void turnOn(); }} />}
+    </div>
   );
 }
 

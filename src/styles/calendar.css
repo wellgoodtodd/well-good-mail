@@ -1,0 +1,52 @@
+/* Calendar views: the header, zoom, dragging, resizing and picking several events. */
+
+/* Arrows either side of the title, Today beside them, the views on the right. */
+.cal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cal-head .cal-nav { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.cal-head .cal-nav .jump-host { min-width: 0; }
+.cal-head .cal-arrow { border: 1px solid var(--border); border-radius: 7px; width: 28px; height: 28px; }
+.cal-head .cal-nav .btn { margin-left: 6px; }
+.cal-zoom { display: inline-flex; align-items: center; gap: 2px; color: var(--text-muted); }
+.cal-zoom input[type=range] { width: 76px; accent-color: var(--accent); }
+.cal-zoom .icon-btn { width: 22px; height: 22px; font-size: 15px; line-height: 1; }
+
+/* Finer lines when zoomed in. */
+.tg-line.sub { border-top-style: dotted; opacity: 0.45; }
+.tg-hour-label.sub { font-size: 0.72em; opacity: 0.7; }
+
+/* Events you can pick up show the open hand; holding one shows the closed hand. */
+.tg-event { touch-action: none; user-select: none; }
+.tg-event.can-drag { cursor: grab; }
+.tg-event.can-drag:hover { outline: 1.5px solid color-mix(in srgb, #fff 70%, transparent); outline-offset: -1px; }
+.tgrid.dragging, .tgrid.dragging *, .month.dragging, .month.dragging * { cursor: grabbing !important; }
+.tg-event.moving { z-index: 5; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); outline: 1.5px solid #fff; outline-offset: -1px; }
+.tg-event.tg-was { opacity: 0.35; pointer-events: none; z-index: 1; }
+.tg-handle { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; cursor: grab; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 2px; }
+.tg-handle::after { content: ''; width: 22px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.9); opacity: 0; transition: opacity 0.12s; }
+.tg-event.can-drag:hover .tg-handle::after, .tg-event.moving .tg-handle::after { opacity: 1; }
+.tg-drag-time { position: absolute; left: 4px; bottom: -22px; font-size: 11px; background: var(--bg-elev, #111); color: var(--text); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; white-space: nowrap; z-index: 6; }
+
+/* Picked events. */
+.tg-event.selected, .tg-chip.selected, .month .chip.selected { outline: 2px solid var(--text); outline-offset: 1px; }
+.tg-body { position: relative; }
+.tg-lasso { position: absolute; border: 1px dashed var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); z-index: 4; pointer-events: none; }
+.sel-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; padding: 7px 10px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
+
+/* Month: a chip lifts while dragged, and the day under it is outlined. */
+.month .chip { touch-action: none; }
+.month .chip.can-drag { cursor: grab; }
+.month .chip.lifted { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); outline: 1.5px solid #fff; outline-offset: -1px; }
+.month-day.drop { outline: 1.5px dashed var(--accent); outline-offset: -3px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+/* The quick edit in the event pop-up. */
+.ev-quick-title { font-size: 1.15em; }
+.ev-quick-when { flex-wrap: wrap; }
+.ev-quick-when input { height: 28px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 7px; background: var(--bg-input); color: var(--text); font: inherit; padding: 0 6px; }
+.ev-quick-when input[type=date] { width: 136px; }
+.ne-video-on { display: inline-flex; align-items: center; gap: 5px; color: var(--text); }
+
+/* List view: tick boxes show on hover, and on every row once one is ticked. */
+.rem-tick { margin: 0 2px 0 0; flex: none; opacity: 0; transition: opacity 0.12s; accent-color: var(--accent); }
+.rem-tick-space { width: 13px; flex: none; }
+.rem-row:hover .rem-tick, .rem-row:focus-within .rem-tick, .rem-picking .rem-tick { opacity: 1; }
+.rem-row.picked { background: color-mix(in srgb, var(--accent) 9%, transparent); }

@@ -11,8 +11,10 @@ import type { CalendarEvent } from '../lib/types';
 import { chipBackground, useCalendarFilter } from './calendarBits';
 import { useMenu } from './ui';
 import { startNewEvent, useNewEvent } from './NewEvent';
+import { SelectionBar, clearSelected, selectionMenuItems, setSelected, toggleSelected, useEventSelection } from './EventSelection';
+import { changeEvent } from '../lib/eventFlows';
+import '../styles/calendar.css';
 
-const HOUR_PX = 48;
 const DAY_MS = 86400000;
 const pad = (n: number) => String(n).padStart(2, '0');
 const timeText = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -131,6 +133,55 @@ export function CalendarModes() {
   );
 }
 
+/** How tall an hour can be: from the whole day on screen down to 5-minute lines. */
+export const ZOOMS = [30, 48, 72, 120, 240];
+const zoomIndex = (px: number) => { let best = 0; ZOOMS.forEach((z, i) => { if (Math.abs(z - px) < Math.abs(ZOOMS[best] - px)) best = i; }); return best; };
+/** Dragging snaps to 15 minutes, or 5 at the closest zoom. */
+export const snapFor = (hourPx: number) => (hourPx >= ZOOMS[ZOOMS.length - 1] ? 5 : 15);
+/** Lines inside each hour at this zoom: half hours, then quarters, then every 5 minutes. */
+const subLines = (hourPx: number) => (hourPx >= 240 ? 12 : hourPx >= 120 ? 4 : hourPx >= 72 ? 2 : 1);
+
+/** Moves an event by whole snaps, so one that starts at 10:05 stays 5 past as it moves (10:20, 10:35). */
+export function snapMove(start: number, deltaMins: number, snap: number): number {
+  return start + Math.round(deltaMins / snap) * snap * 60000;
+}
+
+/** The small zoom slider, for Day and Week. */
+function ZoomControl() {
+  const zoom = useSettings((s) => s.calendarZoom);
+  const set = useSettings((s) => s.set);
+  const i = zoomIndex(zoom);
+  return (
+    <span className="cal-zoom" title="Zoom (Ctrl + mouse wheel)">
+      <button className="icon-btn small" aria-label="Zoom out" disabled={i === 0} onClick={() => set({ calendarZoom: ZOOMS[Math.max(0, i - 1)] })}>−</button>
+      <input type="range" aria-label="Zoom" min={0} max={ZOOMS.length - 1} step={1} value={i} onChange={(e) => set({ calendarZoom: ZOOMS[Number(e.target.value)] })} />
+      <button className="icon-btn small" aria-label="Zoom in" disabled={i === ZOOMS.length - 1} onClick={() => set({ calendarZoom: ZOOMS[Math.min(ZOOMS.length - 1, i + 1)] })}>+</button>
+    </span>
+  );
+}
+
+/** The header both views share: arrows either side of the title with Today next to them, and the views on the right. */
+function CalHead({ title, onStep, onToday, prevLabel, nextLabel, modes, zoom }: { title: React.ReactNode; onStep: (n: number) => void; onToday: () => void; prevLabel: string; nextLabel: string; modes?: React.ReactNode; zoom?: boolean }) {
+  return (
+    <div className="month-head cal-head">
+      <span className="cal-nav">
+        <button className="icon-btn cal-arrow" aria-label={prevLabel} title={prevLabel} onClick={() => onStep(-1)}><Icon name="chevronLeft" size={16} /></button>
+        <strong className="jump-host">{title}</strong>
+        <button className="icon-btn cal-arrow" aria-label={nextLabel} title={nextLabel} onClick={() => onStep(1)}><Icon name="chevronRight" size={16} /></button>
+        <button className="btn ghost" onClick={onToday}>Today</button>
+      </span>
+      <span className="grow" />
+      {zoom && <ZoomControl />}
+      {modes}
+    </div>
+  );
+}
+
+type Drag = { id: string; kind: 'move' | 'resize'; x0: number; y0: number; day0: number; start: number; end: number; moved: boolean };
+
+/** Events you can drag: ones you made, in a calendar you can write to. */
+const draggable = (e: CalendarEvent) => Boolean(e.canEdit);
+
 export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; onPick: (e: CalendarEvent) => void; modes?: React.ReactNode }) {
   const near = useMail((s) => s.events);
   const { hidden, only } = useCalendarFilter();
@@ -138,9 +189,11 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
   const weekNumbers = useSettings((s) => s.weekNumbers);
   const hideWeekends = useSettings((s) => s.hideWeekends);
   const work = useSettings((s) => s.workHours);
+  const HOUR_PX = useSettings((s) => s.calendarZoom) || 48;
   const colour = useColour();
   const picked = useCalDay((c) => c.day);
   const drafting = useNewEvent((s) => s.draft);
+  const selected = useEventSelection((s) => s.ids);
   const menu = useMenu();
   const [anchor, setAnchorNow] = useState(() => new Date(selectedOrToday()));
   // Moving in Day or Week moves the picked day with it, so Month and the side panel follow.
@@ -175,8 +228,125 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
     setTimeout(() => { if (el.scrollTop < 1) el.scrollTop = top; }, 150);
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Ctrl + mouse wheel zooms, keeping the time under the pointer where it is.
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const wheel = (ev: WheelEvent) => {
+      if (!ev.ctrlKey) return;
+      ev.preventDefault();
+      const cur = useSettings.getState().calendarZoom || 48;
+      const i = zoomIndex(cur);
+      const next = ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, i + (ev.deltaY < 0 ? 1 : -1)))];
+      if (next === cur) return;
+      const y = ev.clientY - el.getBoundingClientRect().top;
+      const mins = ((el.scrollTop + y) / cur) * 60;
+      useSettings.getState().set({ calendarZoom: next });
+      requestAnimationFrame(() => { el.scrollTop = (mins / 60) * next - y; });
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, []);
+
   const [, tick] = useState(0);
   useEffect(() => { const t = () => tick((x) => x + 1); window.addEventListener('wgm-minute', t); return () => window.removeEventListener('wgm-minute', t); }, []);
+
+  // ----- dragging an event, its handle, or a box round several -----
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const dragRef = useRef<Drag | null>(null);
+  const justDragged = useRef(false);
+  const [lasso, setLasso] = useState<{ x0: number; y0: number; x1: number; y1: number; add: boolean } | null>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const snap = snapFor(HOUR_PX);
+  const dayUnder = (x: number, y: number): number | undefined => {
+    const el = document.elementFromPoint(x, y)?.closest('.tg-col') as HTMLElement | null;
+    return el?.dataset.day ? Number(el.dataset.day) : undefined;
+  };
+  const startDrag = (e: CalendarEvent, kind: Drag['kind'], ev: React.PointerEvent, day0: number) => {
+    if (ev.button !== 0) return;
+    if (ev.ctrlKey || ev.metaKey) { ev.preventDefault(); toggleSelected(e.id); justDragged.current = true; return; }
+    if (!draggable(e) || e.allDay) return;
+    ev.stopPropagation();
+    (ev.currentTarget as HTMLElement).setPointerCapture?.(ev.pointerId);
+    const d: Drag = { id: e.id, kind, x0: ev.clientX, y0: ev.clientY, day0, start: e.start, end: e.end, moved: false };
+    dragRef.current = d;
+    setDrag(d);
+  };
+  const onDragMove = (ev: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dy = ev.clientY - d.y0;
+    if (!d.moved && Math.abs(dy) < 4 && Math.abs(ev.clientX - d.x0) < 4) return;
+    const e = events.find((x) => x.id === d.id);
+    if (!e) return;
+    const mins = (dy / HOUR_PX) * 60;
+    let next: Drag;
+    if (d.kind === 'resize') {
+      const end = Math.max(e.start + snap * 60000, snapMove(e.end, mins, snap));
+      next = { ...d, moved: true, start: e.start, end };
+    } else {
+      const day = mode === 'week' ? dayUnder(ev.clientX, ev.clientY) ?? d.day0 : d.day0;
+      const shifted = new Date(e.start); shifted.setDate(shifted.getDate() + Math.round((day - d.day0) / DAY_MS));
+      const start = snapMove(shifted.getTime(), mins, snap);
+      next = { ...d, moved: true, start, end: start + (e.end - e.start) };
+    }
+    dragRef.current = next;
+    setDrag(next);
+  };
+  const endDrag = async () => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d) return;
+    if (!d.moved) { setDrag(null); return; }
+    justDragged.current = true;
+    const e = events.find((x) => x.id === d.id);
+    if (!e || (d.start === e.start && d.end === e.end)) { setDrag(null); return; }
+    // The event stays where it was dropped while the questions are asked and the change is saved.
+    await changeEvent(e, { start: d.start, end: d.end });
+    setDrag(null);
+  };
+  const onBodyDown = (ev: React.PointerEvent<HTMLDivElement>) => {
+    const t = ev.target as HTMLElement;
+    if (ev.button !== 0 || t.closest('.tg-event') || !t.closest('.tg-col')) return;
+    const r = body.current!.getBoundingClientRect();
+    setLasso({ x0: ev.clientX - r.left, y0: ev.clientY - r.top, x1: ev.clientX - r.left, y1: ev.clientY - r.top, add: ev.ctrlKey || ev.metaKey });
+    body.current!.setPointerCapture?.(ev.pointerId);
+  };
+  const onBodyMove = (ev: React.PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current) return;
+    if (!lasso) return;
+    const r = body.current!.getBoundingClientRect();
+    setLasso({ ...lasso, x1: ev.clientX - r.left, y1: ev.clientY - r.top });
+  };
+  const onBodyUp = () => {
+    if (dragRef.current) return;
+    if (!lasso) return;
+    const box = { l: Math.min(lasso.x0, lasso.x1), r: Math.max(lasso.x0, lasso.x1), t: Math.min(lasso.y0, lasso.y1), b: Math.max(lasso.y0, lasso.y1) };
+    setLasso(null);
+    if (box.r - box.l < 6 && box.b - box.t < 6) return; // a plain click
+    justDragged.current = true;
+    const base = body.current!.getBoundingClientRect();
+    const hit: string[] = [];
+    body.current!.querySelectorAll<HTMLElement>('.tg-event[data-id]').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      const l = r.left - base.left, t = r.top - base.top;
+      if (l < box.r && l + r.width > box.l && t < box.b && t + r.height > box.t) hit.push(el.dataset.id!);
+    });
+    setSelected(hit, lasso.add);
+  };
+
+  // While dragging, the window follows the pointer: the event is drawn again in other columns as it moves.
+  const live = useRef({ move: onDragMove, end: endDrag });
+  live.current = { move: onDragMove, end: endDrag };
+  const dragging = Boolean(drag);
+  useEffect(() => {
+    if (!dragging) return;
+    const move = (ev: PointerEvent) => live.current.move(ev as unknown as React.PointerEvent);
+    const up = () => { if (dragRef.current) void live.current.end(); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  }, [dragging]);
 
   const step = (n: number) => { const d = new Date(anchor); d.setDate(d.getDate() + n * (mode === 'day' ? 1 : 7)); setAnchor(d); };
   const today = new Date().toDateString();
@@ -192,6 +362,7 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
   };
   const dayMenu = (d: Date, at: number, ev: React.MouseEvent) => {
     ev.preventDefault();
+    if (useEventSelection.getState().ids.length > 1) { menu.open({ x: ev.clientX, y: ev.clientY }, selectionMenuItems((items) => menu.open({ x: ev.clientX, y: ev.clientY }, items))); return; }
     menu.open({ x: ev.clientX, y: ev.clientY }, [
       { label: 'New event', icon: 'plus', kbd: 'Ctrl+Alt+N', onClick: () => startNewEvent({ start: at }) },
       { label: 'New all-day event', onClick: () => startNewEvent({ day: d.getTime(), allDay: true }) },
@@ -200,17 +371,24 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
       { label: 'Go to today', onClick: () => { const t = new Date(); t.setHours(0, 0, 0, 0); setAnchor(t); } },
     ]);
   };
+  // Right-click an event: the quick edit, or the group's menu when several are picked and it's one of them.
+  const eventMenu = (e: CalendarEvent, ev: React.MouseEvent) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const ids = useEventSelection.getState().ids;
+    if (ids.length > 1 && ids.includes(e.id)) { menu.open({ x: ev.clientX, y: ev.clientY }, selectionMenuItems((items) => menu.open({ x: ev.clientX, y: ev.clientY }, items))); return; }
+    onPick(e);
+  };
   const cols = `52px repeat(${days.length}, minmax(0, 1fr))`;
+  const lines = subLines(HOUR_PX);
+  const shown = (e: CalendarEvent) => (drag && drag.moved && drag.id === e.id ? { ...e, start: drag.start, end: drag.end } : e);
 
   return (
-    <div className="card tgrid">
-      <div className="month-head">
-        <button className="icon-btn" aria-label={mode === 'day' ? 'Previous day' : 'Previous week'} onClick={() => step(-1)}><Icon name="chevronLeft" size={16} /></button>
-        <strong className="jump-host"><JumpTitle at={anchor} onPick={(d) => setAnchor(d)} label={<>{weekNumbers && <span className="tg-wk">Week {isoWeek(days[0])}</span>}{title}</>} /></strong>
-        <button className="icon-btn" aria-label={mode === 'day' ? 'Next day' : 'Next week'} onClick={() => step(1)}><Icon name="chevronRight" size={16} /></button>
-        {modes}
-        <button className="btn ghost" onClick={() => { const d = new Date(); d.setHours(0, 0, 0, 0); setAnchor(d); }}>Today</button>
-      </div>
+    <div className={`card tgrid ${drag?.moved ? 'dragging' : ''}`}>
+      <CalHead title={<JumpTitle at={anchor} onPick={(d) => setAnchor(d)} label={<>{weekNumbers && <span className="tg-wk">Week {isoWeek(days[0])}</span>}{title}</>} />}
+        onStep={step} onToday={() => { const d = new Date(); d.setHours(0, 0, 0, 0); setAnchor(d); }}
+        prevLabel={mode === 'day' ? 'Previous day' : 'Previous week'} nextLabel={mode === 'day' ? 'Next day' : 'Next week'} modes={modes} zoom />
+      <SelectionBar />
       <div className="tg-head" style={{ gridTemplateColumns: cols }}>
         <div className="tg-corner">{weekNumbers && mode === 'week' ? `W${isoWeek(days[0])}` : ''}</div>
         {days.map((d) => (
@@ -227,41 +405,58 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
           const list = events.filter((e) => (e.allDay || e.end - e.start >= DAY_MS) && e.start < start + DAY_MS && e.end > start);
           return (
             <div key={d.toISOString()} className="tg-allday-cell">
-              {list.map((e) => <button key={e.id} className="tg-chip" style={{ background: colour(e.accountId) }} title={e.title} onClick={() => onPick(e)}>{e.title}</button>)}
+              {list.map((e) => <button key={e.id} className={`tg-chip ${selected.includes(e.id) ? 'selected' : ''}`} style={{ background: colour(e.accountId) }} title={e.title}
+                onClick={(ev) => { if (ev.ctrlKey || ev.metaKey) { toggleSelected(e.id); return; } onPick(e); }} onContextMenu={(ev) => eventMenu(e, ev)}>{e.title}</button>)}
             </div>
           );
         })}
       </div>
       <div className="tg-scroll" ref={scroller}>
-        <div className="tg-body" style={{ gridTemplateColumns: cols, height: 24 * HOUR_PX }}>
+        <div className="tg-body" ref={body} style={{ gridTemplateColumns: cols, height: 24 * HOUR_PX }}
+          onPointerDown={onBodyDown} onPointerMove={onBodyMove} onPointerUp={onBodyUp} onPointerCancel={() => { dragRef.current = null; setDrag(null); setLasso(null); }}>
           <div className="tg-hours">
             {Array.from({ length: 24 }, (_, h) => <div key={h} className="tg-hour-label" style={{ top: h * HOUR_PX }}>{h ? `${pad(h)}:00` : ''}</div>)}
+            {lines > 1 && HOUR_PX >= 120 && Array.from({ length: 24 * lines }, (_, i) => i % lines === 0 ? null : <div key={`s${i}`} className="tg-hour-label sub" style={{ top: (i / lines) * HOUR_PX }}>{`${pad(Math.floor(i / lines))}:${pad((i % lines) * (60 / lines))}`}</div>)}
           </div>
           {days.map((d) => {
             const start = d.getTime();
-            const timed = events.filter((e) => !e.allDay && e.end - e.start < DAY_MS && e.start < start + DAY_MS && e.end > start);
+            const timed = events.map(shown).filter((e) => !e.allDay && e.end - e.start < DAY_MS && e.start < start + DAY_MS && e.end > start);
             const lanes = layoutLanes(timed);
             const isToday = d.toDateString() === today;
             const nowTop = ((Date.now() - start) / 3600000) * HOUR_PX;
+            const ghostOf = drag?.moved ? events.find((x) => x.id === drag.id && !x.allDay && x.start < start + DAY_MS && x.end > start && (x.start !== drag.start || x.end !== drag.end)) : undefined;
             return (
-              <div key={d.toISOString()} className={`tg-col ${mode === 'week' && picked === d.getTime() ? 'picked' : ''}`} title="Double-click to make an event here"
-                onClick={(ev) => { if (mode === 'week' && ev.target === ev.currentTarget) setAnchor(d); }}
+              <div key={d.toISOString()} data-day={start} className={`tg-col ${mode === 'week' && picked === d.getTime() ? 'picked' : ''}`} title="Double-click to make an event here, or drag across events to pick them"
+                onClick={(ev) => { if (justDragged.current) { justDragged.current = false; return; } if (ev.target === ev.currentTarget || (ev.target as HTMLElement).classList.contains('tg-line')) { clearSelected(); if (mode === 'week') setAnchor(d); } }}
                 onDoubleClick={(ev) => { if (ev.target === ev.currentTarget || (ev.target as HTMLElement).classList.contains('tg-line') || (ev.target as HTMLElement).classList.contains('tg-work')) startNewEvent({ start: timeAt(d, ev) }); }}
                 onContextMenu={(ev) => { if (!(ev.target as HTMLElement).closest('.tg-event')) dayMenu(d, timeAt(d, ev), ev); }}>
                 {workDay(d) && <div className="tg-work" style={{ top: (minutesOf(work.from) / 60) * HOUR_PX, height: ((minutesOf(work.to) - minutesOf(work.from)) / 60) * HOUR_PX }} />}
-                {Array.from({ length: 24 }, (_, h) => <div key={h} className="tg-line" style={{ top: h * HOUR_PX }} />)}
+                {Array.from({ length: 24 * lines }, (_, i) => <div key={i} className={`tg-line ${i % lines ? 'sub' : ''}`} style={{ top: (i / lines) * HOUR_PX }} />)}
+                {ghostOf && (() => {
+                  const s = Math.max(ghostOf.start, start);
+                  const en = Math.min(ghostOf.end, start + DAY_MS);
+                  return <div className="tg-event tg-was" aria-hidden="true" style={{ top: ((s - start) / 3600000) * HOUR_PX, height: Math.max(20, ((en - s) / 3600000) * HOUR_PX - 2), left: 2, right: 2, background: colour(ghostOf.accountId) }}><b>{ghostOf.title}</b></div>;
+                })()}
                 {timed.map((e) => {
                   const s = Math.max(e.start, start);
                   const en = Math.min(e.end, start + DAY_MS);
                   const top = ((s - start) / 3600000) * HOUR_PX;
                   const height = Math.max(20, ((en - s) / 3600000) * HOUR_PX - 2);
                   const l = lanes.get(e.id) || { lane: 0, lanes: 1 };
+                  const moving = drag?.moved && drag.id === e.id;
+                  const can = draggable(e);
                   return (
-                    <button key={e.id} className="tg-event" title={`${e.title}, ${timeText(e.start)} to ${timeText(e.end)}`}
-                      style={{ top, height, left: `calc(${(l.lane / l.lanes) * 100}% + 2px)`, width: `calc(${100 / l.lanes}% - 4px)`, background: colour(e.accountId) }}
-                      onClick={() => onPick(e)}>
+                    <div key={e.id} role="button" tabIndex={0} data-id={e.id} className={`tg-event ${can ? 'can-drag' : ''} ${moving ? 'moving' : ''} ${selected.includes(e.id) ? 'selected' : ''}`}
+                      title={`${e.title}, ${timeText(e.start)} to ${timeText(e.end)}${can ? '. Drag to move it, or drag its bottom edge to change how long it is.' : ''}`}
+                      style={{ top, height, left: moving ? 2 : `calc(${(l.lane / l.lanes) * 100}% + 2px)`, width: moving ? 'calc(100% - 4px)' : `calc(${100 / l.lanes}% - 4px)`, background: colour(e.accountId) }}
+                      onPointerDown={(ev) => startDrag(e, 'move', ev, start)}
+                      onClick={() => { if (justDragged.current) { justDragged.current = false; return; } clearSelected(); onPick(e); }}
+                      onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onPick(e); } }}
+                      onContextMenu={(ev) => eventMenu(e, ev)}>
                       <b>{e.title}</b>{height > 34 && <span>{timeText(e.start)} to {timeText(e.end)}</span>}
-                    </button>
+                      {can && e.end <= start + DAY_MS && <span className="tg-handle" aria-hidden="true" onPointerDown={(ev) => startDrag(e, 'resize', ev, start)} />}
+                      {moving && <span className="tg-drag-time">{timeText(e.start)} to {timeText(e.end)}</span>}
+                    </div>
                   );
                 })}
                 {isToday && nowTop >= 0 && nowTop <= 24 * HOUR_PX && <div className="tg-now" style={{ top: nowTop }} aria-label={`Now, ${timeText(Date.now())}`} />}
@@ -273,6 +468,7 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
               </div>
             );
           })}
+          {lasso && <div className="tg-lasso" style={{ left: Math.min(lasso.x0, lasso.x1), top: Math.min(lasso.y0, lasso.y1), width: Math.abs(lasso.x1 - lasso.x0), height: Math.abs(lasso.y1 - lasso.y0) }} />}
         </div>
       </div>
       {menu.node}
@@ -280,7 +476,7 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
   );
 }
 
-/** A month at a time, each event a coloured chip. */
+/** A month at a time, each event a coloured chip. Chips can be dragged to another day. */
 export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => void; modes?: React.ReactNode }) {
   const nearEvents = useMail((s) => s.events);
   const { hidden, only } = useCalendarFilter();
@@ -290,6 +486,7 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
   const colour = useColour();
   const picked = useCalDay((c) => c.day);
   const drafting = useNewEvent((s) => s.draft);
+  const selected = useEventSelection((s) => s.ids);
   const menu = useMenu();
   const [month, setMonthNow] = useState(() => { const d = new Date(selectedOrToday()); d.setDate(1); return d; });
   // Moving month keeps the picked day on the same date in the new month (or its last day).
@@ -312,9 +509,19 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
     const seen = new Set(nearEvents.map((e) => e.id));
     return visibleEvents([...nearEvents, ...cachedBetween(copy, gridStart.getTime(), gridEnd).filter((e) => !seen.has(e.id))], hidden, only);
   }, [nearEvents, copy, hidden, only, gridStart.getTime(), gridEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Dragging a chip: it lifts and follows the pointer, and the day under it is outlined. Only the day changes.
+  const [drag, setDrag] = useState<{ id: string; day0: number; x: number; y: number; x0: number; y0: number; over?: number; moved: boolean } | null>(null);
+  const dragRef = useRef<typeof drag>(null);
+  const justDragged = useRef(false);
+  const shiftDays = (ms: number, n: number) => { const d = new Date(ms); d.setDate(d.getDate() + n); return d.getTime(); };
+  const dragging = drag?.moved ? events.find((e) => e.id === drag.id) : undefined;
+  const moveTo = dragging && drag?.over !== undefined ? Math.round((drag.over - drag.day0) / DAY_MS) : 0;
+
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
-    for (const e of dedupeEvents(events)) {
+    for (const e0 of dedupeEvents(events)) {
+      const e = dragging && e0.id === dragging.id && moveTo ? { ...e0, start: shiftDays(e0.start, moveTo), end: shiftDays(e0.end, moveTo) } : e0;
       // An event that runs over several days shows on each of them.
       const last = Math.max(e.start, e.end - (e.allDay ? 1 : 0));
       for (let t = new Date(e.start).setHours(0, 0, 0, 0); t <= last && t < e.start + 14 * 86400000; t += 86400000) {
@@ -324,19 +531,67 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
     }
     for (const list of m.values()) list.sort((a, b) => a.start - b.start);
     return m;
-  }, [events]);
+  }, [events, dragging, moveTo]); // eslint-disable-line react-hooks/exhaustive-deps
   const shift = (n: number) => { const d = new Date(month); d.setMonth(d.getMonth() + n); setMonth(d); };
   const today = new Date().toDateString();
+
+  const chipDown = (e: CalendarEvent, ev: React.PointerEvent, day0: number) => {
+    if (ev.button !== 0) return;
+    if (ev.ctrlKey || ev.metaKey) { ev.preventDefault(); toggleSelected(e.id); justDragged.current = true; return; }
+    if (!draggable(e)) return;
+    (ev.currentTarget as HTMLElement).setPointerCapture?.(ev.pointerId);
+    const d = { id: e.id, day0, x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, moved: false };
+    dragRef.current = d;
+    setDrag(d);
+  };
+  const chipMove = (ev: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    if (!d.moved && Math.abs(ev.clientX - d.x0) < 5 && Math.abs(ev.clientY - d.y0) < 5) return;
+    const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.month-day') as HTMLElement | null;
+    const next = { ...d, moved: true, x: ev.clientX, y: ev.clientY, over: el?.dataset.day ? Number(el.dataset.day) : d.over };
+    dragRef.current = next;
+    setDrag(next);
+  };
+  const chipUp = async () => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d) return;
+    if (!d.moved) { setDrag(null); return; }
+    justDragged.current = true;
+    const e = events.find((x) => x.id === d.id);
+    const n = d.over !== undefined ? Math.round((d.over - d.day0) / DAY_MS) : 0;
+    if (!e || !n) { setDrag(null); return; }
+    await changeEvent(e, { start: shiftDays(e.start, n), end: shiftDays(e.end, n) });
+    setDrag(null);
+  };
+  const liveM = useRef({ move: chipMove, end: chipUp });
+  liveM.current = { move: chipMove, end: chipUp };
+  const holding = Boolean(drag);
+  useEffect(() => {
+    if (!holding) return;
+    const move = (ev: PointerEvent) => liveM.current.move(ev as unknown as React.PointerEvent);
+    const up = () => { if (dragRef.current) void liveM.current.end(); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  }, [holding]);
+  const chipMenu = (e: CalendarEvent, ev: React.MouseEvent) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const ids = useEventSelection.getState().ids;
+    if (ids.length > 1 && ids.includes(e.id)) { menu.open({ x: ev.clientX, y: ev.clientY }, selectionMenuItems((items) => menu.open({ x: ev.clientX, y: ev.clientY }, items))); return; }
+    onPick(e);
+  };
+
   return (
-    <div className="card month">
-      <div className="month-head">
-        <button className="icon-btn" aria-label="Previous month" onClick={() => shift(-1)}><Icon name="chevronLeft" size={16} /></button>
-        <strong className="jump-host"><JumpTitle at={month} onPick={(d) => setMonth(new Date(d.getFullYear(), d.getMonth(), 1))} label={month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} /></strong>
-        <button className="icon-btn" aria-label="Next month" onClick={() => shift(1)}><Icon name="chevronRight" size={16} /></button>
-        {modes}
-        <button className="btn ghost" onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonthNow(d); selectDay(Date.now()); }}>Today</button>
-      </div>
-      <div className="month-grid" role="grid" style={{ gridTemplateColumns: `${weekNumbers ? '34px ' : ''}repeat(${hideWeekends ? 5 : 7}, minmax(0, 1fr))` }}>
+    <div className={`card month ${drag?.moved ? 'dragging' : ''}`}>
+      <CalHead title={<JumpTitle at={month} onPick={(d) => setMonth(new Date(d.getFullYear(), d.getMonth(), 1))} label={month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} />}
+        onStep={shift} onToday={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonthNow(d); selectDay(Date.now()); }}
+        prevLabel="Previous month" nextLabel="Next month" modes={modes} />
+      <SelectionBar />
+      <div className="month-grid" role="grid" style={{ gridTemplateColumns: `${weekNumbers ? '34px ' : ''}repeat(${hideWeekends ? 5 : 7}, minmax(0, 1fr))` }}
+        onPointerCancel={() => { dragRef.current = null; setDrag(null); }}>
         {weekNumbers && <div className="month-dow">Wk</div>}
         {(sunday ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).filter((n) => !hideWeekends || (n !== 'Sat' && n !== 'Sun')).map((n) => <div key={n} className="month-dow">{n}</div>)}
         {days.flatMap((d, i) => {
@@ -345,12 +600,14 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
           if (weekNumbers && i % 7 === 0) out.push(<div key={`wk${i}`} className="month-wk">{isoWeek(new Date(d.getTime() + (sunday ? 86400000 : 0)))}</div>);
           if (hideWeekends && (d.getDay() === 0 || d.getDay() === 6)) return out;
           const list = byDay.get(d.toDateString()) || [];
+          const over = drag?.moved && drag.over === d.getTime();
           out.push(
-            <div key={d.toISOString()} className={`month-day ${d.getMonth() === month.getMonth() ? '' : 'other'} ${d.toDateString() === today ? 'today' : ''} ${picked === d.getTime() ? 'picked' : ''}`}
+            <div key={d.toISOString()} data-day={d.getTime()} className={`month-day ${d.getMonth() === month.getMonth() ? '' : 'other'} ${d.toDateString() === today ? 'today' : ''} ${picked === d.getTime() ? 'picked' : ''} ${over ? 'drop' : ''}`}
               role="gridcell" aria-selected={picked === d.getTime()} title="Click to pick this day, double-click to make an all-day event"
-              onClick={() => selectDay(d.getTime())} onDoubleClick={() => startNewEvent({ day: d.getTime(), allDay: true })}
+              onClick={() => { if (justDragged.current) { justDragged.current = false; return; } clearSelected(); selectDay(d.getTime()); }} onDoubleClick={() => startNewEvent({ day: d.getTime(), allDay: true })}
               onContextMenu={(ev) => {
                 ev.preventDefault();
+                if (useEventSelection.getState().ids.length > 1) { menu.open({ x: ev.clientX, y: ev.clientY }, selectionMenuItems((items) => menu.open({ x: ev.clientX, y: ev.clientY }, items))); return; }
                 selectDay(d.getTime());
                 menu.open({ x: ev.clientX, y: ev.clientY }, [
                   { label: 'New event', icon: 'plus', kbd: 'Ctrl+Alt+N', onClick: () => startNewEvent({ day: d.getTime() }) },
@@ -363,7 +620,10 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
               <span className="n">{d.getDate()}</span>
               {drafting?.allDay && drafting.start <= d.getTime() && drafting.end > d.getTime() && <span className="chip month-ghost" aria-hidden="true">New event</span>}
               {list.slice(0, 3).map((e) => (
-                <button key={e.id} className="chip" style={{ background: chipBackground(e.accountIds?.length ? e.accountIds : [e.accountId], colour) }} title={e.title} onClick={(ev) => { ev.stopPropagation(); selectDay(d.getTime()); onPick(e); }} onDoubleClick={(ev) => ev.stopPropagation()}>
+                <button key={e.id} className={`chip ${draggable(e) ? 'can-drag' : ''} ${drag?.moved && drag.id === e.id ? 'lifted' : ''} ${selected.includes(e.id) ? 'selected' : ''}`} style={{ background: chipBackground(e.accountIds?.length ? e.accountIds : [e.accountId], colour) }} title={draggable(e) ? `${e.title}. Drag to another day to move it.` : e.title}
+                  onPointerDown={(ev) => chipDown(e, ev, d.getTime())}
+                  onClick={(ev) => { ev.stopPropagation(); if (justDragged.current) { justDragged.current = false; return; } clearSelected(); selectDay(d.getTime()); onPick(e); }}
+                  onDoubleClick={(ev) => ev.stopPropagation()} onContextMenu={(ev) => chipMenu(e, ev)}>
                   {!e.allDay && <span>{timeText(e.start)} </span>}{e.title}
                 </button>
               ))}

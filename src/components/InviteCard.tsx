@@ -1,11 +1,11 @@
 // At the top of an email that is a calendar invitation: when it is, who's invited, a Join button,
-// Yes / No / Maybe, and Add to calendar.
+// Accept / Maybe / Decline, and Add to calendar.
 import { noteSaved } from '../lib/saves';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { GuestList, JoinButton } from './calendarBits';
 import { addInviteToCalendar, answerInvite, canAddToCalendar, getAttachmentData, inviteStatus, reconnectAccount, toast, useMail } from '../lib/mail';
-import { parseInvite, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from '../lib/invites';
+import { parseInvite, RSVP_ORDER, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from '../lib/invites';
 import { CalendarPermissionError } from '../lib/providers/provider';
 import { calendarEditAllowed } from '../lib/auth/google';
 import { saveFile } from '../lib/platform';
@@ -30,6 +30,13 @@ const CHIP: Record<Rsvp, { word: string; cls: 'yes' | 'no' | 'maybe'; glyph: str
   tentative: { word: 'Maybe', cls: 'maybe', glyph: '?' },
 };
 
+/**
+ * Invitations already read this session, by email: opening the same invitation again shows its card at once instead
+ * of downloading the .ics and asking the calendar again. The calendar's answer is kept for a minute.
+ */
+const readInvites = new Map<string, { invite: Invite; index: number }>();
+const statusSeen = new Map<string, { at: number; s: { inCalendar: boolean; response?: Rsvp; guests?: EventGuest[] } }>();
+
 export function InviteCard({ message }: { message: Message }) {
   const account = useMail((s) => s.accounts.find((a) => a.id === message.accountId));
   const [invite, setInvite] = useState<Invite | undefined>();
@@ -51,6 +58,14 @@ export function InviteCard({ message }: { message: Message }) {
   useEffect(() => {
     let alive = true;
     setInvite(undefined); setServer(undefined); setAnswer(undefined); setNeedsPermission(false); setHint(''); setHow(undefined); setFresh(false); setMenu(false);
+    const known = readInvites.get(message.id);
+    const status = (found: Invite) => {
+      const was = statusSeen.get(message.id);
+      if (was) setServer(was.s);
+      if (was && Date.now() - was.at < 60000) return;
+      inviteStatus(message.id, found).then((s) => { if (s) statusSeen.set(message.id, { at: Date.now(), s }); if (alive) setServer(s); });
+    };
+    if (known) { setInvite(known.invite); setFileIndex(known.index); status(known.invite); return () => { alive = false; }; }
     (async () => {
       for (const [i, f] of files.entries()) {
         try {
@@ -58,8 +73,9 @@ export function InviteCard({ message }: { message: Message }) {
           const found = parseInvite(new TextDecoder().decode(data));
           if (found) {
             if (!alive) return;
+            readInvites.set(message.id, { invite: found, index: i });
             setInvite(found); setFileIndex(i);
-            inviteStatus(message.id, found).then((s) => { if (alive) setServer(s); });
+            status(found);
             return;
           }
         } catch { /* try the next file */ }
@@ -135,14 +151,14 @@ export function InviteCard({ message }: { message: Message }) {
 
       {cancelled && <div className="inv-note bad">This meeting has been cancelled.</div>}
       {invite.method === 'REPLY' && (
-        <div className="inv-note">{personName(invite.attendees[0])} answered: {invite.attendees[0]?.status === 'ACCEPTED' ? 'Yes' : invite.attendees[0]?.status === 'DECLINED' ? 'No' : invite.attendees[0]?.status === 'TENTATIVE' ? 'Maybe' : 'no answer yet'}.</div>
+        <div className="inv-note">{personName(invite.attendees[0])} answered: {invite.attendees[0]?.status === 'ACCEPTED' ? 'Accepted' : invite.attendees[0]?.status === 'DECLINED' ? 'Declined' : invite.attendees[0]?.status === 'TENTATIVE' ? 'Maybe' : 'no answer yet'}.</div>
       )}
 
       {canReply && !current && (
         <div className="inv-row">
           <span className="inv-label">Going?</span>
           <div className="inv-pill" role="group" aria-label="Your answer">
-            {(['accepted', 'declined', 'tentative'] as Rsvp[]).map((s) => (
+            {RSVP_ORDER.map((s) => (
               <button key={s} disabled={busy} onClick={() => reply(s)}>{RSVP_WORDS[s].label}</button>
             ))}
           </div>
@@ -158,7 +174,7 @@ export function InviteCard({ message }: { message: Message }) {
             <button className="btn ghost small" aria-expanded={menu} disabled={busy} onClick={() => setMenu(!menu)}>Change answer <Icon name="chevronDown" size={12} /></button>
             {menu && (
               <div className="cal-pop inv-change" role="menu">
-                {(['accepted', 'declined', 'tentative'] as Rsvp[]).filter((s) => s !== current).map((s) => (
+                {RSVP_ORDER.filter((s) => s !== current).map((s) => (
                   <button key={s} role="menuitem" className="btn ghost" onClick={() => reply(s)}>{RSVP_WORDS[s].label}</button>
                 ))}
               </div>

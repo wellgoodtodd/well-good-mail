@@ -1,49 +1,117 @@
-// Out of Office templates: the Templates menu on the Message card, Save as new template (a name and ticks for each
-// part, a whole group at a time or one by one) and Manage templates (rename, copy, update, change what's kept, delete).
-import { useState } from 'react';
-import { Dialog, useMenu } from './ui';
+// Out of Office templates: the Template bar at the top of the page (the Templates drop-down, the Changed pill with
+// Update template and Save as new), the "Update [name] too?" question before Schedule or Turn on, Save as new template
+// (a name and ticks for each part, a whole group at a time or one by one) and Manage templates (rename, duplicate,
+// save current settings to it, choose parts, delete).
+import { useState, type MouseEvent } from 'react';
+import { Dialog, useMenu, type MenuItem } from './ui';
 import { Icon } from './Icon';
 import { useMail, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { TEMPLATES, htmlToText, type OooPlan } from '../lib/ooo';
-import { PART_GROUPS, applyTemplate, copyTemplate, daysWords, findTemplate, partsWords, templateFromPlan, templateSummary, type OooPart, type OooTemplate } from '../lib/oooTemplates';
+import { PART_GROUPS, changedWords, copyTemplate, daysWords, findTemplate, partsWords, applyTemplate, templateChanges, templateFromPlan, templateSummary, updateTemplateFromPlan, type OooPart, type OooTemplate } from '../lib/oooTemplates';
 
 const accName = (id: string) => { const a = useMail.getState().accounts.find((x) => x.id === id); return a ? a.label || a.email : 'an account'; };
 const saveList = (list: OooTemplate[]) => useSettings.getState().set({ oooTemplates: list });
+const BUILT_IN = 'builtin:';
+/** Remembers the template last applied, in the plan, so it survives a reload. */
+const setLast = (last: OooPlan['lastTemplate']) => useSettings.getState().set({ ooo: { ...useSettings.getState().ooo, lastTemplate: last } });
 
 /** Puts a saved template into the page, with Undo. `editing` is the account whose own message is showing, if any. */
 export function applyToPage(t: OooTemplate, editing?: string) {
   const before = useSettings.getState().ooo;
-  useSettings.getState().set({ ooo: applyTemplate(before, t, { editing }) });
+  useSettings.getState().set({ ooo: { ...applyTemplate(before, t, { editing }), lastTemplate: { id: t.id, editing } } });
   toast({ text: `Applied ${t.name}: ${partsWords(t)}.`, ttl: 8000, undo: () => useSettings.getState().set({ ooo: before }) });
 }
 
-/** The Templates menu: your templates, the built-in messages, then Save as new template and Manage templates. */
-export function TemplatesMenu({ editing, onBuiltIn }: { editing?: string; onBuiltIn: (t: (typeof TEMPLATES)[number]) => void }) {
+/** The saved template last applied, and what's been changed on the page since, if anything. */
+export function templateChange(plan: OooPlan, list: OooTemplate[]): { t: OooTemplate; parts: OooPart[]; editing?: string } | undefined {
+  const last = plan.lastTemplate;
+  const t = last ? list.find((x) => x.id === last.id) : undefined;
+  if (!last || !t) return undefined;
+  const parts = templateChanges(t, plan, last.editing);
+  return parts.length ? { t, parts, editing: last.editing } : undefined;
+}
+
+/** The changes the person chose to leave out of the template, so the question isn't asked again for the same ones. */
+let leftAlone = '';
+const changeKey = (c: NonNullable<ReturnType<typeof templateChange>>, plan: OooPlan) => `${c.t.id}|${JSON.stringify(updateTemplateFromPlan(c.t, plan, c.editing))}`;
+
+/** True when Schedule or Turn on should first ask "Update [name] too?". */
+export function shouldAskAboutTemplate(plan: OooPlan, list: OooTemplate[]): boolean {
+  const c = templateChange(plan, list);
+  return Boolean(c && changeKey(c, plan) !== leftAlone);
+}
+
+/** Saves the page into the template, only the parts it keeps. */
+function updateTemplate(t: OooTemplate, editing?: string) {
+  const list = useSettings.getState().oooTemplates;
+  saveList(list.map((x) => (x.id === t.id ? updateTemplateFromPlan(t, useSettings.getState().ooo, editing) : x)));
+  toast({ text: `${t.name} updated.`, ttl: 3000 });
+}
+
+/**
+ * The Template bar: the Templates drop-down (your templates, the built-in messages, Save as new and Manage), and once
+ * something the applied template keeps has changed, a Changed pill with Update template and Save as new.
+ */
+export function TemplateBar({ editing, onBuiltIn }: { editing?: string; onBuiltIn: (t: (typeof TEMPLATES)[number]) => void }) {
   const mine = useSettings((s) => s.oooTemplates);
-  const [dialog, setDialog] = useState<null | 'save' | 'manage'>(null);
+  const plan = useSettings((s) => s.ooo);
+  const [dialog, setDialog] = useState<null | 'save' | 'saveFrom' | 'manage'>(null);
+  const menu = useMenu();
+  const lastId = plan.lastTemplate?.id || '';
+  const current = mine.find((t) => t.id === lastId);
+  const builtIn = lastId.startsWith(BUILT_IN) ? TEMPLATES.find((t) => BUILT_IN + t.id === lastId) : undefined;
+  const change = templateChange(plan, mine);
+  const open = (e: MouseEvent<HTMLButtonElement>) => {
+    const items: MenuItem[] = [];
+    if (mine.length) items.push({ heading: 'Your templates' }, ...mine.map((t) => ({ label: t.name, active: t.id === lastId, onClick: () => applyToPage(t, editing) })));
+    items.push({ heading: 'Built in (message only)' }, ...TEMPLATES.map((t) => ({ label: t.name, active: BUILT_IN + t.id === lastId, onClick: () => { onBuiltIn(t); setLast({ id: BUILT_IN + t.id, editing }); } })));
+    items.push({ divider: true }, { label: 'Save as new template…', onClick: () => setDialog('save') });
+    if (mine.length) items.push({ label: 'Manage templates…', onClick: () => setDialog('manage') });
+    menu.open(e.currentTarget.getBoundingClientRect(), items);
+  };
   return (
-    <>
-      <select aria-label="Templates" className="ooo-tpl" value="" onChange={(e) => {
-        const v = e.target.value;
-        if (v === '__save') { setDialog('save'); return; }
-        if (v === '__manage') { setDialog('manage'); return; }
-        const own = mine.find((t) => t.id === v);
-        if (own) { applyToPage(own, editing); return; }
-        const built = TEMPLATES.find((t) => t.id === v);
-        if (built) onBuiltIn(built);
-      }}>
-        <option value="">Templates...</option>
-        {mine.length > 0 && <optgroup label="Your templates">{mine.map((t) => <option key={t.id} value={t.id}>{t.name} ({partsWords(t)})</option>)}</optgroup>}
-        <optgroup label="Built in (message only)">{TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</optgroup>
-        <optgroup label="Templates">
-          <option value="__save">Save as new template…</option>
-          {mine.length > 0 && <option value="__manage">Manage templates…</option>}
-        </optgroup>
-      </select>
-      {dialog === 'save' && <SaveTemplateDialog editing={editing} onClose={() => setDialog(null)} />}
+    <div className="ooo-tplbar">
+      <span className="ooo-tplbar-label">Template</span>
+      <button className="ooo-dd" aria-haspopup="menu" aria-label="Templates" onClick={open}>
+        <span>{current?.name || builtIn?.name || 'Choose a template'}</span><Icon name="chevronDown" size={13} />
+      </button>
+      {change && <span className="ooo-changed" title={`Changed since you picked it: ${changedWords(change.parts)}`}>Changed</span>}
+      <span className="grow" />
+      {change && (
+        <span className="ooo-tplbar-actions">
+          <button className="btn ghost" onClick={() => updateTemplate(change.t, change.editing)}>Update template</button>
+          <button className="btn ghost" onClick={() => setDialog('saveFrom')}>Save as new…</button>
+        </span>
+      )}
+      {menu.node}
+      {dialog === 'save' && <SaveTemplateDialog editing={editing} onClose={() => setDialog(null)} onSaved={(t) => setLast({ id: t.id, editing })} />}
+      {dialog === 'saveFrom' && change && <SaveTemplateDialog editing={change.editing} parts={change.t.parts} onClose={() => setDialog(null)} onSaved={(t) => setLast({ id: t.id, editing: change.editing })} />}
       {dialog === 'manage' && <ManageTemplatesDialog editing={editing} onClose={() => setDialog(null)} />}
-    </>
+    </div>
+  );
+}
+
+/**
+ * Asked once when Schedule or Turn on is pressed with a changed template: leave it, save as new, or update it.
+ * Whichever is chosen, Out of Office then goes ahead (`onDone`). Closing the window goes back to the page instead.
+ */
+export function UpdateTemplateQuestion({ onDone, onClose }: { onDone: () => void; onClose: () => void }) {
+  const plan = useSettings((s) => s.ooo);
+  const mine = useSettings((s) => s.oooTemplates);
+  const [saving, setSaving] = useState(false);
+  const [change] = useState(() => templateChange(plan, mine));
+  if (!change) return null;
+  if (saving) return <SaveTemplateDialog editing={change.editing} parts={change.t.parts} onClose={onDone} onSaved={(t) => setLast({ id: t.id, editing: change.editing })} />;
+  return (
+    <Dialog title={`Update ${change.t.name} too?`} onClose={onClose} actions={<div className="ooo-q-actions">
+      <button className="btn" onClick={() => { leftAlone = changeKey(change, plan); onDone(); }}>Leave the template as it was</button>
+      <span className="grow" />
+      <button className="btn" onClick={() => setSaving(true)}>Save as new…</button>
+      <button className="btn primary" onClick={() => { updateTemplate(change.t, change.editing); onDone(); }}>Update template</button>
+    </div>}>
+      <p className="hint" style={{ margin: 0 }}>You changed {changedWords(change.parts)} since picking the template. Out of Office goes ahead whichever you choose.</p>
+    </Dialog>
   );
 }
 
@@ -99,11 +167,11 @@ function PartTicks({ parts, setParts, plan, editing }: { parts: OooPart[]; setPa
 }
 
 /** Save as new template, or (with `existing`) change what a template keeps. */
-function SaveTemplateDialog({ editing, existing, onClose }: { editing?: string; existing?: OooTemplate; onClose: () => void }) {
+function SaveTemplateDialog({ editing, existing, parts: startParts, onClose, onSaved }: { editing?: string; existing?: OooTemplate; parts?: OooPart[]; onClose: () => void; onSaved?: (t: OooTemplate) => void }) {
   const plan = useSettings((s) => s.ooo);
   const list = useSettings((s) => s.oooTemplates);
   const [name, setName] = useState(existing?.name || '');
-  const [parts, setParts] = useState<OooPart[]>(existing?.parts || DEFAULT_PARTS);
+  const [parts, setParts] = useState<OooPart[]>(existing?.parts || startParts || DEFAULT_PARTS);
   const same = findTemplate(list, name);
   const replacing = Boolean(same && same.id !== existing?.id);
   const bad = !name.trim() ? 'Give the template a name.' : !parts.length ? 'Tick at least one thing to keep.' : '';
@@ -115,6 +183,7 @@ function SaveTemplateDialog({ editing, existing, onClose }: { editing?: string; 
     const others = list.filter((x) => x.id !== t.id && x.id !== same?.id);
     saveList([...others, t].sort((a, b) => list.findIndex((x) => x.id === a.id) - list.findIndex((x) => x.id === b.id)));
     toast({ text: existing ? `${t.name} now keeps: ${partsWords(t)}.` : replacing ? `${t.name} replaced.` : `Saved ${t.name}. Pick it from Templates.`, ttl: 4000 });
+    onSaved?.(t);
     onClose();
   };
   return (
@@ -149,7 +218,7 @@ function mergeKept(old: OooTemplate, fresh: OooTemplate): Partial<OooTemplate> {
   return { message: Object.keys(message).length ? message : undefined, values, days: kept.includes('days') ? old.days : fresh.days, copiedFrom: old.copiedFrom };
 }
 
-/** Your templates: rename, copy (Friday afternoons into Wednesday away), update from the page, change what's kept, delete. */
+/** Your templates: rename, duplicate (Friday afternoons into Wednesday away), save current settings to it, choose parts, delete. */
 function ManageTemplatesDialog({ editing, onClose }: { editing?: string; onClose: () => void }) {
   const list = useSettings((s) => s.oooTemplates);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
@@ -169,9 +238,8 @@ function ManageTemplatesDialog({ editing, onClose }: { editing?: string; onClose
     setRenaming({ id: c.id, name: c.name });
   };
   const update = (t: OooTemplate) => {
-    const fresh = templateFromPlan(t.name, t.parts, useSettings.getState().ooo, { id: t.id, editing });
-    saveList(list.map((x) => (x.id === t.id ? { ...fresh, copiedFrom: t.copiedFrom } : x)));
-    toast({ text: `${t.name} updated from the page.`, ttl: 3000 });
+    saveList(list.map((x) => (x.id === t.id ? updateTemplateFromPlan(t, useSettings.getState().ooo, editing) : x)));
+    toast({ text: `${t.name} now has the current settings.`, ttl: 3000 });
   };
   const remove = (t: OooTemplate) => {
     const before = list;
@@ -181,20 +249,20 @@ function ManageTemplatesDialog({ editing, onClose }: { editing?: string; onClose
   if (changing) return <SaveTemplateDialog editing={editing} existing={changing} onClose={() => setChanging(null)} />;
   return (
     <Dialog title="Your templates" onClose={onClose} actions={<button className="btn primary" onClick={onClose}>Done</button>}>
-      {!list.length && <p className="hint">No templates yet. Set Out of Office up the way you want it, then choose Save as new template from Templates.</p>}
+      {!list.length && <p className="hint">No templates yet. Set Out of Office up the way you want it, then choose Save as new template from the Templates drop-down.</p>}
       <div className="cg-list tpl-list">
         {list.map((t) => (
           <div key={t.id} className="cg-row">
             {renaming?.id === t.id ? (
               <input className="cg-name grow" aria-label="Template name" value={renaming.name} autoFocus onChange={(e) => setRenaming({ id: t.id, name: e.target.value })} onBlur={finishRename} onKeyDown={(e) => { if (e.key === 'Enter') finishRename(); if (e.key === 'Escape') { e.stopPropagation(); setRenaming(null); } }} />
             ) : (
-              <span className="grow"><b>{t.name}</b><small>{t.copiedFrom ? `Copied from ${t.copiedFrom} · ` : ''}{templateSummary(t, accName)}</small></span>
+              <span className="grow tpl-row-text" title={`${t.copiedFrom ? `Duplicated from ${t.copiedFrom}. ` : ''}${templateSummary(t, accName)}`}><b>{t.name}</b><small>{templateSummary(t, accName)}</small></span>
             )}
-            <button className="btn small" onClick={() => copy(t)}>Copy</button>
+            <button className="btn small" onClick={() => copy(t)}>Duplicate</button>
             <button className="btn small" aria-label={`More for ${t.name}`} onClick={(e) => menu.open(e.currentTarget.getBoundingClientRect(), [
               { label: 'Rename', onClick: () => setRenaming({ id: t.id, name: t.name }) },
-              { label: "Update from what's on the page", onClick: () => update(t) },
-              { label: 'Change what it includes…', onClick: () => setChanging(t) },
+              { label: 'Save current settings to it', onClick: () => update(t) },
+              { label: 'Choose parts…', onClick: () => setChanging(t) },
               { divider: true },
               { label: 'Delete', icon: 'trash', onClick: () => remove(t) },
             ])}><Icon name="more" size={14} /></button>

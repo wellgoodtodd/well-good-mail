@@ -160,6 +160,12 @@ export interface CalendarEvent {
   canEdit?: boolean;
   /** One of a repeating series (changes here change only this one). */
   recurring?: boolean;
+  /** Who sent the invitation, when the calendar says. `self` when it's you. */
+  organiser?: { email: string; name?: string; self?: boolean };
+  /** The organiser cancelled it, but it is still in your calendar (Outlook keeps these until you remove them). */
+  cancelled?: boolean;
+  /** How it repeats, in a few words ("every year"), when the calendar says. */
+  repeatText?: string;
 }
 
 /** How a series repeats, in a shape both Google and Outlook rules turn into. */
@@ -207,6 +213,24 @@ export interface EventPatch {
   description?: string;
   /** Another calendar in the same account, by its name. */
   calendarName?: string;
+  /** Alerts, in minutes before it starts. An empty list means none. */
+  alerts?: number[];
+  /** The guests (not you): the whole new list. Answers of people already invited are kept. */
+  guests?: { email: string; name?: string }[];
+  /** Add (true) or remove (false) the video call. */
+  video?: boolean;
+  /** A new repeat rule (null stops it repeating). Changes the whole series. */
+  repeat?: Repeat | null;
+}
+
+/** Which events of a series a change or delete applies to. */
+export type SeriesScope = 'one' | 'following' | 'all';
+
+/** How a change reaches the event and its guests. */
+export interface ChangeOptions {
+  scope?: SeriesScope;
+  /** Email the guests about it (default true). */
+  notify?: boolean;
 }
 
 export type GuestAnswer = 'yes' | 'no' | 'maybe' | 'waiting';
