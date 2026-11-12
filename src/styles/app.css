@@ -1605,8 +1605,8 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .set-section .log-series-list .log-item { background: transparent; padding-left: 12px; }
 
 /* Reminders header: view switch beside the title; Day, Week, Month in the calendar's own header (0.7.2 beta 6) */
-.rem-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; min-height: 40px; }
-.rem-head + .lead { margin-top: 0; }
+.rem-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; min-height: 40px; flex-shrink: 0; }
+.rem-head + .lead { margin-top: 0; flex-shrink: 0; }
 .rem-head h1 { margin: 0 6px 0 0; line-height: 1.2; }
 .rem-head .grow { flex: 1; }
 .cal-modes button { padding: 4px 11px; font-size: 0.9em; }
