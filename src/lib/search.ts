@@ -10,12 +10,19 @@ interface Doc {
   body: string;
 }
 
+/**
+ * How much of each email's text is indexed. The start of an email is where people search from; indexing the rest
+ * made the index far bigger for little gain. The index stores no text of its own (storeFields is empty): results
+ * are shown from the mail store.
+ */
+export const BODY_CHARS = 4000;
+
 const toDoc = (m: Message): Doc => ({
   id: m.id,
   subject: m.subject,
   from: `${m.from.name || ''} ${m.from.email}`,
   to: [...m.to, ...m.cc].map((a) => `${a.name || ''} ${a.email}`).join(' '),
-  body: (m.bodyText || m.snippet || '').slice(0, 20000),
+  body: (m.bodyText || m.snippet || '').slice(0, BODY_CHARS),
 });
 
 // Typo matching only for longer words: it is slow across a big mailbox and makes short words match unrelated mail.
@@ -29,7 +36,7 @@ const index = new MiniSearch<Doc>({
 
 /** A quick fingerprint of what an email was indexed with, so an unchanged email isn't indexed again. */
 function fingerprint(d: Doc): number {
-  const s = `${d.subject}${d.from}${d.to}${d.body}`;
+  const s = [d.subject, d.from, d.to, d.body].join('\n');
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
   return h >>> 0;
@@ -54,8 +61,13 @@ export function indexMessages(messages: Message[]) {
     else index.add(doc);
     indexed.set(m.id, print);
     version++;
+    writes++;
   }
 }
+
+let writes = 0;
+/** For the tests and Diagnostics: emails in the index, and how many times one was added or replaced. */
+export const indexStats = () => ({ emails: indexed.size, writes });
 
 const mentions = new Map<string, { version: number; ids: Set<string> }>();
 /**
