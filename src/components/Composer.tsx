@@ -200,7 +200,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   useEffect(() => {
     if (editor && draft && loadedInto.current !== draft.id) {
       loadedInto.current = draft.id;
-      editor.commands.setContent(draft.html || '', false);
+      editor.commands.setContent(draft.html || '', { emitUpdate: false });
       startTyping(draft);
     }
   }, [editor, draft]);

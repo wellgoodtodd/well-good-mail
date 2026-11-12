@@ -10,7 +10,7 @@ Capitals (agreed 9 Nov 2026): names of places and features take a capital on eac
 - React 18, TypeScript and Vite (`src/`). State in zustand (`src/lib/mail.ts`, `src/lib/settings.ts`).
 - Gmail, Calendar, People and Drive REST APIs through `@tauri-apps/plugin-http`. A Microsoft Graph provider exists but is untested.
 - Local cache in IndexedDB (`src/lib/db.ts`), full text search with MiniSearch (`src/lib/search.ts`).
-- Rich text editor: TipTap 2 (`src/components/Composer.tsx`, `editorExtensions.ts`).
+- Rich text editor: Tiptap 3 (`src/components/Composer.tsx`, `editorExtensions.ts`).
 - Incoming email is sanitised with DOMPurify and shown in a sandboxed iframe with no scripts (`src/lib/render.ts`, `EmailFrame.tsx`). Never render email HTML outside that path.
 
 ## Layout
