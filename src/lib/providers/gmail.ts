@@ -1,6 +1,6 @@
 // Gmail via the Gmail REST API (plus Calendar, People and Drive for the
 // extras). Everything goes through the signed in user's own access token.
-import { getGoogleAccessToken } from '../auth/google';
+import { forgetGoogleAccessToken, getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
 import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, EventCopy, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
@@ -233,6 +233,11 @@ export class GmailProvider implements MailProvider {
       if (quota) backOff(this.account.email, wait);
       else await new Promise((r) => setTimeout(r, wait));
       return this.call<T>(url, init, retry + 1, urgent);
+    }
+    // A token Google stopped accepting before it was due to expire: get a fresh one and try once more.
+    if (res.status === 401 && retry === 0) {
+      forgetGoogleAccessToken(this.account.email);
+      return this.call<T>(url, init, 1, urgent);
     }
     if (res.ok) allClear(this.account.email);
     if (!res.ok) {

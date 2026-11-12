@@ -176,7 +176,10 @@ export async function turnOffOoo(ids?: string[]): Promise<{ done: string[]; fail
   const events = { ...(active?.events || {}) };
   for (const a of list) {
     const p = providerFor(a.id)!;
-    const was = state[a.id]?.reply || { on: false, html: '', audience: 'all' as const };
+    // Not read from the account yet: read it now, so turning off keeps the message rather than blanking it.
+    const known = state[a.id]?.reply || (p.getAutoReply ? await p.getAutoReply().catch(() => undefined) : undefined);
+    if (!known) { failed.push(nameOf(a)); continue; }
+    const was = known;
     // Shown as off straight away; put back if the account says no.
     changedAt[a.id] = Date.now();
     setAcc(a.id, { reply: { ...was, on: false }, error: undefined });

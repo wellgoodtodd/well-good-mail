@@ -174,6 +174,11 @@ export async function signInWithGoogle(loginHint?: string): Promise<{ email: str
 }
 
 /** A valid access token for the account, refreshing when needed. */
+/** Forgets the account's access token, so the next request gets a fresh one (Google refused the old one early). */
+export function forgetGoogleAccessToken(email: string) {
+  tokenCache.delete(email.toLowerCase());
+}
+
 export async function getGoogleAccessToken(email: string): Promise<string> {
   const key = email.toLowerCase();
   const cached = tokenCache.get(key);

@@ -87,18 +87,35 @@ export async function signInWithMicrosoft(): Promise<{ email: string; name: stri
   return { email, name: me.displayName || email };
 }
 
+/** Only a real "no" from Microsoft means signing in again; a busy or broken server is just an error to try again later. */
+function refreshRefused(json: Record<string, any>): boolean {
+  return ['invalid_grant', 'interaction_required', 'invalid_client', 'unauthorized_client', 'consent_required'].includes(String(json.error || ''));
+}
+
+/** Refreshes already on their way, so several requests at once share one. */
+const refreshing = new Map<string, Promise<string>>();
+
 export async function getMicrosoftAccessToken(email: string, extra?: string[]): Promise<string> {
   if (extra?.length) return extraToken(email, extra);
   const e = email.toLowerCase();
   const c = cache.get(e);
   if (c && c.exp > Date.now()) return c.token;
-  const refresh = await secrets.get(key(e));
-  if (!refresh) throw new AuthError(`Please sign in to ${email} again.`);
-  const { ok, json } = await tokenPost(new URLSearchParams({ client_id: clientId() || '', grant_type: 'refresh_token', refresh_token: refresh, scope: MS_SCOPES.join(' ') }).toString());
-  if (!ok) throw new AuthError(`Please sign in to ${email} again.`);
-  if (json.refresh_token) await secrets.set(key(e), json.refresh_token);
-  cache.set(e, { token: json.access_token, exp: Date.now() + (json.expires_in - 60) * 1000 });
-  return json.access_token;
+  const pending = refreshing.get(e);
+  if (pending) return pending;
+  const p = (async () => {
+    const refresh = await secrets.get(key(e));
+    if (!refresh) throw new AuthError(`Please sign in to ${email} again.`);
+    const { ok, json } = await tokenPost(new URLSearchParams({ client_id: clientId() || '', grant_type: 'refresh_token', refresh_token: refresh, scope: MS_SCOPES.join(' ') }).toString());
+    if (!ok) {
+      if (refreshRefused(json)) throw new AuthError(`Please sign in to ${email} again.`);
+      throw new Error(`Microsoft didn't answer properly (${json.error_description || json.error || 'try again shortly'}).`.replace(/s+/g, ' ').slice(0, 200));
+    }
+    if (json.refresh_token) await secrets.set(key(e), json.refresh_token);
+    cache.set(e, { token: json.access_token, exp: Date.now() + (json.expires_in - 60) * 1000 });
+    return json.access_token as string;
+  })();
+  refreshing.set(e, p);
+  try { return await p; } finally { refreshing.delete(e); }
 }
 
 /** A token for a permission beyond the everyday ones. Says plainly when the account needs to sign in once more for it. */
@@ -120,6 +137,7 @@ async function extraToken(email: string, extra: string[]): Promise<string> {
 }
 
 export async function signOutMicrosoft(email: string) {
-  cache.delete(email.toLowerCase());
+  const e = email.toLowerCase();
+  for (const k of [...cache.keys()]) if (k === e || k.startsWith(`${e}|`)) cache.delete(k);
   await secrets.remove(key(email));
 }

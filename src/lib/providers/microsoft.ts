@@ -221,9 +221,10 @@ export class MicrosoftProvider implements MailProvider {
   }
 
   async saveDraft(msg: OutgoingMessage, serverDraftId?: string) {
-    if (serverDraftId) await this.deleteDraft(serverDraftId);
+    // The new copy first, and only then the old one goes, so a save that fails never loses the draft.
     const mime = bytesToBase64(new TextEncoder().encode(withoutFrom(buildRawMessage(msg))));
     const r = await this.call<{ id: string }>('/messages', { method: 'POST', body: mime, headers: { 'Content-Type': 'text/plain' } });
+    if (serverDraftId && serverDraftId !== r.id) await this.deleteDraft(serverDraftId);
     return { draftId: r.id };
   }
 
