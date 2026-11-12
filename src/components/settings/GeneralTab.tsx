@@ -5,7 +5,7 @@ import { restartPolling, toast, refreshTaskbarCount } from '../../lib/mail';
 import { useSettings } from '../../lib/settings';
 import { enableSettingsSync } from '../../lib/settingsSync';
 import { invoke, isTauri, setAutostart, setCloseQuits, openExternal } from '../../lib/platform';
-import { Row, Check } from './shared';
+import { Row, Check } from '../ui';
 
 /** Email links in a browser or another app: open them here. Windows asks you to confirm the choice. */
 export function DefaultMailApp() {

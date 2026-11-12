@@ -6,7 +6,8 @@ import { useMail, refreshAccountPhotos, applyPalette, toast } from '../../lib/ma
 import { useSettings, defaultSettings, type Settings as S } from '../../lib/settings';
 import { undoSteps } from '../../lib/history';
 import { SKINS, type Skin } from '../../lib/skins';
-import { Row, Radio, Check, TextSizeSlider } from './shared';
+import { TextSizeSlider } from './shared';
+import { Row, Radio, Check } from '../ui';
 
 export function AppearanceTab() {
   const s = useSettings();

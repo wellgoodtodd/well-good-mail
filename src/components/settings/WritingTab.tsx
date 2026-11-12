@@ -5,7 +5,7 @@ import { FONT_CHOICES } from '../editorExtensions';
 import { syncWakes } from '../../lib/mail';
 import { useSettings, type Settings as S } from '../../lib/settings';
 import { SPELL_LANGS } from '../../lib/spell';
-import { Row, Radio, Check } from './shared';
+import { Row, Radio, Check } from '../ui';
 import { SignatureEditor } from './SignaturesTab';
 
 export function WritingTab() {

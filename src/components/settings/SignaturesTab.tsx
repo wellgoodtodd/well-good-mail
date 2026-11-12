@@ -5,7 +5,7 @@ import { FormatBar } from '../FormatBar';
 import { editorExtensions, tidyForEditor } from '../editorExtensions';
 import { useMail } from '../../lib/mail';
 import { useSettings } from '../../lib/settings';
-import { Row, Radio } from './shared';
+import { Row, Radio } from '../ui';
 
 export function SignatureEditor({ email, initial, onChange }: { email: string; initial: string; onChange: (html: string) => void }) {
   const font = useSettings((s) => s.writingFont);

@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useMail, reconnectAccount, syncAccount, toast } from '../../lib/mail';
 import { paceInfo } from '../../lib/providers/gmail';
 import { useUpdates } from '../../lib/updater';
-import { Row, wantsSignIn } from './shared';
+import { wantsSignIn } from './shared';
+import { Row } from '../ui';
 
 export function DiagnosticsTab() {
   const accounts = useMail((st) => st.accounts);

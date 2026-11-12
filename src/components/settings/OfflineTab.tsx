@@ -7,7 +7,8 @@ import { exportCache, importCache } from '../../lib/cacheTransfer';
 import { exportKeys, importKeys } from '../../lib/backup';
 import { isTauri, previewsSize, clearPreviews, openPreviewsFolder, chooseFolder } from '../../lib/platform';
 import { fileSize } from '../ui';
-import { Row, RANGE_OPTS, KeepMail } from './shared';
+import { RANGE_OPTS, KeepMail } from './shared';
+import { Row } from '../ui';
 
 export function AttachmentsSection() {
   const folder = useSettings((st) => st.downloadFolder);

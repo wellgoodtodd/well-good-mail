@@ -2,7 +2,7 @@
 import { Icon } from '../Icon';
 import { useMail } from '../../lib/mail';
 import { useSettings, type Settings as S } from '../../lib/settings';
-import { Check } from './shared';
+import { Check } from '../ui';
 
 export function GroupsTab() {
   const accounts = useMail((s) => s.accounts);

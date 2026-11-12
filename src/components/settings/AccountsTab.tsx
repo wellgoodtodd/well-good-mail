@@ -21,7 +21,8 @@ import type { IconName } from '../Icon';
 import { MessageEditor as OooMessageEditor } from '../OutOfOffice';
 import { useOoo } from '../../lib/oooStore';
 import { stateWords as oooStateWords, oooSupport, messageFor as messageForOoo, planProblem, ymd as ymdOoo, TEMPLATES as OOO_TEMPLATES, type OooPlan, type OooMessage } from '../../lib/ooo';
-import { AccountName, Seg, wantsSignIn, RANGE_OPTS, KeepMail } from './shared';
+import { AccountName, wantsSignIn, RANGE_OPTS, KeepMail } from './shared';
+import { Seg } from '../ui';
 import { SignatureEditor } from './SignaturesTab';
 
 export type AcctSection = 'signature' | 'sending' | 'calendars' | 'alerts' | 'ai' | 'ooo' | 'mail';

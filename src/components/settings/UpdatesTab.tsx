@@ -5,7 +5,7 @@ import { openExternal } from '../../lib/platform';
 import { useUpdates, checkForUpdates, installFoundUpdate, restartToUpdate, isBetaVersion } from '../../lib/updater';
 import { UpdateLog } from '../WhatsNew';
 import { useBetaNotice, checkForBeta, wantsBetaNotices } from '../../lib/betaNotice';
-import { Row, Check } from './shared';
+import { Row, Check } from '../ui';
 
 export function UpdatesTab() {
   const s = useSettings();

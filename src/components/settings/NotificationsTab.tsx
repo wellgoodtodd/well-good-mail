@@ -3,7 +3,7 @@ import { useMail, editAccount } from '../../lib/mail';
 import { useSettings } from '../../lib/settings';
 import { isTauri, notify, openExternal } from '../../lib/platform';
 import { showBanner } from '../../lib/banners';
-import { Row, Radio, Check } from './shared';
+import { Row, Radio, Check } from '../ui';
 
 export function NotificationsTab() {
   const s = useSettings();

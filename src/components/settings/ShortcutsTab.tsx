@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../Icon';
 import { useSettings } from '../../lib/settings';
 import { SHORTCUTS, bindingsFor, comboFromEvent, isSingleKey, type ShortcutAction } from '../../lib/shortcuts';
-import { Check } from './shared';
+import { Check } from '../ui';
 
 export function ShortcutsTab() {
   const s = useSettings();

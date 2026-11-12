@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../Icon';
 import { useSettings } from '../../lib/settings';
 import { notify } from '../../lib/platform';
-import { Row, Radio, Check } from './shared';
+import { Row, Radio, Check } from '../ui';
 
 export const MINUTE_CHOICES = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 180];
 export const timeLabel = (n: number) => (n >= 120 && n % 60 === 0 ? `${n / 60} hours` : `${n} ${n === 1 ? 'minute' : 'minutes'}`);

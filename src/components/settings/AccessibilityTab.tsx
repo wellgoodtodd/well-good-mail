@@ -2,7 +2,8 @@
 import { useMail } from '../../lib/mail';
 import { useSettings } from '../../lib/settings';
 import { openExternal } from '../../lib/platform';
-import { Row, Radio, Check, TextSizeSlider } from './shared';
+import { TextSizeSlider } from './shared';
+import { Row, Radio, Check } from '../ui';
 
 /** Opens a page of Windows Settings. */
 export const winSettings = (page: string) => () => { void openExternal(`ms-settings:${page}`); };

@@ -5,7 +5,7 @@ import DOMPurify from 'dompurify';
 import { Icon } from './Icon';
 import { FormatBar } from './FormatBar';
 import { editorExtensions } from './editorExtensions';
-import { Dialog } from './ui';
+import { Dialog, SwitchLine } from './ui';
 import { useMail, providerFor, reconnectAccount, selectThread, setView, toast, openScreen } from '../lib/mail';
 import { threadKey } from '../lib/mailbox';
 import { useSettings } from '../lib/settings';
@@ -250,7 +250,7 @@ export function OutOfOfficeTab() {
             {plan.useTimes && <input type="time" aria-label="Back at" value={plan.backTime} onChange={(e) => set({ backTime: e.target.value })} />}
           </div>
         )}
-        {plan.mode === 'dates' && <label className="switch-line"><span>Part days (set times)</span><input type="checkbox" role="switch" className="switch" checked={plan.useTimes} onChange={(e) => set({ useTimes: e.target.checked })} /></label>}
+        {plan.mode === 'dates' && <SwitchLine className="" checked={plan.useTimes} onChange={(v) => set({ useTimes: v })}>Part days (set times)</SwitchLine>}
         <p className="ooo-sentence" aria-live="polite">{whenSentence(plan)}</p>
       </section>
       <section className="set-section ooo-who">
@@ -270,7 +270,7 @@ export function OutOfOfficeTab() {
                 <option value="none">Nobody</option>
               </select>
             </div>
-            <label className="switch-line check"><span>A different message for people outside my organisation</span><input type="checkbox" role="switch" className="switch" checked={plan.outsideDifferent} onChange={(e) => set({ outsideDifferent: e.target.checked })} /></label>
+            <SwitchLine checked={plan.outsideDifferent} onChange={(v) => set({ outsideDifferent: v })}>A different message for people outside my organisation</SwitchLine>
           </>
         )}
         <p className="hint" style={{ margin: '8px 0 0' }}>Gmail replies to each person once every 4 days, however many times they email.</p>
@@ -280,15 +280,14 @@ export function OutOfOfficeTab() {
 
       <section className="set-section">
         <h2>While I'm away</h2>
-        <label className={`switch-line check ${plan.mode === 'open' ? 'off' : ''}`}><span>Add an Away event to my calendar</span><input type="checkbox" role="switch" className="switch" disabled={plan.mode === 'open'} checked={plan.addEvent} onChange={(e) => set({ addEvent: e.target.checked })} /></label>
-        <label className={`switch-line check ${plan.mode === 'open' ? 'off' : ''}`}><span>Remind me the day before it ends</span><input type="checkbox" role="switch" className="switch" disabled={plan.mode === 'open'} checked={plan.remindBefore} onChange={(e) => set({ remindBefore: e.target.checked })} /></label>
-        <label className={`switch-line check ${supDecline && plan.mode === 'dates' && plan.addEvent ? '' : 'off'}`}>
-          <span>Decline new invitations while I'm away<br /><span className="sub">{supDecline ? 'Google Workspace accounts, through the Away event.' : 'Google Workspace accounts only. Microsoft and personal Gmail can\'t do this from here yet.'}</span></span>
-          <input type="checkbox" role="switch" className="switch" disabled={!supDecline || plan.mode === 'open' || !plan.addEvent} checked={plan.decline} onChange={(e) => set({ decline: e.target.checked })} />
-        </label>
-        <label className="switch-line check"><span>Pause new-mail alerts while I'm away</span><input type="checkbox" role="switch" className="switch" checked={plan.pauseAlerts} onChange={(e) => set({ pauseAlerts: e.target.checked })} /></label>
-        <label className="switch-line check"><span>Show "While you were away" when I'm back</span><input type="checkbox" role="switch" className="switch" checked={plan.awaySummary} onChange={(e) => set({ awaySummary: e.target.checked })} /></label>
-        <label className="switch-line check"><span>Suggest Out of Office from Holiday and Annual leave in my calendar</span><input type="checkbox" role="switch" className="switch" checked={suggestOn} onChange={(e) => useSettings.getState().set({ oooSuggest: e.target.checked })} /></label>
+        <SwitchLine off={plan.mode === 'open'} disabled={plan.mode === 'open'} checked={plan.addEvent} onChange={(v) => set({ addEvent: v })}>Add an Away event to my calendar</SwitchLine>
+        <SwitchLine off={plan.mode === 'open'} disabled={plan.mode === 'open'} checked={plan.remindBefore} onChange={(v) => set({ remindBefore: v })}>Remind me the day before it ends</SwitchLine>
+        <SwitchLine off={!(supDecline && plan.mode === 'dates' && plan.addEvent)} disabled={!supDecline || plan.mode === 'open' || !plan.addEvent} checked={plan.decline} onChange={(v) => set({ decline: v })}>
+          Decline new invitations while I'm away<br /><span className="sub">{supDecline ? 'Google Workspace accounts, through the Away event.' : 'Google Workspace accounts only. Microsoft and personal Gmail can\'t do this from here yet.'}</span>
+        </SwitchLine>
+        <SwitchLine checked={plan.pauseAlerts} onChange={(v) => set({ pauseAlerts: v })}>Pause new-mail alerts while I'm away</SwitchLine>
+        <SwitchLine checked={plan.awaySummary} onChange={(v) => set({ awaySummary: v })}>Show "While you were away" when I'm back</SwitchLine>
+        <SwitchLine checked={suggestOn} onChange={(v) => useSettings.getState().set({ oooSuggest: v })}>Suggest Out of Office from Holiday and Annual leave in my calendar</SwitchLine>
       </section>
 
       <div className="ooo-actions">

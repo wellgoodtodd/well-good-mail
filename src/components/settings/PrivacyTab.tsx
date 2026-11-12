@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Icon } from '../Icon';
 import { useSettings } from '../../lib/settings';
-import { Radio, Check } from './shared';
+import { Radio, Check } from '../ui';
 
 export function PrivacyTab() {
   const s = useSettings();

@@ -259,3 +259,52 @@ export function snoozeOptions(): { label: string; at: number }[] {
   );
   return opts;
 }
+
+// ---------- form controls shared by Settings, Out of Office and the rest ----------
+
+export function Row({ label, children, htmlFor }: { label: string; children: React.ReactNode; htmlFor?: string }) {
+  return <div className="set-row"><label htmlFor={htmlFor}>{label}</label>{children}</div>;
+}
+
+/** Buttons side by side for a short choice (the selected one filled). */
+export function Seg<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string; disabled?: boolean; title?: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div className="seg set-seg" role="radiogroup" aria-label={label}>
+      {options.map((o) => <button key={o.value} type="button" role="radio" aria-checked={value === o.value} disabled={o.disabled} title={o.title} className={value === o.value ? 'on' : ''} onClick={() => onChange(o.value)}>{o.label}</button>)}
+    </div>
+  );
+}
+
+export function Radio<T extends string>({ name, value, options, onChange }: { name: string; value: T; options: { value: T; label: string; sub?: string }[]; onChange: (v: T) => void }) {
+  if (options.length <= 4 && options.every((o) => !o.sub && o.label.length <= 26)) {
+    return (
+      <div className="seg set-seg" role="radiogroup" aria-label={name}>
+        {options.map((o) => <button key={o.value} type="button" role="radio" aria-checked={value === o.value} className={value === o.value ? 'on' : ''} onClick={() => onChange(o.value)}>{o.label}</button>)}
+      </div>
+    );
+  }
+  return (
+    <div className="radio-list" role="radiogroup">
+      {options.map((o) => (
+        <label key={o.value}>
+          <input type="radio" name={name} checked={value === o.value} onChange={() => onChange(o.value)} />
+          <span><span>{o.label}</span>{o.sub && <><br /><span className="sub">{o.sub}</span></>}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+export function Check({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }) {
+  return <label className="check"><span className="check-text">{children}</span><input type="checkbox" role="switch" className="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} /></label>;
+}
+
+/** A switch with its words on the left, as in Out of Office: `off` greys the line when it doesn't apply. */
+export function SwitchLine({ children, checked, onChange, disabled, off, className = 'check' }: { children: React.ReactNode; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; off?: boolean; className?: string }) {
+  return (
+    <label className={`switch-line ${className}${off ? ' off' : ''}`}>
+      <span>{children}</span>
+      <input type="checkbox" role="switch" className="switch" disabled={disabled} checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    </label>
+  );
+}
