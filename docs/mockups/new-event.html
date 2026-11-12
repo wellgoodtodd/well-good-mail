@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Creating events</title>
+<style>
+:root{--card:#26262b;--line:#3a3a40;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1000px;margin:0 auto;display:grid;gap:34px}
+h1{font-size:18px;margin:4px 0 0}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.opt{display:inline-block;font-size:11px;font-weight:700;background:#2b3a5a;color:#9fc0ff;border-radius:5px;padding:1px 7px;margin-right:6px;letter-spacing:.03em}
+.rec{background:#1f3a2e;color:#7fe0b4}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0;max-width:740px}
+.pair{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.pop{width:470px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:5px 12px;background:#2f2f35;font-size:12.5px;white-space:nowrap}
+.ghost{background:transparent}
+.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.acts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center}
+.f{display:grid;grid-template-columns:82px 1fr;gap:9px 10px;align-items:center;margin-top:12px}
+.f label{color:var(--muted);font-size:12.5px}
+.in{border:1px solid #4a4a52;border-radius:7px;padding:6px 9px;background:#1d1d20}
+.in.ph{color:#77777f}
+.in.focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sel{border:1px solid #4a4a52;border-radius:7px;padding:6px 9px;background:#1d1d20;display:inline-flex;align-items:center;gap:8px}
+.sel small{color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.sw{width:30px;height:18px;border-radius:999px;background:#4a4a52;position:relative;display:inline-block}
+.sw::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+.menu{background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:4px;width:230px}
+.mi{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:6px}
+.mi.hover{background:#2b3a5a}
+.mi .k{margin-left:auto;color:var(--muted);font-size:11.5px}
+.sep{height:1px;background:#44444b;margin:4px 6px}
+.chip{display:inline-flex;gap:6px;align-items:center;background:#33333a;border-radius:999px;padding:2px 9px 2px 3px;font-size:12px}
+.av{width:18px;height:18px;border-radius:50%;background:#5b6bd6;display:inline-grid;place-items:center;font-size:10px;font-weight:700}
+.note{margin-top:12px;border:1px solid #3d4a66;background:#1f2738;border-radius:9px;padding:9px 11px;font-size:12.5px;color:#d5dcec}
+.app{background:#1b1b1e;border:1px solid #33333a;border-radius:12px;padding:14px;max-width:100%;overflow:hidden}
+.head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.head h2{font-size:17px;margin:0 6px 0 0}
+.seg{display:inline-flex;border:1px solid #44444b;border-radius:8px;overflow:hidden}
+.seg span{padding:4px 11px;font-size:12.5px}
+.seg .on{background:#3a3a44}
+.grow{flex:1}
+.ring{outline:2px dashed #7fe0b4;outline-offset:3px;border-radius:8px}
+.grid{display:grid;grid-template-columns:44px repeat(3,1fr);margin-top:12px;border-top:1px solid #2e2e34;font-size:11.5px;color:var(--muted)}
+.grid div{border-bottom:1px solid #2a2a2f;border-left:1px solid #2a2a2f;height:28px;position:relative}
+.grid .t{border-left:0;padding-right:6px;text-align:right}
+.ghostev{position:absolute;inset:1px 3px;background:rgba(59,130,246,.25);border:1px solid #3b82f6;border-radius:5px;color:#cfe0ff;padding:2px 6px;font-size:11.5px}
+.small{font-size:12px;color:var(--muted)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.q{border-left:3px solid #f59e0b;padding:4px 0 4px 12px;color:#e8d7b5;font-size:12.5px;max-width:760px}
+</style></head><body><div class="w">
+
+<div><h1>Creating events</h1>
+<p class="why" style="margin-top:4px">There are three ways to start an event: the + New event button, double-clicking a day or time, or right-clicking. Each one opens a small quick pop-up, and More options opens the full form. That's how Apple Calendar feels. Picks are marked <span class="opt rec">MY PICK</span>.</p></div>
+
+<section>
+<div class="lbl">1 · Where the button goes</div>
+<div class="cols">
+<div>
+<p style="margin:0 0 8px"><span class="opt rec">A · MY PICK</span>Blue button at the right end of the header</p>
+<div class="app"><div class="head"><h2>Calendar &amp; Reminders</h2><span class="seg"><span>List</span><span class="on">Calendar</span></span><span class="grow"></span><span class="btn ghost">Calendars ▾</span><span class="btn ghost">⟳ Refresh</span><span class="btn pri ring">＋ New event</span></div></div>
+<p class="why">It's the one coloured button on the screen, so it's easy to find. In List view it stays put, and Dismiss all sits to its left.</p>
+</div>
+<div>
+<p style="margin:0 0 8px"><span class="opt">B</span>A small + beside Day · Week · Month</p>
+<div class="app"><div class="head"><span class="btn ghost">Today</span><b>November 2026</b><span class="grow"></span><span class="seg"><span>Day</span><span class="on">Week</span><span>Month</span></span><span class="btn ring" title="New event">＋</span></div></div>
+<p class="why">Quieter, but it's only an icon and only shows in Calendar view.</p>
+</div>
+</div>
+<p style="margin:16px 0 8px">Also in the picked-day panel, starting on that day:</p>
+<div class="app" style="width:300px"><b>Thursday 12 November</b><div class="small" style="margin:6px 0">09:30 Content planning<br>14:00 Dentist</div><span class="btn ghost ring">＋ New event on Thursday</span></div>
+</section>
+
+<section>
+<div class="lbl">2 · Double-click a time (or drag down a range), or right-click</div>
+<div class="pair">
+<div class="app" style="width:380px">
+<div class="grid">
+<div class="t">10:00</div><div></div><div></div><div></div>
+<div class="t">10:30</div><div></div><div><span class="ghostev">New event<br>10:30 to 11:30</span></div><div></div>
+<div class="t">11:00</div><div></div><div></div><div></div>
+<div class="t">11:30</div><div></div><div></div><div></div>
+</div>
+<p class="small" style="margin:8px 0 0">The hour you double-clicked shows a blue placeholder while the quick pop-up is open. In Month view, a double-click makes an all-day event.</p>
+</div>
+<div class="menu">
+<div class="mi hover">New event <span class="k">Ctrl N</span></div>
+<div class="mi">New all-day event</div>
+<div class="sep"></div>
+<div class="mi">Open day</div>
+<div class="mi">Go to today</div>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">3 · Quick pop-up (title first, everything else guessed)</div>
+<div class="pair">
+<div class="pop">
+<div class="in focus" style="font-weight:700;font-size:15px">Lunch with Sam<span style="color:#77777f;font-weight:400"> |</span></div>
+<div class="f">
+<label>When</label><div class="row2"><span class="in">Thu 12 Nov</span><span class="in">10:30</span>to<span class="in">11:30</span></div>
+<label>Calendar</label><div><span class="sel"><span class="dot" style="background:#3b82f6"></span>todd@wellgood.media <small>· WGM</small> ▾</span></div>
+</div>
+<div class="acts"><span class="btn ghost">More options…</span><span class="grow" style="flex:1"></span><span class="btn">Cancel</span><span class="btn pri">Add</span></div>
+</div>
+<div style="max-width:380px">
+<p class="why" style="margin-top:0">Type a title and press Enter, and it's done. The calendar is the last one you used, or your main account's calendar the first time. Typing <i>"at 1pm"</i> or <i>"tomorrow"</i> in the title changes the time, using the same reader as the suggested events.</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">4 · More options: the full form (same as Edit, with more fields)</div>
+<div class="pair">
+<div class="pop" style="width:520px">
+<div class="in" style="font-weight:700;font-size:15px">Lunch with Sam</div>
+<div class="f">
+<label>All day</label><div><span class="sw"></span></div>
+<label>Starts</label><div class="row2"><span class="in">Thu 12 Nov 2026</span><span class="in">10:30</span></div>
+<label>Ends</label><div class="row2"><span class="in">Thu 12 Nov 2026</span><span class="in">11:30</span><span class="small">1 hour</span></div>
+<label>Repeat</label><div class="row2"><span class="sel">Every week ▾</span><span class="small">on Thursday</span></div>
+<label>End repeat</label><div class="row2"><span class="sel">On date ▾</span><span class="in">18 Dec 2026</span></div>
+<label>Calendar</label><div><span class="sel"><span class="dot" style="background:#3b82f6"></span>todd@wellgood.media <small>· WGM</small> ▾</span></div>
+<label>Alert</label><div class="row2"><span class="sel">15 minutes before ▾</span><span class="btn ghost" style="padding:3px 8px">＋</span></div>
+<label>Invitees</label><div class="in row2" style="gap:6px"><span class="chip"><span class="av">S</span>Sam Reid</span><span class="ph" style="color:#77777f">Add people…</span></div>
+<label>Location</label><div class="in ph">Add a place</div>
+<label>Video call</label><div class="row2"><span class="btn ghost">＋ Add Google Meet</span></div>
+<label>Notes</label><div class="in ph" style="height:52px">Notes</div>
+</div>
+<div class="acts"><span class="btn">Cancel</span><span class="grow" style="flex:1"></span><span class="btn pri">Add and send invitations</span></div>
+</div>
+<div style="max-width:400px">
+<div class="menu" style="width:250px;margin-bottom:12px">
+<div class="mi">Never</div><div class="mi">Every day</div><div class="mi">Every weekday</div><div class="mi hover">Every week</div><div class="mi">Every 2 weeks</div><div class="mi">Every month</div><div class="mi">Every year</div><div class="sep"></div><div class="mi">Custom…</div>
+</div>
+<p class="why" style="margin-top:0"><b>Repeat</b> has the same choices as Apple. Custom means every N days, weeks, months or years, on chosen weekdays, or "the 2nd Tuesday". <b>End repeat</b> can be Never, On date or After N times.</p>
+<p class="why"><b>Alerts:</b> None, At time of event, 5, 10, 15 or 30 minutes, 1 or 2 hours, 1 or 2 days, or 1 week before. Up to two alerts. All-day events get "on the day at 09:00" and "the day before at 09:00".</p>
+<p class="why"><b>Video call</b> offers Google Meet on Google accounts and Teams on Microsoft 365. iCloud and IMAP calendars have no Video call row.</p>
+<p class="why"><b>Invitees</b> are suggested from your contacts. The button then reads "Add and send invitations", and the account itself (Google or Outlook) emails them, the same as on the phone.</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">Things to decide</div>
+<div class="q">1. Button: A (blue button in the header) or B (small +)?<br>2. Should a double-click open the quick pop-up first (my pick), or go straight to the full form?<br>3. Is Ctrl N for New event when Calendar is open OK? (Ctrl N stays New email everywhere else.)<br>4. iCloud calendars: leave them out of the Calendar list for now (they're read-only in the app today), or should I add writing to iCloud in this round?</div>
+</section>
+
+</div></body></html>

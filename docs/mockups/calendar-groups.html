@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calendar Groups</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1000px;margin:0 auto;display:grid;gap:34px}
+h1{font-size:18px;margin:4px 0 0}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.opt{display:inline-block;font-size:11px;font-weight:700;background:#2b3a5a;color:#9fc0ff;border-radius:5px;padding:1px 7px;margin-right:6px}
+.rec{background:#1f3a2e;color:#7fe0b4}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0;max-width:740px}
+.pair{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.pop{width:460px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.pop h3{margin:0 0 10px;font-size:15px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:5px 12px;background:#2f2f35;font-size:12.5px;white-space:nowrap}
+.ghost{background:transparent}
+.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.acts{display:flex;gap:8px;margin-top:14px;align-items:center}
+.in{border:1px solid #4a4a52;border-radius:7px;padding:6px 9px;background:#1d1d20}
+.in.focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.menu{background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:4px;width:300px}
+.mh{font-size:11px;color:var(--muted);padding:7px 8px 2px;text-transform:uppercase;letter-spacing:.04em}
+.mi{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:6px}
+.mi.on{background:#3a3a44}
+.mi .k{margin-left:auto;color:var(--muted);font-size:11.5px}
+.sep{height:1px;background:#44444b;margin:4px 6px}
+.box{width:15px;height:15px;border-radius:4px;border:1px solid #6b6b75;flex:none;display:grid;place-items:center;font-size:10px}
+.box.on{background:var(--accent);border-color:var(--accent)}
+.app{background:#1b1b1e;border:1px solid #33333a;border-radius:12px;padding:14px;overflow:hidden}
+.head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.head h2{font-size:17px;margin:0 6px 0 0}
+.seg{display:inline-flex;border:1px solid #44444b;border-radius:8px;overflow:hidden}
+.seg span{padding:4px 11px;font-size:12.5px}
+.seg .on{background:#3a3a44}
+.grow{flex:1}
+.ring{outline:2px dashed #7fe0b4;outline-offset:3px;border-radius:8px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+.q{border-left:3px solid #f59e0b;padding:4px 0 4px 12px;color:#e8d7b5;font-size:12.5px;max-width:760px}
+.acc{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 2px;display:flex;gap:6px;align-items:center}
+.cal{display:flex;gap:9px;align-items:center;padding:4px 0}
+.ai{border:1px solid #4b3d6b;background:#241f33;border-radius:10px;padding:12px;max-width:460px}
+.ai b{color:#d9c8ff}
+.sw{width:30px;height:18px;border-radius:999px;background:#4a4a52;position:relative;display:inline-block}
+.sw::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+</style></head><body><div class="w">
+
+<div><h1>Calendar Groups</h1>
+<p class="why" style="margin-top:4px">A group such as Work or Personal collects calendars from any account. Picking a group shows only its calendars. "All" shows everything you haven't hidden, which is how it works today.</p></div>
+
+<section>
+<div class="lbl">1 · Picking a group on the Calendar screen</div>
+<div class="cols">
+<div>
+<p style="margin:0 0 8px"><span class="opt rec">A · MY PICK</span>Groups as a picker in the header</p>
+<div class="app"><div class="head"><h2>Calendar &amp; Reminders</h2><span class="seg"><span>List</span><span class="on">Calendar</span></span><span class="grow"></span><span class="seg ring"><span>All</span><span class="on">Work</span><span>Personal</span></span><span class="btn ghost">Calendars ▾</span><span class="btn pri">＋ New event</span></div></div>
+<p class="why">One click switches. It stays visible, so you always know which group you're looking at. With more than four groups, the extra ones go into a "More ▾" menu.</p>
+</div>
+<div>
+<p style="margin:0 0 8px"><span class="opt">B</span>Inside the Calendars menu</p>
+<div class="pair">
+<div class="app" style="padding:10px"><div class="head"><span class="btn ghost ring">Work ▾</span></div></div>
+<div class="menu" style="width:250px">
+<div class="mh">Groups</div>
+<div class="mi">All calendars</div>
+<div class="mi on">Work <span class="k">5 calendars</span></div>
+<div class="mi">Personal <span class="k">3</span></div>
+<div class="sep"></div>
+<div class="mi">Choose calendars…</div>
+<div class="mi">Edit groups…</div>
+</div>
+</div>
+<p class="why">Tidier, but it takes two clicks to switch.</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">2 · Making or editing a group</div>
+<div class="pair">
+<div class="pop">
+<h3>Edit group</h3>
+<div class="in focus">Work</div>
+<div class="acc"><span class="dot" style="background:#3b82f6"></span>WGM · todd@wellgood.media</div>
+<div class="cal"><span class="box on">✓</span><span class="dot" style="background:#3b82f6"></span>todd@wellgood.media</div>
+<div class="cal"><span class="box on">✓</span><span class="dot" style="background:#3b82f6"></span>Studio bookings</div>
+<div class="acc"><span class="dot" style="background:#f59e0b"></span>TBWELLER · tbweller@gmail.com</div>
+<div class="cal"><span class="box"></span><span class="dot" style="background:#f59e0b"></span>tbweller@gmail.com</div>
+<div class="cal"><span class="box on">✓</span><span class="dot" style="background:#f59e0b"></span>SAE Glasgow</div>
+<div class="cal"><span class="box"></span><span class="dot" style="background:#f59e0b"></span>Family</div>
+<div class="acc"><span class="dot" style="background:#ef4444"></span>WGM Microsoft</div>
+<div class="cal"><span class="box on">✓</span><span class="dot" style="background:#ef4444"></span>Calendar</div>
+<div class="acts"><span class="btn ghost" style="color:#ff8a8d">Delete group</span><span class="grow"></span><span class="btn">Cancel</span><span class="btn pri">Save</span></div>
+</div>
+<div style="max-width:420px">
+<p class="why" style="margin-top:0">This is the same list as the Calendars menu, grouped under each account with its colour. A calendar can be in more than one group.</p>
+<p class="why"><b>New event</b> uses the group too. While Work is showing, new events go to the first calendar in Work, and the Calendar list in the form shows that group's calendars first.</p>
+<p class="why">Groups are also set up in Settings › Calendar & Reminders, on a Calendar Groups card with New group, and Edit on each row.</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">3 · Alerts while a group is showing</div>
+<div class="pop" style="width:520px">
+<div style="display:flex;align-items:center;gap:10px"><div class="grow">Only alert me from the group I'm looking at<br><span class="why" style="margin:0">Off: you get alerts from every shown calendar, whichever group is picked.</span></div><span class="sw"></span></div>
+</div>
+<p class="why">Off by default, so switching to Personal at the weekend never quietly hides a work meeting. With it on, picking Personal works as a "weekend mode".</p>
+</section>
+
+<section>
+<div class="lbl">4 · Asking Claude to set them up</div>
+<div class="ai">
+<p style="margin:0 0 8px"><b>Claude wants to make a calendar group</b></p>
+<div style="font-size:12.5px;color:#ddd">Name: <b>Work</b><br>Calendars: todd@wellgood.media, Studio bookings (WGM) · SAE Glasgow (TBWELLER) · Calendar (WGM Microsoft)</div>
+<div class="acts"><span class="btn">Refuse</span><span class="grow"></span><span class="btn pri">Allow</span></div>
+</div>
+<p class="why">This is a new AI Connection tool, <code>set_calendar_groups</code>. It only changes how the app shows calendars, never the calendars themselves, so it can use Ask or Allow like the other tools. It's off until you switch it on.</p>
+</section>
+
+<section>
+<div class="lbl">Things to decide</div>
+<div class="q">1. A (picker in the header) or B (inside the Calendars menu)?<br>2. Should the alerts switch exist, and stay off by default?<br>3. Should groups also apply to the List view and the Coming up panel in the mail sidebar, or only to the calendar? I'd apply them everywhere calendars show.</div>
+</section>
+
+</div></body></html>
