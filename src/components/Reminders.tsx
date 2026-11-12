@@ -4,8 +4,10 @@ import { Icon } from './Icon';
 import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectThread, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { dueReminders, eventKey, alertMute } from '../lib/reminders';
-import { CalendarPicker, ComingUpList, EventPreview, JoinButton, MonthView, PickedDay } from './ComingUp';
-import { TimeGridView, CalendarModes } from './CalendarViews';
+import { CalendarPicker, ComingUpList, PickedDay } from './ComingUp';
+import { EventPreview } from './EventPopup';
+import { JoinButton } from './calendarBits';
+import { MonthView, TimeGridView, CalendarModes } from './CalendarViews';
 import { refreshCalendarCopy, startCalendarCopy } from '../lib/calendarCache';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
 

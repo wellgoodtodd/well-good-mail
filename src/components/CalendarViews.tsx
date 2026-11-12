@@ -1,5 +1,5 @@
 // Day and Week calendar views: times down the side, all-day events across the top, working hours shaded, a line
-// for now. The month view lives in ComingUp.tsx; Reminders switches between all three.
+// for now, and the month view, each event a coloured chip. Reminders switches between all three.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { Icon } from './Icon';
@@ -8,6 +8,7 @@ import { useCalCache, ensureCalendarRange, cachedBetween } from '../lib/calendar
 import { useSettings } from '../lib/settings';
 import { dedupeEvents, visibleEvents } from '../lib/meetings';
 import type { CalendarEvent } from '../lib/types';
+import { chipBackground } from './calendarBits';
 
 const HOUR_PX = 48;
 const DAY_MS = 86400000;
@@ -245,6 +246,89 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
             );
           })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** A month at a time, each event a coloured chip. */
+export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => void; modes?: React.ReactNode }) {
+  const nearEvents = useMail((s) => s.events);
+  const hidden = useSettings((s) => s.hiddenCalendars);
+  const sunday = useSettings((s) => s.weekStart) === 'sunday';
+  const weekNumbers = useSettings((s) => s.weekNumbers);
+  const hideWeekends = useSettings((s) => s.hideWeekends);
+  const colour = useColour();
+  const picked = useCalDay((c) => c.day);
+  const [month, setMonthNow] = useState(() => { const d = new Date(selectedOrToday()); d.setDate(1); return d; });
+  // Moving month keeps the picked day on the same date in the new month (or its last day).
+  const setMonth = (d: Date) => {
+    setMonthNow(d);
+    const was = useCalDay.getState().day;
+    if (was === undefined) return;
+    const day = Math.min(new Date(was).getDate(), new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate());
+    selectDay(new Date(d.getFullYear(), d.getMonth(), day).getTime());
+  };
+  const first = new Date(month);
+  const offset = sunday ? first.getDay() : (first.getDay() + 6) % 7;
+  const gridStart = new Date(first); gridStart.setDate(1 - offset);
+  const days = Array.from({ length: 42 }, (_, i) => { const d = new Date(gridStart); d.setDate(gridStart.getDate() + i); return d; });
+  // The calendar copy on this computer covers the month at once; anything it lacks is fetched and kept.
+  const copy = useCalCache((c) => c.events);
+  const gridEnd = gridStart.getTime() + 42 * 86400000;
+  useEffect(() => { void ensureCalendarRange(gridStart.getTime(), gridEnd); }, [month.getTime(), sunday]); // eslint-disable-line react-hooks/exhaustive-deps
+  const events = useMemo(() => {
+    const seen = new Set(nearEvents.map((e) => e.id));
+    return visibleEvents([...nearEvents, ...cachedBetween(copy, gridStart.getTime(), gridEnd).filter((e) => !seen.has(e.id))], hidden);
+  }, [nearEvents, copy, hidden, gridStart.getTime(), gridEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+  const byDay = useMemo(() => {
+    const m = new Map<string, CalendarEvent[]>();
+    for (const e of dedupeEvents(events)) {
+      // An event that runs over several days shows on each of them.
+      const last = Math.max(e.start, e.end - (e.allDay ? 1 : 0));
+      for (let t = new Date(e.start).setHours(0, 0, 0, 0); t <= last && t < e.start + 14 * 86400000; t += 86400000) {
+        const k = new Date(t).toDateString();
+        m.set(k, [...(m.get(k) || []), e]);
+      }
+    }
+    for (const list of m.values()) list.sort((a, b) => a.start - b.start);
+    return m;
+  }, [events]);
+  const shift = (n: number) => { const d = new Date(month); d.setMonth(d.getMonth() + n); setMonth(d); };
+  const today = new Date().toDateString();
+  return (
+    <div className="card month">
+      <div className="month-head">
+        <button className="icon-btn" aria-label="Previous month" onClick={() => shift(-1)}><Icon name="chevronLeft" size={16} /></button>
+        <strong className="jump-host"><JumpTitle at={month} onPick={(d) => setMonth(new Date(d.getFullYear(), d.getMonth(), 1))} label={month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} /></strong>
+        <button className="icon-btn" aria-label="Next month" onClick={() => shift(1)}><Icon name="chevronRight" size={16} /></button>
+        {modes}
+        <button className="btn ghost" onClick={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonthNow(d); selectDay(Date.now()); }}>Today</button>
+      </div>
+      <div className="month-grid" role="grid" style={{ gridTemplateColumns: `${weekNumbers ? '34px ' : ''}repeat(${hideWeekends ? 5 : 7}, minmax(0, 1fr))` }}>
+        {weekNumbers && <div className="month-dow">Wk</div>}
+        {(sunday ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).filter((n) => !hideWeekends || (n !== 'Sat' && n !== 'Sun')).map((n) => <div key={n} className="month-dow">{n}</div>)}
+        {days.flatMap((d, i) => {
+          const out: React.ReactNode[] = [];
+          // The week number goes first in each row, for the Monday of that row.
+          if (weekNumbers && i % 7 === 0) out.push(<div key={`wk${i}`} className="month-wk">{isoWeek(new Date(d.getTime() + (sunday ? 86400000 : 0)))}</div>);
+          if (hideWeekends && (d.getDay() === 0 || d.getDay() === 6)) return out;
+          const list = byDay.get(d.toDateString()) || [];
+          out.push(
+            <div key={d.toISOString()} className={`month-day ${d.getMonth() === month.getMonth() ? '' : 'other'} ${d.toDateString() === today ? 'today' : ''} ${picked === d.getTime() ? 'picked' : ''}`}
+              role="gridcell" aria-selected={picked === d.getTime()} title="Click to pick this day, double-click to open it"
+              onClick={() => selectDay(d.getTime())} onDoubleClick={() => openDay(d.getTime())}>
+              <span className="n">{d.getDate()}</span>
+              {list.slice(0, 3).map((e) => (
+                <button key={e.id} className="chip" style={{ background: chipBackground(e.accountIds?.length ? e.accountIds : [e.accountId], colour) }} title={e.title} onClick={(ev) => { ev.stopPropagation(); selectDay(d.getTime()); onPick(e); }} onDoubleClick={(ev) => ev.stopPropagation()}>
+                  {!e.allDay && <span>{timeText(e.start)} </span>}{e.title}
+                </button>
+              ))}
+              {list.length > 3 && <button className="more" onClick={(ev) => { ev.stopPropagation(); openDay(d.getTime()); }} title="Show the whole day">+{list.length - 3} more</button>}
+            </div>,
+          );
+          return out;
+        })}
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 import { noteSaved } from '../lib/saves';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { GuestList, JoinButton } from './ComingUp';
+import { GuestList, JoinButton } from './calendarBits';
 import { addInviteToCalendar, answerInvite, canAddToCalendar, getAttachmentData, inviteStatus, reconnectAccount, toast, useMail } from '../lib/mail';
 import { parseInvite, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from '../lib/invites';
 import { CalendarPermissionError } from '../lib/providers/provider';
