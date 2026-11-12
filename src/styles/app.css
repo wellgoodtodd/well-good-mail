@@ -297,6 +297,19 @@ a { color: var(--accent-text, var(--accent)); }
 .fmt-bar .icon-btn { width: 28px; height: 26px; }
 .fmt-bar .icon-btn.on { background: var(--bg-selected); color: var(--text); }
 .fmt-bar input[type=color] { width: 26px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 5px; background: none; }
+/* Tiptap's own base editor styles. Tiptap 3 adds them as a style tag but takes the tag away again when any editor closes,
+   even while another is open (and always in development, where React mounts twice), so they live here instead. */
+.ProseMirror { position: relative; word-wrap: break-word; white-space: pre-wrap; white-space: break-spaces; -webkit-font-variant-ligatures: none; font-variant-ligatures: none; font-feature-settings: "liga" 0; }
+.ProseMirror [contenteditable="false"] { white-space: normal; }
+.ProseMirror [contenteditable="false"] [contenteditable="true"] { white-space: pre-wrap; }
+.ProseMirror pre { white-space: pre-wrap; }
+img.ProseMirror-separator { display: inline !important; border: none !important; margin: 0 !important; width: 0 !important; height: 0 !important; }
+.ProseMirror-gapcursor { display: none; pointer-events: none; position: absolute; margin: 0; }
+.ProseMirror-gapcursor:after { content: ""; display: block; position: absolute; top: -2px; width: 20px; border-top: 1px solid black; animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite; }
+@keyframes ProseMirror-cursor-blink { to { visibility: hidden; } }
+.ProseMirror-hideselection *::selection { background: transparent; }
+.ProseMirror-hideselection * { caret-color: transparent; }
+.ProseMirror-focused .ProseMirror-gapcursor { display: block; }
 .editor-wrap { flex: 1; overflow-y: auto; padding: 12px; user-select: text; min-height: 160px; cursor: text; }
 .editor-wrap .ProseMirror { outline: none; min-height: 120px; line-height: 1.5; }
 .editor-wrap .ProseMirror p { margin: 0 0 0.6em; }

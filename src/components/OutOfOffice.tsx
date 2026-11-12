@@ -33,7 +33,7 @@ export function MessageEditor({ html, onChange, label }: { html: string; onChang
     onUpdate: ({ editor: ed }) => { window.clearTimeout(timer.current); const v = ed.getHTML(); timer.current = window.setTimeout(() => onChange(v), 350); },
   });
   // A template or another account's message replaces what's in the box.
-  useEffect(() => { if (editor && editor.getHTML() !== html && !editor.isFocused) editor.commands.setContent(html, false); }, [html, editor]);
+  useEffect(() => { if (editor && editor.getHTML() !== html && !editor.isFocused) editor.commands.setContent(html, { emitUpdate: false }); }, [html, editor]);
   useEffect(() => () => window.clearTimeout(timer.current), []);
   const insert = (h: string) => { editor?.chain().focus().insertContent(h).run(); };
   return (

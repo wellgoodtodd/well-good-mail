@@ -1,14 +1,10 @@
 // Rich text editor setup shared by the composer and the signature editor.
 import { Extension, type Editor } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import Link from '@tiptap/extension-link';
-import TextStyle from '@tiptap/extension-text-style';
-import Color from '@tiptap/extension-color';
-import Highlight from '@tiptap/extension-highlight';
-import FontFamily from '@tiptap/extension-font-family';
-import Image from '@tiptap/extension-image';
-import Placeholder from '@tiptap/extension-placeholder';
+import { StarterKit } from '@tiptap/starter-kit';
+import { TextStyle, Color, FontFamily } from '@tiptap/extension-text-style';
+import { Highlight } from '@tiptap/extension-highlight';
+import { Image } from '@tiptap/extension-image';
+import { Placeholder } from '@tiptap/extensions';
 
 /** Font size as a text style (e.g. "14pt"). */
 const FontSize = Extension.create({
@@ -50,10 +46,15 @@ const Indent = Extension.create({
 
 export function editorExtensions(placeholder = 'Write your email...') {
   return [
-    StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-    Underline,
-    Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true, HTMLAttributes: { rel: null, target: null } }),
-    TextStyle,
+    // Tiptap 3's StarterKit brings Underline and Link itself. Its new list keys and trailing paragraph stay off, so the editor behaves as it did on Tiptap 2.
+    StarterKit.configure({
+      heading: { levels: [1, 2, 3] },
+      link: { openOnClick: false, autolink: true, linkOnPaste: true, HTMLAttributes: { rel: null, target: null } },
+      listKeymap: false,
+      trailingNode: false,
+    }),
+    // Tiptap 2 kept nested span styles apart; keep it that way.
+    TextStyle.configure({ mergeNestedSpanStyles: false }),
     Color,
     FontSize,
     FontFamily,
