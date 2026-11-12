@@ -17,7 +17,7 @@ Capitals (agreed 9 Nov 2026): names of places and features take a capital on eac
 
 - `src/lib/providers/`: the interface every account type implements (`provider.ts`), with `gmail.ts`, `microsoft.ts` and `demo.ts`.
 - IMAP: `src-tauri/src/imapmail.rs` makes the IMAP and SMTP connections and returns raw data. `src/lib/providers/imap.ts` works out what it means (the same email in two folders is joined by Message-ID, conversations come from References headers, a copy is filed in Sent after sending). `src/lib/imapUtil.ts` holds the plain helpers and the service list (iCloud and others), `src/lib/auth/imap.ts` the app password storage. `src/lib/__tests__/imapProvider.test.ts` runs the provider against a pretend server.
-- `src/lib/mail.ts`: sync loop and every mail action, outbox for undo send and send later.
+- `src/lib/mail.ts`: gathers the mail code in `src/lib/mail/` (store, messages, bodies, views, accounts, sync, actions, calendar, contacts, outbox, timers, start) so the rest of the app imports from one place. The store keeps list details only; email bodies live in IndexedDB and are read when opened (`loadBody`, recent ones in `src/lib/bodyCache.ts`).
 - `src/lib/compose.ts`: drafts, reply, reply all and forward switching, building the outgoing message.
 - `src/lib/mime.ts`: MIME building and parsing. Tests are in `src/lib/__tests__`.
 - `src/lib/auth/google.ts`: Google sign in. The client ID and secret come from the first-run guide (`src/components/SetupGuide.tsx`) and are stored in Windows Credential Manager.
