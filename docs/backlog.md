@@ -19,6 +19,14 @@ To fix:
 - **Microsoft 502 "UnknownError"** toast ("Couldn't reach the calendar for WGM Microsoft") came up twice during refreshes. Probably Outlook having a moment; retry once quietly before showing it, and word it more plainly.
 - **Guest answers and new invitations still take a refresh to show** (5 to 6 seconds after Refresh). Look again at refreshing sooner after an answer or a change.
 - Later: typing a contact's name in the New event title could offer to invite them.
+- **Second alert:** worked; Todd missed the small + button. Make it "+ Add alert" with words, not just a +.
+- **Events on several of your calendars** show once with "On 4 of your calendars", but the Calendar line only highlights one of them, and there's no easy way to take it off just one calendar. Idea for later: list each calendar it's on with a "Remove from this calendar" (for copies you were invited to, that's declining or deleting that copy). Not urgent.
+
+**Out of Office on beta 4 (Todd, 12 Nov 2026).** The page works: switches, templates, different message per account, Schedule for several accounts.
+- **WGM Microsoft can't be checked or switched on:** "Couldn't check: {"error":{"code":"UnknownError"...". The same Microsoft 502 as the calendar, or the account lacks the MailboxSettings permission. Find out which; show plain words ("Outlook didn't answer. Try again") instead of the raw error, with a Try again button, and Sign in if it's a permission.
+- **While I'm away row:** don't list every option that's on. A general line like "Choose what happens while you're away" with the "4 of 5 on" count, opening to the switches.
+- **Move the Template picker next to the message:** inside the MESSAGE card (or just below Accounts), since that's where it's used; at the top it's far from the text.
+- **Template picker and per-account tabs:** with "Different message for each account" on, picking a template on one tab and then switching tabs doesn't show which template that tab has. Show each tab's own template in the picker.
 - Day view at 5-minute lines is a lot, but leave it.
 
 ## 0.7.3 beta 4 (built 12 Nov 2026)

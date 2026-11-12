@@ -12,7 +12,8 @@ Beta 4 is beta 3 plus work under the hood. You're going straight from beta 2 to 
 - All-day events can't be dragged in Day or Week view; one weekly event wouldn't drag.
 - Add a note is easy to miss; no Accept / Decline on an unanswered invitation's pop-up.
 - "Cancel the meeting and tell guests" sent no emails.
-- A Microsoft 502 error shows during refreshes.
+- A Microsoft 502 error shows during refreshes, and Out of Office can't check or switch on WGM Microsoft.
+- Out of Office: the Template picker belongs next to the message, and doesn't follow the account tabs; While I'm away should say something general, not list every option.
 
 ## Under the hood (beta 4)
 
@@ -87,9 +88,9 @@ Beta 4 is beta 3 plus work under the hood. You're going straight from beta 2 to 
 
 ## Out of Office page
 
-- [ ] The new layout: cards with small capitals titles (ACCOUNTS, MESSAGE, WHEN, WHO GETS IT), accounts as switches, and While I'm away folded away.
-- [ ] **Different message for each account:** switch it on; a tab appears for each account that's on, and each one keeps its own message.
-- [ ] The sentence at the bottom reads back exactly what will happen.
+- [x] The new layout: cards with small capitals titles (ACCOUNTS, MESSAGE, WHEN, WHO GETS IT), accounts as switches, and While I'm away folded away.
+- [x] **Different message for each account:** switch it on; a tab appears for each account that's on, and each one keeps its own message.
+- [x] The sentence at the bottom reads back exactly what will happen.
 - [ ] Pick a template, then change something: **Changed** appears with Update template and Save as new. Pressing Schedule asks once, with "Leave the template as it was".
 - [ ] The Templates drop-down shows names only. Manage templates says Duplicate, Save current settings to it, Choose parts….
 - [ ] Set up a Friday afternoon away (Friday 13:00 to Monday 09:00), then Templates › **Save as new template**. Tick whole groups, then single parts inside them.
@@ -102,7 +103,7 @@ Beta 4 is beta 3 plus work under the hood. You're going straight from beta 2 to 
 
 - [ ] Delete an event you've already deleted on your phone: no "Resource has been deleted" error, it just goes.
 - [ ] Add an event, press Undo, then Ctrl+Z: whatever shows on screen is really in Google, and can be deleted.
-- [ ] A **second alert** on an all-day event.
+- [x] A **second alert** on an all-day event.
 - [ ] **"Today"** in a title (e.g. "Call Mum today at 6pm"), and deleting the date words puts the day and time back to how they started.
 - [ ] **Mark as unread** on a conversation: only one email turns unread (the one you're reading, or the latest), and the count goes up by one.
 
