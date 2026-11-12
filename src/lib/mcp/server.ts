@@ -131,6 +131,7 @@ async function answer(rid: number, conn: number, body: string) {
   try { msg = JSON.parse(body); } catch { return; }
   if (msg.method === 'initialize') {
     const raw = (msg.params?.clientInfo as { name?: string } | undefined)?.name;
+    // The self-test only says hello and lists the tools. Anything using its name to call a tool is treated as any other app.
     if (raw === SELF_TEST) apps.set(conn, SELF_TEST);
     else {
       apps.set(conn, appName(raw));
@@ -138,6 +139,7 @@ async function answer(rid: number, conn: number, body: string) {
       logActivity(`${appName(raw)} connected`, 'done', appName(raw));
     }
   }
+  if (msg.method === 'tools/call' && apps.get(conn) === SELF_TEST) apps.set(conn, 'An AI app');
   const app = apps.get(conn) === SELF_TEST ? 'The self-test' : apps.get(conn) || 'An AI app';
   // The tools changed since this app last looked (an update, a setting, or a connection that came back after
   // Well Good Mail restarted): send the standard notice ahead of the answer, so it fetches the list again by itself.
@@ -149,7 +151,7 @@ async function answer(rid: number, conn: number, body: string) {
   if (msg.method === 'tools/list') listed.set(conn, toolsSignature(tidy(settings().mcp)));
   const send = async (out: object | undefined) => { if (rid && out) await invoke('mcp_respond', { rid, body: notice + JSON.stringify(out) }); };
 
-  if (msg.method === 'tools/call' && apps.get(conn) !== SELF_TEST) {
+  if (msg.method === 'tools/call') {
     // Paused: ask before going on. Saying hello and listing tools never needs this.
     if (useActivity.getState().paused) {
       void callPerson(`${app} wants to use Well Good Mail again`, 'The AI Connection is paused. Answer in Well Good Mail.');

@@ -96,8 +96,9 @@ export function renderEmail(bodyHtml: string | undefined, bodyText: string | und
   let trackersBlocked = 0;
   let hasRemote = false;
 
-  // Anything that would fetch from the internet: "https:", "http:", or an address starting "//", even with spaces in front.
-  const isRemote = (v: string | null) => Boolean(v && /^\s*(?:https?:|\/\/)/i.test(v));
+  // Anything that would fetch from the internet: "https:", "http:", or an address starting "//" (or backslashes). Read
+  // the way the browser reads it, which drops tabs and line breaks anywhere, and spaces or control characters in front.
+  const isRemote = (v: string | null) => Boolean(v && /^(?:https?:|[\\/]{2})/i.test(v.replace(/[\t\n\r]/g, '').replace(/^[\u0000- ]+/, '')));
   const remoteInList = (v: string | null) => Boolean(v && v.split(',').some((part) => isRemote(part.trim())));
   // url(...) and image-set(...) in style that point at the internet, in any quoting.
   const CSS_REMOTE = /url\(\s*(['"]?)\s*(?:https?:|\/\/)[^)]*\)/gi;
@@ -189,6 +190,9 @@ export function renderEmail(bodyHtml: string | undefined, bodyText: string | und
       ` : ''}
     </style>`;
   const head = doc.head.innerHTML;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="color-scheme" content="only light">${style}${head}</head><body>${doc.body.innerHTML}</body></html>`;
+  // While pictures are held back, the frame itself refuses anything from the internet, so nothing the checks above
+  // miss (escaped addresses in styles, odd attributes) can fetch a picture and tell the sender the email was opened.
+  const noRemote = opts.allowRemote ? '' : `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; media-src data: blob:; style-src 'unsafe-inline'; font-src 'self' data:">`;
+  const html = `<!doctype html><html><head><meta charset="utf-8">${noRemote}<meta name="referrer" content="no-referrer"><meta name="color-scheme" content="only light">${style}${head}</head><body>${doc.body.innerHTML}</body></html>`;
   return { html, remoteBlocked, trackersBlocked, hasRemote };
 }

@@ -10,10 +10,10 @@
 
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hasher};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -57,19 +57,57 @@ fn new_token() -> String {
     out
 }
 
+/// The longest line read before the token is checked, and the longest message after. Anything longer closes the
+/// connection, so nothing on this computer can fill the memory by sending endless text.
+const TOKEN_LINE_MAX: u64 = 256;
+const MESSAGE_MAX: u64 = 8 * 1024 * 1024;
+/// Connections open at once. AI apps open one or two; more than this is something misbehaving.
+const MAX_CONNECTIONS: usize = 16;
+static LIVE: AtomicUsize = AtomicUsize::new(0);
+
+/// Counts a connection while it's open.
+struct Live;
+impl Live {
+    fn take() -> Option<Live> {
+        if LIVE.fetch_add(1, Ordering::SeqCst) >= MAX_CONNECTIONS {
+            LIVE.fetch_sub(1, Ordering::SeqCst);
+            return None;
+        }
+        Some(Live)
+    }
+}
+impl Drop for Live {
+    fn drop(&mut self) {
+        LIVE.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// Reads one line, but no more than max bytes. A line that doesn't end within that is an error.
+fn read_capped(reader: &mut BufReader<TcpStream>, max: u64, out: &mut String) -> std::io::Result<usize> {
+    let n = reader.by_ref().take(max).read_line(out)?;
+    if n as u64 >= max && !out.ends_with('\n') {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "line too long"));
+    }
+    Ok(n)
+}
+
 fn handle(app: AppHandle, stream: TcpStream, token: String, conn: u64) {
+    let Some(_live) = Live::take() else {
+        let _ = stream.shutdown(Shutdown::Both);
+        return;
+    };
     let Ok(read_half) = stream.try_clone() else { return };
     let mut reader = BufReader::new(read_half);
     let mut writer = stream;
     let mut first = String::new();
-    if reader.read_line(&mut first).is_err() || first.trim() != token {
+    if read_capped(&mut reader, TOKEN_LINE_MAX, &mut first).is_err() || first.trim() != token {
         let _ = writer.shutdown(Shutdown::Both);
         return;
     }
     let _ = app.emit("mcp-connected", serde_json::json!({ "conn": conn }));
     loop {
         let mut line = String::new();
-        match reader.read_line(&mut line) {
+        match read_capped(&mut reader, MESSAGE_MAX, &mut line) {
             Ok(0) | Err(_) => break,
             Ok(_) => {}
         }

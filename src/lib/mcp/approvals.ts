@@ -25,15 +25,33 @@ export const useApprovals = create<ApprovalState>(() => ({ asks: [] }));
 
 let next = 1;
 
+/**
+ * How long a question waits for you. The connection gives the AI app its answer after 180 seconds, so the card goes
+ * a little before that: a yes clicked later would act after the AI was told it didn't happen.
+ */
+const ASK_WAIT = 170_000;
+
 export function addAsk(app: string, req: AskRequest): Promise<{ allowed: string[]; remember?: 'hour' | 'always'; edit?: boolean }> {
   return new Promise((resolve) => {
     const key = next++;
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      useApprovals.setState({ asks: useApprovals.getState().asks.filter((a) => a.key !== key) });
+      resolve({ allowed: [] });
+    }, ASK_WAIT);
     const item: PendingAsk = {
       ...req,
       key,
       app,
       ticked: req.accounts.map((a) => a.id),
-      resolve: (allowed, remember, edit) => resolve({ allowed, remember, edit }),
+      resolve: (allowed, remember, edit) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve({ allowed, remember, edit });
+      },
     };
     useApprovals.setState({ asks: [...useApprovals.getState().asks, item] });
   });

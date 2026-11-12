@@ -17,6 +17,13 @@ describe('render', () => {
     expect(r.trackersBlocked).toBe(1);
     expect(r.html).toContain('photo.jpg');
   });
+  it('holds back remote images hidden with line breaks or backslashes, and the frame refuses the internet', () => {
+    const r = renderEmail('<img src="ht&#10;tps://x.com/a.png"><img src="\\\\x.com/b.png">', undefined, base);
+    expect(r.remoteBlocked).toBe(2);
+    expect(r.html).toContain("img-src data: blob:");
+    const allowed = renderEmail('<img src="https://x.com/c.png">', undefined, { ...base, allowRemote: true });
+    expect(allowed.html).not.toContain('Content-Security-Policy');
+  });
   it('flags links that pretend to go somewhere else', () => {
     const r = renderEmail('<a href="https://evil.example/login">https://www.paypal.com</a>', undefined, base);
     expect(r.html).toContain('data-wgm-mismatch="evil.example"');
