@@ -11,7 +11,7 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
   - A quick pop-up comes first. More options expands the same card into the full form; it doesn't open a new window.
   - Repeat and End repeat work as in the mock-up.
   - iCloud calendars, and any you've hidden, stay out of the Calendar list for now.
-  - Shortcuts: Ctrl+Shift+N is New event, from anywhere in the app. It used to be a second key for Check for new mail, which keeps F5. Ctrl+N stays New email. The change is listed in What's new, because anyone used to Ctrl+Shift+N for checking mail will notice it.
+  - Shortcuts: Ctrl+Alt+N is New event, from anywhere in the app. The Apple Mail defaults stay as they are: Ctrl+N is New email, and Ctrl+Shift+N is Check for new mail. New event doesn't work while you're writing an email, because on some keyboard layouts (Polish, for example) Ctrl+Alt+N types a letter. It can be changed in Keyboard Shortcuts like the others.
 - Out of Office templates:
   - Save as new template has ticks for each group, and each group's sub-options can also be ticked one by one. For example, While I'm away can be ticked whole, or just the Away event and the decline option on their own.
   - Templates are picked from the Templates drop-down.
