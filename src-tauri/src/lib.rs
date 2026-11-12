@@ -233,6 +233,7 @@ pub fn run() {
             wake::cancel_wake,
             set_taskbar_badge,
             files::open_attachment,
+            files::mark_downloaded,
             files::save_to_folder,
             files::open_saved,
             crash::clean_exit,

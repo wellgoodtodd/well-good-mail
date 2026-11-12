@@ -123,7 +123,10 @@ export async function saveFile(filename: string, data: Uint8Array, mimeType: str
     const { writeFile } = await import('@tauri-apps/plugin-fs');
     const name = safeFileName(filename);
     const path = await save({ defaultPath: downloadFolder ? `${downloadFolder.replace(/[\\/]+$/, '')}\\${name}` : name });
-    if (path) await writeFile(path, data);
+    if (path) {
+      await writeFile(path, data);
+      await invoke('mark_downloaded', { path }).catch(() => undefined);
+    }
     return path || undefined;
   }
   const blob = new Blob([data], { type: mimeType });
@@ -171,6 +174,7 @@ export async function saveFilesToFolder(files: { filename: string; data: Uint8Ar
     let name = clean;
     for (let n = 2; await exists(`${dir}${sep}${name}`); n++) name = `${stem} (${n})${ext}`;
     await writeFile(`${dir}${sep}${name}`, f.data);
+    await invoke('mark_downloaded', { path: `${dir}${sep}${name}` }).catch(() => undefined);
     saved.push(`${dir}${sep}${name}`);
   }
   return saved;

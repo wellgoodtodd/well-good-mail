@@ -14,7 +14,32 @@ const NEVER_OPEN: &[&str] = &[
     "exe", "com", "bat", "cmd", "scr", "pif", "msi", "msix", "msixbundle", "appx", "appxbundle", "msp", "cpl", "msc", "jar",
     "js", "jse", "vbs", "vbe", "wsf", "wsh", "ws", "hta", "ps1", "psm1", "psd1", "ps1xml", "lnk", "url", "reg", "inf", "scf",
     "application", "gadget", "dll", "sys", "iso", "img", "vhd", "vhdx", "xll", "library-ms", "settingcontent-ms", "chm", "diagcab",
+    "appref-ms", "wsc", "sct", "vb", "vbscript", "rdp", "search-ms", "searchconnector-ms", "theme", "themepack", "deskthemepack",
+    "py", "pyw", "pyz", "jnlp", "hlp", "msh", "msh1", "msh2", "mshxml", "ps2", "ps2xml", "psc1", "psc2", "cab", "mst", "pl", "xbap",
 ];
+
+/// Marks a file as downloaded from the internet, as browsers do, so Windows SmartScreen and Office's Protected View
+/// and macro blocking treat it with the same care. Best effort: a drive that can't hold the mark (FAT, some network
+/// drives) simply goes without it.
+pub fn mark_from_internet(path: &Path) {
+    #[cfg(windows)]
+    {
+        let mut stream = path.as_os_str().to_owned();
+        stream.push(":Zone.Identifier");
+        let _ = fs::write(PathBuf::from(stream), "[ZoneTransfer]\r\nZoneId=3\r\n");
+    }
+    #[cfg(not(windows))]
+    let _ = path;
+}
+
+/// The same mark, for files the app saved through the Save As box.
+#[tauri::command]
+pub fn mark_downloaded(path: String) {
+    let p = PathBuf::from(&path);
+    if p.is_file() {
+        mark_from_internet(&p);
+    }
+}
 
 /// Just a plain file name: no folders, no characters Windows forbids, never a reserved name.
 fn clean_name(name: &str) -> String {
@@ -73,6 +98,7 @@ pub fn open_attachment(app: AppHandle, name: String, data: String) -> Result<(),
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(&name);
     fs::write(&path, decode(&data)?).map_err(|e| e.to_string())?;
+    mark_from_internet(&path);
     tauri_plugin_opener::open_path(&path, None::<&str>).map_err(|e| e.to_string())
 }
 
@@ -108,6 +134,7 @@ pub fn save_to_folder(folder: String, name: String, data: String) -> Result<Stri
     }
     let path = free_path(&dir, &clean_name(&name));
     fs::write(&path, decode(&data)?).map_err(|e| e.to_string())?;
+    mark_from_internet(&path);
     Ok(path.to_string_lossy().to_string())
 }
 
