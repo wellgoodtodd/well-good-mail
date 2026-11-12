@@ -1,6 +1,7 @@
 // Building drafts for new, reply, reply all and forward, and switching
 // between them without losing what you've written.
 import { escapeHtml, htmlToText, textToHtml, base64ToBytes } from './mime';
+import { withCachedBody } from './bodyCache';
 import type { Account, Address, Alias, ComposeMode, Draft, Message, OutgoingMessage } from './types';
 
 export interface ComposeContext {
@@ -85,9 +86,29 @@ function formatDate(ms: number) {
 
 const fmt = (a: Address) => (a.name ? `${escapeHtml(a.name)} &lt;${escapeHtml(a.email)}&gt;` : escapeHtml(a.email));
 
-export function quoteFor(mode: ComposeMode, source: Message | undefined): string {
+const QUOTE_OPEN = '<blockquote style="margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex">';
+
+/**
+ * The quoted email inside a quote this file made earlier, so switching Reply to Forward keeps the full text even when
+ * the email's body isn't in memory any more (the mail store holds list details only).
+ */
+export function quotedBodyOf(quotedHtml: string): string | undefined {
+  if (quotedHtml.startsWith('<div class="wgm-quote">') && quotedHtml.endsWith('</blockquote></div>')) {
+    const at = quotedHtml.indexOf(QUOTE_OPEN);
+    return at < 0 ? undefined : quotedHtml.slice(at + QUOTE_OPEN.length, -'</blockquote></div>'.length);
+  }
+  if (quotedHtml.startsWith('<div class="wgm-forward"><p>') && quotedHtml.endsWith('</div>')) {
+    const at = quotedHtml.indexOf('</p>');
+    return at < 0 ? undefined : quotedHtml.slice(at + 4, -'</div>'.length);
+  }
+  return undefined;
+}
+
+export function quoteFor(mode: ComposeMode, source: Message | undefined, keptBody?: string): string {
   if (!source || mode === 'new') return '';
-  const body = source.bodyHtml || (source.bodyText ? textToHtml(source.bodyText) : escapeHtml(source.snippet));
+  // The mail store keeps no body text: use the one in memory if this email was opened lately.
+  source = withCachedBody(source);
+  const body = source.bodyHtml || (source.bodyText ? textToHtml(source.bodyText) : keptBody ?? escapeHtml(source.snippet));
   if (mode === 'forward') {
     return (
       `<div class="wgm-forward"><p>---------- Forwarded message ----------<br>` +
@@ -97,7 +118,7 @@ export function quoteFor(mode: ComposeMode, source: Message | undefined): string
   }
   return (
     `<div class="wgm-quote"><p>On ${formatDate(source.date)}, ${fmt(source.from)} wrote:</p>` +
-    `<blockquote style="margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex">${body}</blockquote></div>`
+    `${QUOTE_OPEN}${body}</blockquote></div>`
   );
 }
 
@@ -144,7 +165,7 @@ export function switchMode(draft: Draft, mode: ComposeMode, source: Message | un
     cc: merge(auto.cc, manual('cc')),
     bcc: merge([], manual('bcc')),
     subject: source ? subjectFor(mode, draft.subject || source.subject) : draft.subject,
-    quotedHtml: quoteFor(mode, source),
+    quotedHtml: quoteFor(mode, source, quotedBodyOf(draft.quotedHtml)),
     includeSourceAttachments: mode === 'forward',
     updatedAt: Date.now(),
   };

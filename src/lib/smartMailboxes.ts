@@ -3,6 +3,7 @@
 import type { Message, SystemFolder } from './types';
 import type { MailProvider } from './providers/provider';
 import { inSystemFolder } from './mailbox';
+import { bodyMentions } from './search';
 
 export type SmartField = 'from' | 'to' | 'subject' | 'words' | 'account' | 'folder' | 'status' | 'attachments' | 'date';
 export type SmartStatus = 'unread' | 'read' | 'flagged' | 'vip' | 'toMe';
@@ -45,7 +46,11 @@ function ruleMatches(m: Message, r: SmartRule, provider: MailProvider | undefine
     case 'from': return any(addrText(m.from));
     case 'to': return any([...m.to, ...m.cc].map(addrText).join(' '));
     case 'subject': return any(m.subject.toLowerCase());
-    case 'words': return any(`${m.subject} ${m.from.name || ''} ${m.from.email} ${m.snippet} ${m.bodyText || ''} ${m.attachments.map((a) => a.filename).join(' ')}`.toLowerCase());
+    case 'words': {
+      // The store keeps no body text, so the body part is answered by the search index (which has each email's text).
+      const hay = `${m.subject} ${m.from.name || ''} ${m.from.email} ${m.snippet} ${m.bodyText || ''} ${m.attachments.map((a) => a.filename).join(' ')}`.toLowerCase();
+      return alternatives(r.value).some((w) => hay.includes(w) || bodyMentions(m.id, w));
+    }
     case 'account': return alternatives(r.value).includes(m.accountId.toLowerCase());
     case 'folder': return inSystemFolder(m, r.value as SystemFolder, provider);
     case 'attachments': return m.hasAttachments || m.attachments.length > 0;

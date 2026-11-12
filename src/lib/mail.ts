@@ -4,6 +4,7 @@ import { askText } from './dialogs';
 import { logLine } from './activityLog';
 import { create } from 'zustand';
 import { store } from './db';
+import { bodyOf, carriesBody, forgetBodies, holdWhileSaving, listOnly, peekBody, refreshBody, rememberBody, type Body } from './bodyCache';
 import { settings, useSettings, isQuietNow } from './settings';
 import { GmailProvider } from './providers/gmail';
 import { MicrosoftProvider } from './providers/microsoft';
@@ -18,7 +19,7 @@ import type { MailProvider } from './providers/provider';
 import { buildReply, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from './invites';
 import { signInWithGoogle, signOutGoogle } from './auth/google';
 import { signInWithMicrosoft, signOutMicrosoft } from './auth/microsoft';
-import { indexMessages, removeFromIndex, searchMessages, toGmailQuery, rebuildIndexInBackground } from './search';
+import { indexMessages, removeFromIndex, searchMessages, toGmailQuery } from './search';
 import { inSystemFolder, threadKey } from './mailbox';
 import { showBanner } from './banners';
 import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout, invoke } from './platform';
@@ -215,17 +216,27 @@ function putMessages(msgs: Message[], fromSync = false) {
   }
   if (!msgs.length) return;
   const next = { ...get().messages };
+  // The full copies (with any body that came in) go to the database and the search index; the store keeps list details only.
+  const full: Message[] = [];
+  const bodies: { id: string; body: Body }[] = [];
   for (const m of msgs) {
     const prev = next[m.id];
-    // Keep bodies we already downloaded when an update arrives without one.
-    next[m.id] = prev && prev.bodyLoaded && !m.bodyLoaded
-      ? { ...m, bodyHtml: prev.bodyHtml, bodyText: prev.bodyText, attachments: prev.attachments, hasAttachments: prev.hasAttachments, bodyLoaded: true }
+    // An update without body text (a sync, or IMAP's copy of the list details) keeps the saved body: see store.putMessages.
+    // Keep the body we already downloaded (it's in the database) when an update arrives without one.
+    const merged = prev && prev.bodyLoaded && !m.bodyLoaded
+      ? { ...m, attachments: prev.attachments, hasAttachments: prev.hasAttachments, bodyLoaded: true }
       : m;
+    full.push(merged);
+    if (carriesBody(merged)) {
+      const body = bodyOf(merged);
+      bodies.push({ id: m.id, body });
+      refreshBody(m.id, body);
+    }
+    next[m.id] = listOnly(merged);
   }
   set({ messages: next });
-  const merged = msgs.map((m) => next[m.id]);
-  indexMessages(merged);
-  store.putMessages(merged);
+  indexMessages(full);
+  holdWhileSaving(bodies, store.putMessages(full));
   updateUnreadBadge();
 }
 
@@ -255,12 +266,23 @@ function patchMessages(ids: string[], patch: (m: Message) => Message, fromSync =
 
 /** Main window: pick up changes a pop out window made. */
 export async function reloadMessagesFromDb() {
-  const all = await store.messages();
   const map: Record<string, Message> = {};
   const live = new Set(get().accounts.map((a) => a.id));
-  all.forEach((m) => { if (live.has(m.accountId)) map[m.id] = m; });
+  await eachStoredSlice((slice) => { for (const m of slice) if (live.has(m.accountId)) { map[m.id] = listOnly(m); if (m.bodyLoaded) refreshBody(m.id, bodyOf(m)); } });
   set({ messages: map });
   updateUnreadBadge();
+}
+
+/** Reads the whole mail cache a slice at a time, so only one slice's bodies are in memory at once. */
+async function eachStoredSlice(use: (slice: Message[]) => void | Promise<void>, size = 1000) {
+  let after: string | undefined;
+  for (;;) {
+    const slice = await store.messagesAfter(after, size);
+    if (!slice.length) return;
+    await use(slice);
+    if (slice.length < size) return;
+    after = slice[slice.length - 1].id;
+  }
 }
 
 function removeMessages(ids: string[], fromSync = false) {
@@ -270,6 +292,7 @@ function removeMessages(ids: string[], fromSync = false) {
   ids.forEach((id) => delete next[id]);
   set({ messages: next });
   removeFromIndex(ids);
+  forgetBodies(ids);
   store.deleteMessages(ids);
 }
 
@@ -328,26 +351,34 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   for (const [id, list] of Object.entries(byAcc)) providers.get(id)?.hydrate?.(list);
   const map: Record<string, Message> = {};
   const live = new Set(accounts.map((a) => a.id));
-  messages.forEach((m) => { if (live.has(m.accountId)) map[m.id] = m; });
+  messages.forEach((m) => {
+    if (!live.has(m.accountId)) return;
+    map[m.id] = listOnly(m);
+    // A pop out shows one conversation: keep its bodies at hand, as they are about to be read.
+    if (opts.popout && m.bodyLoaded && carriesBody(m)) rememberBody(m.id, bodyOf(m));
+  });
   for (const k of Object.keys(byAcc)) if (!live.has(k)) delete byAcc[k];
   set({ ready: true, accounts, folders: byAcc, messages: map, outbox, snoozes, followups, events, dismissed, contacts });
 
-  if (opts.popout) { updateUnreadBadge(); return; }
+  if (opts.popout) {
+    if (opts.route?.startsWith('compose/')) void keepDraftSource(decodeURIComponent(opts.route.slice('compose/'.length)));
+    updateUnreadBadge();
+    return;
+  }
 
-  // The rest of the cache, then the search index, without holding up the first screen.
+  // The rest of the cache, then the search index, without holding up the first screen. Both read the cache a slice
+  // at a time, keeping list details only, so the bodies of the whole mailbox are never in memory at once.
   await new Promise((r) => setTimeout(r, 50));
   try {
-    const all = await store.messages();
-    const now = get().messages;
-    const merged: Record<string, Message> = { ...now };
+    const merged: Record<string, Message> = { ...get().messages };
     const liveNow = new Set(get().accounts.map((a) => a.id));
-    for (const m of all) if (!(m.id in merged) && liveNow.has(m.accountId)) merged[m.id] = m;
-    set({ messages: merged });
-    rebuildIndexInBackground(Object.values(merged));
+    await eachStoredSlice((slice) => { for (const m of slice) if (!(m.id in merged) && liveNow.has(m.accountId)) merged[m.id] = listOnly(m); }, 2000);
+    // Anything that changed while the slices were read wins over the saved copy.
+    set({ messages: { ...merged, ...get().messages } });
   } catch (e) {
     console.warn('Loading older mail failed', e);
-    rebuildIndexInBackground(messages);
   }
+  void indexStoredMail();
   updateUnreadBadge();
 
   // The browser preview can open straight into demo mode with ?demo=1 (used for the README screenshots).
@@ -369,6 +400,23 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   setInterval(() => { if (get().screen === 'reminders' && document.visibilityState === 'visible' && Date.now() - eventsFetchedAt > 55000) void refreshEvents(); }, 60 * 1000);
   window.addEventListener('focus', () => { if (Date.now() - eventsFetchedAt > 45000) void refreshEvents(); });
   setInterval(refreshContacts, 12 * 60 * 60 * 1000);
+}
+
+/**
+ * Fills the search index from the saved mail (with its body text), a slice at a time between other work. Mail that
+ * syncs meanwhile is indexed as it arrives; an email already indexed the same way is skipped (see search.ts).
+ */
+async function indexStoredMail() {
+  try {
+    await eachStoredSlice(async (slice) => {
+      const live = get().messages;
+      // Only mail still here: an email deleted since it was saved stays out.
+      indexMessages(slice.filter((m) => live[m.id]));
+      await new Promise((r) => setTimeout(r, 0));
+    }, 500);
+  } catch (e) {
+    console.warn('Search index not fully built', e);
+  }
 }
 
 export function restartPolling() {
@@ -409,7 +457,7 @@ async function addAccount(kind: Account['kind'], email: string, displayName: str
     const [msgs, flds] = await Promise.all([store.messagesFor(back.id), store.foldersFor(back.id)]);
     providers.get(back.id)?.hydrate?.(flds);
     const merged = { ...get().messages };
-    for (const m of msgs) merged[m.id] = m;
+    for (const m of msgs) merged[m.id] = listOnly(m);
     set({ accounts: [...get().accounts, back], messages: merged, folders: { ...get().folders, [back.id]: flds } });
     indexMessages(msgs);
     await store.putAccount(back);
@@ -538,10 +586,12 @@ export async function removeAccount(id: string, opts: { keepMail?: boolean } = {
     const parked = await parkedAccounts();
     if (parked.some((x) => x.id === id)) await store.kvSet(PARKED_KEY, parked.filter((x) => x.id !== id));
   }
+  const leaving = Object.values(get().messages).filter((m) => m.accountId === id).map((m) => m.id);
   const messages = Object.fromEntries(Object.entries(get().messages).filter(([, m]) => m.accountId !== id));
   const folders = { ...get().folders };
   delete folders[id];
-  rebuildIndexInBackground(Object.values(messages));
+  removeFromIndex(leaving);
+  forgetBodies(leaving);
   set({ accounts: get().accounts.filter((x) => x.id !== id), messages, folders, view: { scope: { type: 'all' }, mailbox: { kind: 'system', folder: 'inbox' } } });
   const s = settings();
   useSettings.getState().set({ groups: s.groups.map((g) => ({ ...g, accountIds: g.accountIds.filter((x) => x !== id) })) }, { quiet: true });
@@ -838,22 +888,76 @@ export function openScreen(screen: MailState['screen'], settingsTab?: string) {
 
 // ---------- reading ----------
 
+/** An email with a body just fetched from its account. An empty body is kept as empty text, so it counts as loaded. */
+function withFetchedBody(m: Message, body: { html?: string; text?: string; attachments: Message['attachments'] }): Message {
+  const empty = body.html === undefined && body.text === undefined;
+  return { ...m, bodyHtml: body.html, bodyText: empty ? '' : body.text, attachments: body.attachments, hasAttachments: body.attachments.some((a) => !a.inline), bodyLoaded: true };
+}
+
+/** The saved body of an email, from memory or the database, without asking the account. Undefined when none is saved. */
+async function storedBody(id: string): Promise<Body | undefined> {
+  const hit = peekBody(id);
+  if (hit) return hit;
+  try {
+    const row = await store.getMessage(id);
+    if (row?.bodyLoaded) return bodyOf(row);
+  } catch { /* fetched from the account instead */ }
+  return undefined;
+}
+
+/**
+ * An email with its full text, for opening, replying, printing and the AI Connection. The store holds list details
+ * only; the body comes from memory if it was opened lately, else from the database, else from the account.
+ * The result is not put in the store (it would hold the body again); the body stays in the small recent cache.
+ */
 export async function loadBody(id: string): Promise<Message | undefined> {
   // Already fetched in the background and waiting to be saved: save it now and use it.
   if (warmBuffer.some((u) => u.id === id)) flushWarm();
   const m = get().messages[id];
-  if (!m || m.bodyLoaded) return m;
+  if (!m) return m;
+  if (m.bodyLoaded) {
+    const saved = await storedBody(id);
+    if (saved) {
+      rememberBody(id, saved);
+      return { ...(get().messages[id] || m), bodyHtml: saved.html, bodyText: saved.text };
+    }
+    // Marked as loaded but the database has no body (a save that failed): fetch it again below.
+  }
   const p = providers.get(m.accountId);
   if (!p) return m;
   try {
     const body = await p.getBody(m);
-    const updated: Message = { ...(get().messages[id] || m), bodyHtml: body.html, bodyText: body.text, attachments: body.attachments, hasAttachments: body.attachments.some((a) => !a.inline), bodyLoaded: true };
+    const updated = withFetchedBody(get().messages[id] || m, body);
+    rememberBody(id, bodyOf(updated));
     putMessages([updated]);
     return updated;
   } catch (e) {
     errorToast(e, 'Couldn\'t load email');
     return m;
   }
+}
+
+/**
+ * A draft is open: keep the email it answers in the recent cache, so switching Reply, Reply All and Forward in the
+ * editor quotes its full text straight away (the store holds list details only). Only what's saved here, as before.
+ */
+async function keepDraftSource(draftId: string) {
+  try {
+    const d = await store.getDraft(draftId);
+    const id = d?.sourceMessageId;
+    if (!id || !get().messages[id]?.bodyLoaded) return;
+    const saved = await storedBody(id);
+    if (saved) rememberBody(id, saved);
+  } catch { /* the quote falls back to the one already in the draft */ }
+}
+useMail.subscribe((s, prev) => { if (s.inlineDraftId && s.inlineDraftId !== prev.inlineDraftId) void keepDraftSource(s.inlineDraftId); });
+
+/** Like loadBody, but only from what's saved here: never asks the account (for drafts the AI writes). */
+export async function savedCopy(id: string): Promise<Message | undefined> {
+  const m = get().messages[id];
+  if (!m || !m.bodyLoaded) return m;
+  const saved = await storedBody(id);
+  return saved ? { ...m, bodyHtml: saved.html, bodyText: saved.text } : m;
 }
 
 // ---------- loading emails ahead of time ----------
@@ -895,7 +999,7 @@ async function runWarm() {
       if (!m || m.bodyLoaded || !p) continue;
       try {
         const body = await p.getBody(m);
-        const updated: Message = { ...(get().messages[id] || m), bodyHtml: body.html, bodyText: body.text, attachments: body.attachments, hasAttachments: body.attachments.some((a) => !a.inline), bodyLoaded: true };
+        const updated = withFetchedBody(get().messages[id] || m, body);
         if (urgent) { warmBuffer.push(updated); flushWarm(); } // About to be opened: save now.
         else {
           warmBuffer.push(updated);
@@ -941,7 +1045,8 @@ export async function refetchBody(id: string): Promise<void> {
   refetched.add(id);
   try {
     const body = await p.getBody(m);
-    putMessages([{ ...(get().messages[id] || m), bodyHtml: body.html, bodyText: body.text, attachments: body.attachments, hasAttachments: body.attachments.some((a) => !a.inline), bodyLoaded: true }]);
+    const updated = withFetchedBody(get().messages[id] || m, body);
+    putMessages([updated]);
   } catch { /* keep the saved copy */ }
 }
 

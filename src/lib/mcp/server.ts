@@ -2,7 +2,7 @@
 // everything is decided here, with the person's settings.
 import { invoke, isTauri, notify } from '../platform';
 import { settings, useSettings } from '../settings';
-import { useMail, loadBody, toast, openScreen } from '../mail';
+import { useMail, loadBody, savedCopy, toast, openScreen } from '../mail';
 import { store } from '../db';
 import { createDraft } from '../compose';
 import { composeContext, openDraft } from '../composeActions';
@@ -88,7 +88,8 @@ async function makeDraft(app: string, input: import('./handlers').DraftInput): P
   const mail = useMail.getState();
   const account = mail.accounts.find((a) => a.id === input.accountId);
   if (!account) throw new Error('That account is not in Well Good Mail.');
-  const source = input.replyToId ? mail.messages[input.replyToId] : undefined;
+  // With its saved body (the store holds list details only), so the reply quotes it as before.
+  const source = input.replyToId ? await savedCopy(input.replyToId) : undefined;
   const ctx = composeContext();
   const earlier = input.replaceId ? await store.getDraft(input.replaceId) : undefined;
   const fromEmail = account.aliases.find((a) => a.isDefault)?.email || account.email;

@@ -61,7 +61,8 @@ async function inlineImagesFor(m: Message): Promise<Record<string, string>> {
 
 async function partFor(m: Message): Promise<PrintPart> {
   const s = settings();
-  const loaded = m.bodyLoaded ? m : (await loadBody(m.id)) || m;
+  // The store holds list details only: the body comes from the recent cache, the database or the account.
+  const loaded = (await loadBody(m.id)) || m;
   const allowRemote = s.imagePolicy === 'always' || s.trustedSenders.includes(m.from.email.toLowerCase());
   const rendered = renderEmail(loaded.bodyHtml, loaded.bodyText, { allowRemote, blockTrackers: s.blockTrackers, dark: false, inlineImages: await inlineImagesFor(loaded), font: s.readingFont });
   // Take the body and any styles out of the rendered page, so several emails sit on one page.
