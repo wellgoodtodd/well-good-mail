@@ -1740,3 +1740,6 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .picked-day { flex: 0 1 auto; }
 .picked-head { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
 .picked-head h2 { margin: 0; font-size: 1em; flex: 1; min-width: 0; }
+
+/* Pop-ups take focus when they open (so Tab starts inside them); the box itself shows no outline for that. */
+.dialog:focus, .ev-pop:focus { outline: none; }

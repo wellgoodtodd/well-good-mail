@@ -3,7 +3,7 @@
 // new AI app happens in a pop-up checklist. Only a person in the app can change any of this, never the connection.
 import { useEffect, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
-import { useMenu } from './ui';
+import { useDialogFocus, useMenu } from './ui';
 import { useMail, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { invoke, isTauri } from '../lib/platform';
@@ -85,6 +85,7 @@ const modeOptions = (max: Mode) => [{ value: 'off' as Mode, label: 'Off' }, { va
 
 /** The pop-up that walks you through connecting one AI app, ticking itself as each step happens. */
 function SetupDialog({ initial, onClose, onChanged }: { initial: AppId; onClose: () => void; onChanged: () => void }) {
+  const focusRef = useDialogFocus();
   const raw = useSettings((s) => s.mcp);
   const set = useSettings((s) => s.set);
   const accounts = useMail((s) => s.accounts);
@@ -170,7 +171,7 @@ function SetupDialog({ initial, onClose, onChanged }: { initial: AppId; onClose:
 
   return (
     <div className="ev-scrim" onClick={onClose}>
-      <div className="ev-pop ai-setup-pop" role="dialog" aria-modal="true" aria-label={`Connect ${chosen.label}`} onClick={(e) => e.stopPropagation()}>
+      <div className="ev-pop ai-setup-pop" role="dialog" aria-modal="true" aria-label={`Connect ${chosen.label}`} ref={focusRef} onClick={(e) => e.stopPropagation()}>
         <div className="ev-head">
           <h2>Connect {chosen.label}</h2>
           <button className="icon-btn" aria-label="Close" onClick={onClose}><Icon name="close" size={14} /></button>

@@ -1,5 +1,5 @@
 // Small shared pieces: menus, splitters, formatting helpers.
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
 
@@ -173,6 +173,7 @@ export function Splitter({ size, horizontal = false }: { size: { value: number; 
 }
 
 export function Dialog({ title, children, onClose, actions }: { title: string; children: ReactNode; onClose: () => void; actions?: ReactNode }) {
+  const focusRef = useDialogFocus();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -180,7 +181,7 @@ export function Dialog({ title, children, onClose, actions }: { title: string; c
   }, [onClose]);
   return createPortal(
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dialog" role="dialog" aria-label={title}>
+      <div className="dialog" role="dialog" aria-label={title} ref={focusRef}>
         <h2>{title}</h2>
         {children}
         {actions && <div className="actions">{actions}</div>}
@@ -307,4 +308,56 @@ export function SwitchLine({ children, checked, onChange, disabled, off, classNa
       <input type="checkbox" role="switch" className="switch" disabled={disabled} checked={checked} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );
+}
+
+// ---------- pop-up focus ----------
+
+/** Where focus was before a pop-up opened, so it can go back there when the pop-up closes. */
+let lastOutside: HTMLElement | null = null;
+if (typeof document !== 'undefined') {
+  document.addEventListener('focusin', (e) => {
+    const t = e.target as HTMLElement;
+    if (t && !t.closest?.('[role="dialog"], [role="alertdialog"]')) lastOutside = t;
+  }, true);
+}
+
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+/**
+ * For a pop-up: moves focus into it when it opens (unless something inside already has it), keeps Tab and Shift+Tab
+ * inside it, and puts focus back where it was when it closes. Use as the pop-up box's ref.
+ */
+export function useDialogFocus() {
+  const done = useRef<(() => void) | undefined>(undefined);
+  return useCallback((el: HTMLElement | null) => {
+    done.current?.();
+    done.current = undefined;
+    if (!el) return;
+    // What has focus now, unless something inside the pop-up already took it (then, the last thing outside).
+    const active = document.activeElement as HTMLElement | null;
+    const back = active && active !== document.body && !el.contains(active) ? active : lastOutside;
+    if (!el.contains(document.activeElement)) {
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+      el.focus({ preventScroll: true });
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const items = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => x.offsetParent !== null);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const at = document.activeElement;
+      if (e.shiftKey && (at === first || at === el)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+    };
+    el.addEventListener('keydown', onKey);
+    done.current = () => {
+      el.removeEventListener('keydown', onKey);
+      // Back to where you were, unless you've since moved on to something else outside the pop-up.
+      setTimeout(() => {
+        const now = document.activeElement;
+        if (back && back.isConnected && (!now || now === document.body || el.contains(now))) back.focus({ preventScroll: true });
+      }, 0);
+    };
+  }, []);
 }

@@ -6,8 +6,10 @@ import { useUpdates } from '../lib/updater';
 import { isTauri } from '../lib/platform';
 import { baseVersion, releaseFor, RELEASES } from '../lib/whatsNew';
 import { Icon } from './Icon';
+import { useDialogFocus } from './ui';
 
 export function WhatsNew() {
+  const focusRef = useDialogFocus();
   const version = useUpdates((s) => s.currentVersion);
   const seen = useSettings((s) => s.whatsNewSeen);
   const set = useSettings((s) => s.set);
@@ -41,7 +43,7 @@ export function WhatsNew() {
   };
   return (
     <div className="ev-scrim">
-      <div className="ev-pop whatsnew" role="dialog" aria-modal="true" aria-label={`What's new in ${release.version}`} onClick={(e) => e.stopPropagation()}>
+      <div className="ev-pop whatsnew" role="dialog" aria-modal="true" aria-label={`What's new in ${release.version}`} ref={focusRef} onClick={(e) => e.stopPropagation()}>
         <div className="ev-head">
           <h2>What's new in {release.version}</h2>
           <button className="icon-btn" aria-label="Close" onClick={() => done()}><Icon name="close" size={14} /></button>

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from './Icon';
 import { useMail, refreshEvents, lastEventsRefresh, toast, editEvent, deleteEvent, writableCalendars, providerFor, calendarChoices, canMoveAcross, eventCopy, moveEventAcross } from '../lib/mail';
-import { useMenu, type MenuItem } from './ui';
+import { useDialogFocus, useMenu, type MenuItem } from './ui';
 import { describeRepeat } from '../lib/recurrence';
 import { askConfirm } from '../lib/dialogs';
 import { meetingService, dedupeEvents, inviteText } from '../lib/meetings';
@@ -13,6 +13,7 @@ import { AccountDots, GuestList, JoinButton, chipBackground, dayText, timeText, 
 
 /** A small window with the details of one event. */
 export function EventPreview({ event: picked, onClose }: { event: CalendarEvent; onClose: () => void }) {
+  const focusRef = useDialogFocus();
   const colour = useColour();
   const accounts = useMail((s) => s.accounts);
   const all = useMail((s) => s.events);
@@ -50,7 +51,7 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
   const writeTo = (to: EventGuest[]) => { void startCompose('new', undefined, { extra: { to: to.map((g) => ({ email: g.email, name: g.name })), subject: event.title } }); };
   return (
     <div className="ev-scrim" onClick={() => { if (!editing) onClose(); }}>
-      <div className="ev-pop" role="dialog" aria-modal="true" aria-label={event.title} onClick={(e) => e.stopPropagation()}>
+      <div className="ev-pop" role="dialog" aria-modal="true" aria-label={event.title} ref={focusRef} onClick={(e) => e.stopPropagation()}>
         {editing ? <EventEditForm event={event} startTo={editTo} onDone={(closeAll) => { setEditing(false); setEditTo(undefined); if (closeAll) onClose(); }} /> : <>
         <div className="ev-head">
           <span className="ev-bar" style={{ background: chipBackground(ids, colour) }} />
