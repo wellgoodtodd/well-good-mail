@@ -27,15 +27,6 @@ let index = new MiniSearch<Doc>({
   searchOptions: SEARCH_OPTIONS,
 });
 
-export function rebuildIndex(messages: Message[]) {
-  index = new MiniSearch<Doc>({
-    fields: ['subject', 'from', 'to', 'body'],
-    storeFields: [],
-    searchOptions: SEARCH_OPTIONS,
-  });
-  index.addAll(messages.map(toDoc));
-}
-
 /**
  * Builds the search index a slice at a time between other work, so the app stays responsive while it fills.
  * Searches work straight away; older mail turns up in them as the index catches up.

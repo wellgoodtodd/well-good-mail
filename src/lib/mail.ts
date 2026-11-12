@@ -18,7 +18,7 @@ import type { MailProvider } from './providers/provider';
 import { buildReply, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from './invites';
 import { signInWithGoogle, signOutGoogle } from './auth/google';
 import { signInWithMicrosoft, signOutMicrosoft } from './auth/microsoft';
-import { indexMessages, rebuildIndex, removeFromIndex, searchMessages, toGmailQuery, rebuildIndexInBackground } from './search';
+import { indexMessages, removeFromIndex, searchMessages, toGmailQuery, rebuildIndexInBackground } from './search';
 import { inSystemFolder, threadKey } from './mailbox';
 import { showBanner } from './banners';
 import { notify, flashTaskbar, setUnreadCount, openExternal, httpFetch, isPopout, isTauri, openPopout, invoke } from './platform';
@@ -528,7 +528,7 @@ export async function removeAccount(id: string, opts: { keepMail?: boolean } = {
   const messages = Object.fromEntries(Object.entries(get().messages).filter(([, m]) => m.accountId !== id));
   const folders = { ...get().folders };
   delete folders[id];
-  rebuildIndex(Object.values(messages));
+  rebuildIndexInBackground(Object.values(messages));
   set({ accounts: get().accounts.filter((x) => x.id !== id), messages, folders, view: { scope: { type: 'all' }, mailbox: { kind: 'system', folder: 'inbox' } } });
   const s = settings();
   useSettings.getState().set({ groups: s.groups.map((g) => ({ ...g, accountIds: g.accountIds.filter((x) => x !== id) })) }, { quiet: true });
@@ -1780,7 +1780,6 @@ export async function markViewRead(view: View) {
   const { inMailbox, scopeAccountIds } = await import('./mailbox');
   const everywhere = view.mailbox.kind === 'search' || view.mailbox.kind === 'smart';
   const allowed = new Set(scopeAccountIds(view.scope, get().accounts.map((a) => a.id), settings().groups, everywhere ? [] : get().accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id)));
-  const { myAddresses } = await import('./compose');
   const ctx = { vips: new Set(settings().vips), snoozed: new Set(get().snoozes.map((s) => s.messageId)), smart: settings().smartMailboxes, mine: myAddresses(get().accounts) };
   const ids = Object.values(get().messages)
     .filter((m) => m.unread && allowed.has(m.accountId) && inMailbox(m, view.mailbox, providers.get(m.accountId), ctx))
