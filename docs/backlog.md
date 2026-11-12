@@ -51,6 +51,13 @@ Aim: the last 0.7.3 beta before live, so one round of testing, not several. Test
 
 Mock-up: docs/mockups/tasks-and-places.html. To decide: Tasks as a third view in Calendar & Reminders (my pick) or its own sidebar place; kept in step with Google Tasks and Microsoft To Do (my pick; Google Tasks has due dates but no due time over its API) or app-only; tasks with a due time shown in Day and Week view; make a task from an email (right-click or T, linked back to it); AI apps can add tasks, asking first. Places: suggestions from places used before and contacts' addresses (private, my pick), map search (Google Places or Azure Maps, needs a key and has costs) only as an opt-in switch; Directions in the event pop-up.
 
+**Todd's answers (12 Nov 2026):**
+- Tasks kept in step with Google Tasks (and Microsoft To Do), so they're on his phone. He's installing the Google Tasks app.
+- Where: torn between a Tasks view in Calendar & Reminders and its own sidebar place. Recommended: start as a view in Calendar & Reminders, with tasks due today also in Coming up; promote to its own place later if it gets used a lot.
+- Places: start with places used before and contacts' addresses. Map search (Google Places, needs billing turned on in the Cloud project; about 10,000 free autocomplete requests a month, then a charge) as an off-by-default switch, later.
+- Ideas from the conversation: "Make tasks from this email" turning each line of a pasted or shared list (e.g. an Apple Note sent by email) into tasks; tasks tied to projects in the future business hub.
+- His phone: Siri can't add to Google Tasks directly (Microsoft To Do has Siri support; Google Tasks needs a Shortcut or IFTTT). Claude's iPhone app has an "Ask Claude" Shortcut for the Action Button, but Claude on the phone can't add Google Tasks without a Tasks connector.
+
 ## Future idea: tasks (12 Nov 2026)
 
 Todd keeps reminders as tasks in Apple Reminders. Idea: a task list here instead, alongside Calendar & Reminders. Overlaps with the business hub and project management plans, so park it until those are clearer. Google Tasks and Microsoft To Do both have APIs, so tasks could sync rather than live only in the app.
