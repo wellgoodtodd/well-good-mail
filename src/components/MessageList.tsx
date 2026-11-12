@@ -1,5 +1,5 @@
 // Middle column: conversations with sender, subject and preview lines.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { openSmartEditor } from './SmartMailboxEditor';
 import { listTime, useMenu, snoozeOptions, avatarColour, initials, type MenuItem } from './ui';
@@ -106,7 +106,6 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
   const unread = items.filter((i) => i.unread).length;
   const shownBox = view.mailbox.kind === 'search' ? view.mailbox.within : view.mailbox;
   const showRecipient = shownBox?.kind === 'system' && (shownBox.folder === 'sent' || shownBox.folder === 'drafts');
-  const isDraftMsg = (m: Message) => m.isDraft || inSystemFolder(m, 'drafts', providerFor(m.accountId));
 
   // Drawing thousands of rows at once makes every click slow, so show a first batch and add more as you scroll.
   const BATCH = 100;
@@ -178,106 +177,43 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
     );
   });
 
+  // Everything a row does goes through one object that never changes, so rows don't redraw just because the list did.
+  const latest = useRef({ onClick, toggleRow, selectedKeys, items, remote, menu });
+  latest.current = { onClick, toggleRow, selectedKeys, items, remote, menu };
+  const act = useMemo<RowActions>(() => ({
+    click: (e, item, isRemote) => latest.current.onClick(e, item, isRemote ? latest.current.remote : latest.current.items),
+    toggle: (key) => latest.current.toggleRow(key),
+    keysFor: (key) => (latest.current.selectedKeys.includes(key) ? latest.current.selectedKeys : [key]),
+    select: (key) => { if (!latest.current.selectedKeys.includes(key)) selectThread(key); },
+    menu: (at, items, side) => latest.current.menu.open(at, items, side),
+    warm: (ids) => { clearTimeout(warmTimer.current); warmTimer.current = setTimeout(() => warmBodies(ids, { first: true }), 120); },
+  }), []);
+
   const row = (item: ListItem, list: ListItem[]) => {
     const m = item.message;
     const key = threadKey(m);
     const inSelection = selectedKeys.includes(key) || key === selectedKey;
     const selected = inSelection && (!unthreaded || m.id === (picked && picked.key === key ? picked.id : firstRowFor.get(key)));
     const fromMe = mine.has(m.from.email.toLowerCase());
-    const who = showRecipient || fromMe
-      ? `To: ${m.to.map((a) => a.name || a.email).join(', ') || '(no recipient)'}`
-      : item.thread.length > 1
-        ? [...new Set(item.thread.map((t) => (mine.has(t.from.email.toLowerCase()) ? 'Me' : (t.from.name || t.from.email).split(' ')[0])))].reverse().slice(0, 3).join(', ')
-        : m.from.name || m.from.email;
+    const mark = item.unread ? undefined : replyMark(m, sent, mine);
+    const who = fromMe ? m.to[0] || m.from : m.from;
     return (
-      <div
+      <Row
         key={key + (list === remote ? ':r' : '')}
-        data-key={key}
-        className={`row ${item.unread ? 'unread' : ''} ${selected ? 'selected' : ''} `}
-        onClick={(e) => onClick(e, item, list)}
-        onDoubleClick={() => (isDraftMsg(m) ? editServerDraft(m) : popoutMessage(key))}
-        onMouseEnter={() => { clearTimeout(warmTimer.current); warmTimer.current = setTimeout(() => warmBodies(item.thread.slice(0, 3).map((x) => x.id), { first: true }), 120); }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          const keys = selectedKeys.includes(key) ? selectedKeys : [key];
-          if (!selectedKeys.includes(key)) selectThread(key);
-          menu.open({ x: e.clientX, y: e.clientY }, messageMenu(keys));
-        }}
-        draggable
-        onDragStart={(e) => {
-          const keys = selectedKeys.includes(key) ? selectedKeys : [key];
-          e.dataTransfer.setData('text/wgm-keys', JSON.stringify(keys));
-          e.dataTransfer.effectAllowed = 'move';
-        }}
-        role="listitem"
-        aria-current={selected ? 'true' : undefined}
-      >
-        {showAccount && <span className="acct" style={{ background: accountColour[m.accountId] }} />}
-        {item.unread ? <span className="unread-dot" role="img" aria-label="Unread" /> : (() => {
-          const mark = replyMark(m, sent, mine);
-          if (!mark) return null;
-          const words = replyMarkWords(mark);
-          return (
-            <span className="reply-mark" role="img" aria-label={words} title={words}>
-              {mark.repliedAt && <Icon name="reply" size={13} />}
-              {mark.forwardedAt && <Icon name="forward" size={13} />}
-            </span>
-          );
-        })()}
-        {senderPhotos && (() => {
-          const who = fromMe ? m.to[0] || m.from : m.from;
-          const photo = photoOf.get(who.email.toLowerCase());
-          const label = who.name || who.email;
-          return photo
-            ? <img className="sender-photo" src={photo} alt="" loading="lazy" />
-            : <span className="sender-photo" aria-hidden style={{ background: avatarColour(who.email.toLowerCase()) }}>{initials(label)}</span>;
-        })()}
-        <div className="row-body">
-          <div className="row-top">
-            {item.count > 1 && list !== remote && (
-              <button tabIndex={-1}
-                className="twisty"
-                aria-label={openRows.has(key) ? 'Hide the messages in this conversation' : 'Show the messages in this conversation'}
-                aria-expanded={openRows.has(key)}
-                onClick={(e) => { e.stopPropagation(); toggleRow(key); }}
-                onDoubleClick={(e) => e.stopPropagation()}
-              >
-                <Icon name={openRows.has(key) ? 'chevronDown' : 'chevronRight'} size={13} />
-              </button>
-            )}
-            <span className="from">{who}</span>
-            <span className="meta">
-              {item.flagged && <span className="flag"><Icon name="flag" size={12} /></span>}
-              {item.hasAttachments && <Icon name="paperclip" size={12} />}
-              {item.count > 1 && (list === remote
-                ? <span className="badge">{item.count}</span>
-                : <button tabIndex={-1} className="badge" aria-label="Show the messages in this conversation" onClick={(e) => { e.stopPropagation(); toggleRow(key); }} onDoubleClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer' }}>{item.count}</button>)}
-            </span>
-            <span className="time">{listTime(m.date)}</span>
-          </div>
-          <div className="subject">{isDraftMsg(m) && <span className="draft-tag">Draft</span>}{m.subject}</div>
-          {previewLines > 0 && <div className="preview" style={{ WebkitLineClamp: previewLines }}>{m.snippet}</div>}
-        </div>
-        <div className="quick" onClick={(e) => e.stopPropagation()}>
-          <div className="qb">
-          <button tabIndex={-1} className="icon-btn" title="Archive" aria-label="Archive" onClick={() => archive(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="archive" /></button>
-          <button tabIndex={-1} className="icon-btn" title={item.flagged ? 'Remove flag' : 'Flag'} aria-label="Flag" onClick={() => toggleFlag(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="flag" /></button>
-          <button tabIndex={-1} className="icon-btn" title="Snooze" aria-label="Snooze" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), snoozeOptions().map((o) => ({ label: o.label, icon: 'clock', onClick: () => snooze(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]), o.at) })), 'right')}><Icon name="clock" /></button>
-          <button tabIndex={-1} className="icon-btn" title={item.unread ? 'Mark as read' : 'Mark as unread'} aria-label="Toggle read" onClick={() => markRead(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]), item.unread)}><Icon name={item.unread ? 'mailOpen' : 'mail'} /></button>
-          <button tabIndex={-1} className="icon-btn" title="Move to Bin" aria-label="Move to Bin" onClick={() => trash(idsForKeys(selectedKeys.includes(key) ? selectedKeys : [key]))}><Icon name="trash" /></button>
-          </div>
-          <button tabIndex={-1}
-            className="qh"
-            title="More options"
-            aria-label="More options"
-            onClick={(e) => {
-              const keys = selectedKeys.includes(key) ? selectedKeys : [key];
-              if (!selectedKeys.includes(key)) selectThread(key);
-              menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), messageMenu(keys), 'right');
-            }}
-          ><Icon name="more" size={14} /></button>
-        </div>
-      </div>
+        item={item}
+        isRemote={list === remote}
+        selected={selected}
+        open={openRows.has(key)}
+        stripe={showAccount ? accountColour[m.accountId] : undefined}
+        previewLines={previewLines}
+        photo={senderPhotos ? photoOf.get(who.email.toLowerCase()) || '' : undefined}
+        replied={Boolean(mark?.repliedAt)}
+        forwarded={Boolean(mark?.forwardedAt)}
+        markWords={mark ? replyMarkWords(mark) : undefined}
+        showRecipient={showRecipient}
+        mine={mine}
+        act={act}
+      />
     );
   };
 
@@ -333,7 +269,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
         </div>
       )}
       <div className="rows" ref={listRef} onScroll={onListScroll} tabIndex={0} role="list" aria-label={title}>
-        {items.slice(0, limit).map((i) => [row(i, items), openRows.has(threadKey(i.message)) ? subRows(threadKey(i.message)) : null])}
+        {items.slice(0, limit).map((i) => { const k = threadKey(i.message); return <Fragment key={k}>{row(i, items)}{openRows.has(k) ? subRows(k) : null}</Fragment>; })}
         {items.length > limit && <div ref={moreRef} className="empty" style={{ padding: 16 }}>Loading more...</div>}
         {view.mailbox.kind === 'search' && (searching || remote.length > 0) && (
           <>
@@ -352,6 +288,140 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
     </section>
   );
 }
+
+interface RowActions {
+  click: (e: React.MouseEvent, item: ListItem, isRemote: boolean) => void;
+  toggle: (key: string) => void;
+  keysFor: (key: string) => string[];
+  select: (key: string) => void;
+  menu: (at: { x: number; y: number } | DOMRect, items: MenuItem[], side?: 'right') => void;
+  warm: (ids: string[]) => void;
+}
+
+interface RowProps {
+  item: ListItem;
+  isRemote: boolean;
+  selected: boolean;
+  open: boolean;
+  stripe?: string;
+  previewLines: number;
+  /** undefined: photos off. '' : on, but none for this sender. */
+  photo?: string;
+  replied: boolean;
+  forwarded: boolean;
+  markWords?: string;
+  showRecipient: boolean;
+  mine: Set<string>;
+  act: RowActions;
+}
+
+/** Same conversation, drawn the same: the same email objects, and the same marks. */
+function sameItem(a: ListItem, b: ListItem): boolean {
+  if (a === b) return true;
+  if (a.message !== b.message || a.unread !== b.unread || a.flagged !== b.flagged || a.count !== b.count || a.hasAttachments !== b.hasAttachments) return false;
+  if (a.thread.length !== b.thread.length) return false;
+  for (let i = 0; i < a.thread.length; i++) if (a.thread[i] !== b.thread[i]) return false;
+  return true;
+}
+
+const isDraftMsg = (m: Message) => m.isDraft || inSystemFolder(m, 'drafts', providerFor(m.accountId));
+
+/** One conversation in the list. Redrawn only when something it shows changes. */
+const Row = memo(function Row({ item, isRemote, selected, open, stripe, previewLines, photo, replied, forwarded, markWords, showRecipient, mine, act }: RowProps) {
+  const m = item.message;
+  const key = threadKey(m);
+  const fromMe = mine.has(m.from.email.toLowerCase());
+  const who = showRecipient || fromMe
+    ? `To: ${m.to.map((a) => a.name || a.email).join(', ') || '(no recipient)'}`
+    : item.thread.length > 1
+      ? [...new Set(item.thread.map((t) => (mine.has(t.from.email.toLowerCase()) ? 'Me' : (t.from.name || t.from.email).split(' ')[0])))].reverse().slice(0, 3).join(', ')
+      : m.from.name || m.from.email;
+  const ids = (k: string) => idsForKeys(act.keysFor(k));
+  return (
+    <div
+      data-key={key}
+      className={`row ${item.unread ? 'unread' : ''} ${selected ? 'selected' : ''} `}
+      onClick={(e) => act.click(e, item, isRemote)}
+      onDoubleClick={() => (isDraftMsg(m) ? editServerDraft(m) : popoutMessage(key))}
+      onMouseEnter={() => act.warm(item.thread.slice(0, 3).map((x) => x.id))}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        const keys = act.keysFor(key);
+        act.select(key);
+        act.menu({ x: e.clientX, y: e.clientY }, messageMenu(keys));
+      }}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/wgm-keys', JSON.stringify(act.keysFor(key)));
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      role="listitem"
+      aria-current={selected ? 'true' : undefined}
+    >
+      {stripe !== undefined && <span className="acct" style={{ background: stripe }} />}
+      {item.unread ? <span className="unread-dot" role="img" aria-label="Unread" /> : markWords ? (
+        <span className="reply-mark" role="img" aria-label={markWords} title={markWords}>
+          {replied && <Icon name="reply" size={13} />}
+          {forwarded && <Icon name="forward" size={13} />}
+        </span>
+      ) : null}
+      {photo !== undefined && (() => {
+        const p = fromMe ? m.to[0] || m.from : m.from;
+        const label = p.name || p.email;
+        return photo
+          ? <img className="sender-photo" src={photo} alt="" loading="lazy" />
+          : <span className="sender-photo" aria-hidden style={{ background: avatarColour(p.email.toLowerCase()) }}>{initials(label)}</span>;
+      })()}
+      <div className="row-body">
+        <div className="row-top">
+          {item.count > 1 && !isRemote && (
+            <button tabIndex={-1}
+              className="twisty"
+              aria-label={open ? 'Hide the messages in this conversation' : 'Show the messages in this conversation'}
+              aria-expanded={open}
+              onClick={(e) => { e.stopPropagation(); act.toggle(key); }}
+              onDoubleClick={(e) => e.stopPropagation()}
+            >
+              <Icon name={open ? 'chevronDown' : 'chevronRight'} size={13} />
+            </button>
+          )}
+          <span className="from">{who}</span>
+          <span className="meta">
+            {item.flagged && <span className="flag"><Icon name="flag" size={12} /></span>}
+            {item.hasAttachments && <Icon name="paperclip" size={12} />}
+            {item.count > 1 && (isRemote
+              ? <span className="badge">{item.count}</span>
+              : <button tabIndex={-1} className="badge" aria-label="Show the messages in this conversation" onClick={(e) => { e.stopPropagation(); act.toggle(key); }} onDoubleClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer' }}>{item.count}</button>)}
+          </span>
+          <span className="time">{listTime(m.date)}</span>
+        </div>
+        <div className="subject">{isDraftMsg(m) && <span className="draft-tag">Draft</span>}{m.subject}</div>
+        {previewLines > 0 && <div className="preview" style={{ WebkitLineClamp: previewLines }}>{m.snippet}</div>}
+      </div>
+      <div className="quick" onClick={(e) => e.stopPropagation()}>
+        <div className="qb">
+        <button tabIndex={-1} className="icon-btn" title="Archive" aria-label="Archive" onClick={() => archive(ids(key))}><Icon name="archive" /></button>
+        <button tabIndex={-1} className="icon-btn" title={item.flagged ? 'Remove flag' : 'Flag'} aria-label="Flag" onClick={() => toggleFlag(ids(key))}><Icon name="flag" /></button>
+        <button tabIndex={-1} className="icon-btn" title="Snooze" aria-label="Snooze" onClick={(e) => act.menu((e.currentTarget as HTMLElement).getBoundingClientRect(), snoozeOptions().map((o) => ({ label: o.label, icon: 'clock', onClick: () => snooze(ids(key), o.at) })), 'right')}><Icon name="clock" /></button>
+        <button tabIndex={-1} className="icon-btn" title={item.unread ? 'Mark as read' : 'Mark as unread'} aria-label="Toggle read" onClick={() => markRead(ids(key), item.unread)}><Icon name={item.unread ? 'mailOpen' : 'mail'} /></button>
+        <button tabIndex={-1} className="icon-btn" title="Move to Bin" aria-label="Move to Bin" onClick={() => trash(ids(key))}><Icon name="trash" /></button>
+        </div>
+        <button tabIndex={-1}
+          className="qh"
+          title="More options"
+          aria-label="More options"
+          onClick={(e) => {
+            const keys = act.keysFor(key);
+            act.select(key);
+            act.menu((e.currentTarget as HTMLElement).getBoundingClientRect(), messageMenu(keys), 'right');
+          }}
+        ><Icon name="more" size={14} /></button>
+      </div>
+    </div>
+  );
+}, (a, b) => sameItem(a.item, b.item) && a.isRemote === b.isRemote && a.selected === b.selected && a.open === b.open && a.stripe === b.stripe
+  && a.previewLines === b.previewLines && a.photo === b.photo && a.replied === b.replied && a.forwarded === b.forwarded && a.markWords === b.markWords
+  && a.showRecipient === b.showRecipient && a.mine === b.mine && a.act === b.act);
 
 function describeFilters(f: ListFilters, accounts: Account[]): string {
   const parts: string[] = [];
