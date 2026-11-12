@@ -2,6 +2,97 @@
 
 Things noted but not built yet. Newest first. Nothing here is promised for a date.
 
+## Plan for 0.7.3 beta 3 (12 Nov 2026, all designs agreed; build when Todd says)
+
+Aim: the last 0.7.3 beta before live, so one round of testing, not several. Test list: docs/testing-0.7.3-beta3.md.
+
+- **Calendar events** (event-drag-and-select.html, calendar-header.html): the quick edit in the pop-up; Edit opens the full form (remove a video call, Meeting settings link); resize with the handle and drag to move (white hand pointers, 15-minute snap keeping an off-grid offset); Month chips dragged between days; the repeating-event question after a drag, edit or delete (only this / this and all future); Ctrl-click and the drag box to pick several, then Move to calendar or Delete with the guests warning; the same in List view with ticks; arrows either side of the month name; zoom with Ctrl + wheel and a slider.
+- **Guests:** ask before changing or deleting an event with guests (send an update / don't send / cancel).
+- **Invitations** (invitations.html): the envelope button with a count, New and Replied, clash notes, cancelled ones, the sidebar line only while there are new ones, "Not answered" in Coming up, Accept / Maybe / Decline everywhere, Add a note.
+- **Calendar refresh:** only fetch what changed (Google syncToken, Outlook delta), every minute while Calendar & Reminders is open and when the window comes back into focus; an open event pop-up updates too.
+- **Out of Office page** (ooo-page.html): layout A with While I'm away folded, small capitals card titles, accounts as switches, "Different message for each account", Changed template with Update / Save as new and the question on Schedule ("Leave the template as it was"), template names only, shorter Manage wording, the outside-organisation wording. Refresh the mock-up first for a quick look.
+- **Fixes:** "Resource has been deleted"; Undo then Ctrl+Z on a new event; second alert on all-day events; "today" in titles, and deleting the date words puts the old time back.
+- **Mark as unread** on a conversation marks one email.
+- **Proposed extras (Todd to say yes):** Help and What's new for everything in 0.7.3, so beta 3 can go live as it is; Gmail's first sync fetching each email once (audit round 3, small); a look at why some emails take a moment to open (invitations looking up guests).
+- **Left for later:** the rest of audit round 3 (bodies loaded on open, a smaller search index, iCloud calendar addresses), splitting mail.ts, Tiptap 3, tasks, place suggestions in Location.
+
+## Future idea: tasks (12 Nov 2026)
+
+Todd keeps reminders as tasks in Apple Reminders. Idea: a task list here instead, alongside Calendar & Reminders. Overlaps with the business hub and project management plans, so park it until those are clearer. Google Tasks and Microsoft To Do both have APIs, so tasks could sync rather than live only in the app.
+
+## Mark as unread in conversations (12 Nov 2026)
+
+Todd: marking a conversation unread shouldn't make every email in it unread, so 10 unread suddenly appear when there's really one conversation to come back to. Mark unread should mark only one email: the one you're reading if you're inside the conversation, otherwise the latest. The conversation then shows as unread with a count of 1. Check what Gmail and Apple Mail do, and how the conversation's dot and the sidebar count follow it.
+
+## Calendar testing notes, beta 2 (12 Nov 2026)
+
+- **Video call settings open in the browser.** Host controls, waiting room, recording and the rest stay in Google (or Outlook). The app only adds or removes the call. After Add Google Meet, and in the event pop-up for events you organise, a "Meeting settings" button opens the event in Google Calendar (htmlLink is already stored; webLink for Outlook).
+- **Remove the video call** from an event in the full edit form (comes with Edit getting the full form).
+- **Guests get asked about.** Changing or deleting an event with guests asks first: "Send an update to 3 guests" / "Don't send" / "Cancel", and for delete "Cancel the meeting and tell guests". Google sends the emails when asked to (sendUpdates=all); today the app doesn't ask.
+- **Changes made in Google show up slowly.** The app reads calendars every 3 minutes, plus Refresh. Better: also read them when the window comes back into focus and when you open Calendar & Reminders, and every minute while it's open. (Google can push changes, but only to a web server, not to an app on your computer.)
+- **Repeating events: delete asks which ones.** "Only this event" or "This and all future events" (and All events). Today Delete only removes the one you clicked. Todd has left some test series in his calendar to try this on in beta 3.
+- **Bug: deleting an event already deleted elsewhere** shows "Resource has been deleted" (Google answers 410 Gone). It should just take it out of the app quietly. gmail.ts deleteEvent only lets permission errors through; treat 404 and 410 as done, as removeAwayEvent already does.
+- **Bug to check: Undo then Ctrl+Z.** Todd added an event, pressed Undo in the message (gone), then Ctrl+Z brought it back on screen, but deleting it then said it wasn't there. Check whether the redo really made it again in Google or only on screen.
+- **Bug to check: second alert on all-day events.** Todd couldn't add one on an all-day event; it worked once he set a time.
+- **Answers don't update on an open event.** Guest replies (Yes, Maybe, No) changed on the phone only show after closing and reopening the event, even after Refresh. The open pop-up should update when the calendar does.
+- **Month arrows.** The back and forward arrows are at opposite edges of the calendar. Put them either side of the month name, or together next to Day / Week / Month. Mock-up.
+- **Faster calendar refresh, only fetching what changed.** Google (syncToken) and Outlook (delta) can both return just the events that changed since last time, like mail does. With that, checking every minute or so costs almost nothing, and only changed events are redrawn.
+- **Words in the title:** "Lunch with Helen at 2pm" and "tomorrow" work. "Today" isn't read. Deleting the date words doesn't put the day and time back to what they were before; it should go back to where the event started (the day you double-clicked, or now).
+- Maybe later: place suggestions while typing Location (Google Maps style). Not needed now.
+- Works: repeat every 2 weeks until a date, Custom (Monday and Friday every other week, 5 times), alert 15 minutes plus 2 days before, location and notes, Meet on a repeating event, invitations (the email arrives, answering in the app updates Google, Change answer works), Undo after adding. Deleting an event with guests already tells them (the app asks Google to send updates); asking first is the part still to add.
+- Works: deleting from the app reaches Google at once; Month double-click, right-click menu, Ctrl+Alt+N, Ctrl+Shift+N and Ctrl+N; Join on a new Meet.
+
+## Invitations in one place (mock-ups first)
+
+**Todd, 12 Nov 2026.** Like Apple Calendar's Invitations: an icon (maybe in the calendar header or the sidebar) that glows or has a dot when new invitations are waiting. Clicking it opens a small pop-up listing them, each with Yes, No and Maybe. Below the new ones, invitations you've already answered, so you can change your answer quickly. Today, answering only happens on the invitation email itself (InviteCard.tsx, answerInvite in mail.ts, respondToInvite on the providers). Todd sent the iPhone version (New / Replied tabs, Accept / Maybe / Decline, cancelled ones crossed out). Mock-up in docs/mockups/invitations.html.
+- **Agreed 12 Nov 2026:** the envelope button in the Calendar & Reminders header with a count and glow; New and Replied; clash notes. Proposed (Todd asked for a view): a sidebar line "Invitations" that only appears while there are new ones and goes once they're answered; unanswered invitations in Coming up get a small "Not answered" tag that opens the pop-up; Accept / Maybe / Decline everywhere, including the invitation card on emails (Apple and Outlook wording, more professional than No); one click to answer, with a small "Add a note" link that opens a box for a message to the organiser (Google and Outlook both carry it). Think about: invitations come from the calendar (events where you're a guest with no reply yet), not only from emails, so ones you never got by email still show; Outlook and Google both list these; iCloud invitations may need CalDAV inbox work.
+
+## Out of Office page rethink (mock-ups first)
+
+**Todd's feedback on 0.7.3 beta 2 (12 Nov 2026).** Everything it does is right, but the page is hard to find your way round: cards of different sizes and lots of switches. Mock-ups in docs/mockups/ooo-page.html (A: Settings-style cards, B: sections down the side, C: laid out like an email).
+- Accounts as switches, one row each, like other Settings pages, instead of tick boxes and chips.
+- "Own message" is unclear. It means one account gets a different message (professional for Well Good Media, casual for personal). Proposed: one "Different message for each account" switch on the Message card, with a tab per account.
+- The Templates drop-down shows names only, no "(message, when, who…)" after them.
+- When you change something after picking a template, offer Update template or Save as new right there (a Changed label), and maybe ask once when you press Schedule.
+- Manage templates wording shorter: Duplicate, Save current settings to it, Choose parts….
+- **Decided 12 Nov 2026 (Todd, from ooo-page.html):**
+  - Layout A (Settings-style cards, accounts as switches, the read-back sentence, Preview / Send me a test / Schedule), with C's idea of folding "While I'm away" away, since accounts, message, when and who are the essentials and the rest is extra.
+  - Card titles as small capitals labels (ACCOUNTS, MESSAGE, WHEN, WHO GETS IT, WHILE I'M AWAY), like the other Settings pages, so each card's title stands out.
+  - "Different message for each account" switch with a tab per account: approved.
+  - "A different message for them" is unclear: name who "them" is, e.g. "Separate message for people outside my organisation".
+  - Changed template: the Changed label with Update template / Save as new, and the question when you press Schedule. "Just this time" is unclear; reword so it plainly means "don't change the template", e.g. "Leave the template as it was".
+  - Before building: refresh mock-up A with these changes for a quick look.
+- AI: Set Out of Office can only be Ask, never Allow, because people get the reply. Todd checked that in AI Connection and is fine with it.
+
+## Next for calendar events (mock-ups first)
+
+Mock-ups in docs/mockups/event-drag-and-select.html.
+
+**Decided 12 Nov 2026 (Todd):**
+- Handle and dragging as mocked up. The pointer is the normal white Windows hand (CSS cursor grab, then grabbing while held), never a coloured one. Hovering the middle of an event shows the open hand too, so it's clear you can pick it up.
+- Month view: a picked-up chip lifts and is highlighted while dragged, and the day under it is outlined.
+- Repeating events ask Cancel / Only this event / This and all future events.
+- One click (no movement) opens the quick edit, as now. Any drag moves or resizes and never opens it.
+- Ctrl-click picks an event without opening it, and Ctrl-click again lets it go, so a selection can be built up a piece at a time. Dragging across empty space draws a box round events (with Ctrl held, it adds to what's already picked). Escape or a click on empty space clears it.
+- Several picked: Move to calendar and Delete, in a bar and on right-click; the guests warning as mocked up.
+- List view: the same, with ticks to pick rows, and both Move to calendar and Delete.
+- Snap to 15 minutes. An event that starts off the grid (10:05) keeps its offset while dragged (10:20, 10:35).
+- New idea: zoom in Day and Week view (Ctrl + wheel, pinch, or a small slider), from the whole day down to 5-minute lines; snapping goes to 5 minutes at the closest zoom. Mock-up in docs/mockups/calendar-header.html.
+- Decided: arrows either side of the month name with Today next to them (A), Day / Week / Month on the right; zoom with Ctrl + wheel and the small slider.
+
+**Todd's feedback on 0.7.3 beta 2 (12 Nov 2026).** Working well: + New event, double-click, More options, Google Meet, New event on [day], Calendar Groups (make, edit, pick, Choose calendars), the Refresh icon. Asked for:
+- **Edit gets the full form.** Edit on an existing event still opens the old small editor (title, when, all day, calendar, where, notes). It should be the same card as New event with More options: repeat, alerts, invitees, video call.
+- **Quick edit in the event pop-up.** Day and time editable straight in the single-click pop-up, so Edit is only for the extra options.
+- **Resize by dragging (Day and Week view).** On hover, an event gets an outline and a handle on its bottom edge. Over the handle the pointer becomes a grab hand (closed hand while dragging); dragging changes the end time. Grabbing the handle doesn't open the event. Not in Month view.
+- **Move by dragging.** Month view: drag a chip to another day, keeping its time and details. Week view: another day and/or time. Day view: another time.
+- **Repeating events:** after a drag, ask "Only this event" or "This and all future events".
+- **Right-click an event:** a quick edit card (name, date, time, calendar), separate from the right-click menu for the empty day (New event, New all-day event, Open day, Go to today).
+- **Selecting events:** a single click might select (outline) rather than open, with double-click opening; or keep click-to-open. To decide in the mock-up.
+- **Bulk change calendar:** Shift-click (and maybe drag a lasso) to select several events, then a toolbar button and right-click to move them all to another calendar. Only the calendar can change for a selection, not name or time. Also in List view: tick several rows and change their calendar.
+- Small: Choose calendars… switches to All calendars and stays there. Fine as it is.
+
+**Things to think about for the mock-up:** moving within one Google account uses Google's own move (the event keeps its id and replies); between accounts it is copy-and-delete, as editing already does, so invitees get a new invitation and replies are lost. Bulk moves should warn when any event has invitees. Outlook can't move between calendars either, so it is copy-and-delete there too. Dragging needs Undo, like other edits. Events you were invited to (not the organiser) can't be moved or resized; their handles shouldn't show.
+
 ## Ideas for 0.7.3 (mock-ups first)
 
 **Built for 0.7.3 beta 2 (12 Nov 2026):** all three below. Test list in docs/testing-0.7.3-beta2.md. Small changes from the mock-ups: Refresh in the calendar header is now an icon button, so + New event fits on the same line; all-day alerts are "the day before at 09:00" and earlier, because calendars cannot alert on the day itself; double-clicking a day in Month view now makes an all-day event (Open day is in the right-click menu and on the day panel); a Calendar Group shows its own calendars even if they are hidden under All calendars.

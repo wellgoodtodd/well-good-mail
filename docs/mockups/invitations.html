@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invitations</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6;--line:#33333a}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1000px;margin:0 auto;display:grid;gap:36px}
+h1{font-size:18px;margin:4px 0 0}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.opt{display:inline-block;font-size:11px;font-weight:700;background:#2b3a5a;color:#9fc0ff;border-radius:5px;padding:1px 7px;margin-right:6px}
+.rec{background:#1f3a2e;color:#7fe0b4}
+.why{color:var(--muted);font-size:12.5px;margin:8px 0 0;max-width:720px}
+.pair{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.grow{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:4px 11px;background:#2f2f35;font-size:12.5px;white-space:nowrap}
+.ghost{background:transparent}.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.head{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;flex-wrap:wrap;max-width:760px}
+.ib{position:relative;width:30px;height:30px;border-radius:7px;display:grid;place-items:center;border:1px solid #44444b;font-size:15px}
+.ib.glow{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.25)}
+.badge{position:absolute;top:-6px;right:-7px;min-width:17px;height:17px;border-radius:9px;background:#3b82f6;color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;padding:0 4px}
+.seg{display:inline-flex;border:1px solid #44444b;border-radius:7px;overflow:hidden}
+.seg span{padding:4px 11px;font-size:12.5px}.seg .on{background:#3a3a42}
+.title{font-weight:700;font-size:15px}
+.pop{width:440px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.5);overflow:hidden}
+.ph{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.inv{display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.inv:last-child{border-bottom:0}
+.bar{width:3px;border-radius:2px;flex:none}
+.av{width:30px;height:30px;border-radius:50%;background:#4b4f7a;display:grid;place-items:center;font-size:11.5px;font-weight:700;flex:none}
+.t{font-weight:600}
+.s{color:var(--muted);font-size:12px}
+.ans{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.a{border:1px solid #44444b;border-radius:7px;padding:3px 14px;font-size:12.5px;background:#2f2f35}
+.a.yes{background:#1f6b45;border-color:#2f8f5f;color:#fff}
+.a.no{background:#8a2d2d;border-color:#b04040;color:#fff}
+.a.maybe{background:#6b5314;border-color:#8f6f1f;color:#fff}
+.gone{text-decoration:line-through;color:var(--muted)}
+.chev{color:var(--muted);align-self:flex-start}
+.conf{font-size:11.5px;color:#fbbf24;margin-top:3px}
+.side{width:230px;background:#1b1b1e;border:1px solid var(--line);border-radius:10px;padding:8px}
+.si{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px}
+.si.on{background:#2b3a5a}
+.cnt{margin-left:auto;font-size:11.5px;color:var(--muted)}
+.cnt.b{background:#3b82f6;color:#fff;border-radius:9px;padding:0 6px;font-weight:700}
+.q{border-left:3px solid #f59e0b;padding:4px 0 4px 12px;color:#e8d7b5;font-size:12.5px;max-width:720px}
+</style></head><body><div class="w">
+
+<div><h1>Invitations in one place</h1>
+<p class="why" style="margin-top:4px">Like the iPhone's Invitations: one button with a count, a pop-up with New and Replied, and Yes / Maybe / No on each. It lists invitations from your calendars, not just from emails, so ones that never arrived by email show too.</p></div>
+
+<section>
+<div class="lbl">1 · Where the button goes</div>
+<div class="pair">
+<div>
+<p style="margin:0 0 8px"><span class="opt rec">A · MY PICK</span>In the Calendar & Reminders header</p>
+<div class="head"><span class="title">Calendar &amp; Reminders</span><span class="grow"></span><span class="ib glow">✉<span class="badge">3</span></span><span class="btn">Calendars ▾</span><span class="btn ghost">⟳</span><span class="btn pri">+ New event</span></div>
+<p class="why">A count on it while new invitations are waiting, with a soft blue glow. No count once they're all answered.</p>
+</div>
+<div>
+<p style="margin:0 0 8px"><span class="opt">AND</span>The sidebar count says so too</p>
+<div class="side">
+<div class="si">Calendar &amp; Reminders <span class="cnt">2</span></div>
+<div class="si on">Invitations <span class="cnt b">3</span></div>
+</div>
+<p class="why" style="max-width:230px">Optional: a line under Calendar & Reminders in the sidebar, so you see it from mail. It only shows while there's something new.</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">2 · The pop-up</div>
+<div class="pair">
+<div class="pop">
+<div class="ph"><b class="grow">Invitations</b><span class="seg"><span class="on">New · 3</span><span>Replied</span></span><span class="s">✕</span></div>
+<div class="inv"><span class="bar" style="background:#3b82f6"></span><span class="av">SM</span><div class="grow">
+<div class="t">Podcast planning</div><div class="s">Sam Morgan · todd@wellgood.media</div><div>Thu 20 Nov, 14:00 to 15:00 · Google Meet</div>
+<div class="conf">Clashes with Edit podcast</div>
+<div class="ans"><span class="a">Yes</span><span class="a">Maybe</span><span class="a">No</span></div></div><span class="chev">›</span></div>
+<div class="inv"><span class="bar" style="background:#e879f9"></span><span class="av">JM</span><div class="grow">
+<div class="t">Jen's birthday</div><div class="s">Jen Macdonald · tbweller · every year</div><div>Wed 19 May, all day</div>
+<div class="ans"><span class="a">Yes</span><span class="a">Maybe</span><span class="a">No</span></div></div><span class="chev">›</span></div>
+<div class="inv"><span class="bar" style="background:#22c55e"></span><span class="av">O</span><div class="grow">
+<div class="t gone">Generative AI Engineering</div><div class="s">Outskill · cancelled by the organiser</div><div>Sat 15 Nov, 14:00</div>
+<div class="ans"><span class="btn">Remove from my calendar</span></div></div><span class="chev">›</span></div>
+</div>
+<div class="pop">
+<div class="ph"><b class="grow">Invitations</b><span class="seg"><span>New</span><span class="on">Replied</span></span><span class="s">✕</span></div>
+<div class="inv"><span class="bar" style="background:#3b82f6"></span><span class="av">UO</span><div class="grow">
+<div class="t">Cut &amp; Style</div><div class="s">Google Calendar · todd@wellgood.media</div><div>Wed 25 Nov, 10:45</div>
+<div class="ans"><span class="a yes">Yes</span><span class="a">Maybe</span><span class="a">No</span></div></div><span class="chev">›</span></div>
+<div class="inv"><span class="bar" style="background:#3b82f6"></span><span class="av">TW</span><div class="grow">
+<div class="t">Test invite</div><div class="s">Todd · todd@wellgood.media</div><div>Fri 20 Nov, 09:00</div>
+<div class="ans"><span class="a">Yes</span><span class="a maybe">Maybe</span><span class="a">No</span></div></div><span class="chev">›</span></div>
+<div class="inv"><span class="bar" style="background:#e879f9"></span><span class="av">AB</span><div class="grow">
+<div class="t">Team drinks</div><div class="s">Alex Brown · tbweller</div><div>Fri 28 Nov, 18:00</div>
+<div class="ans"><span class="a">Yes</span><span class="a">Maybe</span><span class="a no">No</span></div></div><span class="chev">›</span></div>
+</div>
+</div>
+<p class="why"><b>New</b>: invitations you haven't answered, soonest first, with a note if one clashes with something already in your calendar. Pressing Yes, Maybe or No answers it and it moves to Replied (with Undo). Cancelled meetings show crossed out with Remove from my calendar. <b>Replied</b>: upcoming ones you've answered, your answer coloured (green Yes, amber Maybe, red No), so changing your mind is one click. › opens the usual event pop-up, and the email it came in is a click from there.</p>
+<p class="why">Each answer asks the organiser's calendar to tell them (Google and Outlook do this). Past events drop off the Replied list.</p>
+</section>
+
+<section>
+<div class="lbl">Things to decide</div>
+<div class="q">1. Button in the Calendar & Reminders header only, or also a line in the sidebar?<br>2. Yes / Maybe / No (the words the app already uses on invitation emails), or Accept / Maybe / Decline like the iPhone?<br>3. Answering from here: also offer "Add a note" to the organiser, or keep it to one click?</div>
+</section>
+
+</div></body></html>

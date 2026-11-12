@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Out of Office page</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6;--line:#34343b;--amber:#f59e0b;--green:#34d399}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1060px;margin:0 auto;display:grid;gap:40px}
+h1{font-size:18px;margin:4px 0 0}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.opt{display:inline-block;font-size:11px;font-weight:700;background:#2b3a5a;color:#9fc0ff;border-radius:5px;padding:1px 7px;margin-right:6px}
+.rec{background:#1f3a2e;color:#7fe0b4}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0;max-width:760px}
+.app{background:#1b1b1e;border:1px solid #33333a;border-radius:12px;padding:18px;max-width:760px}
+.app h2{font-size:17px;margin:0}
+.sub{color:var(--muted);font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:12px}
+.ch{display:flex;align-items:center;gap:10px;padding:10px 14px 0;font-weight:600}
+.row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line);min-height:42px}
+.card .row:first-child,.ch+.row{border-top:0}
+.grow{flex:1;min-width:0}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.sw{width:32px;height:18px;border-radius:9px;background:#4a4a52;position:relative;flex:none}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+.sw.on{background:var(--accent)}.sw.on::after{left:16px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:5px 12px;background:#2f2f35;font-size:12.5px;white-space:nowrap}
+.ghost{background:transparent}
+.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.sel{border:1px solid #4a4a52;border-radius:7px;padding:4px 9px;background:#1d1d20;font-size:12.5px;white-space:nowrap}
+.sel::after{content:' ▾';color:var(--muted)}
+.in{border:1px solid #4a4a52;border-radius:7px;padding:6px 9px;background:#1d1d20}
+.ed{border:1px solid #4a4a52;border-radius:8px;background:#1d1d20;margin:0 14px 12px}
+.fb{display:flex;gap:10px;padding:5px 9px;border-bottom:1px solid #3a3a41;color:var(--muted);font-size:12px;flex-wrap:wrap}
+.body{padding:10px 12px;min-height:70px}
+.pill{font-size:11px;border-radius:999px;padding:1px 8px;border:1px solid #44444b;color:var(--muted);white-space:nowrap}
+.pill.on{border-color:#7a5a1a;color:#fbbf24;background:#2a2213}
+.pill.ed2{border-color:#5a4a1a;color:#fcd34d}
+.seg{display:inline-flex;border:1px solid #44444b;border-radius:7px;overflow:hidden}
+.seg span{padding:4px 11px;font-size:12.5px}.seg .on{background:#3a3a42}
+.tabs{display:flex;gap:4px;padding:8px 14px 0;flex-wrap:wrap}
+.tab{padding:4px 10px;border-radius:6px;font-size:12.5px;color:var(--muted)}
+.tab.on{background:#33333b;color:var(--text)}
+.sentence{background:#1f2a3d;border:1px solid #2b3f63;border-radius:10px;padding:12px 14px;margin-top:14px;font-size:14px}
+.sentence b{color:#bcd3ff}
+.foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.tplbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#23232a;border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-top:12px}
+.two{display:grid;grid-template-columns:200px 1fr;gap:14px;margin-top:12px}
+.nav{display:grid;gap:4px;align-content:start}
+.nv{padding:8px 10px;border-radius:8px;border:1px solid transparent}
+.nv small{display:block;color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nv.on{background:#26262b;border-color:var(--line)}
+.mailhead .row{padding:7px 14px}
+.k{width:74px;color:var(--muted);flex:none}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid #44444b;border-radius:999px;padding:2px 9px 2px 7px;font-size:12.5px;margin:2px 4px 2px 0}
+.chip.off{opacity:.45;border-style:dashed}
+.disc{display:flex;gap:8px;align-items:center;padding:10px 14px;color:var(--muted)}
+.pop{width:420px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.pop h3{margin:0 0 8px;font-size:15px}
+.menu{background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:4px;width:230px}
+.mi{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:6px}
+.mi.hover{background:#2b3a5a}
+.mh{font-size:11px;color:var(--muted);padding:7px 8px 2px;text-transform:uppercase;letter-spacing:.04em}
+.msep{height:1px;background:#44444b;margin:4px 6px}
+.pair{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.q{border-left:3px solid var(--amber);padding:4px 0 4px 12px;color:#e8d7b5;font-size:12.5px;max-width:760px}
+.cmp{width:100%;max-width:760px;border-collapse:collapse;font-size:12.5px}
+.cmp td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.cmp td:first-child{color:var(--muted);white-space:nowrap}
+@media (max-width:640px){.two{grid-template-columns:1fr}.nav{grid-auto-flow:column;overflow-x:auto}}
+</style></head><body><div class="w">
+
+<div><h1>Out of Office: three ways to lay out the page</h1>
+<p class="why" style="margin-top:4px">Everything it does today stays. What changes is the order, the size of things, and how it reads. All three share the same new pieces, shown at the bottom: accounts as switches, a clearer name for "Own message", and templates that notice when you've changed them.</p></div>
+
+<!-- ============ A ============ -->
+<section>
+<p style="margin:0 0 10px"><span class="opt rec">A · MY PICK</span><b>Like the other Settings pages</b>: one column of plain cards with switches, and a sentence that says what will happen</p>
+<div class="app">
+  <h2>Out of Office</h2>
+  <div class="sub">Set inside each account, so replies go out even when this computer is off.</div>
+
+  <div class="tplbar"><span class="sub">Template</span><span class="sel">Away day test</span><span class="pill ed2">Changed</span><span class="grow"></span><span class="btn ghost">Update template</span><span class="btn ghost">Save as new…</span></div>
+
+  <div class="card">
+    <div class="ch">Accounts</div>
+    <div class="row"><span class="dot" style="background:#3b82f6"></span><div class="grow">todd@wellgood.media <span class="sub">· Off</span></div><span class="sw on"></span></div>
+    <div class="row"><span class="dot" style="background:#e879f9"></span><div class="grow">tbweller@gmail.com <span class="sub">· Off</span></div><span class="sw on"></span></div>
+    <div class="row"><span class="dot" style="background:#22c55e"></span><div class="grow">Microsoft <span class="sub">· On until Fri 14 Nov</span> <span class="pill on">Away</span></div><span class="sw"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="grow">Message</span><span class="sub" style="font-weight:400">Different message for each account</span><span class="sw on"></span></div>
+    <div class="tabs"><span class="tab on">todd@wellgood.media</span><span class="tab">tbweller@gmail.com</span></div>
+    <div class="row" style="border-top:0"><span class="k">Subject</span><span class="in grow">Away for the day</span></div>
+    <div class="ed"><div class="fb"><span>B</span><span>I</span><span>U</span><span>• List</span><span>Insert back date</span><span>Signature…</span></div><div class="body">I'm away today and not checking my email. I'll reply when I'm back. Please bear with me.<br><br>All the best,</div></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span class="grow">When</span><span class="seg"><span>Until I turn it off</span><span class="on">Between dates</span></span></div>
+    <div class="row"><span class="grow">From</span><span class="in">Thu 13 Nov</span><span class="in">09:00</span></div>
+    <div class="row"><span class="grow">Back</span><span class="in">Fri 14 Nov</span><span class="in">09:00</span></div>
+    <div class="row"><span class="grow">Part days (set times)</span><span class="sw on"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span class="grow">Who gets it</span><span class="sel">Everyone who emails me</span></div>
+    <div class="row"><span class="grow">People outside my organisation <span class="sub">· Microsoft</span></span><span class="sel">Everyone</span></div>
+    <div class="row"><span class="grow">A different message for them</span><span class="sw"></span></div>
+  </div>
+
+  <div class="card">
+    <div class="ch">While I'm away</div>
+    <div class="row"><span class="grow">Pause new-mail alerts</span><span class="sw on"></span></div>
+    <div class="row"><span class="grow">Add an Away event to my calendar</span><span class="sw"></span></div>
+    <div class="row"><span class="grow">Decline new invitations <span class="sub">· Google Workspace</span></span><span class="sw"></span></div>
+    <div class="row"><span class="grow">Remind me the day before it ends</span><span class="sw"></span></div>
+    <div class="row"><span class="grow">Show "While you were away" when I'm back</span><span class="sw on"></span></div>
+  </div>
+
+  <div class="sentence">Everyone who emails <b>todd@wellgood.media</b> or <b>tbweller@gmail.com</b> gets "Away for the day" from <b>Thursday 09:00</b> until <b>Friday 09:00</b>. New-mail alerts are paused.</div>
+  <div class="foot"><span class="btn ghost">Preview</span><span class="btn ghost">Send me a test</span><span class="grow"></span><span class="btn pri">Schedule for 2 accounts</span></div>
+</div>
+<p class="why">Each section is one card of rows, label on the left and the control on the right, the same as General or Notifications. The cards are all the same width, so the eye just goes down the page. "Who gets it" becomes a drop-down instead of three radio buttons with long notes. The sentence at the bottom reads back the whole plan before you press the button. "Suggest Out of Office from my calendar" moves to Settings › Calendar & Reminders, since it's about the calendar, not this time away.</p>
+</section>
+
+<!-- ============ B ============ -->
+<section>
+<p style="margin:0 0 10px"><span class="opt">B</span><b>Sections down the side</b>: a short list on the left shows each part and what it's set to; the right shows just that part</p>
+<div class="app">
+  <h2>Out of Office</h2>
+  <div class="tplbar"><span class="sub">Template</span><span class="sel">Away day test</span><span class="pill ed2">Changed</span><span class="grow"></span><span class="btn ghost">Update template</span><span class="btn ghost">Save as new…</span></div>
+  <div class="two">
+    <div class="nav">
+      <div class="nv">Accounts<small>2 of 3</small></div>
+      <div class="nv on">Message<small>Away for the day</small></div>
+      <div class="nv">When<small>Thu 09:00 to Fri 09:00</small></div>
+      <div class="nv">Who gets it<small>Everyone</small></div>
+      <div class="nv">While I'm away<small>Pause alerts</small></div>
+    </div>
+    <div class="card" style="margin-top:0">
+      <div class="ch"><span class="grow">Message</span><span class="sub" style="font-weight:400">Different message for each account</span><span class="sw"></span></div>
+      <div class="row" style="border-top:0"><span class="k">Subject</span><span class="in grow">Away for the day</span></div>
+      <div class="ed"><div class="fb"><span>B</span><span>I</span><span>U</span><span>• List</span><span>Insert back date</span></div><div class="body">I'm away today and not checking my email. I'll reply when I'm back.</div></div>
+    </div>
+  </div>
+  <div class="sentence">Everyone who emails <b>2 accounts</b> gets "Away for the day" from <b>Thursday 09:00</b> until <b>Friday 09:00</b>.</div>
+  <div class="foot"><span class="btn ghost">Preview</span><span class="btn ghost">Send me a test</span><span class="grow"></span><span class="btn pri">Schedule for 2 accounts</span></div>
+</div>
+<p class="why">Much less on screen at once, and the left list doubles as a summary. The catch: you have to click through to check everything, and it's a different pattern from every other Settings page.</p>
+</section>
+
+<!-- ============ C ============ -->
+<section>
+<p style="margin:0 0 10px"><span class="opt">C</span><b>Like writing an email</b>: the reply is laid out as the email people will get, with the extras folded away underneath</p>
+<div class="app">
+  <h2>Out of Office</h2>
+  <div class="tplbar"><span class="sub">Template</span><span class="sel">Away day test</span><span class="grow"></span><span class="btn ghost">Save as new…</span></div>
+  <div class="card mailhead">
+    <div class="row"><span class="k">From</span><div class="grow"><span class="chip"><span class="dot" style="background:#3b82f6"></span>todd@wellgood.media</span><span class="chip"><span class="dot" style="background:#e879f9"></span>tbweller@gmail.com</span><span class="chip off"><span class="dot" style="background:#22c55e"></span>Microsoft</span></div></div>
+    <div class="row"><span class="k">To</span><span class="sel">Everyone who emails me</span></div>
+    <div class="row"><span class="k">When</span><span class="in">Thu 13 Nov 09:00</span><span class="sub">to</span><span class="in">Fri 14 Nov 09:00</span></div>
+    <div class="row"><span class="k">Subject</span><span class="in grow">Away for the day</span></div>
+    <div class="ed" style="margin-top:4px"><div class="fb"><span>B</span><span>I</span><span>U</span><span>• List</span><span>Insert back date</span></div><div class="body">I'm away today and not checking my email. I'll reply when I'm back.</div></div>
+  </div>
+  <div class="card"><div class="disc">▸ <span class="grow" style="color:var(--text)">While I'm away</span><span>Pause alerts, While you were away</span></div></div>
+  <div class="foot"><span class="btn ghost">Preview</span><span class="btn ghost">Send me a test</span><span class="grow"></span><span class="btn pri">Schedule for 2 accounts</span></div>
+</div>
+<p class="why">The most compact, and it's obvious what people will receive. Click an account in From to turn it on or off. The catch: the From chips don't show each account's state (On until Friday) as clearly as switches do, and a different message per account is harder to fit in.</p>
+</section>
+
+<!-- ============ shared pieces ============ -->
+<section>
+<div class="lbl">Shared by all three: "Own message", renamed</div>
+<p class="why" style="margin-top:0">You've got it right: one message goes to every ticked account, unless you give an account its own, for example a professional one for Well Good Media and a casual one for your personal Gmail. The button on each account goes. Instead there's one switch on the Message card:</p>
+<div class="app" style="max-width:520px;padding:0 0 4px">
+  <div class="ch" style="padding:12px 14px 0"><span class="grow">Message</span><span class="sub" style="font-weight:400">Different message for each account</span><span class="sw on"></span></div>
+  <div class="tabs"><span class="tab on">todd@wellgood.media</span><span class="tab">tbweller@gmail.com</span></div>
+  <p class="why" style="margin:8px 14px 10px">Off: one message for all. On: a tab for each account that's switched on, each starting as a copy of the shared message.</p>
+</div>
+</section>
+
+<section>
+<div class="lbl">Shared by all three: templates notice changes</div>
+<div class="pair">
+<div style="max-width:440px">
+<p style="margin:0 0 8px">The Templates drop-down shows names only:</p>
+<div class="menu">
+<div class="mh">Your templates</div>
+<div class="mi hover">Away day test</div>
+<div class="mi">Friday afternoons</div>
+<div class="mh">Built in</div>
+<div class="mi">Away</div><div class="mi">Holiday</div><div class="mi">Conference</div><div class="mi">Off sick</div>
+<div class="msep"></div>
+<div class="mi">Save as new template…</div>
+<div class="mi">Manage templates…</div>
+</div>
+<p class="why">After you pick one, anything you change marks it <span class="pill ed2">Changed</span>, with <b>Update template</b> and <b>Save as new…</b> right beside it. Update template only saves the parts the template includes, so ticking an account doesn't add accounts to it.</p>
+</div>
+<div class="pop">
+<h3>Update Away day test too?</h3>
+<p class="why" style="margin:0 0 4px">You changed the message and who gets it since picking the template.</p>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><span class="btn ghost">Just this time</span><span class="grow"></span><span class="btn">Save as new…</span><span class="btn pri">Update template</span></div>
+<p class="why">Shows once when you press Schedule or Turn on with a changed template. Just this time carries on without saving.</p>
+</div>
+</div>
+</section>
+
+<section>
+<div class="lbl">Shared by all three: Manage templates, shorter wording</div>
+<table class="cmp">
+<tr><td>Rename</td><td>Rename</td></tr>
+<tr><td>Copy</td><td>Duplicate</td></tr>
+<tr><td>Update from what's on the page</td><td>Save current settings to it</td></tr>
+<tr><td>Change what it includes…</td><td>Choose parts…</td></tr>
+<tr><td>Delete</td><td>Delete</td></tr>
+</table>
+<p class="why">Left is now, right is the new wording. Template rows show just the name, with one short line under it ("Message, when and who").</p>
+</section>
+
+<section>
+<div class="lbl">Things to decide</div>
+<div class="q">1. Layout A, B or C?<br>2. Is "Different message for each account" clear enough?<br>3. Should the "Update Away day test too?" question come up when you press Schedule, or is the Changed label with its two buttons enough on its own?</div>
+</section>
+
+</div></body></html>

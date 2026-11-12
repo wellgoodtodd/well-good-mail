@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calendar header</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6;--line:#33333a}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:900px;margin:0 auto;display:grid;gap:34px}
+h1{font-size:18px;margin:4px 0 0}
+.opt{display:inline-block;font-size:11px;font-weight:700;background:#2b3a5a;color:#9fc0ff;border-radius:5px;padding:1px 7px;margin-right:6px}
+.rec{background:#1f3a2e;color:#7fe0b4}
+.why{color:var(--muted);font-size:12.5px;margin:8px 0 0;max-width:720px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.head{display:flex;align-items:center;gap:8px;padding:10px 12px;flex-wrap:wrap}
+.ib{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--text);font-size:17px;flex:none}
+.ib:hover{background:#33333b}
+.ib.box{border:1px solid #44444b}
+.title{font-weight:700;font-size:15px;white-space:nowrap}
+.title small{color:var(--muted);font-weight:400;font-size:12px;margin-left:4px}
+.grow{flex:1}
+.seg{display:inline-flex;border:1px solid #44444b;border-radius:7px;overflow:hidden}
+.seg span{padding:4px 11px;font-size:12.5px}.seg .on{background:#3a3a42}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:4px 11px;background:transparent;font-size:12.5px;white-space:nowrap}
+.cluster{display:inline-flex;align-items:center;border:1px solid #44444b;border-radius:7px;overflow:hidden}
+.cluster span{padding:4px 9px;font-size:12.5px}
+.cluster .a{font-size:15px;padding:2px 9px}
+.cluster span+span{border-left:1px solid #44444b}
+.days{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+.days div{padding:6px;height:46px;border-left:1px solid var(--line)}
+.days div:first-child{border-left:0}
+.zoom{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+.zbar{width:70px;height:4px;border-radius:2px;background:#44444b;position:relative}
+.zbar::after{content:'';position:absolute;left:40%;top:-4px;width:12px;height:12px;border-radius:50%;background:#ececef}
+.grid{display:grid;grid-template-columns:48px 1fr;border-top:1px solid var(--line)}
+.hr{font-size:10.5px;color:var(--muted);text-align:right;padding-right:6px}
+.slot{border-left:1px solid var(--line);position:relative}
+.q{border-left:3px solid #f59e0b;padding:4px 0 4px 12px;color:#e8d7b5;font-size:12.5px;max-width:720px}
+</style></head><body><div class="w">
+
+<div><h1>Calendar header: arrows and zoom</h1>
+<p class="why" style="margin-top:4px">Where the back and forward arrows go, and a zoom for Day and Week view.</p></div>
+
+<section>
+<p style="margin:0 0 8px"><b>Now</b>: the arrows are pushed to opposite ends</p>
+<div class="card"><div class="head"><span class="ib">‹</span><span class="title grow" style="text-align:center">November 2026</span><span class="ib">›</span><span class="seg"><span>Day</span><span>Week</span><span class="on">Month</span></span><span class="btn">Today</span></div><div class="days"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div></div>
+</section>
+
+<section>
+<p style="margin:0 0 8px"><span class="opt rec">A · MY PICK</span>Either side of the month name, on the left</p>
+<div class="card"><div class="head"><span class="ib box">‹</span><span class="title">November 2026</span><span class="ib box">›</span><span class="btn">Today</span><span class="grow"></span><span class="seg"><span>Day</span><span>Week</span><span class="on">Month</span></span></div><div class="days"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div></div>
+<p class="why">The arrows sit right against what they change, and Today is next to them. The month name stays in one place, so the arrows don't jump about as it changes length (the name gets a fixed width, e.g. "September 2026"). Day / Week / Month moves to the right.</p>
+</section>
+
+<section>
+<p style="margin:0 0 8px"><span class="opt">B</span>Together with Today, next to Day / Week / Month</p>
+<div class="card"><div class="head"><span class="title">November 2026</span><span class="grow"></span><span class="cluster"><span class="a">‹</span><span>Today</span><span class="a">›</span></span><span class="seg"><span>Day</span><span>Week</span><span class="on">Month</span></span></div><div class="days"><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div></div></div>
+<p class="why">Apple Calendar's way. All the buttons are in one place on the right, and the month name stands on its own like a page title. The arrows are a little further from the name.</p>
+</section>
+
+<section>
+<p style="margin:0 0 8px"><b>Zoom</b> (Day and Week view), shown with A</p>
+<div class="card"><div class="head"><span class="ib box">‹</span><span class="title">Week 46 <small>9 to 15 Nov</small></span><span class="ib box">›</span><span class="btn">Today</span><span class="grow"></span><span class="zoom">− <span class="zbar"></span> +</span><span class="seg"><span>Day</span><span class="on">Week</span><span>Month</span></span></div>
+<div class="grid">
+<div><div class="hr" style="height:22px">09:00</div><div class="hr" style="height:22px">09:30</div><div class="hr" style="height:22px">10:00</div><div class="hr" style="height:22px">10:30</div></div>
+<div class="slot" style="background:repeating-linear-gradient(#26262b 0 21px,#303037 21px 22px)"></div>
+</div></div>
+<p class="why"><b>Ctrl + mouse wheel</b> (or pinch on a trackpad) zooms in and out of the times, and the small slider does the same for anyone who doesn't know that. Zoomed out, you see the whole day. Zoomed in, the hours grow and the lines show half hours, then quarter hours, then 5 minutes. The zoom is remembered.</p>
+<p class="why"><b>Snapping follows the zoom:</b> 15 minutes normally, 5 minutes at the closest zoom. An event that starts off the grid, say at 10:05, keeps its 5 minutes past as you drag it (10:05, 10:20, 10:35), rather than jumping to 10:15.</p>
+</section>
+
+<section>
+<div class="q">1. Arrows: A (either side of the month name) or B (with Today, next to Day / Week / Month)?<br>2. Zoom: is Ctrl + wheel plus the small slider right, or would you rather just − and + buttons?</div>
+</section>
+
+</div></body></html>

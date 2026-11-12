@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dragging and selecting events</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6;--line:#33333a;--amber:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1060px;margin:0 auto;display:grid;gap:40px}
+h1{font-size:18px;margin:4px 0 0}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.opt{display:inline-block;font-size:11px;font-weight:700;background:#2b3a5a;color:#9fc0ff;border-radius:5px;padding:1px 7px;margin-right:6px}
+.rec{background:#1f3a2e;color:#7fe0b4}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0;max-width:760px}
+.pair{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.grow{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:5px 12px;background:#2f2f35;font-size:12.5px;white-space:nowrap}
+.ghost{background:transparent}.pri{background:var(--accent);border-color:var(--accent);color:#fff}.red{color:#ff8a8d}
+.in{border:1px solid #4a4a52;border-radius:7px;padding:5px 9px;background:#1d1d20;font-size:12.5px;white-space:nowrap}
+.sel::after{content:' ▾';color:var(--muted)}
+/* time grid */
+.grid{position:relative;display:grid;grid-template-columns:44px repeat(3,1fr);background:#1b1b1e;border:1px solid var(--line);border-radius:10px;overflow:hidden;width:440px;max-width:100%}
+.gh{font-size:11.5px;color:var(--muted);padding:6px;border-bottom:1px solid var(--line);text-align:center}
+.col{position:relative;height:240px;border-left:1px solid var(--line);background:repeating-linear-gradient(#1b1b1e 0 39px,#2a2a30 39px 40px)}
+.hrs{height:240px;font-size:10.5px;color:var(--muted)}
+.hrs div{height:40px;padding:0 4px;text-align:right}
+.ev{position:absolute;left:4px;right:4px;border-radius:6px;padding:3px 6px;font-size:11.5px;line-height:1.25;overflow:hidden}
+.ev small{display:block;opacity:.8;font-size:10.5px}
+.blue{background:#1e3a66;border-left:3px solid #3b82f6}
+.pink{background:#4a2350;border-left:3px solid #e879f9}
+.green{background:#1d3b2c;border-left:3px solid #22c55e}
+.hov{outline:1.5px solid #8fb3ff;outline-offset:0}
+.handle{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);width:22px;height:4px;border-radius:2px;background:#cfe0ff}
+.ghost-ev{opacity:.35}
+.moving{box-shadow:0 8px 24px rgba(0,0,0,.6);outline:1.5px solid #8fb3ff}
+.tip{position:absolute;font-size:11px;background:#0c0c0e;border:1px solid #44444b;border-radius:5px;padding:1px 6px;white-space:nowrap;z-index:3}
+.cur{position:absolute;font-size:18px;z-index:4;filter:drop-shadow(0 1px 1px #000)}
+.selc{outline:2px solid #fff;outline-offset:1px}
+.lasso{position:absolute;border:1px dashed #8fb3ff;background:rgba(59,130,246,.12);z-index:2}
+/* month */
+.month{display:grid;grid-template-columns:repeat(3,1fr);width:440px;max-width:100%;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#1b1b1e}
+.day{height:96px;border-left:1px solid var(--line);padding:4px;font-size:11px;color:var(--muted)}
+.day:first-child{border-left:0}
+.day.drop{background:#1f2a3d;outline:1.5px dashed #8fb3ff;outline-offset:-3px}
+.mc{display:block;margin-top:4px;border-radius:5px;padding:2px 6px;font-size:11.5px;color:var(--text)}
+/* pops */
+.pop{width:360px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.pop h3{margin:0 0 8px;font-size:15px}
+.r{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.k{width:62px;color:var(--muted);font-size:12px;flex:none}
+.acts{display:flex;gap:8px;margin-top:14px;align-items:center;flex-wrap:wrap}
+.menu{background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:4px;width:280px}
+.mi{display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:6px}
+.mi.hover{background:#2b3a5a}.mi .k2{margin-left:auto;color:var(--muted);font-size:11.5px}
+.mh{font-size:11px;color:var(--muted);padding:7px 8px 2px;text-transform:uppercase;letter-spacing:.04em}
+.msep{height:1px;background:#44444b;margin:4px 6px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#1f2a3d;border:1px solid #2b3f63;border-radius:10px;padding:8px 12px;max-width:760px}
+.list{background:#1b1b1e;border:1px solid var(--line);border-radius:10px;max-width:760px}
+.lr{display:flex;gap:10px;align-items:center;padding:8px 12px;border-top:1px solid var(--line)}
+.lr:first-child{border-top:0}.lr small{color:var(--muted)}
+.box{width:16px;height:16px;border-radius:4px;border:1px solid #6b6b75;flex:none;display:grid;place-items:center;font-size:11px}
+.box.on{background:var(--accent);border-color:var(--accent)}
+.warn{border-left:3px solid var(--amber);padding:6px 10px;background:#2a2213;color:#e8d7b5;font-size:12.5px;border-radius:0 6px 6px 0;margin-top:10px}
+.q{border-left:3px solid var(--amber);padding:4px 0 4px 12px;color:#e8d7b5;font-size:12.5px;max-width:760px}
+</style></head><body><div class="w">
+
+<div><h1>Calendar: dragging, quick edit and moving several events</h1>
+<p class="why" style="margin-top:4px">Day and Week view get handles and dragging, Month view gets dragging between days, the pop-up becomes a quick edit, and you can pick several events and move them to another calendar in one go. Edit opens the full New event form.</p></div>
+
+<!-- 1 -->
+<section>
+<div class="lbl">1 · Hover, then drag the handle to change the length</div>
+<div class="pair">
+<div>
+<div class="grid">
+  <div class="gh"></div><div class="gh">Wed 12</div><div class="gh">Thu 13</div><div class="gh">Fri 14</div>
+  <div class="hrs"><div>09:00</div><div>10:00</div><div>11:00</div><div>12:00</div><div>13:00</div><div>14:00</div></div>
+  <div class="col"><div class="ev blue" style="top:40px;height:40px">Team call<small>10:00</small></div></div>
+  <div class="col"><div class="ev pink hov" style="top:80px;height:60px">Edit podcast<small>11:00 to 12:30</small><span class="handle"></span></div><span class="cur" style="left:44%;top:124px">✊</span><span class="tip" style="left:6px;top:150px">to 12:30 · 1½ hours</span></div>
+  <div class="col"><div class="ev green" style="top:120px;height:40px">Lunch with Sam<small>12:00</small></div></div>
+</div>
+<p class="why" style="max-width:440px">Hovering an event outlines it and shows a small bar on its bottom edge. Over the bar the pointer turns into an open hand, and a closed hand while you drag. It snaps to 15 minutes and shows the new end time as you go. Letting go saves it, with Undo.</p>
+</div>
+<div>
+<div class="grid">
+  <div class="gh"></div><div class="gh">Wed 12</div><div class="gh">Thu 13</div><div class="gh">Fri 14</div>
+  <div class="hrs"><div>09:00</div><div>10:00</div><div>11:00</div><div>12:00</div><div>13:00</div><div>14:00</div></div>
+  <div class="col"><div class="ev blue" style="top:40px;height:40px">Team call<small>10:00</small></div></div>
+  <div class="col"><div class="ev pink ghost-ev" style="top:80px;height:60px">Edit podcast</div></div>
+  <div class="col"><div class="ev green" style="top:120px;height:40px">Lunch with Sam<small>12:00</small></div><div class="ev pink moving" style="top:160px;height:60px">Edit podcast<small>13:00 to 14:30</small></div><span class="tip" style="left:4px;top:222px">Fri 13:00</span></div>
+</div>
+<p class="why" style="max-width:440px"><b>Moving</b>: grab the middle of an event and drag it to another time or day. The old spot stays faint until you let go. A plain click with no drag still opens it. Day view: times only. Events you were invited to (someone else organised them) can't be dragged, and show no handle.</p>
+</div>
+</div>
+</section>
+
+<!-- 2 -->
+<section>
+<div class="lbl">2 · Month view: drag a chip to another day</div>
+<div class="pair">
+<div class="month">
+  <div class="day">17<span class="mc pink" style="opacity:.35">Edit podcast 11:00</span></div>
+  <div class="day">18</div>
+  <div class="day drop">19<span class="mc pink" style="box-shadow:0 6px 18px rgba(0,0,0,.6)">Edit podcast 11:00</span></div>
+</div>
+<p class="why" style="max-width:420px">Only the day changes: same time, same length, same everything else. The day you're over is outlined.</p>
+</div>
+</section>
+
+<!-- 3 -->
+<section>
+<div class="lbl">3 · Repeating events ask which ones</div>
+<div class="pair">
+<div class="pop">
+<h3>Change a repeating event</h3>
+<p class="why" style="margin:0">Edit podcast repeats every Thursday. Move just this one, or this one and every one after it?</p>
+<div class="acts"><span class="btn ghost">Cancel</span><span class="grow"></span><span class="btn">This and all future events</span><span class="btn pri">Only this event</span></div>
+</div>
+<p class="why" style="max-width:380px">The same question comes up after any drag, resize or quick edit on a repeating event. Cancel puts it back where it was.</p>
+</div>
+</section>
+
+<!-- 4 -->
+<section>
+<div class="lbl">4 · One click: what should it do?</div>
+<div class="cols">
+<div>
+<p style="margin:0 0 8px"><span class="opt rec">A · MY PICK</span>Click opens the quick edit, as now</p>
+<p class="why" style="margin-top:0">Ctrl-click or Shift-click picks events without opening anything, and dragging across empty space draws a box round several. One click to see or join a meeting, as it is today.</p>
+</div>
+<div>
+<p style="margin:0 0 8px"><span class="opt">B</span>Click selects, double-click opens (Apple Calendar)</p>
+<p class="why" style="margin-top:0">A click outlines the event; double-click, Enter or right-click opens the quick edit. Tidier for picking several, but every look at an event, including Join, takes a double-click.</p>
+</div>
+</div>
+</section>
+
+<!-- 5 -->
+<section>
+<div class="lbl">5 · The quick edit (click, or right-click, an event)</div>
+<div class="pair">
+<div class="pop">
+<div class="in" style="font-weight:600;font-size:14px">Edit podcast</div>
+<div class="r"><span class="k">When</span><span class="in">Thu 13 Nov</span><span class="in">11:00</span><span style="color:var(--muted)">to</span><span class="in">12:30</span></div>
+<div class="r"><span class="k">Calendar</span><span class="in sel"><span class="dot" style="background:#e879f9"></span> Studio · tbweller</span></div>
+<div class="r"><span class="k">Where</span><span style="color:var(--muted)">Home studio</span></div>
+<div class="acts"><span class="btn ghost red">Delete</span><span class="grow"></span><span class="btn">More options</span><span class="btn pri">Save</span></div>
+</div>
+<div>
+<p class="why" style="margin-top:0;max-width:380px">Name, day, times and calendar change straight here. Save only appears once you've changed something; otherwise the button says Done. <b>More options</b> grows the same card into the full form (repeat, alerts, invitees, video call, notes), exactly like New event. That replaces today's small Edit form.</p>
+<p class="why" style="max-width:380px">Right-clicking an event opens the same card, plus a small menu at the top: Duplicate, Copy to another day…, Delete. Right-clicking empty space keeps today's menu (New event, New all-day event, Open day, Go to today).</p>
+</div>
+</div>
+</section>
+
+<!-- 6 -->
+<section>
+<div class="lbl">6 · Several events: move them to another calendar</div>
+<div class="pair">
+<div>
+<div class="grid">
+  <div class="gh"></div><div class="gh">Wed 12</div><div class="gh">Thu 13</div><div class="gh">Fri 14</div>
+  <div class="hrs"><div>09:00</div><div>10:00</div><div>11:00</div><div>12:00</div><div>13:00</div><div>14:00</div></div>
+  <div class="col"><div class="ev blue selc" style="top:40px;height:40px">Voice note: call bank<small>10:00</small></div></div>
+  <div class="col"><div class="ev blue selc" style="top:80px;height:40px">Voice note: invoice<small>11:00</small></div><div class="ev pink" style="top:160px;height:40px">Gym<small>13:00</small></div></div>
+  <div class="col"><div class="ev blue selc" style="top:80px;height:40px">Voice note: renew domain<small>11:00</small></div></div>
+  <div class="lasso" style="left:52px;top:58px;width:380px;height:100px"></div>
+</div>
+</div>
+<div class="menu">
+<div class="mh">3 events</div>
+<div class="mi hover">Move to calendar <span class="k2">▸</span></div>
+<div class="mi red">Delete 3 events</div>
+<div class="msep"></div>
+<div class="mh">Move to</div>
+<div class="mi"><span class="dot" style="background:#3b82f6"></span>To-dos · todd@wellgood.media</div>
+<div class="mi"><span class="dot" style="background:#3b82f6"></span>Work · todd@wellgood.media</div>
+<div class="mi"><span class="dot" style="background:#e879f9"></span>Personal · tbweller</div>
+</div>
+</div>
+<div class="bar" style="margin-top:14px"><b>3 events selected</b><span class="grow"></span><span class="btn sel">Move to calendar</span><span class="btn ghost red">Delete</span><span class="btn ghost">Clear</span></div>
+<p class="why">A bar above the calendar appears whenever more than one event is picked, and right-click gives the same choices. Only the calendar can change for a group, since names and times differ. Escape or Clear lets go of them.</p>
+<div class="warn"><b>2 of these have guests.</b> Moving them to another account sends everyone a new invitation, and their replies are lost. Events in the same Google account move cleanly. <span class="btn" style="margin-left:6px">Move the other 1 only</span> <span class="btn pri">Move all 3</span></div>
+</section>
+
+<!-- 7 -->
+<section>
+<div class="lbl">7 · The same in List view</div>
+<div class="bar"><span class="box on">–</span><b>2 selected</b><span class="grow"></span><span class="btn sel">Move to calendar</span><span class="btn ghost">Done</span></div>
+<div class="list" style="margin-top:8px">
+<div class="lr"><span class="box on">✓</span><div class="grow">Voice note: call bank<br><small>Today, 10:00 · Reminders · todd@wellgood.media</small></div></div>
+<div class="lr"><span class="box on">✓</span><div class="grow">Voice note: invoice<br><small>Thu, 11:00 · Reminders · todd@wellgood.media</small></div></div>
+<div class="lr"><span class="box"></span><div class="grow">Gym<br><small>Thu, 13:00 · Personal · tbweller</small></div></div>
+</div>
+<p class="why">Tick boxes appear on hover, or for every row once one is ticked. <b>Done</b> on the bar becomes "Done for 2" (clear them as reminders), next to Move to calendar.</p>
+</section>
+
+<section>
+<div class="lbl">Things to decide</div>
+<div class="q">1. One click: A (opens quick edit, as now) or B (selects, double-click opens)?<br>2. Snap to 15 minutes when dragging, or 5?<br>3. In List view, is ticking rows plus Move to calendar enough, or do you want Delete there too?</div>
+</section>
+
+</div></body></html>
