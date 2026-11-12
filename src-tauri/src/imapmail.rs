@@ -53,9 +53,17 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Sen
 
 /// Connects and signs in. A refused password comes back starting with "AUTH:" so the interface can ask again.
 fn open(c: &Conn) -> Result<Sess, String> {
+    use std::net::ToSocketAddrs;
     let tls = TlsConnector::builder().build().map_err(es)?;
-    let client = imap::connect((c.host.as_str(), c.port), c.host.as_str(), &tls)
-        .map_err(|e| format!("Couldn't connect to {}: {}", c.host, e))?;
+    let fail = |e: &dyn std::fmt::Display| format!("Couldn't connect to {}: {}", c.host, e);
+    let addr = (c.host.as_str(), c.port).to_socket_addrs().map_err(|e| fail(&e))?.next().ok_or_else(|| fail(&"no address found"))?;
+    // Time limits, so a server that stops answering gives an error instead of holding the account's sync for ever.
+    let tcp = TcpStream::connect_timeout(&addr, Duration::from_secs(20)).map_err(|e| fail(&e))?;
+    tcp.set_read_timeout(Some(Duration::from_secs(120))).map_err(es)?;
+    tcp.set_write_timeout(Some(Duration::from_secs(120))).map_err(es)?;
+    let stream = tls.connect(c.host.as_str(), tcp).map_err(|e| fail(&e))?;
+    let mut client = imap::Client::new(stream);
+    client.read_greeting().map_err(|e| fail(&e))?;
     client.login(&c.user, &c.pass).map_err(|e| format!("AUTH: {}", e.0))
 }
 

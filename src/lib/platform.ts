@@ -4,13 +4,23 @@
 export const isTauri = (): boolean =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
-/** fetch that bypasses browser CORS rules inside the desktop app. */
+/** How long one web request may take before it gives up, so a request that never answers can't hold up an account's sync. */
+export const REQUEST_TIME_LIMIT = 120_000;
+
+/** Extra time for a big upload (an email with attachments, a file going to Drive): 15 seconds a megabyte, so slow connections still get there. */
+function bodyTime(body: unknown): number {
+  const size = typeof body === 'string' ? body.length : body instanceof Blob ? body.size : body instanceof ArrayBuffer || ArrayBuffer.isView(body) ? (body as ArrayBuffer).byteLength : 0;
+  return Math.round((size / 1_000_000) * 15_000);
+}
+
+/** fetch that bypasses browser CORS rules inside the desktop app, with a time limit unless the caller brings its own signal. */
 export async function httpFetch(input: string, init?: RequestInit): Promise<Response> {
+  const withLimit: RequestInit = init?.signal ? init : { ...init, signal: AbortSignal.timeout(REQUEST_TIME_LIMIT + bodyTime(init?.body)) };
   if (isTauri()) {
     const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-    return tauriFetch(input, init);
+    return tauriFetch(input, withLimit);
   }
-  return fetch(input, init);
+  return fetch(input, withLimit);
 }
 
 export async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {

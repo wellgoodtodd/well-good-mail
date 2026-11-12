@@ -25,6 +25,16 @@ async function sendItem(item: OutboxItem) {
   const provider = providerFor(accountId);
   if (!provider) throw new Error('That account is no longer connected');
   const sent = await provider.send(message);
+  // From here on the email has gone. Nothing below may throw, or the outbox would think it failed and send it again.
+  try {
+    await afterSend(draft, accountId, provider, sent);
+  } catch (e) {
+    console.warn('Sent, but tidying up afterwards failed', e);
+  }
+  setTimeout(refreshAll, 1500);
+}
+
+async function afterSend(draft: OutboxItem['draft'], accountId: string, provider: NonNullable<ReturnType<typeof providerFor>>, sent: { providerId: string; threadId: string }) {
   if (draft.serverAccountId) {
     const p = providerFor(draft.serverAccountId);
     const id = draft.serverDraftId || (draft.serverDraftMessageId ? await p?.findDraftId?.(draft.serverDraftMessageId).catch(() => undefined) : undefined);
@@ -46,7 +56,6 @@ async function sendItem(item: OutboxItem) {
       to: draft.to.map((a) => a.name || a.email).join(', '),
     });
   }
-  setTimeout(refreshAll, 1500);
 }
 
 registerSender(sendItem);

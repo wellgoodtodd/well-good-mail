@@ -174,7 +174,31 @@ function errorToast(e: unknown, prefix = '') {
 
 // ---------- local state helpers ----------
 
-function putMessages(msgs: Message[]) {
+/**
+ * Emails you changed here (archived, read, flagged, deleted) in the last little while. A sync that set off before the
+ * change reached the server can bring back the old state; for these, what you did here wins until the server has caught up.
+ */
+const touched = new Map<string, number>();
+const TOUCH_HOLD = 45_000;
+const recentlyTouched = (id: string) => (touched.get(id) || 0) > Date.now() - TOUCH_HOLD;
+function touch(ids: string[]) {
+  const now = Date.now();
+  for (const id of ids) touched.set(id, now);
+  if (touched.size > 500) for (const [id, t] of touched) if (t < now - TOUCH_HOLD) touched.delete(id);
+}
+const sameFlags = (a: Message, b: Message) => a.unread === b.unread && a.flagged === b.flagged && a.labels.length === b.labels.length && a.labels.every((l, i) => l === b.labels[i]);
+
+/** Adds or updates emails. fromSync: they came from the server, so recent changes made here are kept. */
+function putMessages(msgs: Message[], fromSync = false) {
+  if (fromSync) {
+    msgs = msgs.flatMap((m) => {
+      if (!recentlyTouched(m.id)) return [m];
+      const mine = get().messages[m.id];
+      // Deleted here a moment ago: don't bring it back.
+      if (!mine) return [];
+      return [{ ...m, labels: mine.labels, unread: mine.unread, flagged: mine.flagged }];
+    });
+  }
   if (!msgs.length) return;
   const next = { ...get().messages };
   for (const m of msgs) {
@@ -199,15 +223,17 @@ export async function importMessages(msgs: Message[]) {
   }
 }
 
-function patchMessages(ids: string[], patch: (m: Message) => Message) {
+function patchMessages(ids: string[], patch: (m: Message) => Message, fromSync = false) {
   const next = { ...get().messages };
   const changed: Message[] = [];
   for (const id of ids) {
-    if (next[id]) {
-      next[id] = patch(next[id]);
-      changed.push(next[id]);
-    }
+    if (!next[id] || (fromSync && recentlyTouched(id))) continue;
+    const was = next[id];
+    next[id] = patch(was);
+    if (!fromSync && !sameFlags(was, next[id])) touch([id]);
+    changed.push(next[id]);
   }
+  if (!changed.length) return;
   set({ messages: next });
   store.putMessages(changed).then(() => { if (isPopout()) broadcast({ type: 'messages-changed' }); });
   updateUnreadBadge();
@@ -223,7 +249,9 @@ export async function reloadMessagesFromDb() {
   updateUnreadBadge();
 }
 
-function removeMessages(ids: string[]) {
+function removeMessages(ids: string[], fromSync = false) {
+  if (fromSync) ids = ids.filter((id) => !recentlyTouched(id));
+  else touch(ids);
   const next = { ...get().messages };
   ids.forEach((id) => delete next[id]);
   set({ messages: next });
@@ -279,7 +307,7 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   const RECENT = 31 * 86400000;
   const loadMessages = opts.popout && opts.route ? popoutMessages(opts.route).catch(() => store.messages()) : store.messagesSince(Date.now() - RECENT).catch(() => store.messages());
   const [accounts, folders, messages, outbox, snoozes, followups, events, dismissed, contacts] = await Promise.all([
-    store.accounts(), store.folders(), loadMessages, store.outbox(), store.snoozes(), store.followups(), store.events(), store.dismissed(), store.contacts(),
+    store.accounts(), store.folders(), loadMessages, store.outbox().then(notYetSent), store.snoozes(), store.followups(), store.events(), store.dismissed(), store.contacts(),
   ]);
   accounts.sort((a, b) => a.order - b.order);
   // A sync that was running when the app last closed is not running now, so don't show it as syncing.
@@ -627,7 +655,7 @@ export async function syncAccount(id: string, opts: { full?: boolean; quiet?: bo
         account.retentionDays,
         async (batch) => {
           if (restartWanted.has(id)) throw new SyncStopped();
-          putMessages(batch);
+          putMessages(batch, true);
           await breathe();
           let fresh = 0;
           for (const m of batch) if (!counted.has(m.id)) { counted.add(m.id); fresh++; }
@@ -645,16 +673,16 @@ export async function syncAccount(id: string, opts: { full?: boolean; quiet?: bo
         syncingNow.delete(id);
         return syncAccount(id, { full: true, quiet: true });
       }
-      putMessages(r.upserted);
+      putMessages(r.upserted, true);
       r.upserted.forEach((m) => { if (!before.has(m.id)) newOnes.push(get().messages[m.id]); });
       if (r.labelChanges.length) {
         const map = new Map(r.labelChanges.map((c) => [c.id, c.labels]));
         patchMessages([...map.keys()], (m) => {
           const labels = map.get(m.id)!;
           return { ...m, labels, unread: labels.includes('UNREAD'), flagged: labels.includes('STARRED') || labels.includes('FLAGGED') };
-        });
+        }, true);
       }
-      if (r.deleted.length) removeMessages(r.deleted);
+      if (r.deleted.length) removeMessages(r.deleted, true);
       account = { ...get().accounts.find((a) => a.id === id)!, syncCursor: r.cursor || account.syncCursor, lastSync: Date.now(), status: 'ok', error: undefined };
       saveAccount(account);
       // Folder list (labels) changes rarely; refresh every so often.
@@ -1488,7 +1516,10 @@ let eventsFetchedAt = 0;
 export const lastEventsRefresh = () => eventsFetchedAt;
 
 /** Fetches every account's calendar again. Returns the accounts it couldn't reach. */
+/** Counts refreshes, so only the newest one's answer is used: an older one finishing late can't bring back an event just changed or deleted. */
+let eventsRun = 0;
 export async function refreshEvents(): Promise<string[]> {
+  const run = ++eventsRun;
   eventsFetchedAt = Date.now();
   const from = Date.now() - 3 * 86400000;
   const to = Date.now() + 8 * 86400000;
@@ -1496,11 +1527,12 @@ export async function refreshEvents(): Promise<string[]> {
   const failed: string[] = [];
   const errors: Record<string, string> = {};
   const names: Record<string, string[]> = { ...get().calendarNames };
+  const fresh: Record<string, CalendarEvent[]> = {};
   await Promise.all(get().accounts.map(async (a) => {
     try {
       const events = await providers.get(a.id)!.listEvents(from, to);
       all.push(...events);
-      store.replaceEvents(a.id, events);
+      fresh[a.id] = events;
       names[a.id] = providers.get(a.id)!.knownCalendars?.() || [];
     } catch (e) {
       errors[a.id] = e instanceof Error ? e.message.replace(/\s+/g, ' ').slice(0, 140) : 'The calendar could not be reached.';
@@ -1509,6 +1541,8 @@ export async function refreshEvents(): Promise<string[]> {
       failed.push(`${a.label || a.email}${e instanceof Error ? ` (${e.message.replace(/\s+/g, ' ').slice(0, 90)})` : ''}`);
     }
   }));
+  if (run !== eventsRun) return failed;
+  for (const [id, events] of Object.entries(fresh)) store.replaceEvents(id, events);
   set({ events: all, calendarErrors: errors, calendarNames: names });
   return failed;
 }
@@ -1553,6 +1587,21 @@ function processFollowups() {
 }
 
 // ---------- outbox (undo send, send later) ----------
+
+// Emails that have gone, remembered apart from the outbox store, so one whose outbox entry couldn't be cleared is never sent again.
+const SENT_KEY = 'wgm-sent-outbox';
+function sentIds(): string[] {
+  try { const l = JSON.parse(localStorage.getItem(SENT_KEY) || '[]'); return Array.isArray(l) ? l : []; } catch { return []; }
+}
+function markSent(id: string) {
+  try { localStorage.setItem(SENT_KEY, JSON.stringify([...sentIds().filter((x) => x !== id), id].slice(-100))); } catch { /* best effort */ }
+}
+/** The outbox without anything already sent, clearing those leftovers as it goes. */
+export function notYetSent(list: OutboxItem[]): OutboxItem[] {
+  const gone = new Set(sentIds());
+  for (const o of list) if (gone.has(o.id)) void store.deleteOutbox(o.id).catch(() => undefined);
+  return list.filter((o) => !gone.has(o.id));
+}
 
 let sendImpl: ((item: OutboxItem) => Promise<void>) | undefined;
 /** The composer module registers the real send function (avoids a circular import). */
@@ -1623,7 +1672,7 @@ export function announceQueued(item: OutboxItem) {
 
 /** Main window: a pop out queued something. */
 export async function adoptOutboxItem(id: string) {
-  const outbox = await store.outbox();
+  const outbox = notYetSent(await store.outbox());
   set({ outbox });
   const item = outbox.find((o) => o.id === id);
   if (item) announceQueued(item);
@@ -1688,13 +1737,19 @@ export async function flushOutbox() {
   const due = get().outbox.filter((o) => o.sendAt <= Date.now() && !flushing.has(o.id));
   for (const item of due) {
     flushing.add(item.id);
+    let sent = false;
     try {
       await sendImpl(item);
-      await store.deleteOutbox(item.id);
+      sent = true;
+      markSent(item.id);
+      // Sent: whatever happens while tidying up, it must never be sent again.
+      set({ outbox: get().outbox.filter((o) => o.id !== item.id) });
+      await store.deleteOutbox(item.id).catch((e) => console.warn('Could not clear a sent email from the outbox', e));
       if (item.kind === 'scheduled') unwake(item.id);
       set({ outbox: get().outbox.filter((o) => o.id !== item.id) });
       toast({ text: item.kind === 'scheduled' ? `Scheduled email sent: ${item.draft.subject || '(no subject)'}` : 'Sent', ttl: 3000 });
     } catch (e) {
+      if (sent) continue;
       errorToast(e, 'Send failed, it will retry');
       // Retry in a minute.
       const retry = { ...item, sendAt: Date.now() + 60000 };
