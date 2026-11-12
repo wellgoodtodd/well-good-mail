@@ -137,7 +137,11 @@ export function useMenu() {
   return { open, node };
 }
 
-export function Splitter({ onDrag, horizontal = false, onEnd }: { onDrag: (delta: number) => void; horizontal?: boolean; onEnd?: () => void }) {
+/**
+ * The handle between two panes. Dragging resizes the pane just before it straight away, without redrawing the app,
+ * and the new size is saved once, when you let go.
+ */
+export function Splitter({ size, horizontal = false }: { size: { value: number; min: number; max: number; commit: (v: number) => void }; horizontal?: boolean }) {
   const [dragging, setDragging] = useState(false);
   return (
     <div
@@ -148,17 +152,18 @@ export function Splitter({ onDrag, horizontal = false, onEnd }: { onDrag: (delta
         e.preventDefault();
         (e.target as HTMLElement).setPointerCapture(e.pointerId);
         setDragging(true);
-        let last = horizontal ? e.clientY : e.clientX;
+        const pane = (e.currentTarget as HTMLElement).previousElementSibling as HTMLElement | null;
+        const start = horizontal ? e.clientY : e.clientX;
+        let value = size.value;
         const move = (ev: PointerEvent) => {
-          const now = horizontal ? ev.clientY : ev.clientX;
-          onDrag(now - last);
-          last = now;
+          value = Math.round(Math.max(size.min, Math.min(size.max, size.value + (horizontal ? ev.clientY : ev.clientX) - start)));
+          if (pane) pane.style[horizontal ? 'height' : 'width'] = `${value}px`;
         };
         const up = () => {
           setDragging(false);
           window.removeEventListener('pointermove', move);
           window.removeEventListener('pointerup', up);
-          onEnd?.();
+          if (value !== size.value) size.commit(value);
         };
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);

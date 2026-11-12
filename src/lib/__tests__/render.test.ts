@@ -34,6 +34,9 @@ describe('search query', () => {
   it('understands operators', () => {
     expect(parseQuery('from:isla has:attachment invoice')).toMatchObject({ from: 'isla', hasAttachment: true, text: 'invoice' });
   });
+  it('reads after: and before: dates as local days', () => {
+    expect(parseQuery('after:2026-11-12').after).toBe(new Date(2026, 10, 12).getTime());
+  });
 });
 
 describe('reminders', () => {

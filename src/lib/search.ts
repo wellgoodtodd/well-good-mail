@@ -77,6 +77,12 @@ export interface ParsedQuery {
 }
 
 /** Supports plain words plus from:, to:, has:attachment, is:unread, is:flagged, after:2026-01-01, before:… */
+/** A date typed as 2026-11-12 means that day here, not in UTC (which would be hours out). Other forms as the browser reads them. */
+function localDay(v: string): number {
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(v.trim());
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime() : Date.parse(v);
+}
+
 export function parseQuery(q: string): ParsedQuery {
   const out: ParsedQuery = { text: '' };
   const words: string[] = [];
@@ -91,8 +97,8 @@ export function parseQuery(q: string): ParsedQuery {
         if (v === 'unread') out.unread = true;
         if (v === 'flagged' || v === 'starred') out.flagged = true;
         break;
-      case 'after': out.after = Date.parse(v); break;
-      case 'before': out.before = Date.parse(v); break;
+      case 'after': out.after = localDay(v); break;
+      case 'before': out.before = localDay(v); break;
       default: words.push(token.replace(/^"|"$/g, ''));
     }
   }

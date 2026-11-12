@@ -115,6 +115,12 @@ function SettingsSearch() {
 // Older links to tabs that were folded into others.
 const TAB_ALIAS: Record<string, string> = { reminders: 'calendar', templates: 'writing', people: 'privacy', storage: 'offline' };
 
+/** The same width as the mail sidebar, saved when you let go. */
+function SettingsSplitter() {
+  const width = useSettings((x) => x.sidebarWidth);
+  return <Splitter size={{ value: width, min: 170, max: 420, commit: (v) => useSettings.getState().set({ sidebarWidth: v }) }} />;
+}
+
 export function SettingsScreen() {
   const sidebarWidth = useSettings((s) => s.sidebarWidth);
   const rawTab = useMail((s) => s.settingsTab);
@@ -139,7 +145,7 @@ export function SettingsScreen() {
         <SideFooter inSettings />
       </nav>
       {/* The same width as the mail sidebar, and dragging either changes both. */}
-      <Splitter onDrag={(d) => useSettings.getState().set({ sidebarWidth: Math.max(170, Math.min(420, useSettings.getState().sidebarWidth + d)) })} />
+      <SettingsSplitter />
       <div className="settings-body">
         {tab === 'general' && <GeneralTab />}
         {tab === 'accounts' && <AccountsTab />}

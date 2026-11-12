@@ -662,7 +662,7 @@ function MainWindow() {
           {s.sidebarVisible && screen !== 'settings' && accounts.length > 0 && (
             <>
               <Sidebar width={s.sidebarWidth} />
-              <Splitter onDrag={(d) => s.set({ sidebarWidth: Math.max(170, Math.min(420, useSettings.getState().sidebarWidth + d)) })} />
+              <Splitter size={{ value: s.sidebarWidth, min: 170, max: 420, commit: (v) => s.set({ sidebarWidth: v }) }} />
             </>
           )}
           {screen === 'mail' ? (
@@ -670,7 +670,7 @@ function MainWindow() {
               <MessageList style={paneOff ? { flex: 1, borderRight: 0 } : bottom ? { height: s.listHeight } : { width: s.listWidth }} />
               {!paneOff && (
                 <>
-                  <Splitter horizontal={bottom} onDrag={(d) => (bottom ? s.set({ listHeight: Math.max(160, Math.min(800, useSettings.getState().listHeight + d)) }) : s.set({ listWidth: Math.max(260, Math.min(760, useSettings.getState().listWidth + d)) }))} />
+                  <Splitter horizontal={bottom} size={bottom ? { value: s.listHeight, min: 160, max: 800, commit: (v) => s.set({ listHeight: v }) } : { value: s.listWidth, min: 260, max: 760, commit: (v) => s.set({ listWidth: v }) }} />
                   <ReadingPane />
                 </>
               )}
