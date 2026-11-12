@@ -1,6 +1,7 @@
 // Contacts (CardDAV) and calendar (CalDAV) for iCloud. The requests go through the Rust side (src-tauri/src/dav.rs),
 // and the answers are read here. Everything is signed in with the same app password as the mail.
 import { invoke } from './platform';
+import { store } from './db';
 import { findMeetingUrl } from './meetings';
 import type { Address, CalendarEvent, EventGuest, GuestAnswer } from './types';
 
@@ -71,11 +72,78 @@ async function homeUrl(auth: DavAuth, principal: string, ns: string, name: strin
   return new URL(href, r.url).toString();
 }
 
+// ---------- remembering where things are ----------
+// Finding an account's contacts or calendars takes two lookups (who you are, then where your calendars live) before
+// the calendars themselves. The answer rarely changes, so it is remembered (here and in IndexedDB) and found again
+// only when Apple says it has moved (a redirect, not found, or any unexpected answer), or once a day.
+
+type Service = 'caldav' | 'carddav';
+const SERVICES: Record<Service, { root: string; ns: string; prop: string }> = {
+  caldav: { root: 'https://caldav.icloud.com/', ns: 'urn:ietf:params:xml:ns:caldav', prop: 'calendar-home-set' },
+  carddav: { root: 'https://contacts.icloud.com/', ns: 'urn:ietf:params:xml:ns:carddav', prop: 'addressbook-home-set' },
+};
+const PLACES_KEY = 'dav-places';
+/** Found again at least this often, even when nothing has gone wrong. */
+export const DAV_PLACES_FOR = 24 * 60 * 60 * 1000;
+
+interface Place { home: string; at: number }
+const places = new Map<string, Place>();
+let placesLoaded: Promise<void> | null = null;
+
+function loadPlaces(): Promise<void> {
+  placesLoaded ||= store.kvGet<Record<string, Place>>(PLACES_KEY)
+    .then((saved) => { for (const [k, v] of Object.entries(saved || {})) if (!places.has(k) && v?.home) places.set(k, v); })
+    .catch(() => undefined);
+  return placesLoaded;
+}
+const savePlaces = () => { void store.kvSet(PLACES_KEY, Object.fromEntries(places)).catch(() => undefined); };
+const placeKey = (service: Service, auth: DavAuth) => `${service}|${auth.user.toLowerCase()}`;
+
+function forgetPlace(key: string) {
+  if (places.delete(key)) savePlaces();
+}
+
+/** Forgets every remembered address (the tests, and a fresh start). */
+export async function forgetDavPlaces(): Promise<void> {
+  places.clear();
+  placesLoaded = null;
+  await store.kvSet(PLACES_KEY, {}).catch(() => undefined);
+}
+
+/** The remembered address was wrong: the answer said it moved or isn't there. */
+class Moved extends Error {}
+
+/**
+ * Runs `use` with the account's contacts or calendar home: the remembered one if it's less than a day old (and
+ * `use` doesn't find it moved), otherwise found again from the start and remembered.
+ */
+async function withHome<T>(auth: DavAuth, service: Service, use: (home: string, remembered: boolean) => Promise<T>): Promise<T> {
+  await loadPlaces();
+  const key = placeKey(service, auth);
+  const known = places.get(key);
+  if (known && Date.now() - known.at < DAV_PLACES_FOR && Date.now() >= known.at) {
+    try {
+      return await use(known.home, true);
+    } catch (e) {
+      if (!(e instanceof Moved)) throw e;
+      forgetPlace(key);
+    }
+  }
+  const { root, ns, prop } = SERVICES[service];
+  const principal = await principalUrl(auth, root);
+  const home = await homeUrl(auth, principal, ns, prop);
+  places.set(key, { home, at: Date.now() });
+  savePlaces();
+  return use(home, false);
+}
+
 interface Collection { url: string; name: string }
 
-async function collections(auth: DavAuth, home: string, kind: 'addressbook' | 'calendar'): Promise<Collection[]> {
+/** With `strict` (a remembered home), anything but a straight multi-status answer counts as moved. */
+async function collections(auth: DavAuth, home: string, kind: 'addressbook' | 'calendar', strict = false): Promise<Collection[]> {
   const body = `${PROPFIND_HEAD}<propfind xmlns="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><prop><resourcetype/><displayname/><c:supported-calendar-component-set/></prop></propfind>`;
   const r = await davRequest(auth, home, 'PROPFIND', body, '1');
+  if (strict && (r.status !== 207 || r.url !== home)) throw new Moved();
   const out: Collection[] = [];
   for (const item of readItems(r.body)) {
     const types = inProps(item, 'resourcetype');
@@ -116,9 +184,7 @@ export function parseVCards(text: string): Address[] {
 }
 
 export async function fetchContacts(auth: DavAuth): Promise<Address[]> {
-  const principal = await principalUrl(auth, 'https://contacts.icloud.com/');
-  const home = await homeUrl(auth, principal, 'urn:ietf:params:xml:ns:carddav', 'addressbook-home-set');
-  const books = await collections(auth, home, 'addressbook');
+  const books = await withHome(auth, 'carddav', (home, remembered) => collections(auth, home, 'addressbook', remembered));
   const query = `${PROPFIND_HEAD}<card:addressbook-query xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav"><d:prop><d:getetag/><card:address-data/></d:prop></card:addressbook-query>`;
   const out: Address[] = [];
   for (const b of books) {
@@ -259,14 +325,14 @@ export function parseEvents(ics: string, calendarName: string, accountId: string
 const stamp = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
 
 export async function fetchEvents(auth: DavAuth, accountId: string, fromMs: number, toMs: number, own: string[] = [auth.user]): Promise<CalendarEvent[]> {
-  const principal = await principalUrl(auth, 'https://caldav.icloud.com/');
-  const home = await homeUrl(auth, principal, 'urn:ietf:params:xml:ns:caldav', 'calendar-home-set');
-  const cals = await collections(auth, home, 'calendar');
+  const cals = await withHome(auth, 'caldav', (home, remembered) => collections(auth, home, 'calendar', remembered));
   const range = `start="${stamp(fromMs)}" end="${stamp(toMs)}"`;
   const query = `${PROPFIND_HEAD}<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:getetag/><c:calendar-data><c:expand ${range}/></c:calendar-data></d:prop><c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT"><c:time-range ${range}/></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>`;
   const out: CalendarEvent[] = [];
   for (const c of cals) {
     const r = await davRequest(auth, c.url, 'REPORT', query, '1');
+    // A calendar that has gone or moved: look everything up again next time.
+    if (r.status === 404 || r.url !== c.url) forgetPlace(placeKey('caldav', auth));
     for (const item of readItems(r.body)) out.push(...parseEvents(textOf(inProps(item, 'calendar-data') as Element | undefined), c.name, accountId, own));
   }
   return out;
