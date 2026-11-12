@@ -1584,10 +1584,13 @@ export async function addFollowup(f: FollowUp) {
 
 /** Clears follow ups once someone replies. */
 function processFollowups() {
+  if (!get().followups.length) return;
   const mine = myAddresses(get().accounts);
-  const msgs = Object.values(get().messages);
+  const all = get().messages;
+  const ix = indexNow();
   for (const f of get().followups) {
-    const replied = msgs.some((m) => m.accountId === f.accountId && m.threadId === f.threadId && m.date > f.sentAt && !mine.has(m.from.email.toLowerCase()));
+    // Only the emails in that conversation, not every email.
+    const replied = ix.idsIn(`${f.accountId}|${f.threadId}`).some((id) => { const m = all[id]; return m && m.date > f.sentAt && !mine.has(m.from.email.toLowerCase()); });
     if (replied) {
       store.deleteFollowup(f.id);
       set({ followups: get().followups.filter((x) => x.id !== f.id) });
