@@ -99,9 +99,3 @@ export class NeedsPermissionError extends Error {
     super(`This account needs to sign in once more to allow ${what}`);
   }
 }
-
-export class NotSupportedError extends Error {
-  constructor(what: string) {
-    super(`${what} isn't available for this account type yet`);
-  }
-}

@@ -42,8 +42,6 @@ export function decodeBody(bytes: Uint8Array, charset = 'utf-8'): string {
 export const base64UrlEncode =(bytes: Uint8Array) =>
   bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-export const base64UrlDecodeText = (s: string) => dec.decode(base64ToBytes(s));
-
 /** RFC 2047 encode a header value when it isn't plain ASCII. */
 export function encodeHeader(value: string): string {
   // eslint-disable-next-line no-control-regex

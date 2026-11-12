@@ -5,7 +5,7 @@ import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHead
 import { httpFetch } from '../platform';
 import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, EventCopy, EventPatch, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { AutoReply } from '../ooo';
-import { htmlToText, isWorkAccount } from '../ooo';
+import { htmlToText, isWorkAccount, ymd } from '../ooo';
 import { CalendarPermissionError, NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { Invite, Rsvp } from '../invites';
 import { findMeetingUrl } from '../meetings';
@@ -259,7 +259,7 @@ export class GmailProvider implements MailProvider {
       .map((l) => ({
         id: l.id,
         accountId: this.account.id,
-        name: reverse[l.id] ? l.name : l.name,
+        name: l.name,
         system: reverse[l.id],
         unread: 0,
         depth: l.type === 'user' ? l.name.split('/').length - 1 : 0,
@@ -612,7 +612,6 @@ export class GmailProvider implements MailProvider {
   async editEvent(ev: CalendarEvent, patch: EventPatch): Promise<void> {
     const CAL = 'https://www.googleapis.com/calendar/v3';
     const { calId, eventId } = this.eventParts(ev);
-    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
     const allDay = patch.allDay ?? ev.allDay;
     const start = patch.start ?? ev.start;
     const end = patch.end ?? ev.end;
@@ -622,8 +621,8 @@ export class GmailProvider implements MailProvider {
     if (patch.description !== undefined) body.description = patch.description;
     if (patch.start !== undefined || patch.end !== undefined || patch.allDay !== undefined) {
       // Google's all-day end is the day after the last day.
-      body.start = allDay ? { date: day(start), dateTime: null } : { dateTime: new Date(start).toISOString(), date: null };
-      body.end = allDay ? { date: day(Math.max(end, start + 86400000)), dateTime: null } : { dateTime: new Date(end).toISOString(), date: null };
+      body.start = allDay ? { date: ymd(start), dateTime: null } : { dateTime: new Date(start).toISOString(), date: null };
+      body.end = allDay ? { date: ymd(Math.max(end, start + 86400000)), dateTime: null } : { dateTime: new Date(end).toISOString(), date: null };
     }
     try {
       if (Object.keys(body).length) {
@@ -690,11 +689,10 @@ export class GmailProvider implements MailProvider {
     const CAL = 'https://www.googleapis.com/calendar/v3';
     const calId = this.calIds[calendarName] || 'primary';
     const pad = (n: number) => String(n).padStart(2, '0');
-    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-    const local = (ms: number) => { const d = new Date(ms); return `${day(ms)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`; };
+    const local = (ms: number) => { const d = new Date(ms); return `${ymd(ms)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`; };
     const tz = localTimeZone();
     // A repeating event needs its time zone, so it stays at the same time of day through the clock changes.
-    const when = (ms: number) => (copy.allDay ? { date: day(ms) } : { dateTime: local(ms), timeZone: tz });
+    const when = (ms: number) => (copy.allDay ? { date: ymd(ms) } : { dateTime: local(ms), timeZone: tz });
     const body: Record<string, unknown> = {
       summary: copy.title,
       location: copy.location || undefined,
@@ -770,8 +768,7 @@ export class GmailProvider implements MailProvider {
   }
 
   async addInviteToCalendar(invite: Invite): Promise<void> {
-    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-    const when = (ms: number) => (invite.allDay ? { date: day(ms) } : { dateTime: new Date(ms).toISOString() });
+    const when = (ms: number) => (invite.allDay ? { date: ymd(ms) } : { dateTime: new Date(ms).toISOString() });
     try {
       await this.call('https://www.googleapis.com/calendar/v3/calendars/primary/events/import', {
         method: 'POST',
@@ -825,7 +822,6 @@ export class GmailProvider implements MailProvider {
 
   async addAwayEvent(start: number, end: number, opts: { allDay: boolean; decline: boolean; message?: string }): Promise<string> {
     const CAL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
-    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     // Google Workspace has a real "Out of office" event, which can decline invitations; it is always timed, never all day.
     if (isWorkAccount(this.account.email)) {
@@ -853,8 +849,8 @@ export class GmailProvider implements MailProvider {
         body: JSON.stringify({
           summary: 'Away',
           transparency: 'opaque',
-          start: opts.allDay ? { date: day(start) } : { dateTime: new Date(start).toISOString() },
-          end: opts.allDay ? { date: day(end) } : { dateTime: new Date(end).toISOString() },
+          start: opts.allDay ? { date: ymd(start) } : { dateTime: new Date(start).toISOString() },
+          end: opts.allDay ? { date: ymd(end) } : { dateTime: new Date(end).toISOString() },
           reminders: { useDefault: false, overrides: [] },
         }),
       });

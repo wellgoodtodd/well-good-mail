@@ -6,7 +6,7 @@ import { askConfirm } from './dialogs';
 import { settings, useSettings, isQuietNow } from './settings';
 import { notify } from './platform';
 import type { Account, Message } from './types';
-import { AWAY_WORDS, fillBackDate, htmlToText, isAway, messageFor, oooSupport, stateWords, windowOf, type AutoReply, type OooActive, type OooPlan } from './ooo';
+import { AWAY_WORDS, fillBackDate, htmlToText, isAway, messageFor, oooSupport, windowOf, type AutoReply, type OooActive, type OooPlan } from './ooo';
 
 export interface AccountOoo {
   loading?: boolean;
@@ -211,12 +211,6 @@ export function awayAccounts(now = Date.now()): Account[] {
   return accounts().filter((a) => isAway(by[a.id]?.reply, now));
 }
 
-/** New-mail alerts are paused while away, when the person asked for that. */
-export function oooPausesAlerts(now = Date.now()): boolean {
-  const a = settings().oooActive;
-  return Boolean(a?.pauseAlerts && a.start <= now && (!a.end || a.end > now));
-}
-
 /** Each minute: the reminder the day before, "While you were away" once it ends, and the holiday suggestion. */
 export function oooTick(now = Date.now()): void {
   const s = settings();
@@ -288,15 +282,6 @@ export function closeSummary() {
   const a = settings().oooActive;
   if (a) useSettings.getState().set({ oooActive: { ...a, summarised: true } }, { quiet: true });
   useOoo.setState({ summary: undefined });
-}
-
-/** A short line about the state of one account, for chips, the sidebar tooltip and the account's details. */
-export function oooWords(accountId: string, now = Date.now()): string {
-  const x = useOoo.getState().byAccount[accountId];
-  if (!x) return '';
-  if (x.needsPermission) return 'Needs sign in';
-  if (x.error) return 'Couldn\'t check';
-  return stateWords(x.reply, now).words;
 }
 
 export function oooToastResult(r: { done: string[]; failed: string[] }, verb: string) {

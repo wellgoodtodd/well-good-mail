@@ -1775,18 +1775,6 @@ function minuteTick() {
   window.dispatchEvent(new Event('wgm-minute'));
 }
 
-export function inboxUnreadFor(accountIds: string[] | 'all', folder: SystemFolder = 'inbox'): number {
-  let n = 0;
-  const leftOut = get().accounts.filter((a) => a.leaveOutOfAll).map((a) => a.id);
-  const allowed = accountIds === 'all' ? (leftOut.length ? new Set(get().accounts.map((a) => a.id).filter((id) => !leftOut.includes(id))) : null) : new Set(accountIds);
-  const snoozed = new Set(get().snoozes.map((s) => s.messageId));
-  for (const m of Object.values(get().messages)) {
-    if (!m.unread || (allowed && !allowed.has(m.accountId)) || snoozed.has(m.id)) continue;
-    if (inSystemFolder(m, folder, providers.get(m.accountId))) n++;
-  }
-  return n;
-}
-
 /** Marks everything unread in a mailbox as read. */
 export async function markViewRead(view: View) {
   const { inMailbox, scopeAccountIds } = await import('./mailbox');
