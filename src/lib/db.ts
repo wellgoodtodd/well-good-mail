@@ -90,11 +90,28 @@ export const store = {
   async threadMessages(accountId: string, threadId: string): Promise<Message[]> {
     return ((await (await db()).getAllFromIndex('messages', 'threadId', threadId)) as Message[]).filter((m) => m.accountId === accountId);
   },
+  /** Mail a slice at a time in id order (after the given id), so the whole cache never has to be in memory at once. */
+  async messagesAfter(afterId: string | undefined, count: number): Promise<Message[]> {
+    return (await db()).getAll('messages', afterId === undefined ? undefined : IDBKeyRange.lowerBound(afterId, true), count) as Promise<Message[]>;
+  },
+  /**
+   * Saves emails. The app keeps bodies out of memory, so an email saved without its body text (a flag change, or a
+   * sync that only brought the list details) keeps the body already saved. A saved row that says its body is loaded
+   * always has it: if there's none to keep, it is saved as not loaded, and opening it fetches it again.
+   */
   async putMessages(msgs: Message[]) {
     if (!msgs.length) return;
     const d = await db();
     const tx = d.transaction('messages', 'readwrite');
-    for (const m of msgs) await tx.store.put(m);
+    for (const m of msgs) {
+      if (m.bodyHtml !== undefined || m.bodyText !== undefined) { await tx.store.put(m); continue; }
+      const old = (await tx.store.get(m.id)) as Message | undefined;
+      if (old?.bodyLoaded) {
+        await tx.store.put(m.bodyLoaded ? { ...m, bodyHtml: old.bodyHtml, bodyText: old.bodyText } : { ...m, bodyHtml: old.bodyHtml, bodyText: old.bodyText, attachments: old.attachments, hasAttachments: old.hasAttachments, bodyLoaded: true });
+      } else {
+        await tx.store.put(m.bodyLoaded ? { ...m, bodyLoaded: false } : m);
+      }
+    }
     await tx.done;
   },
   async deleteMessages(ids: string[]) {

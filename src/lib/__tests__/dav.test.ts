@@ -14,7 +14,7 @@ vi.mock('../platform', () => ({
   },
 }));
 
-const { fetchContacts, fetchEvents, parseEvents, parseVCards, triggerMinutes, readItems, DavAuthError } = await import('../dav');
+const { fetchContacts, fetchEvents, parseEvents, parseVCards, triggerMinutes, readItems, DavAuthError, forgetDavPlaces, DAV_PLACES_FOR } = await import('../dav');
 
 const multi = (inner: string) => `<?xml version="1.0"?><multistatus xmlns="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav" xmlns:cal="urn:ietf:params:xml:ns:caldav">${inner}</multistatus>`;
 const ok = (href: string, prop: string) => `<response><href>${href}</href><propstat><prop>${prop}</prop><status>HTTP/1.1 200 OK</status></propstat></response>`;
@@ -85,7 +85,7 @@ describe('XML answers', () => {
 });
 
 describe('finding contacts and calendars at iCloud', () => {
-  beforeEach(() => { calls.length = 0; answers.clear(); });
+  beforeEach(async () => { calls.length = 0; answers.clear(); await forgetDavPlaces(); });
   const auth = { user: 'me@icloud.com', pass: 'abcd-efgh' };
 
   it('follows the redirects and reads the address book', async () => {
@@ -128,5 +128,94 @@ describe('finding contacts and calendars at iCloud', () => {
     answers.set('PROPFIND https://contacts.icloud.com/', { status: 302, location: 'https://evil.example.com/steal', body: '' });
     await expect(fetchContacts(auth)).rejects.toThrow(/Refusing/);
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe('remembering where the calendars are', () => {
+  const auth = { user: 'me@icloud.com', pass: 'abcd-efgh' };
+  const ROOT = 'https://caldav.icloud.com/';
+  const PRINCIPAL = 'https://caldav.icloud.com/123/principal/';
+  const HOME = 'https://p02-caldav.icloud.com/123/calendars/';
+  const CAL = 'https://p02-caldav.icloud.com/123/calendars/home/';
+  const event = (title: string) => multi(ok('/123/calendars/home/x.ics', `<cal:calendar-data>BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:${title}\nSUMMARY:${title}\nDTSTART:20261110T090000Z\nDTEND:20261110T100000Z\nEND:VEVENT\nEND:VCALENDAR</cal:calendar-data>`));
+  const homeList = (cal = '/123/calendars/home/') => multi(ok(cal, '<resourcetype><collection/><cal:calendar/></resourcetype><displayname>Home</displayname>'));
+  const discovery = () => calls.filter((c) => c.url === ROOT || c.url === PRINCIPAL).length;
+  const fetch = () => fetchEvents(auth, 'imap-me@icloud.com', Date.UTC(2026, 10, 7), Date.UTC(2026, 10, 15));
+
+  beforeEach(async () => {
+    calls.length = 0;
+    answers.clear();
+    await forgetDavPlaces();
+    answers.set(`PROPFIND ${ROOT}`, { status: 207, body: multi(ok('/', '<current-user-principal><href>/123/principal/</href></current-user-principal>')) });
+    answers.set(`PROPFIND ${PRINCIPAL}`, { status: 207, body: multi(ok('/123/principal/', '<cal:calendar-home-set><href>https://p02-caldav.icloud.com:443/123/calendars/</href></cal:calendar-home-set>')) });
+    answers.set(`PROPFIND ${HOME}`, { status: 207, body: homeList() });
+    answers.set(`REPORT ${CAL}`, { status: 207, body: event('Dentist') });
+  });
+
+  it('looks the addresses up once, then goes straight to the calendars', async () => {
+    expect((await fetch()).map((e) => e.title)).toEqual(['Dentist']);
+    expect(discovery()).toBe(2);
+    calls.length = 0;
+    expect((await fetch()).map((e) => e.title)).toEqual(['Dentist']);
+    expect((await fetch()).map((e) => e.title)).toEqual(['Dentist']);
+    expect(discovery()).toBe(0);
+    // Still lists the calendars each time, so a calendar added on the phone shows up.
+    expect(calls.filter((c) => c.url === HOME)).toHaveLength(2);
+  });
+
+  it('keeps the addresses after a restart (in IndexedDB)', async () => {
+    await fetch();
+    const { store } = await import('../db');
+    const saved = await store.kvGet<Record<string, { home: string }>>('dav-places');
+    expect(Object.values(saved || {}).map((p) => p.home)).toEqual([HOME]);
+  });
+
+  it('looks them up again when the home is not found', async () => {
+    await fetch();
+    const NEW_HOME = 'https://p05-caldav.icloud.com/123/calendars/';
+    answers.set(`PROPFIND ${HOME}`, { status: 404, body: '' });
+    answers.set(`PROPFIND ${PRINCIPAL}`, { status: 207, body: multi(ok('/123/principal/', `<cal:calendar-home-set><href>${NEW_HOME}</href></cal:calendar-home-set>`)) });
+    answers.set(`PROPFIND ${NEW_HOME}`, { status: 207, body: homeList('/123/calendars/home/') });
+    answers.set('REPORT https://p05-caldav.icloud.com/123/calendars/home/', { status: 207, body: event('Moved dentist') });
+    calls.length = 0;
+    expect((await fetch()).map((e) => e.title)).toEqual(['Moved dentist']);
+    expect(discovery()).toBe(2);
+    calls.length = 0;
+    await fetch();
+    expect(discovery()).toBe(0);
+    expect(calls.some((c) => c.url === NEW_HOME)).toBe(true);
+  });
+
+  it('looks them up again after a redirect', async () => {
+    await fetch();
+    const NEW_HOME = 'https://p07-caldav.icloud.com/123/calendars/';
+    answers.set(`PROPFIND ${HOME}`, { status: 301, location: NEW_HOME, body: '' });
+    answers.set(`PROPFIND ${PRINCIPAL}`, { status: 207, body: multi(ok('/123/principal/', `<cal:calendar-home-set><href>${NEW_HOME}</href></cal:calendar-home-set>`)) });
+    answers.set(`PROPFIND ${NEW_HOME}`, { status: 207, body: homeList() });
+    answers.set('REPORT https://p07-caldav.icloud.com/123/calendars/home/', { status: 207, body: event('Dentist') });
+    calls.length = 0;
+    expect((await fetch()).map((e) => e.title)).toEqual(['Dentist']);
+    expect(discovery()).toBe(2);
+  });
+
+  it('looks them up again once a day', async () => {
+    await fetch();
+    const now = Date.now();
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(now + DAV_PLACES_FOR + 1000);
+    try {
+      calls.length = 0;
+      await fetch();
+      expect(discovery()).toBe(2);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('still reports a refused password, without looking everything up again', async () => {
+    await fetch();
+    answers.set(`PROPFIND ${HOME}`, { status: 401, body: '' });
+    calls.length = 0;
+    await expect(fetch()).rejects.toBeInstanceOf(DavAuthError);
+    expect(discovery()).toBe(0);
   });
 });

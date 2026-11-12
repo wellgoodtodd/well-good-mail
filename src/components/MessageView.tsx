@@ -18,6 +18,7 @@ import { startCompose, editServerDraft } from '../lib/composeActions';
 import { messageMenu } from '../lib/actions';
 import { threadKey } from '../lib/mailbox';
 import type { Message } from '../lib/types';
+import { bodyOf, carriesBody, peekBody, type Body } from '../lib/bodyCache';
 
 /** True when the email's HTML really uses this picture (cid:...), so it needs no chip of its own. */
 /** The little letters on an attachment's tile: PDF, JPG, ICS and so on. */
@@ -48,7 +49,38 @@ function noteFor(text: string, a: Message['attachments'][number]): string | unde
   return hit?.slice(1, -1);
 }
 
-export function MessageView({ message, expanded, onToggle }: { message: Message; expanded: boolean; onToggle: () => void; isLatest?: boolean }) {
+/**
+ * The email with its body, once it's here. The mail store keeps list details only, so the body is read when the email
+ * is open (from memory if it was opened lately, else the database, else the account). bodyLoaded says the body is in hand.
+ */
+function useWithBody(listed: Message, expanded: boolean): Message {
+  const [got, setGot] = useState<{ id: string; body: Body } | undefined>(() => {
+    const body = carriesBody(listed) ? bodyOf(listed) : peekBody(listed.id);
+    return body ? { id: listed.id, body } : undefined;
+  });
+  const tried = useRef('');
+  useEffect(() => {
+    if (!expanded) return;
+    // Not downloaded yet: ask the account once per email (as before), not again on every change to its flags.
+    if (!listed.bodyLoaded) {
+      if (tried.current === listed.id) return;
+      tried.current = listed.id;
+    }
+    let live = true;
+    loadBody(listed.id).then((full) => {
+      if (!live || !full) return;
+      setGot((was) => (was && was.id === full.id && was.body.html === full.bodyHtml && was.body.text === full.bodyText ? was : { id: full.id, body: bodyOf(full) }));
+    });
+    return () => { live = false; };
+  }, [expanded, listed]);
+  return useMemo(() => {
+    const body = got?.id === listed.id ? got.body : undefined;
+    return body ? { ...listed, bodyHtml: body.html, bodyText: body.text, bodyLoaded: true } : { ...listed, bodyLoaded: false };
+  }, [listed, got]);
+}
+
+export function MessageView({ message: listed, expanded, onToggle }: { message: Message; expanded: boolean; onToggle: () => void; isLatest?: boolean }) {
+  const message = useWithBody(listed, expanded);
   const account = useMail((s) => s.accounts.find((a) => a.id === message.accountId));
   const contacts = useMail((s) => s.contacts);
   const imagePolicy = useSettings((s) => s.imagePolicy);
@@ -59,7 +91,6 @@ export function MessageView({ message, expanded, onToggle }: { message: Message;
   const theme = useSettings((s) => s.theme);
   const vips = useSettings((s) => s.vips);
   const toggleIn = useSettings((s) => s.toggleIn);
-  const [loaded, setLoaded] = useState<boolean>(message.bodyLoaded);
   const [allowOnce, setAllowOnce] = useState(false);
   const [darkOverride, setDarkOverride] = useState<boolean | null>(null);
   const [previewAt, setPreviewAt] = useState<number | null>(null);
@@ -68,10 +99,6 @@ export function MessageView({ message, expanded, onToggle }: { message: Message;
   const [inline, setInline] = useState<Record<string, string>>({});
   const [hover, setHover] = useState<{ href: string; mismatch?: string } | null>(null);
   const menu = useMenu();
-
-  useEffect(() => {
-    if (expanded && !message.bodyLoaded) loadBody(message.id).then(() => setLoaded(true));
-  }, [expanded, message.id, message.bodyLoaded]);
 
   // Inline (cid:) images are part of the email itself, so they always load.
   useEffect(() => {
@@ -95,7 +122,7 @@ export function MessageView({ message, expanded, onToggle }: { message: Message;
       }),
     ).then((pairs) => !cancelled && setInline(Object.fromEntries(pairs.filter(Boolean) as [string, string][])));
     return () => { cancelled = true; };
-  }, [expanded, message.id, message.bodyLoaded, message.attachments]);
+  }, [expanded, message.id, message.bodyLoaded, message.attachments, message.bodyHtml, message.bodyText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // An email saved before the symbol fix may show â€™ for an apostrophe. Fetch it again once.
   useEffect(() => {
@@ -110,8 +137,8 @@ export function MessageView({ message, expanded, onToggle }: { message: Message;
   const dark = darkOverride ?? (darkEmails && appDark);
 
   const rendered = useMemo(
-    () => (expanded && (loaded || message.bodyLoaded) ? renderEmail(message.bodyHtml, message.bodyText, { allowRemote, blockTrackers, dark, inlineImages: inline, font: readingFont, underlineLinks: useSettings.getState().underlineLinks }) : null),
-    [expanded, loaded, message.bodyLoaded, message.bodyHtml, message.bodyText, allowRemote, blockTrackers, dark, inline, readingFont],
+    () => (expanded && message.bodyLoaded ? renderEmail(message.bodyHtml, message.bodyText, { allowRemote, blockTrackers, dark, inlineImages: inline, font: readingFont, underlineLinks: useSettings.getState().underlineLinks }) : null),
+    [expanded, message.bodyLoaded, message.bodyHtml, message.bodyText, allowRemote, blockTrackers, dark, inline, readingFont],
   );
   const onLinkHover = useCallback((h: { href: string; mismatch?: string } | null) => setHover(h), []);
   // Right click in the email body: the same actions as the list, plus Copy when text is selected.

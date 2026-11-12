@@ -10,50 +10,86 @@ interface Doc {
   body: string;
 }
 
+/**
+ * How much of each email's text is indexed. The start of an email is where people search from; indexing the rest
+ * made the index far bigger for little gain. The index stores no text of its own (storeFields is empty): results
+ * are shown from the mail store.
+ */
+export const BODY_CHARS = 4000;
+
 const toDoc = (m: Message): Doc => ({
   id: m.id,
   subject: m.subject,
   from: `${m.from.name || ''} ${m.from.email}`,
   to: [...m.to, ...m.cc].map((a) => `${a.name || ''} ${a.email}`).join(' '),
-  body: (m.bodyText || m.snippet || '').slice(0, 20000),
+  body: (m.bodyText || m.snippet || '').slice(0, BODY_CHARS),
 });
 
 // Typo matching only for longer words: it is slow across a big mailbox and makes short words match unrelated mail.
 const SEARCH_OPTIONS = { boost: { subject: 3, from: 2 }, prefix: true, fuzzy: (term: string) => (term.length > 5 ? 0.12 : false), combineWith: 'AND' } as const;
 
-let index = new MiniSearch<Doc>({
+const index = new MiniSearch<Doc>({
   fields: ['subject', 'from', 'to', 'body'],
   storeFields: [],
   searchOptions: SEARCH_OPTIONS,
 });
 
-/**
- * Builds the search index a slice at a time between other work, so the app stays responsive while it fills.
- * Searches work straight away; older mail turns up in them as the index catches up.
- */
-let building = 0;
-export function rebuildIndexInBackground(messages: Message[], slice = 1500) {
-  const run = ++building;
-  index = new MiniSearch<Doc>({ fields: ['subject', 'from', 'to', 'body'], storeFields: [], searchOptions: SEARCH_OPTIONS });
-  let i = 0;
-  const step = () => {
-    if (run !== building) return; // a newer rebuild took over
-    const end = Math.min(messages.length, i + slice);
-    for (; i < end; i++) { const m = messages[i]; if (!index.has(m.id)) index.add(toDoc(m)); }
-    if (i < messages.length) setTimeout(step, 0);
-  };
-  setTimeout(step, 0);
+/** A quick fingerprint of what an email was indexed with, so an unchanged email isn't indexed again. */
+function fingerprint(d: Doc): number {
+  const s = [d.subject, d.from, d.to, d.body].join('\n');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return h >>> 0;
 }
+const indexed = new Map<string, number>();
+/** Goes up whenever the index changes, so answers worked out from it can be kept until then. */
+let version = 0;
 
+/**
+ * Adds emails to the index, or updates them, once each: an email indexed with the same details is left alone.
+ * The mail store keeps no body text, so an update without it (a sync, a flag change) never replaces a body that
+ * was indexed earlier with just the preview; drafts, whose details really change, are always indexed again.
+ */
 export function indexMessages(messages: Message[]) {
   for (const m of messages) {
-    if (index.has(m.id)) index.replace(toDoc(m));
-    else index.add(toDoc(m));
+    const had = indexed.get(m.id);
+    if (had !== undefined && m.bodyText === undefined && m.bodyHtml === undefined && !m.isDraft) continue;
+    const doc = toDoc(m);
+    const print = fingerprint(doc);
+    if (had === print) continue;
+    if (index.has(m.id)) index.replace(doc);
+    else index.add(doc);
+    indexed.set(m.id, print);
+    version++;
+    writes++;
   }
 }
 
+let writes = 0;
+/** For the tests and Diagnostics: emails in the index, and how many times one was added or replaced. */
+export const indexStats = () => ({ emails: indexed.size, writes });
+
+const mentions = new Map<string, { version: number; ids: Set<string> }>();
+/**
+ * Whether an email's body has these words (each word, or a word starting with it), for Smart Mailboxes' "Any text".
+ * Worked out once per phrase from the index and kept until the index changes.
+ */
+export function bodyMentions(id: string, words: string): boolean {
+  let hit = mentions.get(words);
+  if (!hit || hit.version !== version) {
+    const ids = words.trim() ? index.search(words, { fields: ['body'], prefix: true, fuzzy: false, combineWith: 'AND' }).map((r) => r.id as string) : [];
+    hit = { version, ids: new Set(ids) };
+    mentions.set(words, hit);
+    if (mentions.size > 200) mentions.delete(mentions.keys().next().value as string);
+  }
+  return hit.ids.has(id);
+}
+
 export function removeFromIndex(ids: string[]) {
-  for (const id of ids) if (index.has(id)) index.discard(id);
+  for (const id of ids) {
+    indexed.delete(id);
+    if (index.has(id)) { index.discard(id); version++; }
+  }
 }
 
 export interface ParsedQuery {
