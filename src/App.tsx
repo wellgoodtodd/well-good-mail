@@ -12,6 +12,7 @@ import { ReadingPane } from './components/ReadingPane';
 import { Composer } from './components/Composer';
 import { Reminders } from './components/Reminders';
 import { ComingUpPanel, MeetingBanner } from './components/ComingUp';
+import { NewEventHost, startNewEvent } from './components/NewEvent';
 import { PrintPreview } from './components/PrintPreview';
 import { WhatsNew } from './components/WhatsNew';
 import { Help } from './components/Help';
@@ -420,6 +421,7 @@ function useShortcuts() {
         toggleSidebar: () => s.set({ sidebarVisible: !s.sidebarVisible }),
         markAllRead: () => markViewRead(st.view),
         reminders: () => openScreen('reminders'),
+        newEvent: () => startNewEvent(),
         print: () => { if (sel) printThread(sel); },
         undo: () => { undoSteps(1); },
         redo: () => { redoSteps(1); },
@@ -635,6 +637,7 @@ function MainWindow() {
         )}
       </header>
       {accounts.length > 0 && !guide && <MeetingBanner />}
+      {accounts.length > 0 && <NewEventHost />}
       {accounts.length > 0 && !guide && <OooBanner />}
       {!online && <div className="offline">You're offline. Mail you've already downloaded is still here, and anything you send will go when you're back online.</div>}
       {update.status === 'ready' && <div className="update-bar">Version {update.version} is ready. <button className="btn" onClick={restartToUpdate}>Restart to update</button></div>}

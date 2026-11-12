@@ -449,6 +449,8 @@ export class MicrosoftProvider implements MailProvider {
       end: when(copy.allDay ? Math.max(copy.end, copy.start + 86400000) : copy.end),
       attendees: copy.guests.length ? copy.guests.map((g) => ({ type: 'required', emailAddress: { address: g.email, name: g.name || g.email } })) : undefined,
       recurrence: copy.repeat ? toGraph(copy.repeat, copy.start, tz) : undefined,
+      // Outlook keeps one alert per event: the earliest one.
+      ...(copy.alerts ? (copy.alerts.length ? { isReminderOn: true, reminderMinutesBeforeStart: Math.max(...copy.alerts) } : { isReminderOn: false }) : {}),
     };
     const make = (extra: Record<string, unknown>) => this.call<{ id: string }>('/events', { method: 'POST', body: JSON.stringify({ ...body, ...extra }) }, ['Calendars.ReadWrite']);
     let made: { id: string };

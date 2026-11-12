@@ -701,6 +701,7 @@ export class GmailProvider implements MailProvider {
       end: when(copy.allDay ? Math.max(copy.end, copy.start + 86400000) : copy.end),
       attendees: copy.guests.length ? copy.guests.map((g) => ({ email: g.email, displayName: g.name })) : undefined,
       recurrence: copy.repeat ? [toRrule(copy.repeat, copy.allDay)] : undefined,
+      reminders: copy.alerts ? { useDefault: false, overrides: copy.alerts.slice(0, 5).map((minutes) => ({ method: 'popup', minutes })) } : undefined,
       conferenceData: copy.video ? { createRequest: { requestId: `wgm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } } : undefined,
     };
     try {

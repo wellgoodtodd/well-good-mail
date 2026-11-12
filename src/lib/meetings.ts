@@ -82,8 +82,27 @@ export function meetingPhaseText(p: MeetingPhase): string {
 /** Which calendar an event belongs to, for hiding and showing calendars. */
 export const calendarKey = (e: { accountId: string; calendarName: string }) => `${e.accountId}|${e.calendarName}`;
 
-/** Events from calendars you haven't hidden. */
-export function visibleEvents(events: CalendarEvent[], hidden: string[]): CalendarEvent[] {
+/** Calendar Groups such as Work and Personal: calendars from any account, picked together. Only a way of viewing. */
+export interface CalendarGroup { id: string; name: string; calendars: string[] }
+
+/** The calendars of the group being looked at, or null for All calendars (or a group that's gone). */
+export function groupCalendars(s: { calendarGroups: CalendarGroup[]; calendarGroup: string }): Set<string> | null {
+  const g = s.calendarGroup ? s.calendarGroups.find((x) => x.id === s.calendarGroup) : undefined;
+  return g ? new Set(g.calendars) : null;
+}
+
+/** Only the picked group's events (all of them under All calendars). For lists that don't use the hidden calendars. */
+export function inGroupView(events: CalendarEvent[], s: { calendarGroups: CalendarGroup[]; calendarGroup: string }): CalendarEvent[] {
+  const only = groupCalendars(s);
+  return only ? events.filter((e) => only.has(calendarKey(e))) : events;
+}
+
+/**
+ * Events from calendars you haven't hidden. With a group picked, its calendars instead: the group says exactly which
+ * calendars show, so one hidden under All calendars still shows in a group that has it.
+ */
+export function visibleEvents(events: CalendarEvent[], hidden: string[], only?: Set<string> | null): CalendarEvent[] {
+  if (only) return events.filter((e) => only.has(calendarKey(e)));
   if (!hidden.length) return events;
   const off = new Set(hidden);
   return events.filter((e) => !off.has(calendarKey(e)));

@@ -5,6 +5,8 @@ import { READY, TOOLS, logLine, toolByName, type ToolSpec } from './tools';
 import { cleanPreview, visibleText, stripFiller } from '../cleanText';
 import type { Account, CalendarEvent, Folder, FollowUp, Message } from '../types';
 import { BACK_TOKEN, oooSupport, stateWords, textToHtml, whenSentence, htmlToText, fillBackDate, windowOf, type AutoReply, type OooPlan } from '../ooo';
+import { applyTemplate, findTemplate, templateSummary, type OooTemplate } from '../oooTemplates';
+import type { CalendarGroup } from '../meetings';
 
 /** One question for the person: what the AI app wants, and for which accounts. */
 export interface AskRequest {
@@ -55,10 +57,14 @@ export interface McpWorld {
   /** Out of Office: the person's saved plan (default message and choices), each account's state, and the actions. */
   ooo?: {
     plan: OooPlan;
+    /** The person's saved Out of Office templates. */
+    templates?: OooTemplate[];
     status: (ids: string[]) => Promise<Record<string, AutoReply | { error: string }>>;
     turnOn: (plan: OooPlan) => Promise<{ done: string[]; failed: string[] }>;
     turnOff: (ids: string[]) => Promise<{ done: string[]; failed: string[] }>;
   };
+  /** Calendar Groups: the groups, the calendars each account has, and saving the list. */
+  calendarGroups?: { list: CalendarGroup[]; current: string; calendars: Record<string, string[]>; save: (list: CalendarGroup[]) => void };
   /** Opens a draft in Well Good Mail for the person to edit. */
   openDraft: (id: string) => void;
   /** Drafts this AI made earlier, by id, so it can replace one instead of piling up new ones. */
@@ -111,8 +117,20 @@ const SCHEMAS: Record<string, object> = {
       message: { type: 'string', description: 'Optional text of the reply. Leave out to use the person\'s own default away message, which is usually best. Write [back date] where the return date should go. No signature.' },
       subject: { type: 'string', description: 'Optional subject for the reply (Gmail).' },
       who: { type: 'string', enum: ['everyone', 'contacts', 'organisation'], description: 'Who gets the reply. Default: as the person set it in Well Good Mail.' },
+      template: { type: 'string', description: 'Optional name of one of the person\'s saved templates (from get_out_of_office), like "Holiday". It fills in what it keeps; from, back, message, subject and who given here still win.' },
     },
     required: ['accounts'],
+  },
+  get_calendar_groups: { type: 'object', properties: {} },
+  set_calendar_group: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'The group\'s name, like Work. An existing group with this name is changed.' },
+      calendars: { type: 'array', items: { type: 'object', properties: { account: { type: 'string', description: 'Account id from list_accounts.' }, calendar: { type: 'string', description: 'Calendar name from get_calendar_groups.' } }, required: ['account', 'calendar'] }, description: 'Every calendar in the group (this replaces what it had).' },
+      rename: { type: 'string', description: 'Optional new name for the group.' },
+      delete: { type: 'boolean', description: 'True to delete the group. The calendars themselves are not touched.' },
+    },
+    required: ['name'],
   },
   file_drafts: {
     type: 'object',
@@ -353,6 +371,7 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
             return { account: accName(a), id, state: stateWords(r, w.now).words, starts: r.start ? iso(r.start) : undefined, ends: r.end ? iso(r.end) : undefined, subject: r.subject || undefined, message: htmlToText(r.html).slice(0, 2000), who: r.audience };
           }),
           defaultMessage: htmlToText(w.ooo.plan.message.html).slice(0, 2000),
+          templates: (w.ooo.templates || []).map((t) => ({ name: t.name, sets: templateSummary(t, (id) => accName(byId(id))) })),
           note: note(leftOut),
         },
         logText: 'Looked at Out of Office',
@@ -371,22 +390,31 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       if (!usable.length) throw new Refused('Out of Office can\'t be set from Well Good Mail for those accounts. The person sets it in the account\'s web mail.');
       const off = args.on === false;
       args.verb = off ? 'turn off' : 'set';
+      // A saved template, by name, fills in what it keeps first. Anything given in the call still wins.
+      let base = w.ooo.plan;
+      if (typeof args.template === 'string' && args.template.trim()) {
+        const t = findTemplate(w.ooo.templates || [], args.template);
+        if (!t) throw new Error(`There is no template called "${args.template.trim()}". The person's templates: ${(w.ooo.templates || []).map((x) => x.name).join(', ') || 'none yet'}.`);
+        base = applyTemplate(base, t, { now: w.now });
+        if (!args.from && t.days) args.from = base.firstDay;
+        if (!args.back && t.days) args.back = base.backOn;
+      }
       const from = typeof args.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.from.trim()) ? args.from.trim() : undefined;
       const back = typeof args.back === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.back.trim()) ? args.back.trim() : undefined;
       if ((args.from && !from) || (args.back && !back)) throw new Error('Write dates as YYYY-MM-DD, like 2026-12-21.');
       const todayYmd = new Date(w.now).toISOString().slice(0, 10);
       const plan: OooPlan = {
-        ...w.ooo.plan,
+        ...base,
         accounts: usable,
         mode: back ? 'dates' : 'open',
         firstDay: from || todayYmd,
-        backOn: back || w.ooo.plan.backOn,
-        useTimes: false,
-        audience: args.who === 'contacts' ? 'contacts' : args.who === 'organisation' ? 'org' : args.who === 'everyone' ? 'all' : w.ooo.plan.audience,
-        own: typeof args.message === 'string' && args.message.trim() ? {} : w.ooo.plan.own,
+        backOn: back || base.backOn,
+        useTimes: args.template ? base.useTimes : false,
+        audience: args.who === 'contacts' ? 'contacts' : args.who === 'organisation' ? 'org' : args.who === 'everyone' ? 'all' : base.audience,
+        own: typeof args.message === 'string' && args.message.trim() ? {} : base.own,
         message: typeof args.message === 'string' && args.message.trim()
-          ? { subject: typeof args.subject === 'string' ? args.subject.trim().slice(0, 150) : w.ooo.plan.message.subject, html: textToHtml(String(args.message).slice(0, 4000)) }
-          : { ...w.ooo.plan.message, subject: typeof args.subject === 'string' && args.subject.trim() ? args.subject.trim().slice(0, 150) : w.ooo.plan.message.subject },
+          ? { subject: typeof args.subject === 'string' ? args.subject.trim().slice(0, 150) : base.message.subject, html: textToHtml(String(args.message).slice(0, 4000)) }
+          : { ...base.message, subject: typeof args.subject === 'string' && args.subject.trim() ? args.subject.trim().slice(0, 150) : base.message.subject },
       };
       if (!off && back) {
         const { end } = windowOf(plan, w.now);
@@ -419,6 +447,52 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
         },
         logText: logLine(tool, { verb: off ? 'turn off' : 'set' }),
       };
+    }
+    case 'get_calendar_groups': {
+      if (!w.calendarGroups) throw new Error('Calendar Groups are not available here.');
+      await permitPlain(w, tool, 'see your Calendar Groups');
+      const cg = w.calendarGroups;
+      const nameOf = (key: string) => { const i = key.indexOf('|'); const id = key.slice(0, i); return shared.includes(id) ? { account: id, accountName: accName(byId(id)), calendar: key.slice(i + 1) } : undefined; };
+      return {
+        data: {
+          groups: cg.list.map((g) => ({ name: g.name, calendars: g.calendars.map(nameOf).filter(Boolean), otherCalendars: g.calendars.filter((k) => !nameOf(k)).length || undefined })),
+          lookingAt: cg.list.find((g) => g.id === cg.current)?.name || 'All calendars',
+          calendars: shared.map((id) => ({ account: id, accountName: accName(byId(id)), calendars: cg.calendars[id] || [] })).filter((x) => x.calendars.length),
+        },
+        logText: 'Looked at Calendar Groups',
+      };
+    }
+    case 'set_calendar_group': {
+      if (!w.calendarGroups) throw new Error('Calendar Groups are not available here.');
+      const cg = w.calendarGroups;
+      const name = typeof args.name === 'string' ? args.name.trim().slice(0, 60) : '';
+      if (!name) throw new Error('Give the group a name.');
+      const old = cg.list.find((g) => g.name.toLowerCase() === name.toLowerCase());
+      if (args.delete === true) {
+        if (!old) throw new Error(`There is no group called "${name}".`);
+        await permitPlain(w, tool, `delete the Calendar Group "${old.name}" (your calendars stay as they are)`);
+        cg.save(cg.list.filter((g) => g.id !== old.id));
+        return { data: { deleted: old.name }, logText: logLine(tool, { name: old.name }) };
+      }
+      const wanted = Array.isArray(args.calendars) ? args.calendars : [];
+      const keys: string[] = [];
+      const unknown: string[] = [];
+      for (const c of wanted) {
+        const acc = c && typeof c === 'object' ? String((c as Record<string, unknown>).account || '') : '';
+        const cal = c && typeof c === 'object' ? String((c as Record<string, unknown>).calendar || '') : '';
+        if (shared.includes(acc) && (cg.calendars[acc] || []).includes(cal)) keys.push(`${acc}|${cal}`); else unknown.push(`${cal || '?'} (${acc || 'no account'})`);
+      }
+      // Calendars from accounts the AI can't see stay in the group as they were.
+      const hiddenFromAi = (old?.calendars || []).filter((k) => !shared.includes(k.slice(0, k.indexOf('|'))));
+      const calendars = [...new Set([...(wanted.length || !old ? keys : old.calendars.filter((k) => !hiddenFromAi.includes(k))), ...hiddenFromAi])];
+      if (!calendars.length) throw new Error(`None of those calendars were found.${unknown.length ? ` Not found: ${unknown.slice(0, 5).join(', ')}.` : ''} Use names from get_calendar_groups.`);
+      const newName = typeof args.rename === 'string' && args.rename.trim() ? args.rename.trim().slice(0, 60) : (old?.name || name);
+      if (cg.list.some((g) => g.id !== old?.id && g.name.toLowerCase() === newName.toLowerCase())) throw new Error(`There is already a group called "${newName}".`);
+      const label = (k: string) => { const i = k.indexOf('|'); return `${k.slice(i + 1)} (${accName(byId(k.slice(0, i)))})`; };
+      await permitPlain(w, tool, `${old ? 'change' : 'make'} the Calendar Group "${newName}": ${calendars.map(label).join(', ')}`);
+      const group: CalendarGroup = { id: old?.id || `g${w.now.toString(36)}`, name: newName, calendars };
+      cg.save(old ? cg.list.map((g) => (g.id === old.id ? group : g)) : [...cg.list, group]);
+      return { data: { group: newName, calendars: calendars.map(label), notFound: unknown.length ? unknown : undefined }, logText: logLine(tool, { name: newName }) };
     }
     case 'list_reminders': {
       await permitPlain(w, tool, 'see your reminders');

@@ -4,6 +4,8 @@ import { Icon } from './Icon';
 import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectThread, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { dueReminders, eventKey, alertMute } from '../lib/reminders';
+import { inGroupView } from '../lib/meetings';
+import { startNewEvent } from './NewEvent';
 import { CalendarPicker, ComingUpList, PickedDay } from './ComingUp';
 import { EventPreview } from './EventPopup';
 import { JoinButton } from './calendarBits';
@@ -33,7 +35,8 @@ export function Reminders() {
   }, []);
 
   const mute = alertMute(s);
-  const items = useMemo(() => dueReminders(events, followups, dismissed, Date.now(), mute), [events, followups, dismissed, tick, s.hiddenCalendars, s.hiddenCalendarsAlerts]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The List view follows the Calendar Group you're looking at, like the calendar.
+  const items = useMemo(() => dueReminders(inGroupView(events, s), followups, dismissed, Date.now(), mute), [events, followups, dismissed, tick, s.hiddenCalendars, s.hiddenCalendarsAlerts, s.calendarGroups, s.calendarGroup]); // eslint-disable-line react-hooks/exhaustive-deps
   const [preview, setPreview] = useState<CalendarEvent | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   useEffect(() => { startCalendarCopy(); }, []);
@@ -70,9 +73,13 @@ export function Reminders() {
               <button className={s.remindersView === 'calendar' ? 'on' : ''} aria-pressed={s.remindersView === 'calendar'} onClick={() => s.set({ remindersView: 'calendar' })}><Icon name="calendar" size={14} /> Calendar</button>
             </div>
             <span className="grow" />
-            <CalendarPicker />
-            <button className="btn ghost" disabled={refreshing} onClick={refresh}><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span> {refreshing ? 'Refreshing' : 'Refresh'}</button>
-            {s.remindersView === 'list' && <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>}
+            {/* Kept together, so on a narrow window they move to the next line as one row. */}
+            <div className="rem-actions">
+              <CalendarPicker />
+              <button className="icon-btn rem-refresh" disabled={refreshing} title={refreshing ? 'Refreshing the calendars' : 'Refresh the calendars'} aria-label={refreshing ? 'Refreshing the calendars' : 'Refresh the calendars'} onClick={refresh}><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span></button>
+              {s.remindersView === 'list' && <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>}
+              <button className="btn primary" title="New event (Ctrl+Alt+N)" onClick={() => startNewEvent()}><Icon name="plus" size={14} /> New event</button>
+            </div>
           </div>
           <p className="lead">Everything from your calendars and follow ups collects here quietly until you clear it. Nothing pops up unless you ask it to.</p>
           <div className="rem-scroll">

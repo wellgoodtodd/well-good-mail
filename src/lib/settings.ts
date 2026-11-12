@@ -5,6 +5,8 @@ import { persist } from 'zustand/middleware';
 import type { AccountGroup, Template } from './types';
 import { defaultMcp, type McpSettings } from './mcp/permissions';
 import { defaultPlan, type OooActive, type OooPlan } from './ooo';
+import type { OooTemplate } from './oooTemplates';
+import type { CalendarGroup } from './meetings';
 
 export type ThemeSetting = 'dark' | 'light' | 'system';
 export type ReminderMode = 'never' | 'daily' | 'important' | 'all';
@@ -168,6 +170,16 @@ export interface Settings {
   oooDismissed: string[];
   /** Suggest out of office from Holiday and Annual leave events in the calendar. */
   oooSuggest: boolean;
+  /** Your own Out of Office templates, each keeping only the parts ticked when it was saved. */
+  oooTemplates: OooTemplate[];
+  /** Calendar Groups (Work, Personal...): calendars from any account, shown together. */
+  calendarGroups: CalendarGroup[];
+  /** The group being looked at. Empty: All calendars. */
+  calendarGroup: string;
+  /** While a group is picked, alerts come only from its calendars. */
+  groupAlertsOnly: boolean;
+  /** The calendar the last new event went in ("accountId|calendar name"), used first next time. */
+  lastEventCalendar: string;
 
   shortcuts: 'gmail' | 'none';
   /** Custom key combos by action id; missing = default. */
@@ -312,6 +324,11 @@ export const defaultSettings: Settings = {
   suggestMuted: [],
   oooDismissed: [],
   oooSuggest: true,
+  oooTemplates: [],
+  calendarGroups: [],
+  calendarGroup: '',
+  groupAlertsOnly: false,
+  lastEventCalendar: '',
 
   shortcuts: 'gmail',
   keybindings: {},
@@ -341,7 +358,7 @@ const SETTING_NAMES: Record<string, string> = {
   hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
-  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', spellWords: 'dictionary', spellLang: 'spelling', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', oooTemplates: 'Out of Office templates', calendarGroups: 'Calendar Groups', calendarGroup: 'calendar group', groupAlertsOnly: 'calendar group alerts', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', spellWords: 'dictionary', spellLang: 'spelling', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
 };
 let lastStep: { id: string; keys: string; at: number } | null = null;
 

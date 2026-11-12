@@ -193,6 +193,8 @@ export interface EventCopy {
   repeat?: Repeat;
   /** The series repeats in a way that can't be copied. */
   repeatUnsupported?: boolean;
+  /** Alerts, in minutes before it starts (0 at the time). Left out: the calendar's own default. */
+  alerts?: number[];
 }
 
 /** What can be changed on an event. Only the fields given are changed. */

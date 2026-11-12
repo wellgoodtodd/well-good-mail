@@ -3,7 +3,7 @@
 import { store } from './db';
 import { notify, flashTaskbar } from './platform';
 import { isQuietNow, settings } from './settings';
-import { meetingService, dedupeEvents, calendarKey } from './meetings';
+import { meetingService, dedupeEvents, calendarKey, inGroupView } from './meetings';
 import type { CalendarEvent, FollowUp, ReminderItem } from './types';
 
 export function eventReminderTime(e: CalendarEvent): number {
@@ -61,6 +61,8 @@ export async function checkReminderAlerts(events: CalendarEvent[], followups: Fo
     loaded = true;
   }
   const now = Date.now();
+  // With "Only alert me from the group I'm looking at", calendars outside it stay quiet.
+  if (s.groupAlertsOnly) events = inGroupView(events, s);
   const due = dueReminders(events, followups, dismissed, now, alertMute(s)).filter((r) => now - r.dueAt < 15 * 60000);
   const important = new Set(s.importantEvents);
 
@@ -101,6 +103,7 @@ export function meetingAlertsDue(events: CalendarEvent[], now: number, times: nu
 async function meetingAlerts(events: CalendarEvent[], now: number) {
   const s = settings();
   const times = [s.meetingAlert1On ? s.meetingAlert1Mins : 0, s.meetingAlert2On ? s.meetingAlert2Mins : 0];
+  if (s.groupAlertsOnly) events = inGroupView(events, s);
   for (const a of meetingAlertsDue(events, now, times, alertMute(s).all)) {
     if (notified.has(a.key)) continue;
     notified.add(a.key);

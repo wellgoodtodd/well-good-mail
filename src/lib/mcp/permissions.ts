@@ -36,6 +36,7 @@ export const CAPABILITIES: Capability[] = [
   // Calendar (answers other people)
   { id: 'calendar.reply', group: 'calendar', label: 'Answer invitations', description: 'Say Yes, No or Maybe. The organiser is told, so it always asks.', fallback: 'ask', max: 'ask' },
   { id: 'calendar.add', group: 'calendar', label: 'Add invitations to your calendar', description: 'Put an invitation from an email into your calendar.', fallback: 'ask', max: 'allow' },
+  { id: 'calendar.groups', group: 'calendar', label: 'Set up Calendar Groups', description: 'Make and change groups like Work and Personal. Only changes what you see, never your calendars or events.', fallback: 'off', max: 'allow' },
   // Anything that reaches other people
   { id: 'send.email', group: 'send', label: 'Send email', description: 'Send a reply or new email. The app shows who it goes to and the whole message, and waits for you every time.', fallback: 'off', max: 'ask' },
   { id: 'settings.ooo', group: 'send', label: 'Set Out of Office', description: 'Turn auto-replies on or off, with dates and a message. People who email you get the reply, so it always asks and shows you the whole thing.', fallback: 'ask', max: 'ask' },

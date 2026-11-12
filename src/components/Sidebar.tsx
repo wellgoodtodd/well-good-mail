@@ -14,6 +14,7 @@ import { ColourPicker } from './ColourPicker';
 import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
 import { dueReminders, alertMute } from '../lib/reminders';
+import { inGroupView } from '../lib/meetings';
 import { useAiDrafts, groupCounts, setDraftFilter, groupColour } from '../lib/mcp/aiDrafts';
 import { groupItems, newGroup } from './AiDrafts';
 import { openSmartEditor, smartItems } from './SmartMailboxEditor';
@@ -814,5 +815,7 @@ function useReminderCount() {
   const dismissed = useMail((s) => s.dismissed);
   const hiddenCals = useSettings((s) => s.hiddenCalendars);
   const alertsMode = useSettings((s) => s.hiddenCalendarsAlerts);
-  return useMemo(() => dueReminders(events, followups, dismissed, Date.now(), alertMute({ hiddenCalendars: hiddenCals, hiddenCalendarsAlerts: alertsMode })).length, [events, followups, dismissed, hiddenCals, alertsMode]);
+  const calendarGroups = useSettings((s) => s.calendarGroups);
+  const calendarGroup = useSettings((s) => s.calendarGroup);
+  return useMemo(() => dueReminders(inGroupView(events, { calendarGroups, calendarGroup }), followups, dismissed, Date.now(), alertMute({ hiddenCalendars: hiddenCals, hiddenCalendarsAlerts: alertsMode })).length, [events, followups, dismissed, hiddenCals, alertsMode, calendarGroups, calendarGroup]);
 }

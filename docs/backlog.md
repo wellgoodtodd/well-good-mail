@@ -4,6 +4,8 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 ## Ideas for 0.7.3 (mock-ups first)
 
+**Built for 0.7.3 beta 2 (12 Nov 2026):** all three below. Test list in docs/testing-0.7.3-beta2.md. Small changes from the mock-ups: Refresh in the calendar header is now an icon button, so + New event fits on the same line; all-day alerts are "the day before at 09:00" and earlier, because calendars cannot alert on the day itself; double-clicking a day in Month view now makes an all-day event (Open day is in the right-click menu and on the day panel); a Calendar Group shows its own calendars even if they are hidden under All calendars.
+
 **Decided 12 Nov 2026 (Todd, from docs/mockups/new-event.html, ooo-templates.html, calendar-groups.html):**
 - Creating events:
   - The blue + New event button goes in the header, plus "+ New event on [day]" in the picked-day panel.

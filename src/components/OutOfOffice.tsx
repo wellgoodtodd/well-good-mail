@@ -10,9 +10,10 @@ import { useMail, providerFor, reconnectAccount, selectThread, setView, toast, o
 import { threadKey } from '../lib/mailbox';
 import { useSettings } from '../lib/settings';
 import { allAliases } from '../lib/compose';
-import { BACK_TOKEN, TEMPLATES, htmlToText, messageFor, oooSupport, planProblem, stateWords, whenSentence, windowOf, type OooMessage, type OooPlan } from '../lib/ooo';
+import { BACK_TOKEN, htmlToText, messageFor, oooSupport, planProblem, stateWords, whenSentence, windowOf, type OooMessage, type OooPlan } from '../lib/ooo';
 import { awayAccounts, awayDigest, closeSummary, dismissSuggestion, nativeAccounts, refreshOoo, replyFor, turnOffOoo, turnOnOoo, useOoo, applySuggestion, oooToastResult, oooSignIn, oooSignInDue, shortReason } from '../lib/oooStore';
 import type { Account, Message } from '../lib/types';
+import { TemplatesMenu } from './OooTemplates';
 
 const nameOf = (a: Account) => a.label || a.email;
 /** The sign in pop-up shows once each time the app runs; the bar above the accounts stays until it's done. */
@@ -204,10 +205,7 @@ export function OutOfOfficeTab() {
       <section className="set-section ooo-message">
         <div className="set-h2-row">
           <h2>Message</h2>
-          <select aria-label="Start from a template" value="" onChange={(e) => { const t = TEMPLATES.find((x) => x.id === e.target.value); if (t) setMsg({ subject: t.subject, html: t.html }); }}>
-            <option value="">Templates...</option>
-            {TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
+          <TemplatesMenu editing={editAcc?.id} onBuiltIn={(t) => setMsg({ subject: t.subject, html: t.html })} />
         </div>
         {Object.keys(plan.own).some((id) => plan.accounts.includes(id)) && (
           <div className="seg ooo-which" role="tablist" aria-label="Which message">

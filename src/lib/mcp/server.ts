@@ -190,6 +190,7 @@ async function answer(rid: number, conn: number, body: string) {
     openDraft: (id) => void openDraft(id),
     ooo: {
       plan: settings().ooo,
+      templates: settings().oooTemplates,
       status: async (ids) => {
         const m = await import('../oooStore');
         await m.refreshOoo(ids);
@@ -199,12 +200,26 @@ async function answer(rid: number, conn: number, body: string) {
       turnOn: async (plan) => (await import('../oooStore')).turnOnOoo(plan),
       turnOff: async (ids) => (await import('../oooStore')).turnOffOoo(ids),
     },
+    calendarGroups: {
+      list: settings().calendarGroups,
+      current: settings().calendarGroup,
+      calendars: calendarsByAccount(mail.events, mail.calendarNames),
+      save: (list) => useSettings.getState().set({ calendarGroups: list, ...(list.some((g) => g.id === settings().calendarGroup) ? {} : { calendarGroup: '' }) }),
+    },
     aiDraft: (id) => { const d = aiDraftsNow().find((x) => x.id === id); return d && d.fromAccountId ? { accountId: d.fromAccountId } : undefined; },
     log: (text, outcome) => logActivity(text, outcome, app),
     version: useUpdates.getState().currentVersion || '',
     now: Date.now(),
   }, msg);
   await send(out);
+}
+
+/** Each account's calendars: from its events, and the calendars it listed. */
+function calendarsByAccount(events: { accountId: string; calendarName: string }[], known: Record<string, string[]>): Record<string, string[]> {
+  const out: Record<string, Set<string>> = {};
+  for (const e of events) (out[e.accountId] ||= new Set()).add(e.calendarName);
+  for (const [id, list] of Object.entries(known)) for (const n of list) (out[id] ||= new Set()).add(n);
+  return Object.fromEntries(Object.entries(out).map(([id, s]) => [id, [...s].sort()]));
 }
 
 async function listen() {

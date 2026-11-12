@@ -1,8 +1,9 @@
 // Small calendar pieces shared by the Coming up list, the event pop-up and the calendar views.
-import { useEffect, useReducer } from 'react';
+import { useEffect, useMemo, useReducer } from 'react';
 import { Icon } from './Icon';
 import { useMail } from '../lib/mail';
-import { meetingService, guestTally, guestAnswerWord } from '../lib/meetings';
+import { meetingService, guestTally, guestAnswerWord, groupCalendars } from '../lib/meetings';
+import { useSettings } from '../lib/settings';
 import { startCompose } from '../lib/composeActions';
 import { openExternal } from '../lib/platform';
 import type { CalendarEvent, EventGuest, GuestAnswer } from '../lib/types';
@@ -20,6 +21,15 @@ export function useMinute() {
 
 export const timeText = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 export const dayText = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+
+/** What the calendar shows: the hidden calendars, or the picked Calendar Group's calendars. */
+export function useCalendarFilter(): { hidden: string[]; only: Set<string> | null } {
+  const hidden = useSettings((s) => s.hiddenCalendars);
+  const groups = useSettings((s) => s.calendarGroups);
+  const group = useSettings((s) => s.calendarGroup);
+  const only = useMemo(() => groupCalendars({ calendarGroups: groups, calendarGroup: group }), [groups, group]);
+  return { hidden, only };
+}
 
 export function useColour() {
   const accounts = useMail((s) => s.accounts);

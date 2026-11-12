@@ -380,7 +380,7 @@ export class DemoProvider implements MailProvider {
   }
   async createEvent(calendarName: string, copy: EventCopy): Promise<string> {
     const id = `${this.account.id}|moved-${Date.now()}`;
-    this.made.push({ id, accountId: this.account.id, calendarName, title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay, location: copy.location, description: copy.description, reminderMinutes: [], recurring: Boolean(copy.repeat), meetingUrl: copy.video ? 'https://meet.google.com/new-demo-link' : undefined });
+    this.made.push({ id, accountId: this.account.id, calendarName, title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay, location: copy.location, description: copy.description, reminderMinutes: copy.alerts || [], recurring: Boolean(copy.repeat), guests: copy.guests.length ? [{ email: this.account.email, self: true, organiser: true, answer: 'yes' as const }, ...copy.guests.map((g) => ({ ...g, answer: 'waiting' as const }))] : undefined, meetingUrl: copy.video ? 'https://meet.google.com/new-demo-link' : undefined });
     return id;
   }
   async endSeries(ev: CalendarEvent): Promise<void> { this.evEdits[ev.id] = null; }

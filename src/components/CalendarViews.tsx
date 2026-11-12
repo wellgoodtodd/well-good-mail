@@ -8,7 +8,9 @@ import { useCalCache, ensureCalendarRange, cachedBetween } from '../lib/calendar
 import { useSettings } from '../lib/settings';
 import { dedupeEvents, visibleEvents } from '../lib/meetings';
 import type { CalendarEvent } from '../lib/types';
-import { chipBackground } from './calendarBits';
+import { chipBackground, useCalendarFilter } from './calendarBits';
+import { useMenu } from './ui';
+import { startNewEvent, useNewEvent } from './NewEvent';
 
 const HOUR_PX = 48;
 const DAY_MS = 86400000;
@@ -131,13 +133,15 @@ export function CalendarModes() {
 
 export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; onPick: (e: CalendarEvent) => void; modes?: React.ReactNode }) {
   const near = useMail((s) => s.events);
-  const hidden = useSettings((s) => s.hiddenCalendars);
+  const { hidden, only } = useCalendarFilter();
   const sunday = useSettings((s) => s.weekStart) === 'sunday';
   const weekNumbers = useSettings((s) => s.weekNumbers);
   const hideWeekends = useSettings((s) => s.hideWeekends);
   const work = useSettings((s) => s.workHours);
   const colour = useColour();
   const picked = useCalDay((c) => c.day);
+  const drafting = useNewEvent((s) => s.draft);
+  const menu = useMenu();
   const [anchor, setAnchorNow] = useState(() => new Date(selectedOrToday()));
   // Moving in Day or Week moves the picked day with it, so Month and the side panel follow.
   const setAnchor = (d: Date) => { setAnchorNow(d); selectDay(d.getTime()); };
@@ -155,8 +159,8 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
   useEffect(() => { void ensureCalendarRange(from, to); }, [from, to]);
   const events = useMemo(() => {
     const seen = new Set(near.map((e) => e.id));
-    return dedupeEvents(visibleEvents([...near, ...cachedBetween(copy, from, to).filter((e) => !seen.has(e.id))], hidden)).filter((e) => e.end > from && e.start < to);
-  }, [near, copy, hidden, from, to]);
+    return dedupeEvents(visibleEvents([...near, ...cachedBetween(copy, from, to).filter((e) => !seen.has(e.id))], hidden, only)).filter((e) => e.end > from && e.start < to);
+  }, [near, copy, hidden, only, from, to]);
 
   // Starts scrolled to the working day (or an hour before now, when that's later).
   const scroller = useRef<HTMLDivElement>(null);
@@ -180,6 +184,22 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
     ? anchor.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : `${days[0].toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} to ${days[days.length - 1].toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
   const workDay = (d: Date) => work.enabled && d.getDay() !== 0 && d.getDay() !== 6;
+  // The half hour under the pointer, in a day's column.
+  const timeAt = (d: Date, ev: React.MouseEvent<HTMLDivElement>) => {
+    const y = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
+    const mins = Math.max(0, Math.min(23 * 60 + 30, Math.floor((y / HOUR_PX) * 2) * 30));
+    return d.getTime() + mins * 60000;
+  };
+  const dayMenu = (d: Date, at: number, ev: React.MouseEvent) => {
+    ev.preventDefault();
+    menu.open({ x: ev.clientX, y: ev.clientY }, [
+      { label: 'New event', icon: 'plus', kbd: 'Ctrl+Alt+N', onClick: () => startNewEvent({ start: at }) },
+      { label: 'New all-day event', onClick: () => startNewEvent({ day: d.getTime(), allDay: true }) },
+      { divider: true },
+      ...(mode === 'week' ? [{ label: 'Open day', onClick: () => openDay(d.getTime()) }] : []),
+      { label: 'Go to today', onClick: () => { const t = new Date(); t.setHours(0, 0, 0, 0); setAnchor(t); } },
+    ]);
+  };
   const cols = `52px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
@@ -224,7 +244,10 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
             const isToday = d.toDateString() === today;
             const nowTop = ((Date.now() - start) / 3600000) * HOUR_PX;
             return (
-              <div key={d.toISOString()} className={`tg-col ${mode === 'week' && picked === d.getTime() ? 'picked' : ''}`} onClick={(ev) => { if (mode === 'week' && ev.target === ev.currentTarget) setAnchor(d); }} onDoubleClick={(ev) => { if (mode === 'week' && ev.target === ev.currentTarget) openDay(d.getTime()); }}>
+              <div key={d.toISOString()} className={`tg-col ${mode === 'week' && picked === d.getTime() ? 'picked' : ''}`} title="Double-click to make an event here"
+                onClick={(ev) => { if (mode === 'week' && ev.target === ev.currentTarget) setAnchor(d); }}
+                onDoubleClick={(ev) => { if (ev.target === ev.currentTarget || (ev.target as HTMLElement).classList.contains('tg-line') || (ev.target as HTMLElement).classList.contains('tg-work')) startNewEvent({ start: timeAt(d, ev) }); }}
+                onContextMenu={(ev) => { if (!(ev.target as HTMLElement).closest('.tg-event')) dayMenu(d, timeAt(d, ev), ev); }}>
                 {workDay(d) && <div className="tg-work" style={{ top: (minutesOf(work.from) / 60) * HOUR_PX, height: ((minutesOf(work.to) - minutesOf(work.from)) / 60) * HOUR_PX }} />}
                 {Array.from({ length: 24 }, (_, h) => <div key={h} className="tg-line" style={{ top: h * HOUR_PX }} />)}
                 {timed.map((e) => {
@@ -242,11 +265,17 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
                   );
                 })}
                 {isToday && nowTop >= 0 && nowTop <= 24 * HOUR_PX && <div className="tg-now" style={{ top: nowTop }} aria-label={`Now, ${timeText(Date.now())}`} />}
+                {drafting && !drafting.allDay && drafting.start < start + DAY_MS && drafting.end > start && (() => {
+                  const s = Math.max(drafting.start, start);
+                  const en = Math.min(drafting.end, start + DAY_MS);
+                  return <div className="tg-ghost" aria-hidden="true" style={{ top: ((s - start) / 3600000) * HOUR_PX, height: Math.max(20, ((en - s) / 3600000) * HOUR_PX - 2) }}><b>New event</b><span>{timeText(drafting.start)} to {timeText(drafting.end)}</span></div>;
+                })()}
               </div>
             );
           })}
         </div>
       </div>
+      {menu.node}
     </div>
   );
 }
@@ -254,12 +283,14 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
 /** A month at a time, each event a coloured chip. */
 export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => void; modes?: React.ReactNode }) {
   const nearEvents = useMail((s) => s.events);
-  const hidden = useSettings((s) => s.hiddenCalendars);
+  const { hidden, only } = useCalendarFilter();
   const sunday = useSettings((s) => s.weekStart) === 'sunday';
   const weekNumbers = useSettings((s) => s.weekNumbers);
   const hideWeekends = useSettings((s) => s.hideWeekends);
   const colour = useColour();
   const picked = useCalDay((c) => c.day);
+  const drafting = useNewEvent((s) => s.draft);
+  const menu = useMenu();
   const [month, setMonthNow] = useState(() => { const d = new Date(selectedOrToday()); d.setDate(1); return d; });
   // Moving month keeps the picked day on the same date in the new month (or its last day).
   const setMonth = (d: Date) => {
@@ -279,8 +310,8 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
   useEffect(() => { void ensureCalendarRange(gridStart.getTime(), gridEnd); }, [month.getTime(), sunday]); // eslint-disable-line react-hooks/exhaustive-deps
   const events = useMemo(() => {
     const seen = new Set(nearEvents.map((e) => e.id));
-    return visibleEvents([...nearEvents, ...cachedBetween(copy, gridStart.getTime(), gridEnd).filter((e) => !seen.has(e.id))], hidden);
-  }, [nearEvents, copy, hidden, gridStart.getTime(), gridEnd]); // eslint-disable-line react-hooks/exhaustive-deps
+    return visibleEvents([...nearEvents, ...cachedBetween(copy, gridStart.getTime(), gridEnd).filter((e) => !seen.has(e.id))], hidden, only);
+  }, [nearEvents, copy, hidden, only, gridStart.getTime(), gridEnd]); // eslint-disable-line react-hooks/exhaustive-deps
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
     for (const e of dedupeEvents(events)) {
@@ -316,9 +347,21 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
           const list = byDay.get(d.toDateString()) || [];
           out.push(
             <div key={d.toISOString()} className={`month-day ${d.getMonth() === month.getMonth() ? '' : 'other'} ${d.toDateString() === today ? 'today' : ''} ${picked === d.getTime() ? 'picked' : ''}`}
-              role="gridcell" aria-selected={picked === d.getTime()} title="Click to pick this day, double-click to open it"
-              onClick={() => selectDay(d.getTime())} onDoubleClick={() => openDay(d.getTime())}>
+              role="gridcell" aria-selected={picked === d.getTime()} title="Click to pick this day, double-click to make an all-day event"
+              onClick={() => selectDay(d.getTime())} onDoubleClick={() => startNewEvent({ day: d.getTime(), allDay: true })}
+              onContextMenu={(ev) => {
+                ev.preventDefault();
+                selectDay(d.getTime());
+                menu.open({ x: ev.clientX, y: ev.clientY }, [
+                  { label: 'New event', icon: 'plus', kbd: 'Ctrl+Alt+N', onClick: () => startNewEvent({ day: d.getTime() }) },
+                  { label: 'New all-day event', onClick: () => startNewEvent({ day: d.getTime(), allDay: true }) },
+                  { divider: true },
+                  { label: 'Open day', onClick: () => openDay(d.getTime()) },
+                  { label: 'Go to today', onClick: () => { const t = new Date(); t.setDate(1); t.setHours(0, 0, 0, 0); setMonthNow(t); selectDay(Date.now()); } },
+                ]);
+              }}>
               <span className="n">{d.getDate()}</span>
+              {drafting?.allDay && drafting.start <= d.getTime() && drafting.end > d.getTime() && <span className="chip month-ghost" aria-hidden="true">New event</span>}
               {list.slice(0, 3).map((e) => (
                 <button key={e.id} className="chip" style={{ background: chipBackground(e.accountIds?.length ? e.accountIds : [e.accountId], colour) }} title={e.title} onClick={(ev) => { ev.stopPropagation(); selectDay(d.getTime()); onPick(e); }} onDoubleClick={(ev) => ev.stopPropagation()}>
                   {!e.allDay && <span>{timeText(e.start)} </span>}{e.title}
@@ -330,6 +373,7 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
           return out;
         })}
       </div>
+      {menu.node}
     </div>
   );
 }

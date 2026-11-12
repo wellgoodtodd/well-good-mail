@@ -33,7 +33,9 @@ export const TOOLS: ToolSpec[] = [
   { name: 'reply_to_invite', capability: 'calendar.reply', perAccount: true, description: 'Say Yes, No or Maybe to a calendar invitation. The organiser is told, so the person always approves it first.', log: 'Answered the invitation "{title}"' },
   { name: 'add_invite_to_calendar', capability: 'calendar.add', perAccount: true, description: 'Put the invitation from an email into the calendar.', log: 'Added "{title}" to the calendar' },
   { name: 'get_out_of_office', capability: 'read.accounts', perAccount: true, description: 'Whether Out of Office (auto-reply) is on in each shared account, with its dates and message.', log: 'Looked at Out of Office' },
-  { name: 'set_out_of_office', capability: 'settings.ooo', perAccount: true, description: 'Turn Out of Office (auto-reply) on, schedule it between dates, or turn it off, in one or more accounts. It is set inside Gmail or Microsoft, so it works with the computer off. The person always sees the accounts, dates and whole message, and says yes first.', log: 'Asked to {verb} Out of Office' },
+  { name: 'set_out_of_office', capability: 'settings.ooo', perAccount: true, description: 'Turn Out of Office (auto-reply) on, schedule it between dates, or turn it off, in one or more accounts. It can start from one of the person\'s saved templates by name (see get_out_of_office). It is set inside Gmail or Microsoft, so it works with the computer off. The person always sees the accounts, dates and whole message, and says yes first.', log: 'Asked to {verb} Out of Office' },
+  { name: 'get_calendar_groups', capability: 'read.calendar', perAccount: false, description: 'The person\'s Calendar Groups (like Work and Personal), which one they are looking at, and every calendar that could go in one.', log: 'Looked at Calendar Groups' },
+  { name: 'set_calendar_group', capability: 'calendar.groups', perAccount: false, description: 'Make, change or delete a Calendar Group: a named set of calendars from any account, shown together in Well Good Mail. It only changes what the person sees; calendars and events are not changed.', log: 'Set the Calendar Group "{name}"' },
   { name: 'send_email', capability: 'send.email', perAccount: true, description: 'Send an email. Well Good Mail always shows the person the recipients and the whole message and waits for their yes before anything leaves.', log: 'Asked to send "{subject}" to {to}' },
   { name: 'forward_email', capability: 'send.forward', perAccount: true, description: 'Forward an email to someone else. Always approved by the person first.', log: 'Asked to forward "{subject}" to {to}' },
 ];
@@ -41,7 +43,7 @@ export const TOOLS: ToolSpec[] = [
 export const toolByName = (name: string) => TOOLS.find((t) => t.name === name);
 
 /** The tools switched on so far. The first version can only look; the rest come in later betas. */
-export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'list_events', 'list_reminders', 'create_draft', 'file_drafts', 'get_out_of_office', 'set_out_of_office']);
+export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'list_events', 'list_reminders', 'create_draft', 'file_drafts', 'get_out_of_office', 'set_out_of_office', 'get_calendar_groups', 'set_calendar_group']);
 
 /** Fills the log line from the arguments, never printing more than a short piece of anything. */
 export function logLine(tool: ToolSpec, args: Record<string, unknown>): string {

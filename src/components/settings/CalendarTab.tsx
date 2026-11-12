@@ -4,6 +4,7 @@ import { Icon } from '../Icon';
 import { useSettings } from '../../lib/settings';
 import { notify } from '../../lib/platform';
 import { Row, Radio, Check } from '../ui';
+import { CalendarGroupsCard } from '../CalendarGroups';
 
 export const MINUTE_CHOICES = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 180];
 export const timeLabel = (n: number) => (n >= 120 && n % 60 === 0 ? `${n / 60} hours` : `${n} ${n === 1 ? 'minute' : 'minutes'}`);
@@ -97,6 +98,10 @@ export function RemindersTab() {
         )}
         <Check checked={s.suggestEvents} onChange={(v) => s.set({ suggestEvents: v })}>Offer to add dates and times from emails to my calendar</Check>
         <p className="hint" style={{ margin: '4px 0 0' }}>Only for emails from people, with a clear day and time. Read on this computer, with no AI.{s.suggestMuted.length > 0 && <> {s.suggestMuted.length} sender{s.suggestMuted.length === 1 ? '' : 's'} never suggested: <button className="link-btn" onClick={() => s.set({ suggestMuted: [] })}>Allow again</button></>}</p>
+      </section>
+      <section className="set-section">
+        <h2>Calendar Groups</h2>
+        <CalendarGroupsCard />
       </section>
       <section className="set-section">
         <h2>Alerts from hidden calendars</h2>

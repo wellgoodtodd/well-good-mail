@@ -1068,6 +1068,26 @@ export async function moveEventAcross(ev: CalendarEvent, to: { accountId: string
   return newId;
 }
 
+/** Makes a new event in any account's calendar (guests are invited by the account itself), and shows it here at once. */
+export async function createNewEvent(to: { accountId: string; calendarName: string }, copy: EventCopy): Promise<CalendarEvent> {
+  const dest = providers.get(to.accountId);
+  if (!dest?.createEvent) throw new Error("That calendar can't take events from here yet");
+  const id = await dest.createEvent(to.calendarName, copy);
+  const acc = get().accounts.find((a) => a.id === to.accountId);
+  const made: CalendarEvent = {
+    id, accountId: to.accountId, calendarName: to.calendarName, title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay,
+    location: copy.location, description: copy.description, reminderMinutes: copy.alerts || [], recurring: Boolean(copy.repeat), canEdit: true,
+    guests: copy.guests.length ? [{ email: acc?.email || '', self: true, organiser: true, answer: 'yes' }, ...copy.guests.map((g) => ({ ...g, answer: 'waiting' as const }))] : undefined,
+  };
+  set({ events: [...get().events, made] });
+  const cal = await import('./calendarCache');
+  cal.useCalCache.setState((s) => ({ events: [...s.events, made] }));
+  // The calendar gives the real details (the video link, each repeat) on the next refresh.
+  void refreshEvents();
+  void cal.refreshCalendarCopy();
+  return made;
+}
+
 const accountName = (id: string) => { const a = get().accounts.find((x) => x.id === id); return a ? a.label || a.email : 'the other account'; };
 
 /** Answers an invitation. In the calendar itself where the account allows it, otherwise by emailing the organiser. */
