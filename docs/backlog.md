@@ -2,6 +2,25 @@
 
 Things noted but not built yet. Newest first. Nothing here is promised for a date.
 
+## Beta 4 calendar feedback, for beta 5 (Todd, 12 Nov 2026)
+
+Working well: right-click Move to calendar for a group, Meeting settings, the quick edit (type or use the pickers), dragging and resizing ("really smooth", likes the grab animation), Ctrl + wheel and slider zoom, Ctrl-click and the drag box, Invitations (Accept, Decline with a note reached the organiser with the note), "Send an update to your guest", the repeating-event question after a drag (and Cancel puts it back).
+
+To fix:
+- **Changes should show at once.** Moving a group, dragging, and "this and all future events" wait for Google (about a second per event; a series delete showed the old form for 3 to 4 seconds). Show the change straight away, and put it back with a note if Google refuses. For a series, take the old events off screen at once.
+- **Calendar header layout broke:** the slider and Day / Week / Month ended up on the left and Day / Week / Month look smaller. Put the views on the right at their old size. The slider should be a thin line with a dot (no filled oval), with − and + either side.
+- **Move to calendar submenu lost its look:** no account names as headings and no colour dots in the flyout (the right-click menu's submenu doesn't draw headings or dots the way the main menu does).
+- **Repeating-event question:** buttons in reading order, left to right: Only this event, This and all future events, The whole series (not "All events"). Text to match: "Delete just this one, this one and every one after it, or the whole series?" The question box spills outside the event pop-up behind it (also the guests question); keep it inside or above it cleanly.
+- **Clicking empty space should let go of picked events** in Day and Week view (Month view already does, because it picks the day).
+- **All-day events can't be dragged in Day or Week view** (they can in Month). Let all-day chips drag between days in the all-day row.
+- **Repeating events can't be dragged in some cases** (one weekly event wouldn't move). Check why; they should drag and then ask which ones.
+- **Invitations: Add a note** is easy to miss. Give the row more room at the bottom and make the link stand out a little (subtle colour or underline). Also offer Accept / Maybe / Decline (with Add a note) on the event pop-up of an invitation you haven't answered. Changing an answer from Replied should also allow a note.
+- **Cancel the meeting and tell guests sent no emails** (Todd tried it on 3 of 4 copies, guests were his own accounts). Check whether Google's cancellation email goes out (sendUpdates=all on the organiser's copy) and whether deleting a guest's copy only removes it from that calendar. Also, the same event on four of his calendars needed deleting four times; fine for now.
+- **Microsoft 502 "UnknownError"** toast ("Couldn't reach the calendar for WGM Microsoft") came up twice during refreshes. Probably Outlook having a moment; retry once quietly before showing it, and word it more plainly.
+- **Guest answers and new invitations still take a refresh to show** (5 to 6 seconds after Refresh). Look again at refreshing sooner after an answer or a change.
+- Later: typing a contact's name in the New event title could offer to invite them.
+- Day view at 5-minute lines is a lot, but leave it.
+
 ## 0.7.3 beta 4 (built 12 Nov 2026)
 
 Beta 3 plus under the hood: email bodies out of memory (loaded on open, last 50 cached), search index about half the size (first 4,000 characters of each email, indexed once), iCloud calendar addresses remembered, mail.ts split into src/lib/mail/ (mail.ts re-exports everything), and Tiptap 3.33.1. Test list: docs/testing-0.7.3-beta4.md. Behaviour changes to watch: words beyond the first 4,000 characters aren't found in search, and Smart Mailboxes "Any text" matches whole words or word starts in the body.

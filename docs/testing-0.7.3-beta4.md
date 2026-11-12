@@ -2,6 +2,18 @@
 
 Beta 4 is beta 3 plus work under the hood. You're going straight from beta 2 to beta 4, so everything below is new to you. The first section is beta 4's own changes: nothing should look different, so anything slower, missing or odd counts as a problem. Then come beta 3's new features, then everything from betas 1 and 2 not ticked yet. If something goes badly wrong, beta 3 is on the GitHub releases page to go back to.
 
+## Found in beta 4 (fixing in beta 5)
+
+- Changes (moving several, dragging, deleting a series) wait for Google before they show.
+- The calendar header: views and the slider sit on the left; the slider should be a thin line.
+- Move to calendar in the right-click menu has lost its account names and colour dots.
+- The repeating-event question's buttons are in the wrong order and spill outside the pop-up.
+- Clicking empty space doesn't let go of picked events in Day and Week view.
+- All-day events can't be dragged in Day or Week view; one weekly event wouldn't drag.
+- Add a note is easy to miss; no Accept / Decline on an unanswered invitation's pop-up.
+- "Cancel the meeting and tell guests" sent no emails.
+- A Microsoft 502 error shows during refreshes.
+
 ## Under the hood (beta 4)
 
 - [ ] **Opening emails:** old and new emails open with their full text, in every account. An email not opened lately may take a blink longer.
@@ -19,17 +31,17 @@ Beta 4 is beta 3 plus work under the hood. You're going straight from beta 2 to 
 
 ## Calendar: changing events
 
-- [ ] **Quick edit:** click an event. The name, day, times and calendar can be changed right there. Save only appears once something has changed.
-- [ ] **More options** on an existing event opens the full form (repeat, alerts, invitees, video call, notes), the same as New event.
+- [x] **Quick edit:** click an event. The name, day, times and calendar can be changed right there. Save only appears once something has changed.
+- [x] **More options** on an existing event opens the full form (repeat, alerts, invitees, video call, notes), the same as New event.
 - [ ] **Remove a video call** from an event, then check Google Calendar.
-- [ ] **Meeting settings** (after Add Google Meet, and on your own events with a call) opens the event in Google Calendar in your browser.
+- [x] **Meeting settings** (after Add Google Meet, and on your own events with a call) opens the event in Google Calendar in your browser.
 - [ ] **Right-click an event:** the same quick edit card. Right-clicking empty space still gives New event, New all-day event, Open day, Go to today.
 
 ## Calendar: dragging
 
-- [ ] **Hover** an event in Day or Week view: an outline and a handle on its bottom edge. The pointer is the white open hand, and a closed hand while you hold it.
-- [ ] **Drag the handle** to make an event longer or shorter. It snaps to 15 minutes and shows the new end time. Undo puts it back.
-- [ ] **Drag an event** to another time, and in Week view to another day. A plain click still opens it; a drag never does.
+- [x] **Hover** an event in Day or Week view: an outline and a handle on its bottom edge. The pointer is the white open hand, and a closed hand while you hold it.
+- [x] **Drag the handle** to make an event longer or shorter. It snaps to 15 minutes and shows the new end time. Undo puts it back.
+- [x] **Drag an event** to another time, and in Week view to another day. A plain click still opens it; a drag never does.
 - [ ] An event starting at 10:05 keeps its 5 minutes past as you drag it (10:20, 10:35).
 - [ ] **Month view:** drag a chip to another day. It lifts while held, the day under it is outlined, and only the day changes.
 - [ ] Events someone else organised show no handle and can't be dragged.
@@ -37,39 +49,39 @@ Beta 4 is beta 3 plus work under the hood. You're going straight from beta 2 to 
 
 ## Calendar: repeating events
 
-- [ ] **Delete** one of the series left over from beta 2: it asks Only this event / This and all future events. Try both.
-- [ ] **Drag or edit** one event in a series: the same question. Cancel puts it back.
+- [x] **Delete** one of the series left over from beta 2: it asks Only this event / This and all future events. Try both.
+- [x] **Drag or edit** one event in a series: the same question. Cancel puts it back.
 
 ## Calendar: several events at once
 
-- [ ] **Ctrl-click** picks events without opening them; Ctrl-click again lets one go.
-- [ ] **Drag across empty space** to draw a box round events; hold Ctrl to add to what's already picked. Escape or a click on empty space clears it.
-- [ ] With several picked, the bar shows **Move to calendar** and **Delete**, and right-click does too.
-- [ ] Move a few to a calendar in the same Google account: they move cleanly.
+- [x] **Ctrl-click** picks events without opening them; Ctrl-click again lets one go.
+- [x] **Drag across empty space** to draw a box round events; hold Ctrl to add to what's already picked. Escape or a click on empty space clears it.
+- [x] With several picked, the bar shows **Move to calendar** and **Delete**, and right-click does too.
+- [x] Move a few to a calendar in the same Google account: they move cleanly.
 - [ ] Move one with guests to another account: the warning about new invitations comes first.
 - [ ] **List view:** tick several rows, then Move to calendar and Delete.
 
 ## Calendar: header, zoom and refresh
 
 - [ ] The **arrows** sit either side of the month name, with Today next to them, and Day / Week / Month on the right.
-- [ ] **Zoom** in Day and Week view with Ctrl + mouse wheel and with the slider, down to 5-minute lines. Dragging snaps to 5 minutes at the closest zoom. The zoom is remembered.
+- [x] **Zoom** in Day and Week view with Ctrl + mouse wheel and with the slider, down to 5-minute lines. Dragging snaps to 5 minutes at the closest zoom. The zoom is remembered.
 - [ ] **Changes made on your phone** show in the app within about a minute while Calendar & Reminders is open, and soon after you come back to the window.
 - [ ] An **open event** updates by itself when a guest's answer changes.
 
 ## Guests
 
-- [ ] Change the time of an event with guests: it asks Send an update / Don't send / Cancel. Check the guest gets (or doesn't get) an email.
+- [x] Change the time of an event with guests: it asks Send an update / Don't send / Cancel. Check the guest gets (or doesn't get) an email.
 - [ ] Delete an event with guests: it offers to cancel the meeting and tell them.
 
 ## Invitations
 
-- [ ] Invite yourself from another account. The **envelope button** in the calendar header shows a count and glows.
-- [ ] The **Invitations** line appears in the sidebar while there are new ones, and goes once they're answered.
-- [ ] **New:** Accept, Maybe and Decline each answer it in one click and move it to Replied, with Undo. Check the organiser's side.
-- [ ] **Add a note** sends a message with your answer.
+- [x] Invite yourself from another account. The **envelope button** in the calendar header shows a count and glows.
+- [x] The **Invitations** line appears in the sidebar while there are new ones, and goes once they're answered.
+- [x] **New:** Accept, Maybe and Decline each answer it in one click and move it to Replied, with Undo. Check the organiser's side.
+- [x] **Add a note** sends a message with your answer.
 - [ ] A **clash** with something already in your calendar is noted.
 - [ ] A **cancelled** meeting shows crossed out with Remove from my calendar.
-- [ ] **Replied:** your answer is coloured, and changing it is one click.
+- [x] **Replied:** your answer is coloured, and changing it is one click.
 - [ ] An unanswered meeting in **Coming up** says Not answered and opens the pop-up.
 - [ ] The card on an invitation email now says Accept / Maybe / Decline too.
 
