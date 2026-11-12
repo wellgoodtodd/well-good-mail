@@ -4,6 +4,25 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 ## Ideas for 0.7.3 (mock-ups first)
 
+**Decided 12 Nov 2026 (Todd, from docs/mockups/new-event.html, ooo-templates.html, calendar-groups.html):**
+- Creating events:
+  - The blue + New event button goes in the header, plus "+ New event on [day]" in the picked-day panel.
+  - Double-click a day or time, or right-click it, to start an event.
+  - A quick pop-up comes first. More options expands the same card into the full form; it doesn't open a new window.
+  - Repeat and End repeat work as in the mock-up.
+  - iCloud calendars, and any you've hidden, stay out of the Calendar list for now.
+- Out of Office templates:
+  - Save as new template has ticks for each group, and each group's sub-options can also be ticked one by one. For example, While I'm away can be ticked whole, or just the Away event and the decline option on their own.
+  - Templates are picked from the Templates drop-down.
+  - Editing is in a Manage templates window: rename, copy, update from the page, change what's included, and delete.
+  - AI apps can turn on a template by name with dates ("turn on Holiday from 20 Dec to 3 Jan"). They always ask first, with the full preview.
+- Calendar Groups:
+  - Groups are a view filter only. Events and calendars don't change.
+  - They sit inside the Calendars menu as a small drop-down: All calendars, then each group, Choose calendars… (the full list), and Edit groups….
+  - "Only alert me from the group I'm looking at" is a switch, off by default.
+  - Groups apply everywhere calendars show: the calendar views, List view and Coming up in the sidebar.
+  - Claude can make and edit groups through a new AI tool, which only changes the view.
+
 - Create events in the calendar, like Apple Calendar: double-click a day or time to start one, right-click for New event; the same options Apple Calendar has (title, all day, start and end, repeat with its choices and an end, calendar from any account, alerts, invitees, location, notes, video link), matched to what Google and Outlook support. Also a visible + New event button in the calendar toolbar (and in the picked-day panel, starting on that day), so it is findable without knowing to double-click. Repeats use src/lib/recurrence.ts, already converting between the two.
 - Save as new template for Out of Office: a pop-up with a name and ticks for what to include (message, subject, when and dates, part days and times, who gets it, the While I'm away options, accounts), like Lightroom's presets; templates editable and deletable, e.g. a Friday afternoons template copied to make Wednesday away.
 - Calendar groups such as Work and Personal, each gathering calendars from any account, picked from the Calendar screen; groups could also be set up by asking Claude.
