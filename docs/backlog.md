@@ -4,7 +4,10 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## For the next beta (Todd's beta 10 feedback, batched)
+## 0.7.3 beta 11 (built 13 Nov 2026)
+
+Beta 10 plus Todd's beta 10 feedback. Test list: docs/testing-0.7.3-beta11.md. Checked in the browser demo only.
+- ☰ menu: grey counts (MenuItem kbd) beside Scheduled, Calendar, Tasks and Invitations, from useReminderCount, useTaskCount (exported from Sidebar.tsx) and useInvitations.
 
 - New place: boxes fit the dialog; Forward to uses RecipientField (anyAddress) so contacts are suggested as you type.
 - Send To places can rename saved files (SendPlace.rename: start, end or ask; fillDate and renamedFile in sendTo.ts, tested). Todd's own convention: YYMMDD_ then the invoice's name.

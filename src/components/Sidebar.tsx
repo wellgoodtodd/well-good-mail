@@ -873,7 +873,7 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
 }
 
 /** Open tasks due today or overdue, in the Calendar Group being looked at, for the count beside Tasks. */
-function useTaskCount() {
+export function useTaskCount() {
   // The count shows from the start, not only once a tasks screen has been opened.
   // Only once the accounts are in, since starting reads the saved tasks for those accounts.
   const accountCount = useMail((m) => m.accounts.length);
@@ -888,7 +888,7 @@ function useTaskCount() {
 }
 
 /** How many reminders are waiting, for the count beside Reminders. */
-function useReminderCount() {
+export function useReminderCount() {
   const events = useMail((s) => s.events);
   const followups = useMail((s) => s.followups);
   const dismissed = useMail((s) => s.dismissed);

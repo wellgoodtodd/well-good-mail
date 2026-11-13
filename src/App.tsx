@@ -5,12 +5,12 @@ import { CrashPrompt } from './components/Feedback';
 import { openHelp } from './components/Help';
 import { restoreEverything } from './lib/recovery';
 import { SendToHost } from './components/SendTo';
-import { openInvitations } from './components/Invitations';
+import { openInvitations, useInvitations } from './components/Invitations';
 import { presetForEmail } from './lib/imapUtil';
 import { useSaves, openSaved, showSaved, clearSaves, markSavesSeen } from './lib/saves';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './components/Icon';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, useTaskCount, useReminderCount } from './components/Sidebar';
 import { MessageList } from './components/MessageList';
 import { ReadingPane } from './components/ReadingPane';
 import { Composer } from './components/Composer';
@@ -550,6 +550,12 @@ function MainWindow() {
   // The menu at the top left: the basics, so nothing is lost when the sidebar is hidden.
   const appMenu = useMenu();
   const history = useHistory();
+  // Small grey counts beside Scheduled, Calendar, Tasks and Invitations in the menu, as on the sidebar cards.
+  const menuScheduled = useMail((m) => m.outbox.filter((o) => o.kind === 'scheduled').length);
+  const menuCalendar = useReminderCount();
+  const menuTasks = useTaskCount().count;
+  const menuInvites = useInvitations().count;
+  const n = (c: number) => (c ? String(c) : undefined);
   const appMenuItems = (): MenuItem[] => {
     const hasAccounts = accounts.length > 0;
     const st0 = useMail.getState();
@@ -568,10 +574,10 @@ function MainWindow() {
       { label: 'Add account', icon: 'plus', submenu: addAccountItems() },
       { divider: true },
       // The same places as the sidebar footer, in the same order.
-      { label: 'Scheduled', icon: 'clock', disabled: !hasAccounts, onClick: () => openScreen('scheduled') },
-      { label: 'Calendar', icon: 'calendar', disabled: !hasAccounts, onClick: () => { useSettings.getState().set({ remindersView: 'calendar' }); openScreen('reminders'); } },
-      { label: 'Tasks', icon: 'check', disabled: !hasAccounts, onClick: () => { useSettings.getState().set({ remindersView: 'tasks' }); openScreen('reminders'); } },
-      { label: 'Invitations', icon: 'mail', disabled: !hasAccounts, onClick: openInvitations },
+      { label: 'Scheduled', icon: 'clock', kbd: n(menuScheduled), disabled: !hasAccounts, onClick: () => openScreen('scheduled') },
+      { label: 'Calendar', icon: 'calendar', kbd: n(menuCalendar), disabled: !hasAccounts, onClick: () => { useSettings.getState().set({ remindersView: 'calendar' }); openScreen('reminders'); } },
+      { label: 'Tasks', icon: 'check', kbd: n(menuTasks), disabled: !hasAccounts, onClick: () => { useSettings.getState().set({ remindersView: 'tasks' }); openScreen('reminders'); } },
+      { label: 'Invitations', icon: 'mail', kbd: n(menuInvites), disabled: !hasAccounts, onClick: openInvitations },
       { divider: true },
       { label: 'Out of Office', icon: 'plane', disabled: !hasAccounts, onClick: () => openScreen('settings', 'ooo') },
       { label: 'Settings', icon: 'cog', submenu: [tab('Accounts', 'accounts'), tab('Appearance', 'appearance'), tab('Alerts & Notifications', 'notifications'), tab('Send To', 'sendto'), tab('Keyboard Shortcuts', 'shortcuts'), tab('Updates', 'updates'), tab('Diagnostics', 'diagnostics')] },
