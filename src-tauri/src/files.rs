@@ -122,6 +122,18 @@ pub fn reveal_saved(path: String) -> Result<(), String> {
     if !p.exists() {
         return Err("It has been moved or deleted.".into());
     }
+    // On Windows 11 the usual way can just bring an Explorer window that's already open to the front, on another
+    // folder. explorer /select always opens the file's own folder with the file picked out.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let shown = std::process::Command::new("explorer.exe")
+            .raw_arg(format!("/select,\"{}\"", p.to_string_lossy()))
+            .spawn();
+        if shown.is_ok() {
+            return Ok(());
+        }
+    }
     tauri_plugin_opener::reveal_item_in_dir(&p).map_err(|e| e.to_string())
 }
 

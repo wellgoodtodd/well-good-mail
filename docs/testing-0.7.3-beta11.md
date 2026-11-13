@@ -50,7 +50,7 @@ Beta 11 is beta 10 plus your beta 10 feedback: the New place dialog tidied, cont
 
 ## From beta 8 (not ticked yet)
 
-- [ ] **Delete an event that's on two of your calendars** (an invitation from WGM accepted on TBWELLER): Delete event now asks which calendars, with tick boxes, and "Cancel ... for everyone?" if the organiser's copy is ticked. Check on your phone that the right copies went. If it still only asks about telling guests, send me Settings › Diagnostics.
+- [x] **Delete an event that's on two of your calendars** (works, Todd, 13 Nov) (an invitation from WGM accepted on TBWELLER): Delete event now asks which calendars, with tick boxes, and "Cancel ... for everyone?" if the organiser's copy is ticked. Check on your phone that the right copies went. If it still only asks about telling guests, send me Settings › Diagnostics.
 - [ ] **Video call line** in the event pop-up, under Location: "+ Add Google Meet" in grey when there's no call; "Google Meet · Join · Settings ↗" when there is. The big Join button only shows on the day of the event.
 - [ ] **Location** has a map pin instead of the folder (pop-up and invitation cards).
 - [ ] **Make a task from an email** with no date in it starts on today at the next hour, like New task.
@@ -180,6 +180,16 @@ Beta 11 is beta 10 plus your beta 10 feedback: the New place dialog tidied, cont
 - **Send To works** (Todd). Saving and forwarding to Hubdoc tried on real mail.
 - **Naming saved invoices** (Todd names them YYMMDD_ then the supplier and the amount, like "261113_Frame.io 18.00"). Done for the next build: Rename the files is now Custom, Prefix, Suffix or Ask each time. Custom is a name with placeholders added from buttons (Date, Sender, Amount, Description, Original name), starting as YYMMDD_{sender} {amount}; Amount is the amount paid found in the email, left out if there isn't one. Ask each time suggests the Custom name; rules don't ask.
 - **Find my invoices was cramped** (Todd): the place drop-downs took the whole row and squashed the names. Fixed for the next build. Also, receipts sent through Stripe, PayPal and the like are now grouped by the company (each has its own address) rather than all under stripe.com.
+- **Ticked:** deleting an event on two calendars works.
+- **Task alerts:** Todd will notice them as they come. Keep this on every test list until it's seen working (a task with a time gives a notification at that time).
+- **Phone changes:** a task ticked on the phone showed once Refresh was pressed; on its own it takes a while. Todd: fine, since he's usually out when using the phone.
+- **Send to flyout near the bottom of the window** jumped away from its row and closed when the pointer moved to it, so Send to couldn't be used on a low attachment. Fixed for the next build: the flyout sits against its row (growing upwards when there's no room below, to the left when there's none on the right) and stays open for a moment while the pointer crosses.
+- **Saved toast three lines tall** (full folder path). Fixed for the next build: it names just the folder ("in PC Downloads"), at most two lines, with Open and Show in folder kept on one line each.
+- **Show in folder** (toast and the saved-files list at the top right) brought an Explorer window that was already open to the front instead of the file's folder. Fixed for the next build: it opens the file's own folder with the file selected (explorer /select).
+- **Asked:** should attachments sit at the top of an email, as in eM Client? To decide (mock-up offered).
+- **Asked:** Claude in Google Meet: set up in Google Meet / Claude, nothing needed in Well Good Mail for now.
+- A test AI draft was made in WGM to check the signature appears once.
+
 
 ## If something goes wrong
 

@@ -1,5 +1,5 @@
 // Small shared pieces: menus, splitters, formatting helpers.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon, type IconName } from './Icon';
 
@@ -57,7 +57,25 @@ export interface MenuItem {
 export function Menu({ anchor, items, onClose, align = 'left' }: { anchor: DOMRect | { x: number; y: number }; items: MenuItem[]; onClose: () => void; align?: 'left' | 'right' }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number }>({ left: -9999, top: -9999 });
-  const [sub, setSub] = useState<{ at: number; left: number; top: number } | null>(null);
+  // The open flyout: beside its row, growing down, or up from the row's bottom when there isn't room below.
+  const [sub, setSub] = useState<{ at: number; rowLeft: number; rowRight: number; rowTop: number; rowBottom: number } | null>(null);
+  const subRef = useRef<HTMLDivElement>(null);
+  const [subPos, setSubPos] = useState<{ left: number; top: number } | null>(null);
+  const closing = useRef<number | undefined>(undefined);
+  const placeSub = (i: number, row: DOMRect) => {
+    window.clearTimeout(closing.current);
+    setSubPos(null);
+    setSub({ at: i, rowLeft: row.left, rowRight: row.right, rowTop: row.top, rowBottom: row.bottom });
+  };
+  useLayoutEffect(() => {
+    if (!sub || !subRef.current) return;
+    const h = subRef.current.offsetHeight;
+    const w = subRef.current.offsetWidth;
+    const down = sub.rowTop - 4;
+    // Touching its row on the right, or on the left when there isn't room, so the pointer can go straight across.
+    const left = sub.rowRight - 2 + w <= window.innerWidth - 6 ? sub.rowRight - 2 : Math.max(6, sub.rowLeft - w + 2);
+    setSubPos({ left, top: down + h <= window.innerHeight - 6 ? down : Math.max(6, sub.rowBottom + 4 - h) });
+  }, [sub]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -85,28 +103,22 @@ export function Menu({ anchor, items, onClose, align = 'left' }: { anchor: DOMRe
             <div
               key={i}
               className="menu-sub"
-              onMouseEnter={(e) => {
-                const r = e.currentTarget.getBoundingClientRect();
-                const left = r.right + 230 > window.innerWidth ? Math.max(6, r.left - 232) : r.right - 2;
-                setSub({ at: i, left, top: Math.max(6, Math.min(r.top - 4, window.innerHeight - 300)) });
-              }}
-              onMouseLeave={() => setSub((v) => (v && v.at === i ? null : v))}
+              onMouseEnter={(e) => { if (sub?.at !== i) placeSub(i, e.currentTarget.getBoundingClientRect()); else window.clearTimeout(closing.current); }}
+              // A short grace period, so moving across to the flyout at an angle doesn't close it.
+              onMouseLeave={() => { window.clearTimeout(closing.current); closing.current = window.setTimeout(() => setSub((v) => (v && v.at === i ? null : v)), 350); }}
             >
               <button
                 role="menuitem"
                 aria-haspopup="menu"
                 aria-expanded={sub?.at === i}
-                onClick={(e) => {
-                  const r = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
-                  setSub(sub?.at === i ? null : { at: i, left: r.right + 230 > window.innerWidth ? Math.max(6, r.left - 232) : r.right - 2, top: Math.max(6, Math.min(r.top - 4, window.innerHeight - 300)) });
-                }}
+                onClick={(e) => { if (sub?.at === i) setSub(null); else placeSub(i, (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()); }}
               >
                 {it.brand ? <BrandMark brand={it.brand} /> : it.icon ? <Icon name={it.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
                 <span>{it.label}</span>
                 <span className="kbd" style={{ display: 'flex' }}><Icon name="chevronRight" size={14} /></span>
               </button>
               {sub?.at === i && (
-                <div className="menu submenu" role="menu" style={{ left: sub.left, top: sub.top }}>
+                <div ref={subRef} className="menu submenu" role="menu" style={{ left: subPos?.left ?? sub.rowRight, top: subPos?.top ?? sub.rowTop - 4, visibility: subPos ? undefined : 'hidden' }}>
                   {it.submenu.map((c, j) =>
                     c.divider ? <hr key={j} /> : c.heading ? (
                       <div key={j} className="menu-label">{c.heading}</div>

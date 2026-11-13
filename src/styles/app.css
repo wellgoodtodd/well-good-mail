@@ -344,8 +344,8 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 
 .toasts { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: var(--z-top); align-items: center; }
 .toast { display: flex; align-items: center; gap: 12px; padding: 9px 12px 9px 14px; border-radius: 10px; background: #2c2c2e; color: #f2f2f5; box-shadow: var(--shadow); min-width: 240px; max-width: 560px; }
-.toast .t { flex: 1; }
-.toast button { border: 0; background: transparent; color: #8ab4ff; font-weight: 600; padding: 2px 6px; border-radius: 5px; }
+.toast .t { flex: 1; min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.toast button { border: 0; background: transparent; color: #8ab4ff; font-weight: 600; padding: 2px 6px; border-radius: 5px; white-space: nowrap; flex: none; }
 .toast button:hover { background: rgba(255, 255, 255, 0.1); }
 .toast .x { color: #aaa; }
 
