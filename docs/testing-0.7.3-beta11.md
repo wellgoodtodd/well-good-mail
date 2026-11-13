@@ -188,6 +188,7 @@ Beta 11 is beta 10 plus your beta 10 feedback: the New place dialog tidied, cont
 - **Show in folder** (toast and the saved-files list at the top right) brought an Explorer window that was already open to the front instead of the file's folder. Fixed for the next build: it opens the file's own folder with the file selected (explorer /select).
 - **Asked:** should attachments sit at the top of an email, as in eM Client? To decide (mock-up offered).
 - **Asked:** Claude in Google Meet: set up in Google Meet / Claude, nothing needed in Well Good Mail for now.
+- **Save as... was missing** with a downloads folder set (only Save to downloads folder showed). Fixed for the next build: right-click an attachment › Save as... opens the Windows box to choose the folder and name.
 - A test AI draft was made in WGM to check the signature appears once.
 
 

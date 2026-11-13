@@ -169,9 +169,9 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
   const name = message.from.name || message.from.email;
   const attachments = message.attachments.filter((a) => !pointedAt(message, a));
 
-  const download = async (id: string, filename: string, mime: string) => {
+  const download = async (id: string, filename: string, mime: string, ask = false) => {
     try {
-      const where = await saveFile(filename, await getAttachmentData(message.id, id), mime);
+      const where = await saveFile(filename, await getAttachmentData(message.id, id), mime, { ask });
       if (where) noteSaved([where]);
     } catch (e) {
       toast({ text: `Couldn't save ${filename}: ${e instanceof Error ? e.message : e}` });
@@ -292,6 +292,8 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
                 ...(canPreview ? [{ label: 'Preview', icon: 'eye' as const, onClick: () => setPreviewAt(i) }] : []),
                 ...(isTauri() ? [{ label: 'Open in its own app', icon: 'popout' as const, onClick: () => openApp(a.id, a.filename, a.mimeType) }] : []),
                 { label: useSettings.getState().downloadFolder ? 'Save to downloads folder' : 'Save...', icon: 'download' as const, onClick: () => download(a.id, a.filename, a.mimeType) },
+                // With a downloads folder set, Save as... still offers the Windows box to pick a folder and a name.
+                ...(useSettings.getState().downloadFolder ? [{ label: 'Save as...', icon: 'folder' as const, onClick: () => download(a.id, a.filename, a.mimeType, true) }] : []),
                 ...(attachments.length > 1 ? [{ label: `Save all ${attachments.length} to a folder...`, icon: 'folder' as const, onClick: saveAll }] : []),
                 { divider: true },
                 { label: 'Forward...', icon: 'forward' as const, onClick: () => void forwardAttachment(message, a.id) },
