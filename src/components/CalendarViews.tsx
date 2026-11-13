@@ -14,7 +14,7 @@ import { startNewEvent, useNewEvent } from './NewEvent';
 import { SelectionBar, clearSelected, selectionMenuItems, setSelected, toggleSelected, useEventSelection } from './EventSelection';
 import { changeEvent } from '../lib/eventFlows';
 import '../styles/calendar.css';
-import { CalendarTask, MonthTasksPanel, useCalendarTasks } from './Tasks';
+import { CalendarTask, useCalendarTasks } from './Tasks';
 import { isOverdue } from '../lib/tasks';
 import { useCalendarBusy } from '../lib/mail/calendar';
 
@@ -675,7 +675,7 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
     <div className="month-wrap">
     <div className={`card month ${drag?.moved ? 'dragging' : ''}`}>
       <CalHead title={<JumpTitle at={month} onPick={(d) => setMonth(new Date(d.getFullYear(), d.getMonth(), 1))} label={month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} />}
-        onStep={shift} onToday={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonthNow(d); selectDay(Date.now()); }}
+        onStep={shift} onToday={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonthNow(d); selectDay(undefined); }}
         prevLabel="Previous month" nextLabel="Next month" modes={modes} />
       <SelectionBar />
       <div className="month-grid" role="grid" style={{ gridTemplateColumns: `${weekNumbers ? '34px ' : ''}repeat(${hideWeekends ? 5 : 7}, minmax(0, 1fr))` }}
@@ -691,8 +691,8 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
           const over = drag?.moved && drag.over === d.getTime();
           out.push(
             <div key={d.toISOString()} data-day={d.getTime()} className={`month-day ${d.getMonth() === month.getMonth() ? '' : 'other'} ${d.toDateString() === today ? 'today' : ''} ${picked === d.getTime() ? 'picked' : ''} ${over ? 'drop' : ''}`}
-              role="gridcell" aria-selected={picked === d.getTime()} title="Click to pick this day, double-click to make an all-day event"
-              onClick={() => { if (justDragged.current) { justDragged.current = false; return; } clearSelected(); selectDay(d.getTime()); }} onDoubleClick={() => startNewEvent({ day: d.getTime(), allDay: true })}
+              role="gridcell" aria-selected={picked === d.getTime()} title="Click to pick this day (click again to put it away), double-click to make an all-day event"
+              onClick={() => { if (justDragged.current) { justDragged.current = false; return; } clearSelected(); selectDay(picked === d.getTime() ? undefined : d.getTime()); }} onDoubleClick={() => startNewEvent({ day: d.getTime(), allDay: true })}
               onContextMenu={(ev) => {
                 ev.preventDefault();
                 if (useEventSelection.getState().ids.length > 1) { menu.open({ x: ev.clientX, y: ev.clientY }, selectionMenuItems((items) => menu.open({ x: ev.clientX, y: ev.clientY }, items))); return; }
@@ -724,7 +724,6 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
       </div>
       {menu.node}
     </div>
-    <MonthTasksPanel from={gridStart.getTime()} to={gridEnd} picked={picked} />
     </div>
   );
 }

@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Beta 7 round two</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6;--line:#33333a}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1100px;margin:0 auto;display:grid;gap:44px}
+h1{font-size:20px;margin:0}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.why{color:var(--muted);font-size:12.5px;margin:8px 0 0;max-width:780px}
+.why b{color:var(--text);font-weight:600}
+.pair{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.grow{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:4px 11px;background:#2f2f35;font-size:12.5px;white-space:nowrap}
+.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.small{padding:2px 9px;font-size:11.5px}
+.quiet{background:transparent;border-color:transparent;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid #44444b;border-radius:7px;overflow:hidden;flex:none}
+.seg span{padding:3px 10px;font-size:12px;color:var(--muted)}
+.seg .on{background:var(--accent);color:#fff}
+.seg .onn{background:#3a3a42;color:var(--text)}
+.ibtn{width:30px;height:28px;border-radius:7px;display:grid;place-items:center;border:1px solid #44444b;color:var(--muted)}
+.app{background:#1b1b1e;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.head b{font-size:16px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.ring{width:15px;height:15px;border-radius:50%;border:1.5px solid #7a7a84;flex:none;margin-top:2px;display:grid;place-items:center;font-size:9px;color:#fff}
+.ring.done{background:var(--accent);border-color:var(--accent)}
+.box{width:15px;height:15px;border-radius:4px;border:1.5px solid #7a7a84;flex:none;display:grid;place-items:center;font-size:10px;color:#fff;margin-top:2px}
+.box.on{background:var(--accent);border-color:var(--accent)}
+.muted{color:var(--muted)}
+.cal{display:flex;flex-wrap:wrap}
+.month{flex:1;min-width:380px;padding:10px}
+.mg{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.mg div{border-right:1px solid #2a2a30;border-bottom:1px solid #2a2a30;min-height:62px;padding:4px;font-size:11px}
+.mg .dn{min-height:auto;color:var(--muted);text-align:center;padding:3px}
+.ev{display:block;border-radius:3px;padding:0 4px;margin-top:2px;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#111}
+.o{background:#f0a24a}.g{background:#4fbf9f}.b{background:#5b8def;color:#fff}
+.tk{color:#8fb3ff;font-size:10px;margin-top:2px}
+.today{background:#1f2533}
+.col{width:280px;border-left:1px solid var(--line);padding:12px;flex:none;display:grid;gap:12px;align-content:start}
+.blk{background:#222227;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.bh{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.bh b{font-size:13px}
+.sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 4px;display:flex}
+.sub .n{margin-left:auto;text-transform:none;letter-spacing:0}
+.it{display:flex;gap:8px;align-items:flex-start;padding:3px 0;font-size:12.5px}
+.it small{display:block;color:var(--muted);font-size:11.5px}
+.join{margin-left:auto;font-size:11px;border:1px solid #44444b;color:var(--text);border-radius:6px;padding:0 7px;flex:none}
+.links{display:flex;gap:14px;font-size:12px;color:#8fb3ff;padding-top:2px}
+.pop{background:var(--card);border:1px solid #44444b;border-radius:12px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.ic{width:16px;text-align:center;color:var(--muted);flex:none}
+.inp{border:1px solid #4a4a52;border-radius:7px;padding:4px 9px;background:#1d1d20;font-size:12.5px}
+.inp.focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.k{width:70px;color:var(--muted);font-size:12px;flex:none}
+.r2{display:flex;gap:8px;align-items:center;margin-top:7px;flex-wrap:wrap}
+.caret{display:inline-block;width:1px;height:14px;background:var(--text);vertical-align:-2px}
+/* sidebar footer */
+.nav{width:210px;background:#18181b;border:1px solid var(--line);border-radius:12px;padding:8px;font-size:13px}
+.fi{display:flex;gap:9px;align-items:center;padding:5px 8px;border-radius:6px}
+.fi .n{margin-left:auto;font-size:11.5px;color:var(--muted)}
+.fi.new{background:#2a2a30}
+.fi.new::after{content:'new';font-size:10px;color:#7fe0b4;margin-left:6px}
+/* settings */
+.set{background:#1b1b1e;border:1px solid var(--line);border-radius:12px;padding:16px 18px;max-width:820px}
+.set h2{font-size:15px;margin:18px 0 4px}
+.set h2:first-child{margin-top:0}
+.hint{color:var(--muted);font-size:12px;margin:0 0 6px}
+.row{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid #2a2a30;flex-wrap:wrap}
+.row .nm{flex:1;min-width:190px}
+.row .nm small{display:block;color:var(--muted);font-size:11.5px}
+.grp{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 2px}
+.live{width:8px;height:8px;border-radius:50%;background:#34d399;flex:none}
+.idle{width:8px;height:8px;border-radius:50%;background:#55555d;flex:none}
+.appi{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;border:1px solid #44444b;background:#232328;color:#c9c9d1;flex:none}
+.appi svg{width:14px;height:14px}
+.chev{color:var(--muted);font-size:11px;width:14px;flex:none}
+.flag{display:inline-flex;gap:4px;align-items:center;font-size:11px;color:#fbbf24;margin-top:2px}
+.acc{display:flex;gap:9px;align-items:center;padding:6px 0 6px 24px;font-size:12.5px;flex-wrap:wrap;border-top:1px dashed #2a2a30}
+.acc .nm{flex:1;min-width:150px}
+.acc.diff{background:rgba(251,191,36,.06);border-radius:6px}
+.acc .reset{font-size:11.5px;color:#8fb3ff}
+.acc .same{font-size:11.5px;color:var(--muted)}
+.del{background:#c2414a;border-color:#c2414a;color:#fff}
+@media (max-width:700px){.col{width:100%;border-left:0;border-top:1px solid var(--line)}.month{min-width:0}}
+</style></head><body><div class="w">
+
+<div><h1>Beta 7 mock-ups, round two</h1>
+<p class="why">Only what changed since round one. The Tasks sidebar, list menus, list picker and the email's tasks tag stay as you agreed (in beta7-tasks-and-calendar.html).</p></div>
+
+<!-- 1 -->
+<section>
+<p class="lbl">1. The right-hand column, with and without a day picked</p>
+<div class="app">
+ <div class="head"><b>Calendar &amp; Reminders</b>
+  <span class="seg"><span>List</span><span class="onn">Calendar</span><span>Tasks</span></span>
+  <span class="btn small quiet" style="border-color:#3a3a42">
+   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg> Alerts</span>
+  <span class="grow"></span><span class="ibtn">✉</span><span class="btn">Work ▾</span><span class="ibtn">⟳</span><span class="btn pri">+ New event</span></div>
+ <div class="cal">
+  <div class="month">
+   <div class="mg">
+    <div class="dn">Mon</div><div class="dn">Tue</div><div class="dn">Wed</div><div class="dn">Thu</div><div class="dn">Fri</div><div class="dn">Sat</div><div class="dn">Sun</div>
+    <div>9<span class="ev o">09:05 Bank</span></div><div>10<span class="ev g">11:30 Ballet</span></div><div>11<span class="ev o">10:00 Reply</span></div><div>12<span class="ev g">Green bins</span></div>
+    <div class="today">13<span class="ev o">Awakening</span><span class="ev b">08:30 Test event</span><div class="tk">✓ 2 tasks</div></div>
+    <div>14<span class="ev g">12:00 Ballet</span><div class="tk">✓ 1 task</div></div><div>15<span class="ev g">12:00 Pay Andre</span></div>
+    <div>16<span class="ev o">18:30 P7 meeting</span></div><div>17<span class="ev o">09:00 Feis filling</span></div><div>18<div class="tk">✓ 3 tasks</div></div><div>19<span class="ev b">14:00 Studio</span></div><div>20</div><div>21</div><div>22</div>
+   </div>
+   <p class="why">No day picked: the column shows Today and Later this week only.</p>
+  </div>
+  <div class="col">
+   <div class="blk">
+    <div class="bh"><b>Today</b><span class="muted" style="font-size:11.5px">Fri 13 Nov</span></div>
+    <div class="sub">Events</div>
+    <div class="it"><span class="dot" style="background:#f0a24a;margin-top:5px"></span><span>Awakening, Dundee<small>All day</small></span></div>
+    <div class="it"><span class="dot" style="background:#5b8def;margin-top:5px"></span><span>Test event<small>08:30 to 09:30</small></span><span class="join">Join</span></div>
+    <div class="sub">Tasks <span class="n">2 to do</span></div>
+    <div class="it"><span class="ring"></span><span>Test the connector<small>10:00</small></span></div>
+    <div class="it"><span class="ring"></span><span>Ring the dentist<small>15:00</small></span></div>
+   </div>
+   <div class="blk">
+    <div class="bh"><b>Later this week</b></div>
+    <div class="sub">Events</div>
+    <div class="it"><span class="dot" style="background:#4fbf9f;margin-top:5px"></span><span>Ballet<small>Sat 14 Nov, 12:00</small></span></div>
+    <div class="it"><span class="dot" style="background:#4fbf9f;margin-top:5px"></span><span>Pay Andre<small>Sun 15 Nov, 12:00</small></span></div>
+    <div class="sub">Tasks</div>
+    <div class="it"><span class="ring"></span><span>New task button check<small>Sat 14 Nov</small></span></div>
+   </div>
+   <div class="links"><span>All events ›</span><span>All Tasks ›</span></div>
+  </div>
+ </div>
+</div>
+
+<div class="pair" style="margin-top:16px">
+ <div class="col" style="border:1px solid var(--line);border-radius:12px;background:#1b1b1e">
+  <div class="blk" style="border-color:#3b5a92">
+   <div class="bh"><b>Wednesday 18 November</b><span class="grow"></span><span class="muted">✕</span></div>
+   <div class="sub">Events</div>
+   <div class="it"><span class="dot" style="background:#5b8def;margin-top:5px"></span><span>Studio call<small>10:00 to 10:30</small></span><span class="join">Join</span></div>
+   <div class="sub">Tasks <span class="n">3 to do</span></div>
+   <div class="it"><span class="ring"></span><span>Send the signed quote</span></div>
+   <div class="it"><span class="ring"></span><span>Confirm crew numbers</span></div>
+   <div class="links"><span>+ New event</span><span>Open day</span></div>
+  </div>
+  <div class="blk"><div class="bh"><b>Today</b></div><div class="it muted">…</div></div>
+  <div class="blk"><div class="bh"><b>Later this week</b></div><div class="it muted">…</div></div>
+ </div>
+ <p class="why grow" style="min-width:260px"><b>A day picked:</b> its block goes on top, with Join for that day's calls. To put it away: click the same day again, the ✕, Esc, or click Today. It also goes when you switch view. <b>All events</b> opens List view; <b>All Tasks</b> opens the Tasks view on All Tasks (the same name as in its sidebar). Coming up in the mail window uses the same Today and Later this week blocks.</p>
+</div>
+</section>
+
+<!-- 2 -->
+<section>
+<p class="lbl">2. Alerts: a quiet settings button, and one name</p>
+<div class="pair">
+ <div class="pop" style="width:330px">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b>Alerts</b></div>
+  <div class="it"><span class="ic">•</span><span>Pop-ups for important events only</span></div>
+  <div class="it"><span class="ic">•</span><span>Daily summary at 08:30</span></div>
+  <div class="it"><span class="ic">•</span><span>Video calls: 15 and 5 minutes before</span></div>
+  <div class="it"><span class="ic">•</span><span>Tasks with a time: at that time</span></div>
+  <div class="it"><span class="ic">•</span><span>Quiet hours 22:00 to 07:00</span></div>
+  <div class="r2" style="margin-top:10px"><span class="btn small">Pause for 1 hour</span><span class="grow"></span><span class="btn small">Change alerts</span></div>
+ </div>
+ <div class="grow" style="min-width:260px">
+  <p class="why" style="margin-top:0"><b>Where:</b> a plain "Alerts" button with an outline bell, beside List / Calendar / Tasks, styled like them. It's settings, so no dot and nothing to deal with; anything you missed is in Coming up as now.</p>
+  <p class="why"><b>One name:</b> Settings › Notifications becomes <b>Alerts &amp; Notifications</b>, and the calendar and task alert options move into it from Calendar &amp; Reminders, in their own section:</p>
+  <div class="set" style="padding:12px 14px;margin-top:8px">
+   <div class="grp" style="margin-top:0">Alerts &amp; Notifications</div>
+   <div class="row" style="border-top:0"><span class="nm">New mail</span></div>
+   <div class="row"><span class="nm">How alerts appear</span></div>
+   <div class="row"><span class="nm">Calendar and tasks<small>Event alerts, video calls, the daily summary, tasks with a time</small></span><span class="muted" style="font-size:11px">moved here</span></div>
+   <div class="row"><span class="nm">Per account</span></div>
+   <div class="row"><span class="nm">Quiet hours</span></div>
+  </div>
+  <p class="why">Calendar &amp; Reminders keeps a line pointing there, so nothing is lost.</p>
+ </div>
+</div>
+</section>
+
+<!-- 3 -->
+<section>
+<p class="lbl">3. Tasks: the sidebar button, and Clear date and time</p>
+<div class="pair">
+ <div class="nav">
+  <div class="fi"><span class="ic">◷</span>Scheduled</div>
+  <div class="fi"><span class="ic">▦</span>Calendar<span class="n">5</span></div>
+  <div class="fi new"><span class="ic">✓</span>Tasks<span class="n">2</span></div>
+  <div class="fi"><span class="ic">✉</span>Invitations<span class="n">3</span></div>
+  <div class="fi"><span class="ic">?</span>Help &amp; Feedback</div>
+  <div class="fi"><span class="ic">⚙</span>Settings</div>
+ </div>
+ <div class="pop" style="width:350px">
+  <b>New task</b>
+  <div class="r2"><span class="k">Title</span><span class="inp focus grow">&nbsp;<span class="caret"></span></span></div>
+  <div class="r2"><span class="k">When</span><span class="inp focus">18 Nov<span class="caret"></span></span><span class="inp">14:00</span></div>
+  <div class="r2"><span class="k"></span><span class="muted" style="font-size:11.5px">Wed 18 Nov</span><span class="grow"></span><span style="font-size:11.5px;color:#8fb3ff">Clear date and time</span></div>
+  <div class="r2"><span class="k">List</span><span class="inp"><span class="dot" style="background:#5b8def"></span> My Tasks · WGM ▾</span></div>
+ </div>
+ <p class="why grow" style="min-width:220px"><b>Tasks</b> sits under Calendar in the bottom-left list, with today's count. <b>When</b> starts on Today at the next hour; click it and type a date ("18 Nov", "Wednesday", "next Friday") as in quick add. "Clear time" shows on its own once there's a time but you only want the day.</p>
+</div>
+<p class="why"><b>Account order:</b> the accounts in the Tasks sidebar follow Settings › Accounts (already draggable there). In beta 7 every place that lists accounts follows that one order: the mail sidebar, Out of Office tabs, AI Connection, the calendar list and Tasks. Dragging an account in the Tasks sidebar changes it everywhere too.</p>
+</section>
+
+<!-- 4 -->
+<section>
+<p class="lbl">4. Settings › AI Connection, as it is now plus two things</p>
+<div class="set">
+ <h2>Connected AI apps</h2>
+ <div class="row" style="border-top:0">
+  <span class="live"></span>
+  <span class="appi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/></svg></span>
+  <span class="nm">Claude Desktop<small>Connected. Last request 13:40</small></span><span class="btn small">Test</span><span class="muted">⋯</span></div>
+ <div class="row">
+  <span class="idle"></span>
+  <span class="appi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 8 4 4-4 4M12 17h7"/></svg></span>
+  <span class="nm">Claude Code<small>Added. Last connected 13 Nov, 13:12</small></span><span class="btn small">Test</span><span class="muted">⋯</span></div>
+ <div class="row">
+  <span class="idle" style="background:transparent;border:1px dashed #55555d"></span>
+  <span class="appi" style="border-style:dashed;background:transparent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></span>
+  <span class="nm">Connect another AI app<small>Claude Desktop, Claude Code, ChatGPT desktop, Gemini CLI or another app.</small></span><span class="btn small">Set up</span></div>
+ <p class="hint" style="margin-top:6px">Icons: a small outline mark per app in the page's greys (Claude's sparkle, a terminal prompt for Claude Code and Gemini CLI, a chat bubble for others). The green dot stays as the "connected now" light.</p>
+
+ <h2>Accounts</h2>
+ <p class="hint">As now: Off / Read only / Read and write per account. "Customise" moves down into each switch below, so it goes from here.</p>
+
+ <h2>What it can do</h2>
+ <p class="hint">Each switch is for all accounts. Click a row to set it per account.</p>
+ <div class="row" style="border-top:0"><span class="chev"></span><span class="nm"><b>All switches</b><small>Mixed. Set them all at once, then change any below.</small></span><span class="seg"><span>Off</span><span>Ask</span><span>Allow</span></span></div>
+
+ <div class="grp">Looking</div>
+ <div class="row"><span class="chev">›</span><span class="nm">See your accounts and folders<small>Which accounts, folders and labels you have. No mail.</small></span><span class="seg"><span>Off</span><span>Ask</span><span class="on">Allow</span></span></div>
+ <div class="row"><span class="chev">▾</span><span class="nm">Search your mail<small>Search by word, sender or date.</small><span class="flag">▲ 2 accounts set differently</span></span><span class="seg"><span>Off</span><span>Ask</span><span class="on">Allow</span></span></div>
+ <div class="acc"><span class="dot" style="background:#5b8def"></span><span class="nm">WGM</span><span class="same">Same as all</span><span class="seg"><span>Off</span><span>Ask</span><span class="on">Allow</span></span></div>
+ <div class="acc"><span class="dot" style="background:#f0a24a"></span><span class="nm">TBWELLER</span><span class="same">Same as all</span><span class="seg"><span>Off</span><span>Ask</span><span class="on">Allow</span></span></div>
+ <div class="acc diff"><span class="dot" style="background:#e06aa8"></span><span class="nm">Truthweller</span><span class="reset">Reset</span><span class="seg"><span>Off</span><span class="on">Ask</span><span>Allow</span></span></div>
+ <div class="acc diff"><span class="dot" style="background:#ef6b5b"></span><span class="nm">WGM Microsoft</span><span class="reset">Reset</span><span class="seg"><span class="on">Off</span><span>Ask</span><span>Allow</span></span></div>
+ <div class="acc" style="color:var(--muted)"><span class="dot" style="background:#55555d"></span><span class="nm">iCloud Account<small style="display:block;font-size:11px">Off under Accounts</small></span></div>
+ <div class="row"><span class="chev">›</span><span class="nm">Read emails<small>Open the full text of an email or conversation.</small></span><span class="seg"><span>Off</span><span>Ask</span><span class="on">Allow</span></span></div>
+
+ <div class="grp">Writing and tidying</div>
+ <div class="row"><span class="chev">›</span><span class="nm">Write drafts<small>Make a draft you can read and edit. Never sent.</small></span><span class="seg"><span>Off</span><span class="on">Ask</span><span>Allow</span></span></div>
+ <div class="row"><span class="chev">›</span><span class="nm">Add tasks<small>Into: <span style="color:#8fb3ff">the default list of the group you're looking at ▾</span></small></span><span class="seg"><span>Off</span><span class="on">Ask</span><span>Allow</span></span></div>
+</div>
+<p class="why"><b>The page stays as it is</b>, with its Off / Ask / Allow buttons, plus: <b>1.</b> a small outline icon by each AI app (Test and ⋯ stay), and <b>2.</b> each switch opens out to every account's own buttons. When any account is set differently, an amber "▲ 2 accounts set differently" line shows on the row, and those accounts are tinted with a Reset. The per-account AI page keeps its full list too; changing either updates both. "Into" for Add tasks is right on its row.</p>
+</section>
+
+<!-- 5 -->
+<section>
+<p class="lbl">5. Quick edit card and deleting from several calendars</p>
+<div class="pair">
+ <div class="pop" style="width:330px">
+  <div class="inp" style="font-weight:600;font-size:14px">Studio walkthrough</div>
+  <div class="r2"><span class="k">When</span><span class="inp">Thu 19 Nov</span><span class="inp">14:00</span><span class="muted">to</span><span class="inp">15:00</span></div>
+  <div class="r2"><span class="k">Location</span><span class="inp grow">Dundee Rep</span></div>
+  <div class="r2"><span class="k">Calendar</span><span class="inp grow"><span class="dot" style="background:#5b8def"></span> WGM ▾</span></div>
+  <div class="r2"><span class="k">Video</span><span class="btn small">Join Google Meet</span><span style="font-size:11.5px;color:#8fb3ff">Meet settings ↗</span></div>
+  <div class="r2" style="margin-top:12px"><span class="btn small">Delete</span><span class="grow"></span><span class="btn small">More options…</span></div>
+  <p class="hint" style="margin:10px 0 0">With no call: <span class="btn small">+ Add Google Meet</span></p>
+ </div>
+ <div class="pop" style="width:340px">
+  <b>Delete "Studio walkthrough"?</b>
+  <p class="hint" style="margin:6px 0 8px">It's on 3 of your calendars. <span style="color:#8fb3ff">Select all</span></p>
+  <div class="it"><span class="box on">✓</span><span><span class="dot" style="background:#5b8def"></span> WGM<small>You organised it: guests are told it's cancelled</small></span></div>
+  <div class="it"><span class="box on">✓</span><span><span class="dot" style="background:#f0a24a"></span> TBWELLER<small>A guest copy: only taken off this calendar</small></span></div>
+  <div class="it"><span class="box"></span><span><span class="dot" style="background:#4fbf9f"></span> TWF (Gmail)<small>A guest copy</small></span></div>
+  <div class="r2" style="margin-top:12px"><span class="grow"></span><span class="btn small">Cancel</span><span class="btn small del">Delete from WGM and TBWELLER</span></div>
+  <p class="hint" style="margin:8px 0 0">All ticked: <b>Delete everywhere</b>. One ticked: <b>Delete from WGM</b>. The calendar you clicked starts ticked.</p>
+ </div>
+</div>
+<p class="why"><b>Quick edit:</b> title, time, location and calendar change right there; no notes. Changing Calendar just moves it (guest warning first if it has guests). Video says <b>Add Google Meet</b> (or Teams on Microsoft) when there's none, and <b>Join</b> plus <b>Meet settings</b> when there is.</p>
+</section>
+
+</div></body></html>

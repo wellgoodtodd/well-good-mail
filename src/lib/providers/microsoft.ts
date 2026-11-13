@@ -654,6 +654,19 @@ export class MicrosoftProvider implements MailProvider {
     const l = await this.todo<{ id: string; displayName: string }>('/lists', { method: 'POST', body: JSON.stringify({ displayName: name }) });
     return { id: `${this.account.id}|${l.id}`, accountId: this.account.id, providerId: l.id, name: l.displayName };
   }
+
+  async renameTaskList(list: TaskList, name: string): Promise<TaskList> {
+    const l = await this.todo<{ id: string; displayName: string }>(`/lists/${encodeURIComponent(list.providerId)}`, { method: 'PATCH', body: JSON.stringify({ displayName: name }) });
+    return { ...list, name: l?.displayName ?? name };
+  }
+
+  async deleteTaskList(list: TaskList): Promise<void> {
+    try {
+      await this.todo(`/lists/${encodeURIComponent(list.providerId)}`, { method: 'DELETE' });
+    } catch (e) {
+      if ((e as { status?: number }).status !== 404) throw e;
+    }
+  }
 }
 
 interface MsTask { id: string; title?: string; status?: string; body?: { content?: string; contentType?: string }; dueDateTime?: { dateTime?: string; timeZone?: string }; reminderDateTime?: { dateTime?: string; timeZone?: string }; isReminderOn?: boolean; completedDateTime?: { dateTime?: string; timeZone?: string }; lastModifiedDateTime?: string }

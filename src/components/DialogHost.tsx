@@ -6,9 +6,11 @@ export function DialogHost() {
   const pending = useDialogs((s) => s.pending);
   const [value, setValue] = useState('');
   const [optOut, setOptOut] = useState(false);
+  const [ticked, setTicked] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     setOptOut(false);
+    setTicked((pending?.options || []).filter((o) => o.checked).map((o) => o.id));
     if (pending?.kind === 'text') {
       setValue(pending.value || '');
       setTimeout(() => inputRef.current?.select(), 30);
@@ -32,6 +34,36 @@ export function DialogHost() {
           <input id="dialog-remember" type="checkbox" checked={optOut} onChange={(e) => setOptOut(e.target.checked)} />
           <span>Remember my choice. You can change it in Settings.</span>
         </label>
+      </Dialog>
+    );
+  }
+  if (pending.kind === 'pick') {
+    const opts = pending.options || [];
+    const ids = opts.filter((o) => ticked.includes(o.id)).map((o) => o.id);
+    const flip = (id: string) => setTicked((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
+    return (
+      <Dialog
+        title={pending.title}
+        onClose={() => closeDialog(null)}
+        actions={<>
+          <button className="btn" onClick={() => closeDialog(null)}>{pending.cancelLabel || 'Cancel'}</button>
+          <span className="grow" />
+          <button className="btn danger-fill" disabled={!ids.length} onClick={() => closeDialog(JSON.stringify(ids))}>{pending.pickLabel?.(ids) || 'OK'}</button>
+        </>}
+      >
+        <p className="pick-msg">
+          {pending.message}
+          {ids.length < opts.length && <> <button className="link-btn" onClick={() => setTicked(opts.map((o) => o.id))}>Select all</button></>}
+        </p>
+        <div className="pick-list">
+          {opts.map((o) => (
+            <label key={o.id} className="check pick-row">
+              <input type="checkbox" checked={ticked.includes(o.id)} onChange={() => flip(o.id)} />
+              {o.dot && <span className="dot" style={{ background: o.dot }} aria-hidden="true" />}
+              <span>{o.label}{o.note && <span className="muted"> ({o.note})</span>}</span>
+            </label>
+          ))}
+        </div>
       </Dialog>
     );
   }

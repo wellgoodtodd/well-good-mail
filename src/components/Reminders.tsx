@@ -1,13 +1,14 @@
 // Reminders: calendar items and follow ups that wait quietly until you clear them.
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, dismissReminders, openScreen, refreshEvents, reconnectAccount, setView, selectThread, toast } from '../lib/mail';
+import { useMail, dismissReminders, refreshEvents, reconnectAccount, setView, selectThread, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { calendarFailureToast } from '../lib/plainErrors';
 import { dueReminders, eventKey, alertMute } from '../lib/reminders';
 import { inGroupView } from '../lib/meetings';
 import { startNewEvent } from './NewEvent';
-import { CalendarPicker, ComingUpList, PickedDay } from './ComingUp';
+import { CalendarPicker, ComingUpBlocks } from './ComingUp';
+import { AlertsButton } from './AlertsButton';
 import { EventPreview } from './EventPopup';
 import { InvitationsButton } from './Invitations';
 import { JoinButton } from './calendarBits';
@@ -17,14 +18,6 @@ import { refreshTasks } from '../lib/tasks';
 import { SelectionBar, clearSelected, toggleSelected, useEventSelection } from './EventSelection';
 import { refreshCalendarCopy, startCalendarCopy } from '../lib/calendarCache';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
-
-/** One readable sentence about how reminders reach you. */
-function alertSummary(s: ReturnType<typeof useSettings.getState>): string {
-  const pop = s.reminderMode === 'never' ? 'No pop ups.' : s.reminderMode === 'daily' ? `A daily summary at ${s.summaryTime}.` : s.reminderMode === 'important' ? `Pop ups for important events only, plus a daily summary at ${s.summaryTime}.` : 'Pop ups for every reminder.';
-  const times = [s.meetingAlert1On && s.meetingAlert1Mins, s.meetingAlert2On && s.meetingAlert2Mins].filter(Boolean).sort((x, y) => Number(y) - Number(x));
-  const video = times.length ? `Video meetings: notified ${times.join(' and ')} minutes before.` : 'Video meeting notifications are off.';
-  return `${pop} ${video}${s.flashTaskbar ? ' The taskbar icon flashes.' : ''}`;
-}
 
 export function Reminders() {
   const events = useMail((s) => s.events);
@@ -82,6 +75,7 @@ export function Reminders() {
               <button className={s.remindersView === 'calendar' ? 'on' : ''} aria-pressed={s.remindersView === 'calendar'} onClick={() => s.set({ remindersView: 'calendar' })}><Icon name="calendar" size={14} /> Calendar</button>
               <button className={s.remindersView === 'tasks' ? 'on' : ''} aria-pressed={s.remindersView === 'tasks'} onClick={() => s.set({ remindersView: 'tasks' })}><Icon name="check" size={14} /> Tasks</button>
             </div>
+            <AlertsButton />
             <span className="grow" />
             {/* Kept together, so on a narrow window they move to the next line as one row. */}
             <div className="rem-actions">
@@ -143,22 +137,9 @@ export function Reminders() {
           </div>
         </div>
         <aside className="rem-side">
-          <div className="card rem-coming">
-            <h2 style={{ margin: '0 0 10px', fontSize: '1em' }}>Coming up</h2>
-            <div className="rem-scroll"><ComingUpList onPick={setPreview} /></div>
-          </div>
-          {s.remindersView === 'calendar' && <PickedDay onPick={setPreview} />}
+          <div className="rem-scroll"><ComingUpBlocks onPick={setPreview} showPicked={s.remindersView === 'calendar'} /></div>
         </aside>
       </div>
-      <footer className="rem-footer">
-        <div className="alerts-card">
-          <div className="al-text">
-            <strong>How you get alerted</strong>
-            <span>{alertSummary(s)}</span>
-          </div>
-          <button className="btn" onClick={() => openScreen('settings', 'reminders')}>Change in Settings</button>
-        </div>
-      </footer>
       {preview && <EventPreview event={preview} onClose={() => setPreview(null)} />}
     </div>
   );

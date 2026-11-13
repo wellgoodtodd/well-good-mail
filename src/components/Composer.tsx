@@ -4,12 +4,13 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import DOMPurify from 'dompurify';
 import { Icon } from './Icon';
 import { RecipientField } from './RecipientField';
-import { SendLaterPicker } from './SendLaterPicker';
+import { SendSplit } from './SendLaterPicker';
 import { SignaturePicker } from './SignaturePicker';
 import { FormatBar, promptLink, pasteAsQuote, editorMenuWithSpelling } from './FormatBar';
 import { editorExtensions, changeIndent } from './editorExtensions';
-import { Dialog, fileSize, sendLaterOptions, useMenu } from './ui';
-import { DraftFilesPreview, draftFile, openDraftFile, type DraftFile } from './AttachmentPreview';
+import { Dialog, fileSize, sendLaterOptions, useMenu, type MenuItem } from './ui';
+import { DraftFilesPreview, draftFile, openDraftFile, previewKind, type DraftFile } from './AttachmentPreview';
+import { base64ToBytes } from '../lib/mime';
 import { getAttachmentData } from '../lib/mail';
 import { store } from '../lib/db';
 import { useMail, queueSend, providerFor, toast, broadcast, unschedule } from '../lib/mail';
@@ -17,7 +18,7 @@ import { useSettings } from '../lib/settings';
 import { allAliases, findAlias, switchMode, draftSignature, draftToOutgoing, draftIsEmpty, pickFromForMessage, ATTACHMENT_LIMIT_BYTES, encodedSize } from '../lib/compose';
 import { labelAiDraft } from '../lib/mcp/aiDrafts';
 import { composeContext, writingStyle } from '../lib/composeActions';
-import { closeThisWindow, isPopout, isTauri, openPopout } from '../lib/platform';
+import { closeThisWindow, invoke, isPopout, isTauri, openPopout } from '../lib/platform';
 import { trackOpen, trackClosed } from '../lib/openDrafts';
 import { askConfirm, askKeepDraft, useDialogs } from '../lib/dialogs';
 import { matchAction } from '../lib/shortcuts';
@@ -50,7 +51,6 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   const [dragOver, setDragOver] = useState(false);
   const [bigFiles, setBigFiles] = useState<File[] | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [laterOpen, setLaterOpen] = useState(false);
   const accounts = useMail((s) => s.accounts);
   const contacts = useMail((s) => s.contacts);
   const messages = useMail((s) => s.messages);
@@ -360,6 +360,24 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   }, [send, changeMode, saveToServer]);
   const rootRef = useRef<HTMLDivElement>(null);
 
+  // Emoji: Windows' own panel (Win + .), which types the emoji wherever the cursor is in the message.
+  const openEmoji = async () => {
+    if (!editor) return;
+    editor.commands.focus();
+    if (isTauri()) {
+      try {
+        await new Promise((r) => setTimeout(r, 50));
+        await invoke('open_emoji_panel');
+        return;
+      } catch (e) {
+        console.warn('Emoji panel', e);
+      }
+    }
+    toast({ text: 'Press Win + . for emoji', ttl: 4000 });
+  };
+
+  const thumbs = useThumbs(draft?.attachments || []);
+
   // ---------- big attachments ----------
   const uploadToDrive = async () => {
     const files = bigFiles;
@@ -388,15 +406,27 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   const signature = draftSignature(draft, { ...composeContext() });
   const fromHit = findAlias(accounts, draft.fromEmail, draft.fromAccountId);
   const fromAccount = fromHit?.account;
-  const totalSize = draft.attachments.reduce((n, a) => n + a.size, 0);
   const writingCss = writingStyle();
-  const laterOptions = sendLaterOptions();
+  // A scheduled email's drop-down: send it now, move it, or take it back to drafts.
+  const scheduledItems = (pickTime: () => void): MenuItem[] => [
+    { label: 'Send now', icon: 'send', onClick: () => send() },
+    { heading: 'Change time' },
+    ...sendLaterOptions().map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => send(o.at) })),
+    { label: 'Pick a date and time...', icon: 'calendar', onClick: pickTime },
+    { divider: true },
+    { label: 'Back to drafts', icon: 'undo', onClick: () => void backToDrafts() },
+  ];
+  const sendButton = draft.scheduledAt
+    ? <SendSplit label="Keep scheduled" icon="clock" title="Save your changes and keep the same send time" onSend={() => void saveAndClose()} onLater={(at) => send(at)} menuItems={scheduledItems} pickerInitial={draft.scheduledAt} />
+    : <SendSplit onSend={() => send()} onLater={(at) => send(at)} />;
 
   // The files on this draft (and those carried over from the email being forwarded), for opening and previewing.
   const draftFiles: DraftFile[] = [
     ...draft.attachments.map(draftFile),
     ...(draft.includeSourceAttachments && source ? source.attachments.filter((a) => !a.inline).map((a) => ({ meta: a, load: () => getAttachmentData(source.id, a.id) })) : []),
   ];
+  const filesSize = draftFiles.reduce((n, f) => n + f.meta.size, 0);
+  const openFile = (i: number) => void openDraftFile(draftFiles, i).then((n) => n !== null && setFilePreview(n));
 
   return (
     <div
@@ -426,9 +456,10 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
           <strong>{MODE_LABEL[draft.mode]}</strong>
         )}
         <span style={{ flex: 1 }} />
-        {draft.scheduledAt
-          ? <button className="btn primary" onClick={() => void saveAndClose()} title="Save your changes and keep the same send time" style={{ padding: '4px 10px' }}><Icon name="clock" /> Keep scheduled</button>
-          : <button className="btn primary" onClick={() => send()} title="Send (Ctrl+Enter)" style={{ padding: '4px 10px' }}><Icon name="send" /> Send</button>}
+        <button type="button" className="comp-lab" title="Attach files (or drag them onto the email)" onClick={() => fileInput.current?.click()}><Icon name="paperclip" size={16} strokeWidth={1.8} />Attach</button>
+        <button type="button" className="comp-lab" title="Emoji (Win + .)" onMouseDown={(e) => e.preventDefault()} onClick={() => void openEmoji()}><Icon name="smile" size={16} strokeWidth={1.8} />Emoji</button>
+        {sendButton}
+        <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files || [])); e.target.value = ''; }} />
         {variant === 'inline' && <button className="icon-btn" title="Pop out into its own window" aria-label="Pop out" onClick={popOut}><Icon name="popout" /></button>}
         <button className="btn" onClick={saveAndClose} title="Close this and keep it as a draft" style={{ padding: '4px 10px' }}><Icon name="file" /> Save &amp; close</button>
       </div>
@@ -478,12 +509,9 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
         end={<SignaturePicker fromEmail={draft.fromEmail} value={draft.signatureOf} onChange={(v) => update({ signatureOf: v })} />}
         extra={
           <>
-            <span className="sep" />
             <button type="button" className="icon-btn" title="Paste as quote" aria-label="Paste as quote" onMouseDown={(e) => e.preventDefault()} onClick={() => editor && pasteAsQuote(editor)}><Icon name="quote" size={15} /><span style={{ fontSize: 10, marginLeft: -2 }}>+</span></button>
             <button type="button" className="icon-btn" title="Dictate: press the Windows key and H" aria-label="Dictate" onMouseDown={(e) => e.preventDefault()} onClick={() => { editor?.commands.focus(); toast({ text: 'Press the Windows key and H together to speak. Windows types what you say.', ttl: 6000 }); }}><Icon name="mic" size={15} /></button>
-            <button type="button" className="icon-btn" title="Attach files" aria-label="Attach files" onClick={() => fileInput.current?.click()}><Icon name="paperclip" size={15} /></button>
             <button type="button" className="icon-btn" title="Templates" aria-label="Templates" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), s.templates.length ? s.templates.map((t) => ({ label: t.name, icon: 'template', onClick: () => editor?.chain().focus().insertContent(t.html).run() })) : [{ label: 'No templates yet. Add them in Settings.', disabled: true }])}><Icon name="template" size={15} /></button>
-            <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(Array.from(e.target.files || [])); e.target.value = ''; }} />
           </>
         }
       />
@@ -511,53 +539,33 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
 
       {(draft.attachments.length > 0 || (draft.includeSourceAttachments && source?.attachments.some((a) => !a.inline))) && (
         <div className="comp-attachments">
-          {draft.attachments.map((a, i) => (
-            <span key={a.id} className="attachment">
-              <button className="att-open" title={`Open ${a.filename}`} onClick={() => void openDraftFile(draftFiles, i).then((n) => n !== null && setFilePreview(n))}>
-                <Icon name="paperclip" />
-                <span className="info"><div className="fname">{a.filename}</div><div className="fsize">{fileSize(a.size)}</div></span>
-              </button>
-              <button className="icon-btn" aria-label={`Remove ${a.filename}`} onClick={() => update((d) => ({ ...d, attachments: d.attachments.filter((x) => x.id !== a.id), updatedAt: Date.now() }))}><Icon name="close" size={13} /></button>
-            </span>
-          ))}
-          {draft.includeSourceAttachments && source?.attachments.filter((a) => !a.inline).map((a, j) => (
-            <span key={a.id} className="attachment" title="From the original email">
-              <button className="att-open" title={`Open ${a.filename}`} onClick={() => void openDraftFile(draftFiles, draft.attachments.length + j).then((n) => n !== null && setFilePreview(n))}>
-                <Icon name="forward" />
-                <span className="info"><div className="fname">{a.filename}</div><div className="fsize">{fileSize(a.size)} · forwarded</div></span>
-              </button>
-            </span>
-          ))}
+          <div className="comp-att-total">{draftFiles.length === 1 ? '1 attachment' : `${draftFiles.length} attachments`} · {fileSize(filesSize)}</div>
+          <div className="comp-att-grid">
+            {draft.attachments.map((a, i) => (
+              <div key={a.id} className="comp-att">
+                <button className="att-open" title={`Open ${a.filename}`} onClick={() => openFile(i)}>
+                  <FileThumb name={a.filename} mime={a.mimeType} src={thumbs[a.id]} />
+                  <span className="info"><span className="fname">{a.filename}</span><span className="fsize">{fileSize(a.size)}</span></span>
+                </button>
+                <button className="comp-att-x" aria-label={`Remove ${a.filename}`} title="Remove" onClick={() => update((d) => ({ ...d, attachments: d.attachments.filter((x) => x.id !== a.id), updatedAt: Date.now() }))}><Icon name="close" size={11} strokeWidth={2.5} /></button>
+              </div>
+            ))}
+            {draft.includeSourceAttachments && source?.attachments.filter((a) => !a.inline).map((a, j) => (
+              <div key={a.id} className="comp-att" title="From the original email">
+                <button className="att-open" title={`Open ${a.filename}`} onClick={() => openFile(draft.attachments.length + j)}>
+                  <FileThumb name={a.filename} mime={a.mimeType} />
+                  <span className="info"><span className="fname">{a.filename}</span><span className="fsize">{fileSize(a.size)} · forwarded</span></span>
+                </button>
+              </div>
+            ))}
+          </div>
           {filePreview !== null && <DraftFilesPreview files={draftFiles} start={filePreview} onClose={() => setFilePreview(null)} />}
-          <span className="fsize" style={{ alignSelf: 'center', color: 'var(--text-muted)' }}>{fileSize(totalSize)} of 25 MB</span>
         </div>
       )}
 
       <div className="comp-foot">
-        {draft.scheduledAt ? (
-          <div className="btn-group">
-            <button className="btn primary" onClick={() => void saveAndClose()} title="Save your changes and keep the same send time"><Icon name="clock" /> Keep scheduled</button>
-            <button className="btn primary" aria-label="More sending choices" title="Send now, change the time, or back to drafts" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
-              { label: 'Send now', icon: 'send', onClick: () => send() },
-              { heading: 'Change time' },
-              ...laterOptions.map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => send(o.at) })),
-              { label: 'Pick a date and time...', icon: 'calendar', onClick: () => setLaterOpen(true) },
-              { divider: true },
-              { label: 'Back to drafts', icon: 'undo', onClick: () => void backToDrafts() },
-            ])}><Icon name="chevronDown" /></button>
-          </div>
-        ) : (
-          <div className="btn-group">
-            <button className="btn primary" onClick={() => send()} title="Send (Ctrl+Enter)"><Icon name="send" /> Send</button>
-            <button className="btn primary" aria-label="Send later" title="Send later" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
-              { heading: 'Send later' },
-              ...laterOptions.map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => send(o.at) })),
-              { label: 'Pick a date and time...', icon: 'calendar', onClick: () => setLaterOpen(true) },
-            ])}><Icon name="chevronDown" /></button>
-          </div>
-        )}
+        {sendButton}
         <button className="btn" onClick={saveAndClose} title="Close this and keep it as a draft"><Icon name="file" /> Save &amp; close</button>
-        <button className="btn" onClick={() => fileInput.current?.click()} title="Attach files (or drag them onto the email)"><Icon name="paperclip" /> Attach</button>
         <label className="check" style={{ padding: 0 }} title="Brings this back as a reminder if nobody replies">
           <Icon name="bell" size={14} />
           <select className="mode-select" aria-label="Follow up reminder" value={draft.followUpDays || 0} onChange={(e) => update({ followUpDays: Number(e.target.value) || undefined })}>
@@ -585,7 +593,6 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
           <p style={{ color: 'var(--text-muted)' }}>I can upload {bigFiles.length > 1 ? 'them' : 'it'} to your Google Drive and put a link in the email instead. Anyone with the link can view.</p>
         </Dialog>
       )}
-      {laterOpen && <SendLaterPicker initial={draft.scheduledAt} onClose={() => setLaterOpen(false)} onPick={(at) => { setLaterOpen(false); send(at); }} />}
       {menu.node}
     </div>
   );
@@ -641,4 +648,33 @@ function sanitizeQuote(html: string): string {
     }
   });
   return clean.innerHTML;
+}
+
+/** The tile on an attachment card: the picture itself, or a coloured tile with the file type. */
+function FileThumb({ name, mime, src }: { name: string; mime: string; src?: string }) {
+  if (src) return <img className="comp-att-thumb" src={src} alt="" />;
+  const ext = (name.match(/\.([A-Za-z0-9]{1,5})$/)?.[1] || '').toLowerCase();
+  const tone = /pdf/i.test(mime) || ext === 'pdf' ? 'pdf'
+    : /sheet|excel|csv/i.test(mime) || ['xls', 'xlsx', 'csv', 'ods', 'numbers'].includes(ext) ? 'sheet'
+    : /word|document|presentation|powerpoint|rtf/i.test(mime) || ['doc', 'docx', 'odt', 'rtf', 'pages', 'ppt', 'pptx', 'key', 'txt'].includes(ext) ? 'doc'
+    : 'other';
+  const tag = (ext || mime.split('/')[1] || 'file').toUpperCase().slice(0, 4);
+  return <span className={`comp-att-thumb tile ${tone}`} aria-hidden="true">{tag}</span>;
+}
+
+/** Small pictures for the picture attachments, made once per file rather than on every keystroke. */
+function useThumbs(attachments: Draft['attachments']): Record<string, string> {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const key = attachments.map((a) => a.id).join('|');
+  useEffect(() => {
+    const made: Record<string, string> = {};
+    for (const a of attachments) {
+      if (previewKind(a) !== 'image' || !a.dataB64) continue;
+      try { made[a.id] = URL.createObjectURL(new Blob([base64ToBytes(a.dataB64) as BlobPart], { type: a.mimeType })); } catch { /* no thumbnail, the tile shows instead */ }
+    }
+    setUrls(made);
+    return () => Object.values(made).forEach((u) => URL.revokeObjectURL(u));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return urls;
 }

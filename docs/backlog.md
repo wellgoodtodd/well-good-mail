@@ -4,9 +4,61 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## For beta 7 (batched by Todd, 13 Nov 2026; start once beta 6 is out)
+## 0.7.3 beta 7 (built 13 Nov 2026)
 
-- 13 Nov 2026: compose window polish, inspired by Apple Mail's compose window. Todd likes the current one, so keep it small and show mock-ups first. Ideas worth trying: font and size as neat boxed dropdowns (with the up/down arrows) instead of plain selects; clearer "on" state for bold, italic, underline and alignment (a filled blue box like Apple's); an emoji button (opens the Windows emoji panel, Win + .); attach and emoji as labelled buttons near the top (icon with the word under it); a roomier attachments area (bigger cards with thumbnails rather than small chips). Not wanted: Mac window buttons, Writing Tools.
+Beta 6 plus everything under "To fix" and the mock-up decisions below, and the compose polish. Test list: docs/testing-0.7.3-beta7.md. Checked in the browser demo only.
+- Calendar: Coming up in blocks (ComingUpBlocks in ComingUp.tsx, task rows in TaskBlocks.tsx); picked day toggles off (click again, ✕, Esc, Today); Month Tasks panel removed; Alerts button and card (AlertsButton.tsx, alertsPausedUntil setting read by isQuietNow); quick edit location, Add Google Meet, direct moves across accounts with a confirm; delete from several calendars (askPick in dialogs.ts, removeFromSeveral in eventFlows.ts) with an organiser check.
+- Tasks: sidebar with draggable smart lists and account rows; list and account right-click menus; list rename and delete (Google tasklists, Graph todo/lists); ListPicker with account dots; refresh about every minute while on screen and on focus, with back-off; New task on today, typed dates; Tasks in the sidebar footer; email tasks tag and list mark. Smart-list order and Hide completed are kept on this computer (wgm.taskPrefs.v1).
+- Settings: Alerts & Notifications (calendar and task alerts moved in); AI Connection switches open per account with an amber "set differently" flag, Customise removed from Accounts there; AI app logos; Add tasks "Into"; settingsNav.ts (openAlertSettings, openTaskDefaults); accounts in Settings order on more pages; Out of Office spacing.
+- Compose: boxed font and size with arrows, soft-blue on state and dividers, Attach and Emoji by Send, Emoji through a new Rust command (src-tauri/src/emoji.rs, SendInput Win + .; never compiled locally, no cargo), attachment cards, SendSplit (Send later beside every Send, Composer and AI Drafts).
+- Not built: the sidebar footer rethink (later), "Make tasks from this email", the "Make a task?" suggestion. Still relying on stored order (not sorted): TaskDefaults list drop-downs, Composer From picker, AiDrafts, GroupsTab, OfflineTab, DiagnosticsTab, SmartMailboxEditor.
+
+## Beta 6 feedback, for beta 7 (Todd, 13 Nov 2026)
+
+Working: Tasks sign-in on all Google accounts (the Tasks API was already on), groups kept; the Microsoft sign-in went through despite the outage. Tasks view with Today, Scheduled and All Tasks; the group filter; quick add and its chip; tick off and Undo (a 2011 overdue task came through and ticked off fine); changing a task shows on the phone almost at once; ticking off and adding on the phone come through after Refresh; New list; default lists in Settings. Todd likes having every account's tasks in one place (Google Tasks on the phone has no combined view).
+
+Principle (Todd, 13 Nov): when building something new, think ahead to everything the same kind of thing does elsewhere in the app (right-click menus, rename, set as default, drag to reorder) and build it in from the start, so it's consistent.
+
+To fix:
+- **Tasks sidebar is too busy** (the same "My Tasks" again and again under every account). Make it work like the mail sidebar's accounts: All Tasks, Today and Scheduled at the top, in an order you can drag (Todd wants All Tasks first); then one row per account with its colour dot, clicking it shows all that account's tasks, and a fold arrow shows its lists underneath. The Calendar Groups filter at the top already does the bundling, so no extra folders for now. Mock up first.
+- **List actions:** right-click a list for Rename (saved back to Google Tasks or To Do), Set as default (for the group you're looking at), Change defaults… (opens Settings › Calendar & Reminders › Tasks), Delete list. Slow click on the name renames too, and clicking the ★ spot sets the default. Same right-click for an account row where it makes sense.
+- **List picker can't tell lists apart:** in the quick add chip and the task pop-up every account's list says "My Tasks". Show the account's colour dot and name with each list.
+- **Changes from the phone need Refresh:** Google Tasks has no push. Check tasks more often while the Tasks view, calendar or Coming up is on screen (about every minute), and straight away when the window comes back into focus; less often in the background.
+- **New task pop-up starts blank:** start it on today at the next round hour (the user can clear it). Rename "No date" to something clearer, like "Clear date".
+- **Make a task from an email works** (whole email, highlighted words, list picker, the email link from the task, ticking off leaves the email alone). The list drop-down there needs the account colour dot on each account heading (not on each list).
+- **A Tasks button in the bottom-left sidebar**, beside Calendar, opening Calendar & Reminders on the Tasks view.
+- **Emails show their tasks:** an email that has tasks made from it shows a small "✓ 2 tasks" tag in the email view (and perhaps a quiet mark in the list); clicking it opens those tasks. Kept in the app only, not sent to Gmail. The other half of the link a task already has to its email.
+- **The right-hand side of Calendar is busy:** in Month, the Tasks panel squeezes the calendar and competes with Coming up and the day card, which also show tasks. Rethink the right column as one place: Today (events, then tasks), then Later this week (events, then tasks); clicking a day shows that day's events then tasks in the same column; "See everything" opens List view and "Open Tasks" opens the Tasks view. Month's full Tasks panel either goes, or folds out from the edge and back in (the calendar takes the full width when it's in). Mock up a couple of options.
+- **AI Connection page:** the Add tasks switch is there, but "Tasks from AI apps go into" is in Settings › Calendar & Reminders › Tasks, so Todd couldn't find it; put it (or a link) under the switch. Bigger: the per-account AI page lists everything well, but setting the same thing for every account is fiddly. Give the AI Connection page the same full list, with each row set for All accounts or per account. Mock up.
+- **Icons for AI apps:** in Connected AI apps, show each app's icon (Claude Desktop, Claude Code and so on) beside the green dot.
+- Not tested: an AI app adding a task. The Claude Code session used for testing was connected before the Add tasks switch went on and wasn't offered add_task; try again from a new Claude chat.
+- **"How you get alerted" box under the calendar** feels surplus now. Replace it with a bell button in the calendar header (beside the invitations button) that opens a small card: the current alert settings in one line each, and Change alerts (opens Settings).
+- Working: deleting one of a repeating series (the whole series) with the thin progress line; the invitation showed in the calendar after Fetch new mail, with a notification and Accept / Maybe / Decline. A new repeating event took a little while to appear (watch it).
+- **Out of Office:** a little more space between the Message heading and "Different message for each account", and the account tabs and Template row. The rest of the layout is good for now.
+- **Join buttons:** Coming up shows Join only for today, which is right; but the day card (a day you've clicked on) should show Join for that day's calls.
+- **Deleting an event that's on more than one of your calendars** deleted it from the wrong one, and there's no way to say which. When the same event is on several of your calendars, show which one the delete is for and let you pick (this one, or all of mine).
+- **Quick edit card:** everything should be editable right there (title, time, location, calendar, notes; not the video call). Changing the calendar there opened the full edit window instead; it should just move the event.
+**Mock-up round one, decided (Todd, 13 Nov; docs/mockups/beta7-tasks-and-calendar.html):**
+- New things must fit the page they're on: outline icons in the app's own greys, at most lightly shaded, never a bold coloured tile.
+- Right-hand column: Option A (one column in blocks). The clicked day's block only shows while a day is selected, and clicking the day again, ✕ or Esc deselects it so Today and Later this week have the room. "See everything" needs a clearer name (it opens List view). No folding Tasks panel.
+- Alerts: the bell card is liked, but it's only settings, so it shouldn't sit with the action buttons (it suggests something to deal with). Make it a quiet button by List / Calendar / Tasks. Settings says Notifications and the calendar says alerts: use one name, and gather the calendar and task alert options with the notification settings.
+- Tasks sidebar, list right-click menus, list picker, New task on today: yes. "Clear date" should be "Clear date and time"; clicking Today lets you type a date. The Tasks button goes in the bottom-left list (Scheduled, Calendar, Tasks, Help & Feedback, Settings).
+- One account order everywhere: Settings › Accounts can already be dragged; make sure the mail sidebar, Out of Office tabs, AI Connection, the calendar list and Tasks all follow it.
+- Email tasks tag: yes.
+- AI Connection: keep the real page's style (Off / Ask / Allow buttons, not drop-downs). Connected AI apps keep Test and the ⋯ menu, with a small outline icon per app. Each "What it can do" row sets all accounts and opens out to each account's own buttons; when some differ, a small amber flag says so and the differing accounts are highlighted.
+- Quick edit: no notes needed. Video: "Add Google Meet" when there's none, Join (and a link to the Meet settings) when there is. Delete on several calendars: tick which calendars, with Select all; the button says "Delete from WGM", "Delete from WGM and TBWELLER", or "Delete everywhere" when all are ticked.
+
+**Round two, decided (Todd, 13 Nov; docs/mockups/beta7-round-two.html):** right-hand column, Alerts button and card (summary, Pause for 1 hour, Change alerts) and Alerts & Notifications: yes.
+- Sidebar footer: counts always sit at the right edge, lined up; any "new" label or other badge goes to the left of the number (Invitations too).
+- Connected AI apps: the apps' own coloured logos are fine here (they're other apps, not our icons).
+- AI Connection: the amber "2 accounts set differently" line sits under the Off / Ask / Allow buttons on the right, not under the name.
+- Quick edit: "Add Google Meet" replaces Join when there's no call (not an extra line).
+- Delete from several calendars: one line per calendar, with the part in brackets after the name ("WGM (organiser)", "TBWELLER (guest)"). If the organiser's calendar is ticked, a last check: "You're the organiser, so guests will be told it's cancelled", with Delete and Go back.
+- Compose polish (docs/mockups/beta7-compose.html): approved for beta 7, plus: every Send button (the top one too, and anywhere else there's a Send) has the Send later drop-down beside it. Emoji opens the Windows emoji panel.
+- Later, not beta 7: rethink the sidebar footer. Scheduled, Calendar, Tasks and Invitations as small cards above the line, Help & Feedback and Settings below it; in Settings, Updates and Diagnostics move up with the other tabs. Mock up first.
+
+- Not a bug: no "Make a task?" suggestion on the test email ("by Wednesday"); that suggestion isn't built yet (it would have been a good example).
+- **Coming up layout (ComingUp.tsx):** the headings don't match ("Later" is smaller than "Tasks today"), "Open Tasks ›" is too big and bold, and the sections run together. Same heading style for Today, Tasks today and Later; more space (or a thin rule) before each section, mostly before Later; Open Tasks as a small quiet link, perhaps beside the "2 to do" count.
 
 ## 0.7.3 beta 6 (built 13 Nov 2026)
 
@@ -66,6 +118,10 @@ Mock-ups: docs/mockups/tasks-and-places.html, then docs/mockups/tasks-view.html 
 - **Places, decided 12 Nov 2026:** build suggestions from places used before and contacts' addresses first. Then Google Places as an optional extra: a "Place search (Google)" switch in Settings, off by default, using a key Todd makes himself in the Cloud project (Places API turned on, billing account added, key restricted to the Places API). The key is typed into the app and kept in Windows Credential Manager like the Google client secret. Add it to the setup guide (SETUP.md and the first-run guide) as an optional step, with the free allowance explained.
 - **Tasks from the phone (worked out 12 Nov 2026):** Claude's directory has no Google Tasks connector (Todoist, TickTick and others exist). Claude's iPhone app can read and make Apple Reminders natively. Routes that work: (1) Google Tasks app on the phone, shown in Well Good Mail once tasks are built; (2) an "add_task" AI Connection tool, so any Claude session on the PC (including from the phone through Remote Control) adds tasks that sync to Google Tasks; (3) "Make tasks from this email": ask Claude on the phone to email a reminders list or note, then turn its lines into tasks here. A direct phone-to-Google-Tasks route would need a custom Google Tasks connector (a small hosted server); a possible business hub project.
 - His phone: Siri can't add to Google Tasks directly (Microsoft To Do has Siri support; Google Tasks needs a Shortcut or IFTTT). Claude's iPhone app has an "Ask Claude" Shortcut for the Action Button, but Claude on the phone can't add Google Tasks without a Tasks connector.
+
+## Future idea: a Well Good tasks and calendar app (Todd, 13 Nov 2026)
+
+Once Tasks here feels right: a separate tasks and calendar app that combines every account (Google Tasks on the phone makes you switch accounts, with no combined view). Could start as a web app; a native iOS app once the Apple developer account is sorted for the teleprompter app.
 
 ## Future idea: tasks (12 Nov 2026)
 

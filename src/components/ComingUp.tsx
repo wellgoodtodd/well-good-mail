@@ -10,7 +10,7 @@ import { calendarFailureToast } from '../lib/plainErrors';
 import { upcoming, alertMute } from '../lib/reminders';
 import { meetingsSoon, dedupeEvents, visibleEvents, inGroupView, meetingPhase, meetingPhaseText, type CalendarGroup } from '../lib/meetings';
 import type { CalendarEvent } from '../lib/types';
-import { TasksToday } from './Tasks';
+import { TaskLines, useTasksBetween } from './TaskBlocks';
 import { AccountDots, JoinButton, Switch, dayText, timeText, useMinute, useCalendarFilter } from './calendarBits';
 import { CalendarGroupsDialog, pickGroup } from './CalendarGroups';
 import { startNewEvent } from './NewEvent';
@@ -234,74 +234,103 @@ function joinToday(e: CalendarEvent, now = Date.now()): boolean {
   return Boolean(e.meetingUrl) && e.end > now && e.start < endOfToday;
 }
 
-/** The next week, as a list. Click one for its details. */
-export function ComingUpList({ limit = 8, onPick }: { limit?: number; onPick: (e: CalendarEvent) => void }) {
-  const events = useMail((s) => s.events);
-  const { hidden, only } = useCalendarFilter();
-  const tick = useMinute();
-  const next = useMemo(() => upcoming(visibleEvents(events, hidden, only)).slice(0, limit), [events, hidden, only, tick, limit]); // eslint-disable-line react-hooks/exhaustive-deps
-  const endOfToday = new Date().setHours(24, 0, 0, 0);
-  const today = next.filter((e) => e.start < endOfToday);
-  const later = next.filter((e) => e.start >= endOfToday);
-  const row = (e: CalendarEvent) => (
-    <div key={e.id} className="coming-row" role="button" tabIndex={0} onClick={() => onPick(e)} onKeyDown={(k) => { if (k.key === 'Enter' || k.key === ' ') { k.preventDefault(); onPick(e); } }}>
+/** Join shows on a picked day for any call on it that hasn't finished. */
+function joinOnDay(e: CalendarEvent, now = Date.now()): boolean {
+  return Boolean(e.meetingUrl) && e.end > now;
+}
+
+/** One event line in a block. */
+function EventLine({ e, onPick, when, join }: { e: CalendarEvent; onPick: (e: CalendarEvent) => void; when: string; join: boolean }) {
+  return (
+    <div className="coming-row" role="button" tabIndex={0} onClick={() => onPick(e)} onKeyDown={(k) => { if (k.key === 'Enter' || k.key === ' ') { k.preventDefault(); onPick(e); } }}>
       <span className="acc-dots col" style={{ marginTop: 6 }}><AccountDots event={e} /></span>
       <div className="grow">
-        <div style={{ fontWeight: 500 }}>{e.title}</div>
-        <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>{dayText(e.start)}{!e.allDay && `, ${timeText(e.start)}`} · {e.calendarName}</div>
+        <div className="cu-title">{e.title}</div>
+        <div className="cu-when">{when} · {e.calendarName}</div>
       </div>
       {e.myResponse === 'waiting' && !e.cancelled && isInvitation(e) && <NotAnsweredTag />}
-      {joinToday(e) && <JoinButton event={e} small />}
+      {join && <JoinButton event={e} small />}
     </div>
-  );
-  // Today first (its events, then today's tasks), then the rest of the week.
-  return (
-    <>
-      {today.length > 0 && <div className="cu-sec">Today</div>}
-      {today.map(row)}
-      <TasksToday />
-      {later.length > 0 && <div className="cu-sec">Later</div>}
-      {later.map(row)}
-      {!next.length && <div style={{ color: 'var(--text-muted)' }}>No events in the next week</div>}
-    </>
   );
 }
 
-/** The day you picked in the calendar, listed in full, under Coming up. */
-export function PickedDay({ onPick }: { onPick: (e: CalendarEvent) => void }) {
-  const day = useCalDay((c) => c.day);
+/** A block: a heading, then Events and Tasks under their own small headings. */
+function Block({ title, aside, events, tasks, taskCount, empty, className, children }: { title: React.ReactNode; aside?: React.ReactNode; events: React.ReactNode[]; tasks: React.ReactNode; taskCount: number; empty: string; className?: string; children?: React.ReactNode }) {
+  return (
+    <section className={`cu-block ${className || ''}`}>
+      <div className="cu-bh"><h3>{title}</h3>{aside}</div>
+      {events.length > 0 && <><div className="cu-sec">Events</div>{events}</>}
+      {taskCount > 0 && <><div className="cu-sec">Tasks</div>{tasks}</>}
+      {!events.length && !taskCount && <div className="cu-empty">{empty}</div>}
+      {children}
+    </section>
+  );
+}
+
+const fullDay = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+
+/** The day picked in the calendar: its events (with Join for its calls) and tasks. Click the day again, ✕ or Esc to put it away. */
+function PickedBlock({ day, onPick }: { day: number; onPick: (e: CalendarEvent) => void }) {
   const near = useMail((s) => s.events);
   const copy = useCalCache((c) => c.events);
   const { hidden, only } = useCalendarFilter();
+  const end = day + 86400000;
   const list = useMemo(() => {
-    if (day === undefined) return [];
-    const end = day + 86400000;
     const seen = new Set(near.map((e) => e.id));
     return dedupeEvents(visibleEvents([...near, ...cachedBetween(copy, day, end).filter((e) => !seen.has(e.id))], hidden, only))
       .filter((e) => e.start < end && e.end > day)
       .sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start - b.start);
-  }, [day, near, copy, hidden, only]);
-  if (day === undefined) return null;
-  const title = new Date(day).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  }, [day, end, near, copy, hidden, only]);
+  const tasks = useTasksBetween(day, end);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) selectDay(undefined); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, []);
+  const isToday = new Date(day).toDateString() === new Date().toDateString();
   return (
-    <div className="card rem-coming picked-day">
-      <div className="picked-head">
-        <h2>{new Date(day).toDateString() === new Date().toDateString() ? `Today, ${title}` : title}</h2>
-        <button className="btn small" onClick={() => openDay(day)}>Open day</button>
-        <button className="icon-btn" aria-label="Clear the picked day" onClick={() => selectDay(undefined)}><Icon name="close" size={14} /></button>
+    <Block className="cu-picked" title={isToday ? `Today, ${fullDay(day)}` : fullDay(day)}
+      aside={<button className="icon-btn" aria-label="Put the picked day away" title="Put away (Esc)" onClick={() => selectDay(undefined)}><Icon name="close" size={14} /></button>}
+      events={list.map((e) => <EventLine key={e.id} e={e} onPick={onPick} join={joinOnDay(e)} when={e.allDay || e.end - e.start >= 86400000 ? 'All day' : `${timeText(e.start)} to ${timeText(e.end)}`} />)}
+      tasks={<TaskLines tasks={tasks} />} taskCount={tasks.length} empty="Nothing on.">
+      <div className="cu-links">
+        <button className="link-btn" onClick={() => startNewEvent({ day })}>+ New event</button>
+        <button className="link-btn" onClick={() => openDay(day)}>Open day</button>
       </div>
-      <div className="rem-scroll">
-        <button className="btn ghost small picked-new" onClick={() => startNewEvent({ day })}><Icon name="plus" size={13} /> New event on {new Date(day).toLocaleDateString('en-GB', { weekday: 'long' })}</button>
-        {!list.length ? <div style={{ color: 'var(--text-muted)' }}>Nothing on</div> : list.map((e) => (
-          <div key={e.id} className="coming-row" role="button" tabIndex={0} onClick={() => onPick(e)} onKeyDown={(k) => { if (k.key === 'Enter' || k.key === ' ') { k.preventDefault(); onPick(e); } }}>
-            <span className="acc-dots col" style={{ marginTop: 6 }}><AccountDots event={e} /></span>
-            <div className="grow">
-              <div style={{ fontWeight: 500 }}>{e.title}</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>{e.allDay || e.end - e.start >= 86400000 ? 'All day' : `${timeText(e.start)} to ${timeText(e.end)}`} · {e.calendarName}</div>
-            </div>
-            {joinToday(e) && <JoinButton event={e} small />}
-          </div>
-        ))}
+    </Block>
+  );
+}
+
+/**
+ * Coming up, in blocks: the day you picked (only while one is picked), Today, then Later (the next seven days), each
+ * with its events and then its tasks. All events opens the List view, All Tasks the Tasks view.
+ */
+export function ComingUpBlocks({ onPick, showPicked, limit = 10 }: { onPick: (e: CalendarEvent) => void; showPicked?: boolean; limit?: number }) {
+  const events = useMail((s) => s.events);
+  const { hidden, only } = useCalendarFilter();
+  const tick = useMinute();
+  const picked = useCalDay((c) => c.day);
+  const next = useMemo(() => upcoming(visibleEvents(events, hidden, only)), [events, hidden, only, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const startToday = new Date().setHours(0, 0, 0, 0);
+  const endOfToday = startToday + 86400000;
+  const today = next.filter((e) => e.start < endOfToday);
+  const later = next.filter((e) => e.start >= endOfToday).slice(0, limit);
+  const todayTasks = useTasksBetween(startToday, endOfToday, true);
+  const laterTasks = useTasksBetween(endOfToday, endOfToday + 6 * 86400000).filter((t) => !t.done);
+  const set = useSettings((s) => s.set);
+  const go = (view: 'list' | 'tasks') => { openScreen('reminders'); set(view === 'tasks' ? { remindersView: 'tasks', tasksPlace: 'all' } : { remindersView: 'list' }); };
+  return (
+    <div className="cu-blocks">
+      {showPicked && picked !== undefined && <PickedBlock day={picked} onPick={onPick} />}
+      <Block title="Today" aside={<span className="cu-aside">{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>}
+        events={today.map((e) => <EventLine key={e.id} e={e} onPick={onPick} join={joinToday(e)} when={e.allDay || e.end - e.start >= 86400000 ? 'All day' : `${timeText(e.start)} to ${timeText(e.end)}`} />)}
+        tasks={<TaskLines tasks={todayTasks} />} taskCount={todayTasks.length} empty="Nothing else today." />
+      <Block title="Later" aside={<span className="cu-aside">Next 7 days</span>}
+        events={later.map((e) => <EventLine key={e.id} e={e} onPick={onPick} join={false} when={`${dayText(e.start)}${e.allDay ? '' : `, ${timeText(e.start)}`}`} />)}
+        tasks={<TaskLines tasks={laterTasks} showDay />} taskCount={laterTasks.length} empty="Nothing in the next week." />
+      <div className="cu-links cu-foot">
+        <button className="link-btn" onClick={() => go('list')}>All events ›</button>
+        <button className="link-btn" onClick={() => go('tasks')}>All Tasks ›</button>
       </div>
     </div>
   );
@@ -318,7 +347,7 @@ export function ComingUpPanel() {
         <CalendarPicker iconOnly />
         <button className="icon-btn" aria-label="Close Coming up" onClick={() => set({ comingUpOpen: false })}><Icon name="close" size={14} /></button>
       </div>
-      <ComingUpList limit={12} onPick={setOpen} />
+      <ComingUpBlocks onPick={setOpen} />
       {open && <EventPreview event={open} onClose={() => setOpen(null)} />}
     </aside>
   );

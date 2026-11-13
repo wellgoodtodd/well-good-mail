@@ -24,6 +24,8 @@ import type { Account, AccountGroup, Folder, Scope, SystemFolder, View } from '.
 import { useOoo } from '../lib/oooStore';
 import { isAway } from '../lib/ooo';
 import { useInvitations, openInvitations } from './Invitations';
+import { useTasks, tasksInGroup, todayCount, startTasks } from '../lib/tasks';
+import '../styles/tasks.css';
 
 const FOLDERS: { folder: SystemFolder; icon: IconName; name: string; all: string }[] = [
   { folder: 'inbox', icon: 'inbox', name: 'Inbox', all: 'All Inboxes' },
@@ -768,7 +770,7 @@ function textOn(hex: string): string {
 }
 
 /**
- * The shortcuts at the bottom of the sidebar, the same on every screen: Scheduled, Reminders, Help & Feedback and
+ * The shortcuts at the bottom of the sidebar, the same on every screen: Scheduled, Calendar, Tasks, Help & Feedback and
  * Settings. In Settings, the Settings line gives way to the version number.
  */
 export function SideFooter({ inSettings }: { inSettings?: boolean }) {
@@ -778,6 +780,10 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
   const invitations = useInvitations().count;
   const alerts = useSettingsAlerts();
   const version = useUpdates((u) => u.currentVersion);
+  const taskCount = useTaskCount();
+  const remindersView = useSettings((st) => st.remindersView);
+  const onTasks = screen === 'reminders' && remindersView === 'tasks';
+  const onCalendar = screen === 'reminders' && remindersView !== 'tasks';
   return (
     <div className="side-footer">
       <div className="side-row">
@@ -786,15 +792,28 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
         </button>
       </div>
       <div className="side-row">
-        <button className={`side-item ${screen === 'reminders' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'reminders' ? 'mail' : 'reminders')}>
+        <button className={`side-item ${onCalendar ? 'selected' : ''}`} onClick={() => {
+          if (onCalendar) return openScreen('mail');
+          if (onTasks) useSettings.getState().set({ remindersView: 'calendar' });
+          openScreen('reminders');
+        }}>
           <Icon name="calendar" /><span className="name">Calendar</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}
+        </button>
+      </div>
+      <div className="side-row">
+        <button className={`side-item ${onTasks ? 'selected' : ''}`} title="Tasks due today and overdue" onClick={() => {
+          if (onTasks) return openScreen('mail');
+          useSettings.getState().set({ remindersView: 'tasks' });
+          openScreen('reminders');
+        }}>
+          <Icon name="check" /><span className="name">Tasks</span>{taskCount ? <span className="count">{taskCount}</span> : null}
         </button>
       </div>
       {/* Only while new invitations wait for an answer. */}
       {invitations > 0 && (
         <div className="side-row">
           <button className="side-item" title="Answer your new invitations" onClick={openInvitations}>
-            <Icon name="mail" /><span className="name">Invitations</span><span className="count inv-count">{invitations}</span>
+            <Icon name="mail" /><span className="name">Invitations</span><span className="side-badge">New</span><span className="count">{invitations}</span>
           </button>
         </div>
       )}
@@ -816,6 +835,21 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
       </div>
     </div>
   );
+}
+
+/** Open tasks due today or overdue, in the Calendar Group being looked at, for the count beside Tasks. */
+function useTaskCount() {
+  // The count shows from the start, not only once a tasks screen has been opened.
+  // Only once the accounts are in, since starting reads the saved tasks for those accounts.
+  const accountCount = useMail((m) => m.accounts.length);
+  useEffect(() => { if (accountCount) startTasks(); }, [accountCount]);
+  const tasks = useTasks((t) => t.tasks);
+  const calendarGroup = useSettings((st) => st.calendarGroup);
+  const calendarGroups = useSettings((st) => st.calendarGroups);
+  // Worked out again on the hour, so overnight the count moves on to the new day.
+  const [hour, setHour] = useState(() => new Date().getHours());
+  useEffect(() => { const t = () => setHour(new Date().getHours()); window.addEventListener('wgm-minute', t); return () => window.removeEventListener('wgm-minute', t); }, []);
+  return useMemo(() => todayCount(tasksInGroup(tasks, calendarGroup)), [tasks, calendarGroup, calendarGroups, hour]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** How many reminders are waiting, for the count beside Reminders. */

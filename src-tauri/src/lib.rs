@@ -7,6 +7,7 @@
 mod crash;
 mod mailto;
 mod dav;
+mod emoji;
 mod files;
 mod imapmail;
 mod mcp;
@@ -232,6 +233,7 @@ pub fn run() {
             wake::schedule_wake,
             wake::cancel_wake,
             set_taskbar_badge,
+            emoji::open_emoji_panel,
             files::open_attachment,
             files::mark_downloaded,
             files::save_to_folder,

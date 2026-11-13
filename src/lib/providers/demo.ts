@@ -304,9 +304,22 @@ export class DemoProvider implements MailProvider {
   }
   async createTaskList(name: string): Promise<TaskList> {
     const d = demoTaskData(this.account.id);
-    const l = { id: `${this.account.id}|list${d.lists.length}`, accountId: this.account.id, providerId: `list${d.lists.length}`, name };
+    const n = `list${Date.now().toString(36)}`;
+    const l = { id: `${this.account.id}|${n}`, accountId: this.account.id, providerId: n, name };
     d.lists.push(l);
     return l;
+  }
+  async renameTaskList(list: TaskList, name: string): Promise<TaskList> {
+    await new Promise((r) => setTimeout(r, 250));
+    const d = demoTaskData(this.account.id);
+    d.lists = d.lists.map((l) => (l.id === list.id ? { ...l, name } : l));
+    return { ...list, name };
+  }
+  async deleteTaskList(list: TaskList): Promise<void> {
+    await new Promise((r) => setTimeout(r, 250));
+    const d = demoTaskData(this.account.id);
+    d.lists = d.lists.filter((l) => l.id !== list.id);
+    d.tasks = d.tasks.filter((t) => t.listId !== list.id);
   }
 
   async addAwayEvent(): Promise<string> { return `away-${Date.now()}`; }

@@ -3,7 +3,10 @@
 import { create } from 'zustand';
 
 interface Pending {
-  kind: 'confirm' | 'text' | 'keep' | 'choice';
+  kind: 'confirm' | 'text' | 'keep' | 'choice' | 'pick';
+  /** For a pick: the tick boxes, and the button wording for what's ticked. */
+  options?: PickOption[];
+  pickLabel?: (ids: string[]) => string;
   /** For a choice: the buttons, left to right; the last is the main one unless one says primary. */
   choices?: Choice[];
   title: string;
@@ -17,6 +20,8 @@ interface Pending {
   optOutLabel?: string;
   resolve: (v: string | boolean | null) => void;
 }
+
+export interface PickOption { id: string; label: string; note?: string; dot?: string; checked?: boolean }
 
 export interface Choice { id: string; label: string; primary?: boolean; danger?: boolean }
 
@@ -47,6 +52,13 @@ export function askKeepDraft(): Promise<{ choice: 'save' | 'discard' | 'cancel';
 export function askChoice(title: string, message: string | undefined, choices: Choice[], cancelLabel = 'Cancel'): Promise<string | null> {
   return new Promise((resolve) => {
     useDialogs.setState({ pending: { kind: 'choice', title, message, confirmLabel: '', cancelLabel, choices, resolve: (v) => resolve(typeof v === 'string' ? v : null) } });
+  });
+}
+
+/** Tick boxes, with Select all. Resolves to the ids ticked, or null for Cancel. The button says what will happen. */
+export function askPick(title: string, message: string | undefined, options: PickOption[], pickLabel: (ids: string[]) => string): Promise<string[] | null> {
+  return new Promise((resolve) => {
+    useDialogs.setState({ pending: { kind: 'pick', title, message, confirmLabel: '', options, pickLabel, resolve: (v) => resolve(typeof v === 'string' ? (JSON.parse(v) as string[]) : null) } });
   });
 }
 

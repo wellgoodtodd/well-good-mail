@@ -3,11 +3,13 @@
 // new AI app happens in a pop-up checklist. Only a person in the app can change any of this, never the connection.
 import { useEffect, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
-import { useDialogFocus, useMenu } from './ui';
+import { useDialogFocus, useMenu, type MenuItem } from './ui';
 import { useMail, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
+import { useTasks, startTasks, defaultList } from '../lib/tasks';
+import type { Account, TaskList } from '../lib/types';
 import { invoke, isTauri } from '../lib/platform';
-import { CAPABILITIES, IDLE_CHOICES, NEVER, LEVEL_WORDS, effectiveMode, tidy, type AccountLevel, type Mode } from '../lib/mcp/permissions';
+import { CAPABILITIES, IDLE_CHOICES, NEVER, LEVEL_WORDS, effectiveMode, tidy, type AccountLevel, type McpSettings, type Mode } from '../lib/mcp/permissions';
 import { READY, TOOLS } from '../lib/mcp/tools';
 import { setupText, pauseMcp, resumeMcp } from '../lib/mcp/server';
 import { useActivity, clearActivity } from '../lib/mcp/activity';
@@ -82,6 +84,80 @@ const readyCaps = () => CAPABILITIES.filter((c) => TOOLS.some((t) => READY.has(t
 
 const MODE_WORDS: Record<Mode, string> = { off: 'off', ask: 'asks', allow: 'allowed' };
 const modeOptions = (max: Mode) => [{ value: 'off' as Mode, label: 'Off' }, { value: 'ask' as Mode, label: 'Ask' }, { value: 'allow' as Mode, label: 'Allow', disabled: max !== 'allow' }];
+
+/** True when this account has its own setting for a switch that isn't what every account gets. */
+export const differs = (mcp: McpSettings, accountId: string, capabilityId: string) => {
+  const own = mcp.overrides[accountId]?.[capabilityId];
+  return own !== undefined && own !== mcp.modes[capabilityId];
+};
+
+const listWords = (l: TaskList | undefined, accounts: Account[]) => {
+  if (!l) return 'none yet';
+  const a = accounts.find((x) => x.id === l.accountId);
+  return a ? `${l.name}, ${a.label || a.email}` : l.name;
+};
+const groupName = (id: string) => (id ? useSettings.getState().calendarGroups.find((g) => g.id === id)?.name : undefined);
+
+/** Where AI apps' tasks go, in words, for the Add tasks row. The same setting as Settings › Calendar & Reminders › Tasks. */
+export function taskTargetWords(target: string, accounts: Account[]): string {
+  if (target === 'ask') return 'Ask each time';
+  if (target.startsWith('group:')) {
+    const id = target.slice(6);
+    const name = groupName(id);
+    return `${name ? `${name}'s default` : 'The default list'} (${listWords(defaultList(id), accounts)})`;
+  }
+  const l = useTasks.getState().lists.find((x) => x.id === target);
+  return l ? listWords(l, accounts) : `The default list (${listWords(defaultList(''), accounts)})`;
+}
+
+/** The choices for the Add tasks row: ask, a group's default list, or any list, account by account in the Accounts order. */
+function taskTargetItems(target: string, pick: (v: string) => void, accounts: Account[]): MenuItem[] {
+  const lists = useTasks.getState().lists;
+  const groups = [{ id: '', name: 'All calendars' }, ...useSettings.getState().calendarGroups];
+  const ordered = [...accounts].sort((a, b) => a.order - b.order).filter((a) => lists.some((l) => l.accountId === a.id));
+  return [
+    { label: 'Ask each time', active: target === 'ask', onClick: () => pick('ask') },
+    { divider: true },
+    { heading: 'Default list of a group' },
+    ...groups.map((g) => ({ label: `${g.id ? g.name : 'All calendars'} (${defaultList(g.id)?.name || 'none yet'})`, active: target === `group:${g.id}`, onClick: () => pick(`group:${g.id}`) })),
+    ...(ordered.length ? [{ divider: true }, { heading: 'A list' } as MenuItem] : []),
+    ...ordered.map((a) => ({
+      label: a.label || a.email, dot: a.colour, active: lists.some((l) => l.accountId === a.id && l.id === target),
+      submenu: lists.filter((l) => l.accountId === a.id).map((l) => ({ label: l.name, active: l.id === target, onClick: () => pick(l.id) })),
+    })),
+  ];
+}
+
+/** Each AI app's own mark, small like an app icon. Drawn here so nothing is fetched. */
+export function AppLogo({ id, letter }: { id: AppId | 'add'; letter?: string }) {
+  const tile = (bg: string, child: ReactNode, extra?: string) => <span className={`ai-logo ${extra || ''}`} style={{ background: bg }} aria-hidden="true">{child}</span>;
+  // Claude's sparkle: rays of different lengths round a centre.
+  const sparkle = (colour: string) => (
+    <svg viewBox="0 0 24 24" width="14" height="14">
+      <g stroke={colour} strokeWidth="2.6" strokeLinecap="round">
+        {[0, 45, 90, 135, 180, 225, 270, 315, 22, 202, 112, 292].map((deg, i) => <line key={deg} x1="12" y1="12" x2="12" y2={i < 8 ? (i % 2 ? 4.5 : 2.5) : 5.5} transform={`rotate(${deg} 12 12)`} />)}
+      </g>
+    </svg>
+  );
+  switch (id) {
+    case 'claude-desktop': return tile('#D97757', sparkle('#FCF2EE'));
+    case 'claude-code': return tile('#1F1E1D', <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#E08A6A" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m5 7 5 5-5 5" /><path d="M13 17h6" /></svg>);
+    case 'codex': return tile('#0D0D0D', (
+      // ChatGPT's knot: six rounded links turning round the centre.
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" strokeWidth="1.7">
+        {[0, 60, 120].map((deg) => <ellipse key={deg} cx="12" cy="12" rx="8.5" ry="4" transform={`rotate(${deg} 12 12)`} />)}
+      </svg>
+    ));
+    case 'gemini': return tile('#fff', (
+      <svg viewBox="0 0 24 24" width="15" height="15">
+        <defs><linearGradient id="ai-gemini" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#1C7DFF" /><stop offset="0.55" stopColor="#7B6CF6" /><stop offset="1" stopColor="#E66F8B" /></linearGradient></defs>
+        <path d="M12 2c.6 5.3 4.7 9.4 10 10-5.3.6-9.4 4.7-10 10-.6-5.3-4.7-9.4-10-10 5.3-.6 9.4-4.7 10-10Z" fill="url(#ai-gemini)" />
+      </svg>
+    ), 'light');
+    case 'add': return tile('transparent', <Icon name="plus" size={12} />, 'add');
+    default: return tile('var(--bg-subtle)', <span className="ai-logo-letter">{(letter || 'A').slice(0, 1).toUpperCase()}</span>, 'plain');
+  }
+}
 
 /** The pop-up that walks you through connecting one AI app, ticking itself as each step happens. */
 function SetupDialog({ initial, onClose, onChanged }: { initial: AppId; onClose: () => void; onChanged: () => void }) {
@@ -214,8 +290,13 @@ export function AiConnectionTab() {
   const menu = useMenu();
   const [setup, setSetup] = useState<AppId | null>(null);
   const [installed, setInstalled] = useState<Partial<Record<AppId, boolean>>>({});
-  const [customising, setCustomising] = useState<string | null>(null);
+  const [unfolded, setUnfolded] = useState<Set<string>>(() => new Set());
   const [testing, setTesting] = useState<AppId | null>(null);
+  const aiTaskTarget = useSettings((s) => s.aiTaskTarget);
+  useTasks((x) => x.lists); // the Add tasks "Into" words name a list, so follow the lists as they load
+  useSettings((s) => s.taskDefaults);
+  useSettings((s) => s.calendarGroups);
+  useEffect(() => { if (mcp.enabled) startTasks(); }, [mcp.enabled]);
   const save = (patch: Partial<typeof mcp>) => set({ mcp: tidy({ ...mcp, ...patch }) });
   const ordered = [...accounts].filter((a) => a.kind !== 'demo').sort((a, b) => a.order - b.order);
   const levels = ordered.map((a) => mcp.accounts[a.id] ?? 'off');
@@ -240,9 +321,11 @@ export function AiConnectionTab() {
   const takeOut = async (id: AppId) => {
     try { toast({ text: await invoke<string>('mcp_install', { kind: id, remove: true }), ttl: 8000 }); loadInstalled(); } catch (e) { toast({ text: e instanceof Error ? e.message : String(e), ttl: 10000 }); }
   };
+  // The same overrides the account's own AI page uses (Settings › Accounts), so changing either changes both.
+  // Picking the same as every account clears the account's own setting, as it does there.
   const setOverride = (accountId: string, capability: string, mode: Mode | undefined) => {
     const own = { ...(mcp.overrides[accountId] || {}) };
-    if (mode === undefined) delete own[capability]; else own[capability] = mode;
+    if (mode === undefined || mode === mcp.modes[capability]) delete own[capability]; else own[capability] = mode;
     save({ overrides: { ...mcp.overrides, [accountId]: own } });
   };
 
@@ -282,6 +365,7 @@ export function AiConnectionTab() {
           return (
             <div key={a.id} className="ai-row">
               <span className={`ai-dot ${live ? 'on' : ''}`} aria-hidden="true" />
+              <AppLogo id={a.id} letter={a.id === 'other' ? activity.client : undefined} />
               <div className="grow"><span>{a.label}</span><small>{live ? `Connected${activity.lastCall ? `. Last request ${timeOf(activity.lastCall)}` : ''}` : activity.client === HELLO_NAME[a.id] && activity.lastHello ? `Added. Last connected ${new Date(activity.lastHello).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Added. Not used yet'}</small></div>
               <button className="btn small" disabled={!mcp.enabled || testing !== null || !isTauri()} onClick={() => void testApp(a.id)}>{testing === a.id ? 'Testing...' : 'Test'}</button>
               <button className="icon-btn" aria-label={`More for ${a.label}`} onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
@@ -293,6 +377,7 @@ export function AiConnectionTab() {
         })}
         <div className="ai-row">
           <span className="ai-dot add" aria-hidden="true" />
+          <AppLogo id="add" />
           <div className="grow"><span>{connectedApps.length ? 'Connect another AI app' : 'Connect an AI app'}</span><small>Claude Desktop, Claude Code, ChatGPT desktop, Gemini CLI or another app.</small></div>
           <button className={connectedApps.length ? 'btn small' : 'btn primary small'} onClick={() => setSetup(connectedApps.length ? (APPS.find((a) => !connectedApps.includes(a))?.id || 'other') : 'claude-desktop')}>Set up</button>
         </div>
@@ -311,33 +396,16 @@ export function AiConnectionTab() {
           </div>
         )}
         {ordered.map((a) => {
-          const own = mcp.overrides[a.id] || {};
           const level = mcp.accounts[a.id] ?? 'off';
-          const mine = caps.filter((c) => level === 'write' || c.group === 'read');
-          const changed = mine.filter((c) => own[c.id] !== undefined);
-          const open = customising === a.id;
+          // How many switches this account has set its own way (the fold-out rows under "What it can do").
+          const changed = caps.filter((c) => (level === 'write' || c.group === 'read') && differs(mcp, a.id, c.id)).length;
           return (
             <div key={a.id} className="ai-acc">
               <div className="ai-row">
                 <span className="dot" style={{ background: a.colour, width: 10, height: 10, borderRadius: '50%', display: 'inline-block', flex: 'none' }} />
-                <div className="grow"><span>{a.label || a.email}</span><small>{changed.length ? `Customised: ${changed.map((c) => `${c.label.toLowerCase()} ${own[c.id] === 'allow' ? 'allowed' : own[c.id] === 'ask' ? 'asks' : 'off'}`).join(', ')}` : a.email}</small></div>
-                {(mcp.accounts[a.id] ?? 'off') !== 'off' && <button className="link-btn ai-customise" aria-expanded={open} onClick={() => setCustomising(open ? null : a.id)}>{open ? 'Done' : changed.length ? 'Edit' : 'Customise'}</button>}
-                <Segmented<AccountLevel> label={`AI access for ${a.email}`} value={mcp.accounts[a.id] ?? 'off'} onChange={(v) => save({ accounts: { ...mcp.accounts, [a.id]: v } })} options={LEVELS} />
+                <div className="grow"><span>{a.label || a.email}</span><small>{level !== 'off' && changed ? `${a.email}. Set differently for ${changed} ${changed === 1 ? 'switch' : 'switches'} below` : a.email}</small></div>
+                <Segmented<AccountLevel> label={`AI access for ${a.email}`} value={level} onChange={(v) => save({ accounts: { ...mcp.accounts, [a.id]: v } })} options={LEVELS} />
               </div>
-              {open && (
-                <div className="ai-own">
-                  <p className="hint" style={{ margin: '0 0 4px' }}>Only what you change here is different for {a.label || a.email}. Everything else follows "What it can do".</p>
-                  {GROUPS.filter((g) => mine.some((c) => c.group === g.id)).map((g) => [
-                    <div key={g.id} className="ai-group">{g.label}</div>,
-                    ...mine.filter((c) => c.group === g.id).map((c) => (
-                    <div key={c.id} className="ai-row">
-                      <div className="grow"><span className={own[c.id] === undefined ? 'muted' : ''}>{c.label}</span></div>
-                      {own[c.id] === undefined ? <small className="muted ai-same">Same as all</small> : <button className="link-btn ai-same" onClick={() => setOverride(a.id, c.id, undefined)}>Reset</button>}
-                      <Segmented<Mode> label={`${c.label} for ${a.email}`} value={effectiveMode(mcp, c.id, a.id)} onChange={(v) => setOverride(a.id, c.id, v)} options={modeOptions(c.max)} />
-                    </div>
-                  ))])}
-                </div>
-              )}
             </div>
           );
         })}
@@ -345,7 +413,7 @@ export function AiConnectionTab() {
 
       <section className="set-section">
         <h2>What it can do</h2>
-        <p className="hint">For every shared account, unless you customise one above. Writing applies only to accounts set to Read and write. Ask means it asks you each time. Tidying, invitations and sending come later, each with its own switch.</p>
+        <p className="hint">Each switch is for every shared account. Open a switch with its arrow to set it for each account. Writing applies only to accounts set to Read and write. Ask means it asks you each time. Tidying, invitations and sending come later, each with its own switch.</p>
         {(() => {
           // One row to set every switch at once. Allow only goes as far as each switch allows, so sending still asks.
           const values = new Set(caps.map((c) => mcp.modes[c.id]));
@@ -359,18 +427,51 @@ export function AiConnectionTab() {
         })()}
         {GROUPS.filter((g) => caps.some((c) => c.group === g.id)).map((g) => [
           <div key={g.id} className="ai-group">{g.label}</div>,
-          ...caps.filter((c) => c.group === g.id).map((c) => (
-          <div key={c.id} className="ai-row">
-            <div className="grow"><span>{c.label}</span><small>{c.description}</small>
-              {(() => {
-                // Say so when an account follows its own setting, so this switch never looks like it is being ignored.
-                const own = ordered.filter((a) => (mcp.accounts[a.id] ?? 'off') !== 'off' && mcp.overrides[a.id]?.[c.id] !== undefined && mcp.overrides[a.id][c.id] !== mcp.modes[c.id]);
-                return own.length ? <small className="ai-differs">Except {own.map((a) => `${a.label || a.email} (${MODE_WORDS[mcp.overrides[a.id][c.id]]})`).join(', ')}, set under Accounts</small> : null;
-              })()}
-            </div>
-            <Segmented<Mode> label={c.label} value={mcp.modes[c.id]} onChange={(v) => save({ modes: { ...mcp.modes, [c.id]: v } })} options={modeOptions(c.max)} />
-          </div>
-        ))])}
+          ...caps.filter((c) => c.group === g.id).map((c) => {
+            const open = unfolded.has(c.id);
+            // Accounts that can use this switch at all: shared, and Read and write for anything beyond looking.
+            const usable = (a: (typeof ordered)[number]) => { const l = mcp.accounts[a.id] ?? 'off'; return l === 'write' || (l === 'read' && c.group === 'read'); };
+            const different = ordered.filter((a) => usable(a) && differs(mcp, a.id, c.id));
+            const fold = () => setUnfolded((s) => { const n = new Set(s); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; });
+            return (
+              <div key={c.id} className={`ai-cap ${open ? 'open' : ''}`}>
+                <div className="ai-row">
+                  <button className="icon-btn ai-fold" aria-expanded={open} aria-label={open ? `Close ${c.label} for each account` : `Set ${c.label} for each account`} disabled={!ordered.length} onClick={fold}><Icon name="chevronDown" size={14} /></button>
+                  <div className="grow">
+                    <span className="ai-cap-name" onClick={ordered.length ? fold : undefined}>{c.label}</span>
+                    {c.id === 'organise.task' ? <small>Into: <button className="link-btn ai-into" aria-label="Where tasks from AI apps go" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), taskTargetItems(aiTaskTarget, (v) => set({ aiTaskTarget: v }), accounts))}>{taskTargetWords(aiTaskTarget, accounts)} <Icon name="chevronDown" size={11} /></button></small> : <small>{c.description}</small>}
+                  </div>
+                  <div className="ai-cap-right">
+                    <Segmented<Mode> label={c.label} value={mcp.modes[c.id]} onChange={(v) => save({ modes: { ...mcp.modes, [c.id]: v } })} options={modeOptions(c.max)} />
+                    {different.length > 0 && <button className="ai-flag" title={different.map((a) => `${a.label || a.email}: ${MODE_WORDS[effectiveMode(mcp, c.id, a.id)]}`).join(', ')} onClick={() => { if (!open) fold(); }}>▲ {different.length} {different.length === 1 ? 'account' : 'accounts'} set differently</button>}
+                  </div>
+                </div>
+                {open && (
+                  <div className="ai-per">
+                    {ordered.map((a) => {
+                      const level = mcp.accounts[a.id] ?? 'off';
+                      const name = a.label || a.email;
+                      if (!usable(a)) return (
+                        <div key={a.id} className="ai-per-row off">
+                          <span className="dot" style={{ background: a.colour }} />
+                          <span className="grow"><span>{name}</span><small>{level === 'off' ? 'Off under Accounts' : 'Read only under Accounts'}</small></span>
+                        </div>
+                      );
+                      const own = differs(mcp, a.id, c.id);
+                      return (
+                        <div key={a.id} className={`ai-per-row ${own ? 'diff' : ''}`}>
+                          <span className="dot" style={{ background: a.colour }} />
+                          <span className="grow"><span>{name}</span></span>
+                          {own ? <button className="link-btn ai-same" onClick={() => setOverride(a.id, c.id, undefined)}>Reset</button> : <small className="ai-same">Same as all</small>}
+                          <Segmented<Mode> label={`${c.label} for ${name}`} value={effectiveMode(mcp, c.id, a.id)} onChange={(v) => setOverride(a.id, c.id, v)} options={modeOptions(c.max)} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })])}
         <details className="ai-never">
           <summary>Never possible, whatever the switches say</summary>
           <ul>{NEVER.map((n) => <li key={n.id}>{n.text}</li>)}</ul>

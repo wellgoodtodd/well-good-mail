@@ -14,6 +14,7 @@ import { popoutMessage, editServerDraft } from '../lib/composeActions';
 import { myAddresses } from '../lib/compose';
 import { replyMark, replyMarkWords, sentByThread } from '../lib/replyMarks';
 import { startCalendarCopy } from '../lib/calendarCache';
+import { useTasks, threadTaskMark } from '../lib/tasks';
 
 export function MessageList({ style }: { style: React.CSSProperties }) {
   const { items: listed, remote } = useViewList();
@@ -337,6 +338,8 @@ const Row = memo(function Row({ item, isRemote, selected, open, stripe, previewL
       ? [...new Set(item.thread.map((t) => (mine.has(t.from.email.toLowerCase()) ? 'Me' : (t.from.name || t.from.email).split(' ')[0])))].reverse().slice(0, 3).join(', ')
       : m.from.name || m.from.email;
   const ids = (k: string) => idsForKeys(act.keysFor(k));
+  // Tasks made from this conversation (kept in the app only): a small tick by the date.
+  const taskMark = useTasks((st) => threadTaskMark(st.tasks, key));
   return (
     <div
       data-key={key}
@@ -389,6 +392,7 @@ const Row = memo(function Row({ item, isRemote, selected, open, stripe, previewL
           <span className="meta">
             {item.flagged && <span className="flag"><Icon name="flag" size={12} /></span>}
             {item.hasAttachments && <Icon name="paperclip" size={12} />}
+            {taskMark && <span className={`task-mark ${taskMark}`} role="img" aria-label={taskMark === 'open' ? 'Has tasks to do' : 'Its tasks are done'} title={taskMark === 'open' ? 'Has tasks to do' : 'Its tasks are done'}><Icon name="check" size={12} /></span>}
             {item.count > 1 && (isRemote
               ? <span className="badge">{item.count}</span>
               : <button tabIndex={-1} className="badge" aria-label="Show the messages in this conversation" onClick={(e) => { e.stopPropagation(); act.toggle(key); }} onDoubleClick={(e) => e.stopPropagation()} style={{ cursor: 'pointer' }}>{item.count}</button>)}

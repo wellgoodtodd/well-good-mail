@@ -87,8 +87,10 @@ export function OutOfOfficeTab() {
     });
   }, []);
 
-  const native = accounts.filter((a) => oooSupport(a).native);
-  const others = accounts.filter((a) => !oooSupport(a).native);
+  // In the order set in Settings › Accounts, like everywhere else.
+  const ordered = [...accounts].sort((a, b) => a.order - b.order);
+  const native = ordered.filter((a) => oooSupport(a).native);
+  const others = ordered.filter((a) => !oooSupport(a).native);
   const ticked = native.filter((a) => plan.accounts.includes(a.id));
   const anyOn = native.some((a) => by[a.id]?.reply?.on && stateWords(by[a.id]?.reply).state !== 'off');
   const supOrg = ticked.some((a) => oooSupport(a).org);

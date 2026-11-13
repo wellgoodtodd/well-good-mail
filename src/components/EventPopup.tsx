@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Icon } from './Icon';
 import { useMail, refreshEvents, lastEventsRefresh, toast, writableCalendars, providerFor, calendarChoices, canMoveAcross, eventCopy, moveEventAcross } from '../lib/mail';
 import { changeEvent, removeEvent } from '../lib/eventFlows';
+import { askConfirm } from '../lib/dialogs';
 import { EventForm, openMeetingSettings } from './NewEvent';
 import { useDialogFocus, useMenu, type MenuItem } from './ui';
 import { describeRepeat } from '../lib/recurrence';
@@ -27,25 +28,41 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
   const [editing, setEditing] = useState(false);
   const calMenu = useMenu();
   const editable = Boolean(event.canEdit && providerFor(event.accountId)?.editEvent);
-  // Two clicks to put it somewhere else. Anything with guests, a video link or a repeat opens Edit, so the note shows first.
+  // Two clicks to put it somewhere else. Anything with guests, a video link or a repeat says what happens first, then moves.
   const quickMove = async (to: CalTarget) => {
     if (to.accountId === event.accountId && to.calendarName === event.calendarName) return;
     if (to.accountId === event.accountId) { await changeEvent(event, { calendarName: to.calendarName }, { scope: 'one' }); return; }
-    if (event.recurring || event.meetingUrl || (event.guests || []).some((g) => !g.self)) { setEditing(true); return; }
+    const guestCount = (event.guests || []).filter((g) => !g.self).length;
+    if (event.recurring || event.meetingUrl || guestCount) {
+      const notes = [
+        `It's made in ${accountLabel(to.accountId)} and taken out of ${accountLabel(event.accountId)}.`,
+        guestCount ? (guestCount === 1 ? 'Your guest gets a new invitation.' : `Your ${guestCount} guests get a new invitation.`) : '',
+        event.meetingUrl ? `The ${meetingService(event.meetingUrl)} link changes to a new one.` : '',
+        event.recurring ? 'The series is copied from this one on.' : '',
+      ].filter(Boolean).join(' ');
+      if (!(await askConfirm(`Move "${event.title}" to ${accountLabel(to.accountId)}?`, notes, 'Move'))) return;
+    }
     try { const newId = await moveEventAcross(event, to, { removeOriginal: true }); movedToast(event, newId, to); onClose(); } catch (e) { toast({ text: `Couldn't move it: ${e instanceof Error ? e.message : e}`, ttl: 9000 }); }
   };
   const refresh = async () => { setRefreshing(true); try { await refreshEvents({ everyone: true }); } finally { setRefreshing(false); } };
   // Opening an event with guests pulls the latest answers, unless they were fetched in the last minute.
   useEffect(() => { if (picked.guests?.length && Date.now() - lastEventsRefresh() > 60000) void refresh(); }, [picked.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // The quick edit: name, day and times change right here; Save shows once something has changed.
-  const quickOf = (ev: CalendarEvent) => ({ title: ev.title, day: ymdOf(ev.start), from: hmOf(ev.start), to: hmOf(ev.end), endDay: ymdOf(ev.allDay ? ev.end - 1 : ev.end) });
+  const placeOf = (ev: CalendarEvent) => (ev.location && !ev.location.startsWith('http') ? ev.location : '');
+  const quickOf = (ev: CalendarEvent) => ({ title: ev.title, day: ymdOf(ev.start), from: hmOf(ev.start), to: hmOf(ev.end), endDay: ymdOf(ev.allDay ? ev.end - 1 : ev.end), place: placeOf(ev) });
   const [q, setQ] = useState(() => quickOf(event));
-  useEffect(() => { setQ(quickOf(event)); }, [event.id, event.start, event.end, event.title]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setQ(quickOf(event)); }, [event.id, event.start, event.end, event.title, event.location]); // eslint-disable-line react-hooks/exhaustive-deps
   const qStart = event.allDay ? msAt(q.day) : msAt(q.day, q.from);
   const qEnd = event.allDay ? msAt(q.endDay < q.day ? q.day : q.endDay) + 86400000 : msAt(q.endDay <= q.day ? q.day : q.endDay, q.to);
   const qPatch: EventPatch = {};
   if (q.title.trim() && q.title.trim() !== event.title) qPatch.title = q.title.trim();
   if (qStart !== event.start || qEnd !== event.end) { qPatch.start = qStart; qPatch.end = qEnd; }
+  if (q.place.trim() !== placeOf(event)) qPatch.location = q.place.trim();
+  // No call yet: one click adds one (Google Meet, or Teams on Microsoft), where the Join button would be.
+  const accKind = accounts.find((a) => a.id === event.accountId)?.kind;
+  const videoName = accKind === 'microsoft' ? 'Teams meeting' : accKind === 'gmail' || accKind === 'demo' ? 'Google Meet' : '';
+  const [addingCall, setAddingCall] = useState(false);
+  const addCall = async () => { setAddingCall(true); try { await changeEvent(event, { video: true }); } finally { setAddingCall(false); } };
   const qChanged = Object.keys(qPatch).length > 0;
   const qBad = qEnd <= qStart ? 'It ends before it starts.' : '';
   const [saving, setSaving] = useState(false);
@@ -97,7 +114,9 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
           : <div className="ev-line"><Icon name="calendar" size={15} /> {event.calendarName}{labels.length ? ` · ${labels.join(', ')}` : ''}</div>}
         {calMenu.node}
         {ids.length > 1 && <div className="ev-line"><AccountDots event={event} /> On {ids.length} of your calendars</div>}
-        {event.location && !event.location.startsWith('http') && <div className="ev-line"><Icon name="folder" size={15} /> {event.location}</div>}
+        {editable
+          ? <div className="ev-line ev-quick-place"><Icon name="folder" size={15} /><input aria-label="Location" placeholder="Add a location" value={q.place} onChange={(e) => setQ({ ...q, place: e.target.value })} /></div>
+          : event.location && !event.location.startsWith('http') && <div className="ev-line"><Icon name="folder" size={15} /> {event.location}</div>}
         {event.meetingUrl && <div className="ev-line"><Icon name="link" size={15} /> {meetingService(event.meetingUrl)} call</div>}
         {event.description && <p className="ev-notes">{event.description}</p>}
         {event.guests && event.guests.length > 0 && (
@@ -110,8 +129,10 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
         <div className="ev-actions">
           {editable && qChanged && <button type="submit" className="btn primary" disabled={Boolean(qBad) || saving}>{saving ? 'Saving…' : 'Save'}</button>}
           {editable && <button type="button" className="btn" onClick={() => setEditing(true)}>More options</button>}
-          <JoinButton event={event} />
-          <button className="btn" onClick={() => { void navigator.clipboard?.writeText(inviteText(event)).then(() => toast({ text: 'Invite copied. Paste it anywhere.', ttl: 2500 }), () => toast({ text: "Couldn't copy the invite", ttl: 4000 })); }}>Copy invite</button>
+          {event.meetingUrl
+            ? <><JoinButton event={event} />{event.htmlLink && editable && <button type="button" className="link-btn ev-meet-settings" onClick={() => void openMeetingSettings(event.id, event.htmlLink)}>{meetingService(event.meetingUrl)} settings ↗</button>}</>
+            : editable && videoName && !qChanged && <button type="button" className="btn" disabled={addingCall} onClick={() => void addCall()}><Icon name="plus" size={13} /> {addingCall ? 'Adding…' : `Add ${videoName}`}</button>}
+          <button type="button" className="btn" onClick={() => { void navigator.clipboard?.writeText(inviteText(event)).then(() => toast({ text: 'Invite copied. Paste it anywhere.', ttl: 2500 }), () => toast({ text: "Couldn't copy the invite", ttl: 4000 })); }}>Copy invite</button>
           <span className="cal-picker">
             <button className="btn" aria-expanded={more} onClick={() => setMore(!more)}>More <Icon name="chevronDown" size={12} /></button>
             {more && (

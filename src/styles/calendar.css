@@ -71,3 +71,43 @@
 .cal-saving::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%; background: var(--accent); border-radius: 2px; animation: cal-saving 1.1s ease-in-out infinite; }
 @keyframes cal-saving { from { left: -30%; } to { left: 100%; } }
 @media (prefers-reduced-motion: reduce) { .cal-saving::after { animation-duration: 3s; } }
+
+/* Beta 7: Coming up in blocks (Today, Later, and a day picked in the calendar), each with events then tasks. */
+.cu-blocks { display: flex; flex-direction: column; gap: 12px; }
+.cu-block { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-elev); padding: 10px 12px 8px; }
+.cu-picked { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.cu-bh { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.cu-bh h3 { margin: 0; font-size: 0.98em; font-weight: 600; flex: 1; min-width: 0; }
+.cu-aside { color: var(--text-muted); font-size: 0.82em; }
+.cu-block .cu-sec { margin: 8px 0 2px; }
+.cu-title { font-weight: 500; }
+.cu-when { color: var(--text-muted); font-size: 0.88em; }
+.cu-empty { color: var(--text-muted); font-size: 0.9em; padding: 2px 0 4px; }
+.cu-more { color: var(--text-muted); font-size: 0.85em; padding: 2px 4px; }
+.cu-links { display: flex; gap: 14px; padding-top: 6px; font-size: 0.9em; }
+.cu-foot { padding: 0 2px; }
+.cu-block .coming-row { flex-wrap: wrap; }
+.cu-block .coming-row .grow { flex: 1 1 140px; }
+.coming-panel .cu-block { background: transparent; }
+
+/* The Alerts button and its card. Settings only, so no dot. */
+.alerts-btn { color: var(--text-muted); }
+.alerts-btn[aria-expanded="true"] { color: var(--text); }
+.alerts-pop { width: 300px; left: 0; right: auto; }
+.alerts-lines { list-style: none; margin: 8px 0 10px; padding: 0; display: grid; gap: 4px; font-size: 0.93em; }
+.alerts-lines li { position: relative; padding-left: 14px; }
+.alerts-lines li::before { content: ''; position: absolute; left: 2px; top: 0.6em; width: 5px; height: 5px; border-radius: 50%; background: var(--text-muted); }
+.alerts-acts { display: flex; gap: 8px; align-items: center; }
+.alerts-acts .grow { flex: 1; }
+
+/* Deleting from several calendars: one tick box per calendar. */
+.pick-msg { margin: 0 0 8px; }
+.pick-list { display: grid; gap: 6px; }
+.pick-row { display: flex; align-items: center; gap: 8px; }
+.pick-row .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* Quick edit: the location can be typed in, and the call's settings sit by Join. */
+.ev-quick-place input { flex: 1; min-width: 0; height: 28px; box-sizing: border-box; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text); font: inherit; padding: 0 6px; margin-left: -6px; }
+.ev-quick-place input:hover { border-color: var(--border); }
+.ev-quick-place input:focus { border-color: var(--accent); background: var(--bg-input); outline: none; }
+.ev-meet-settings { font-size: 0.88em; align-self: center; }

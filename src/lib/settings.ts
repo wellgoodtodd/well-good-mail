@@ -100,6 +100,8 @@ export interface Settings {
   /** What a new mail alert does while the app is open and in front of you. */
   appOpenAlerts: 'banner' | 'windows' | 'off';
   quietHours: { enabled: boolean; from: string; to: string };
+  /** Alerts paused until this time (Pause for 1 hour, from the Alerts card). 0 when not paused. */
+  alertsPausedUntil: number;
 
   imagePolicy: ImagePolicy;
   trustedSenders: string[];
@@ -286,6 +288,7 @@ export const defaultSettings: Settings = {
   alertSound: false,
   appOpenAlerts: 'banner',
   quietHours: { enabled: false, from: '22:00', to: '07:00' },
+  alertsPausedUntil: 0,
 
   imagePolicy: 'block',
   trustedSenders: [],
@@ -361,7 +364,7 @@ export const defaultSettings: Settings = {
 };
 
 /** Changes that happen by themselves, or are too small to be worth a step in Undo (dragging a divider, folding a section). */
-const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'calendarMode', 'calendarZoom', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden', 'tasksPlace']);
+const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'calendarMode', 'calendarZoom', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden', 'tasksPlace', 'alertsPausedUntil']);
 /** Friendly names for the Undo menu. Anything else is just "settings". */
 const SETTING_NAMES: Record<string, string> = {
   theme: 'appearance', accent: 'accent colour', density: 'density', textScale: 'text size', palette: 'account colours', darkSkin: 'dark look', lightSkin: 'light look',
@@ -466,6 +469,7 @@ export const useSettings = create<SettingsStore>()(
 export const settings = () => useSettings.getState();
 
 export function isQuietNow(s: Settings, now = new Date()): boolean {
+  if (s.alertsPausedUntil && now.getTime() < s.alertsPausedUntil) return true;
   if (!s.quietHours.enabled) return false;
   const mins = now.getHours() * 60 + now.getMinutes();
   const [fh, fm] = s.quietHours.from.split(':').map(Number);

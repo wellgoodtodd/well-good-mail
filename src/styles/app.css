@@ -1821,3 +1821,72 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .ne-where { position: relative; min-width: 0; }
 .ne-where .suggest { min-width: 100%; box-sizing: border-box; }
 .ne-where .suggest button { color: var(--text); font: inherit; cursor: pointer; }
+
+/* Beta 7 settings: AI Connection's fold-out switches, the amber "set differently" line, the AI apps' logos,
+   and the Add tasks "Into" choice. */
+.ai-cap > .ai-row { align-items: center; }
+.ai-group + .ai-cap > .ai-row { border-top: 0; }
+.ai-fold { flex: none; width: 22px; height: 22px; margin: 0 -4px 0 -4px; color: var(--text-muted); }
+.ai-fold svg { transform: rotate(-90deg); transition: transform 0.15s; }
+.ai-cap.open .ai-fold svg { transform: rotate(0deg); }
+.ai-fold:disabled { visibility: hidden; }
+.ai-cap-name { cursor: pointer; }
+.ai-cap-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; }
+.ai-flag { border: 0; background: transparent; padding: 0; font: inherit; font-size: 0.8em; color: #8f5400; cursor: pointer; white-space: nowrap; }
+[data-theme='dark'] .ai-flag { color: #fbc35a; }
+.ai-flag:hover { text-decoration: underline; }
+.ai-per { margin: 0 0 8px 22px; padding: 2px 0; }
+.ai-per-row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-top: 1px dashed var(--border); border-radius: 6px; min-height: 30px; }
+.ai-per-row:first-child { border-top: 0; }
+.ai-per-row .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.ai-per-row .grow { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.ai-per-row .grow > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-per-row .grow small { color: var(--text-muted); font-size: 0.85em; }
+.ai-per-row small.ai-same { color: var(--text-muted); }
+.ai-per-row.diff { background: color-mix(in srgb, var(--amber) 8%, transparent); border-top-color: transparent; }
+.ai-per-row.diff + .ai-per-row { border-top-color: transparent; }
+.ai-per-row.off { color: var(--text-muted); }
+.ai-per-row.off .dot { opacity: 0.45; }
+.ai-into { font-size: inherit; display: inline-flex; align-items: center; gap: 3px; }
+.ai-logo { width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; flex: none; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); }
+.ai-logo.light { box-shadow: inset 0 0 0 1px var(--border); }
+.ai-logo.plain { box-shadow: inset 0 0 0 1px var(--border); color: var(--text-muted); }
+.ai-logo.add { box-shadow: none; border: 1.5px dashed var(--border-strong, var(--border)); color: var(--text-muted); box-sizing: border-box; }
+.ai-logo-letter { font-size: 11px; font-weight: 700; }
+
+/* Beta 7 compose */
+/* Font and size: a neat box that opens the list, with small up and down arrows that step through it. */
+.fmt-pick { display: inline-flex; align-items: stretch; height: 26px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg-input); overflow: hidden; margin-right: 4px; }
+.fmt-bar .fmt-pick select { height: 24px; border: 0; border-radius: 0; background: transparent; padding: 0 6px 0 8px; appearance: none; -webkit-appearance: none; cursor: pointer; color: var(--text); font-size: 0.92em; }
+.fmt-bar .fmt-pick select:focus-visible { outline: none; background: var(--bg-hover); }
+.fmt-pick-arrows { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
+.fmt-pick-arrows button { flex: 1; width: 16px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; }
+.fmt-pick-arrows button:hover { background: var(--bg-hover); color: var(--text); }
+/* A clear "on" look, the same soft blue as a selected sidebar item. */
+.fmt-bar .icon-btn.on { background: var(--bg-selected); color: var(--accent-text, var(--accent)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent); }
+.fmt-bar .sep { height: 16px; margin: 0 5px; background: var(--border-strong); }
+/* Attach and Emoji beside Send: an outline icon with a small word under it. */
+.comp-lab { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: 34px; min-width: 40px; padding: 0 6px; border: 0; border-radius: 7px; background: transparent; color: var(--text-muted); font: inherit; font-size: 10.5px; line-height: 1; cursor: pointer; }
+.comp-lab:hover { background: var(--bg-hover); color: var(--text); }
+/* Send with its Send later drop-down, wherever there's a Send button. */
+.send-split .send-split-more { padding: 0 7px; }
+.send-split.icon { display: inline-flex; align-items: center; }
+.send-split.icon .send-split-more { width: 14px !important; margin-left: -3px; }
+/* Attachments: cards two to a row, with a picture or a coloured file-type tile. */
+.comp-attachments { display: block; padding: 8px 12px 10px; }
+.comp-att-total { font-size: 0.82em; color: var(--text-muted); margin-bottom: 6px; }
+.comp-att-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-width: 640px; }
+.comp-att { position: relative; display: flex; min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-subtle); }
+.comp-att:hover { border-color: var(--border-strong); }
+.comp-attachments .comp-att .att-open { display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; padding: 6px; }
+.comp-att .info { display: flex; flex-direction: column; min-width: 0; }
+.comp-att .fname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.92em; font-weight: 500; }
+.comp-att .fsize { font-size: 0.8em; color: var(--text-muted); white-space: nowrap; }
+.comp-att-thumb { width: 40px; height: 40px; flex: none; border-radius: 5px; object-fit: cover; }
+.comp-att-thumb.tile { display: grid; place-items: center; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em; color: #fff; background: #8a8a93; }
+.comp-att-thumb.tile.pdf { background: #b4413c; }
+.comp-att-thumb.tile.sheet { background: #2f7a4a; }
+.comp-att-thumb.tile.doc { background: #2f5f9e; }
+.comp-att-x { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; padding: 0; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--text); cursor: pointer; opacity: 0; transition: opacity 0.12s; }
+.comp-att:hover .comp-att-x, .comp-att:focus-within .comp-att-x { opacity: 1; }
+.comp-att-x:hover { color: var(--danger); }

@@ -69,21 +69,46 @@ export function FormatBar({ editor, extra, end, basic, defaultFont, defaultSize 
     );
   }
 
+  // Font and size: the box opens the list, the little arrows step to the one before or after.
+  const setFont = (v: string) => (v ? editor.chain().focus().setFontFamily(v).run() : editor.chain().focus().unsetFontFamily().run());
+  const fontValues = ['', ...FONT_CHOICES.filter((f) => f !== defaultFont)];
+  const fontNow = (ts.fontFamily as string) || '';
+  // Sizes run smallest to largest, with the default ('') in its place, so up is bigger.
+  const sizeValues = [...new Set([...SIZE_CHOICES, `${defaultSize}pt`])].sort((a, b) => parseFloat(a) - parseFloat(b)).map((v) => (v === `${defaultSize}pt` ? '' : v));
+  const sizeNow = (ts.fontSize as string) || '';
+  const step = (list: string[], now: string, by: 1 | -1, apply: (v: string) => void) => {
+    const i = Math.max(0, list.indexOf(now));
+    const next = list[Math.max(0, Math.min(list.length - 1, i + by))];
+    if (next !== now) apply(next);
+  };
+  const stepper = (up: () => void, down: () => void, upLabel: string, downLabel: string, children: React.ReactNode) => (
+    <span className="fmt-pick">
+      {children}
+      <span className="fmt-pick-arrows">
+        <button type="button" tabIndex={-1} aria-label={upLabel} title={upLabel} onMouseDown={(e) => e.preventDefault()} onClick={up}><Icon name="chevronDown" size={10} strokeWidth={2.5} className="rot180" /></button>
+        <button type="button" tabIndex={-1} aria-label={downLabel} title={downLabel} onMouseDown={(e) => e.preventDefault()} onClick={down}><Icon name="chevronDown" size={10} strokeWidth={2.5} /></button>
+      </span>
+    </span>
+  );
+
   return (
     <div className="fmt-bar" role="toolbar" aria-label="Formatting">
-      <select aria-label="Font" value={(ts.fontFamily as string) || ''} onChange={(e) => (e.target.value ? editor.chain().focus().setFontFamily(e.target.value).run() : editor.chain().focus().unsetFontFamily().run())}>
-        <option value="">{defaultFont}</option>
-        {FONT_CHOICES.filter((f) => f !== defaultFont).map((f) => <option key={f} value={f}>{f}</option>)}
-      </select>
-      <select aria-label="Size" value={(ts.fontSize as string) || ''} onChange={(e) => setFontSize(editor, e.target.value || null)}>
-        <option value="">{defaultSize}pt</option>
-        {SIZE_CHOICES.filter((s) => s !== `${defaultSize}pt`).map((s) => <option key={s} value={s}>{s}</option>)}
-      </select>
+      {stepper(() => step(fontValues, fontNow, -1, setFont), () => step(fontValues, fontNow, 1, setFont), 'Previous font', 'Next font',
+        <select aria-label="Font" value={fontNow} onChange={(e) => setFont(e.target.value)}>
+          <option value="">{defaultFont}</option>
+          {FONT_CHOICES.filter((f) => f !== defaultFont).map((f) => <option key={f} value={f}>{f}</option>)}
+        </select>)}
+      {stepper(() => step(sizeValues, sizeNow, 1, (v) => setFontSize(editor, v || null)), () => step(sizeValues, sizeNow, -1, (v) => setFontSize(editor, v || null)), 'Bigger', 'Smaller',
+        <select aria-label="Size" value={sizeNow} onChange={(e) => setFontSize(editor, e.target.value || null)}>
+          <option value="">{defaultSize}pt</option>
+          {SIZE_CHOICES.filter((s) => s !== `${defaultSize}pt`).map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>)}
       <span className="sep" />
       {btn(null, 'Bold (Ctrl+B)', editor.isActive('bold'), () => editor.chain().focus().toggleBold().run(), <b>B</b>)}
       {btn(null, 'Italic (Ctrl+I)', editor.isActive('italic'), () => editor.chain().focus().toggleItalic().run(), <i>I</i>)}
       {btn(null, 'Underline (Ctrl+U)', editor.isActive('underline'), () => editor.chain().focus().toggleUnderline().run(), <u>U</u>)}
       {btn(null, 'Strikethrough', editor.isActive('strike'), () => editor.chain().focus().toggleStrike().run(), <s>S</s>)}
+      <span className="sep" />
       <label className="icon-btn" title="Text colour" style={{ position: 'relative' }}>
         <span style={{ fontWeight: 700, borderBottom: `3px solid ${(ts.color as string) || 'currentColor'}`, lineHeight: 1 }}>A</span>
         <input type="color" aria-label="Text colour" style={{ position: 'absolute', opacity: 0, inset: 0, cursor: 'pointer' }} onChange={(e) => editor.chain().focus().setColor(e.target.value).run()} />
@@ -98,6 +123,7 @@ export function FormatBar({ editor, extra, end, basic, defaultFont, defaultSize 
       {btn('outdent', 'Decrease indent (Shift+Tab)', false, () => changeIndent(editor, -1))}
       {btn('indent', 'Increase indent (Tab)', false, () => changeIndent(editor, 1))}
       {btn('quote', 'Quote block', editor.isActive('blockquote'), () => editor.chain().focus().toggleBlockquote().run())}
+      <span className="sep" />
       {btn('link', 'Link (Ctrl+K)', editor.isActive('link'), () => promptLink(editor))}
       {btn('eraser', 'Clear formatting', false, () => editor.chain().focus().unsetAllMarks().clearNodes().run())}
       {extra}

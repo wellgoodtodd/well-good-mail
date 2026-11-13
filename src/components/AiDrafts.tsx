@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { sendLaterOptions, useMenu, type MenuItem } from './ui';
 import { RecipientField } from './RecipientField';
-import { SendLaterPicker } from './SendLaterPicker';
+import { SendLaterPicker, SendSplit } from './SendLaterPicker';
 import { ScheduledViewer } from './Scheduled';
 import { useMail, providerFor, toast, cancelSend } from '../lib/mail';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -353,8 +353,7 @@ export function AiDrafts() {
                         <time>{day(d.updatedAt)}</time>
                         <div className="ai-subj">{d.subject || '(no subject)'}</div>
                         <div className="ai-row-acts" onClick={(e) => e.stopPropagation()}>
-                          <button className="icon-btn" aria-label="Send now" title="Send now (right-click to send later)" onClick={() => sendNow(d)}
-                            onContextMenu={(e) => { e.preventDefault(); if (canSend(d)) menu.open({ x: e.clientX, y: e.clientY }, laterItems([d.id])); }}><Icon name="send" size={15} /></button>
+                          <SendSplit iconOnly label="Send now" title="Send now" onSend={() => sendNow(d)} onLater={(at) => { if (canSend(d)) void sendLater([d.id], at); else toast({ text: 'Add who it goes to first.', ttl: 4000 }); }} />
                           <button className="icon-btn" aria-label="Open in editor" title="Open in editor" onClick={() => toEditor(d.id)}><Icon name="compose" size={15} /></button>
                           <button className="icon-btn ai-delete" aria-label="Delete draft" title="Delete draft" onClick={() => void remove([d.id])}><Icon name="trash" size={15} /></button>
                         </div>
@@ -363,7 +362,7 @@ export function AiDrafts() {
                       </>
                     )}
                   </div>
-                  {open && <DraftDetail d={d} acc={acc} onDelete={() => void remove([d.id])} onClose={() => setOpenId(null)} laterMenu={(r) => menu.open(r, laterItems([d.id]))} />}
+                  {open && <DraftDetail d={d} acc={acc} onDelete={() => void remove([d.id])} onClose={() => setOpenId(null)} sendAt={(at) => void sendLater([d.id], at)} />}
                 </div>
               );
             })}
@@ -386,12 +385,12 @@ interface QuickForm { fromAccountId?: string; fromEmail: string; to: Address[]; 
  * (with the signature at its right end), and the message in its own box. Changes save by themselves a moment after you
  * stop typing, and when the card closes.
  */
-function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
+function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
   d: Draft;
   acc?: Account;
   onDelete: () => void;
   onClose: () => void;
-  laterMenu: (anchor: DOMRect) => void;
+  sendAt: (at: number) => void;
 }) {
   const accounts = useMail((s) => s.accounts);
   const contacts = useMail((s) => s.contacts);
@@ -447,7 +446,7 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
   const fromHit = aliases.find((x) => x.account.id === form.fromAccountId && x.alias.email === form.fromEmail) || aliases.find((x) => x.alias.email === form.fromEmail);
 
   const send = async () => { await flush(); onClose(); await quickSend(d.id); };
-  const later = async (r: DOMRect) => { await flush(); laterMenu(r); };
+  const later = async (at: number) => { await flush(); sendAt(at); };
   const toEditor = async () => { await flush(); onClose(); void openDraft(d.id); };
 
   return (
@@ -506,10 +505,7 @@ function DraftDetail({ d, acc, onDelete, onClose, laterMenu }: {
         <span className={`ai-saved ${saving}`} aria-live="polite">{saving === 'saving' ? 'Saving...' : saving === 'saved' ? 'Saved' : ''}</span>
       </div>
       <div className="ai-quick-actions">
-        <div className="btn-group">
-          <button className="btn primary" disabled={noOne} title={noOne ? 'Add who it goes to first' : 'Send now'} onClick={() => void send()}><Icon name="send" size={14} /> Send</button>
-          <button className="btn primary" disabled={noOne} aria-label="Send later" title="Send later" onClick={(e) => void later((e.currentTarget as HTMLElement).getBoundingClientRect())}><Icon name="chevronDown" size={12} /></button>
-        </div>
+        <SendSplit small title="Send now" disabled={noOne} disabledTitle="Add who it goes to first" onSend={() => void send()} onLater={(at) => void later(at)} />
         <button className="btn" onClick={() => void toEditor()}>Open in editor</button>
         <span className="grow" />
         <button className="btn ghost ai-delete" onClick={onDelete}><Icon name="trash" size={14} /> Delete draft</button>

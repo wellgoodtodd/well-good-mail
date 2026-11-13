@@ -1,8 +1,8 @@
 // Picking when a scheduled email goes: it starts filled in (an hour from now), the calendar is open straight away,
 // the date and time can be typed or picked, and the time scrolls past a fixed highlight. Schedule sets it.
 import { useEffect, useMemo, useState } from 'react';
-import { Dialog } from './ui';
-import { Icon } from './Icon';
+import { Dialog, sendLaterOptions, useMenu, type MenuItem } from './ui';
+import { Icon, type IconName } from './Icon';
 import { useSettings } from '../lib/settings';
 import { openScreen } from '../lib/mail';
 
@@ -145,5 +145,52 @@ export function SendLaterPicker({ initial, title = 'Send later', confirmLabel = 
         </p>
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * Send with the Send later drop-down beside it: the one used wherever there's a Send button, so they all offer the
+ * same times. Pick a date and time opens the picker above. `menuItems` replaces the usual list (a scheduled email
+ * offers Send now, Change time and Back to drafts instead).
+ */
+export function SendSplit({ onSend, onLater, label = 'Send', icon = 'send', title = 'Send (Ctrl+Enter)', disabled, disabledTitle, iconOnly, small, menuItems, pickerInitial }: {
+  onSend: () => void;
+  onLater: (at: number) => void;
+  label?: string;
+  icon?: IconName;
+  title?: string;
+  disabled?: boolean;
+  disabledTitle?: string;
+  /** Just the paper plane and a small arrow, for a row of icon buttons. */
+  iconOnly?: boolean;
+  small?: boolean;
+  menuItems?: (pickTime: () => void) => MenuItem[];
+  pickerInitial?: number;
+}) {
+  const menu = useMenu();
+  const [picking, setPicking] = useState(false);
+  const items = (): MenuItem[] => menuItems ? menuItems(() => setPicking(true)) : [
+    { heading: 'Send later' },
+    ...sendLaterOptions().map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => onLater(o.at) })),
+    { label: 'Pick a date and time...', icon: 'calendar', onClick: () => setPicking(true) },
+  ];
+  const openMenu = (e: React.MouseEvent) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), items());
+  const tip = disabled && disabledTitle ? disabledTitle : title;
+  return (
+    <>
+      {iconOnly ? (
+        <span className="send-split icon">
+          <button className="icon-btn" disabled={disabled} aria-label={label} title={tip} onClick={onSend} onContextMenu={(e) => { e.preventDefault(); if (!disabled) menu.open({ x: e.clientX, y: e.clientY }, items()); }}><Icon name={icon} size={15} /></button>
+          <button className="icon-btn send-split-more" disabled={disabled} aria-label="Send later" title={disabled && disabledTitle ? disabledTitle : 'Send later'} onClick={openMenu}><Icon name="chevronDown" size={12} /></button>
+        </span>
+      ) : (
+        <div className={`btn-group send-split${small ? ' small' : ''}`}>
+          <button className="btn primary" disabled={disabled} title={tip} onClick={onSend}><Icon name={icon} size={small ? 14 : 16} /> {label}</button>
+          <button className="btn primary send-split-more" disabled={disabled} aria-label="Send later" title={disabled && disabledTitle ? disabledTitle : menuItems ? 'More sending choices' : 'Send later'} onClick={openMenu}><Icon name="chevronDown" size={small ? 12 : 14} /></button>
+        </div>
+      )}
+      {menu.node}
+      {picking && <SendLaterPicker initial={pickerInitial} onClose={() => setPicking(false)} onPick={(at) => { setPicking(false); onLater(at); }} />}
+    </>
   );
 }

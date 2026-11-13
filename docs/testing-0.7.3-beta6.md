@@ -151,7 +151,28 @@ Beta 6 is beta 5 plus your beta 5 feedback and Tasks. The first section is what'
 
 ## Found in beta 6
 
-(Your feedback goes here.)
+- Before you start: done. The Google Tasks API was already on, and every Google account asked to sign in again (the fifth when All Calendars was picked) and kept its group. The Microsoft sign-in worked too, just slowly.
+- **Coming up is hard to scan:** "Later" is a smaller heading than "Tasks today", "Open Tasks ›" is big and bold, and the sections run into each other. Needs more space before Later, a smaller Open Tasks link, and clearer separation between Today, Tasks today and Later.
+- Tasks view, group filter, quick add, tick off and Undo, changing a task (on the phone almost at once), New list and default lists in Settings: all working. Phone changes come through after Refresh.
+- **Tasks sidebar too busy:** "My Tasks" over and over. Wanted: All Tasks, Today, Scheduled at the top in an order you can drag (All Tasks first), then one row per account with its colour dot that folds open to its lists, like the mail sidebar.
+- **No way to rename a list or set the default from the list:** right-click for Rename (back to Google), Set as default, Change defaults…; slow click to rename.
+- **List picker:** every list says "My Tasks", so show the account's dot and name.
+- **Phone changes need Refresh:** check more often while tasks are on screen and when the window comes back.
+- **New task starts blank:** start on today with a time, and "No date" is unclear (maybe "Clear date").
+- Future idea: a separate Well Good tasks and calendar app (in the backlog).
+- Make a task from an email, highlighted words, Open email from a task, Day and Week tasks rows and editing from them: working.
+- **List drop-down in Make a task:** a colour dot for each account.
+- **A Tasks button** in the bottom-left sidebar, opening the Tasks view.
+- **Emails should show their tasks:** a tag on the email that opens them (in the app only).
+- **Calendar's right side is busy:** Month's Tasks panel squeezes the calendar and competes with Coming up and the day card. Rethink as one column, or a panel that folds out and back in.
+- **AI Connection:** couldn't find "Tasks from AI apps go into" (it's in Calendar & Reminders › Tasks). The page should list everything like the account AI page, set for all accounts or each one. Icons for connected AI apps.
+- An AI app adding a task: not tested yet (the Claude session wasn't offered the tool).
+- Deleting a series with the progress line, and the invitation showing after Fetch new mail: working.
+- **"How you get alerted" box:** surplus now; a bell button in the calendar header instead.
+- **Out of Office:** a little more space above the account tabs row.
+- **Join:** the day card should show Join for that day's calls too.
+- **Delete from which calendar:** an event on several of your calendars was deleted from the wrong one.
+- **Quick edit card:** make every field editable there; changing the calendar opened the full edit window instead of just moving it.
 
 ## If something goes wrong
 

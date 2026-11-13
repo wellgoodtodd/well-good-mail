@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { providers, toast, useMail } from './mail/store';
 import { useSettings, settings, isQuietNow } from './settings';
 import { notify } from './platform';
+import { readTaskWords } from './taskWords';
 import type { Task, TaskList, TaskMail, TaskPatch } from './types';
 
 export type TaskTrouble = { kind: 'permission' | 'apiOff' | 'other'; text: string };
@@ -65,14 +66,49 @@ export function startTasks() {
   if (saved) set({ lists: saved.lists.filter((l) => ids.has(l.accountId)), tasks: saved.tasks.filter((t) => ids.has(t.accountId)).map(withMail) });
   set({ loaded: true });
   void refreshTasks();
-  setInterval(() => void refreshTasks(), 5 * 60000);
-  window.addEventListener('focus', () => { if (Date.now() - lastRefresh > 60000) void refreshTasks(); });
+  // Google Tasks and To Do have no push, so look again about every minute while tasks are on screen, every five
+  // minutes otherwise, and straight away when the window comes back.
+  setInterval(() => {
+    if (refreshDue(Date.now(), lastRefresh, tasksOnScreen(), get().refreshing)) void refreshTasks({ auto: true });
+  }, 15000);
+  const back = () => {
+    if (document.visibilityState === 'hidden' || get().refreshing || Date.now() - lastRefresh < BACK_GAP) return;
+    void refreshTasks({ auto: true });
+  };
+  window.addEventListener('focus', back);
+  document.addEventListener('visibilitychange', back);
 }
 
 // ---- Refreshing: each account's tasks show as soon as that account answers ----
 
 let lastRefresh = 0;
 let run = 0;
+
+/** How often to look for changes made on the phone. */
+export const QUICK_REFRESH = 60000;
+export const SLOW_REFRESH = 5 * 60000;
+/** Coming back to the window refreshes, unless it did so in the last few seconds. */
+const BACK_GAP = 10000;
+
+/** True while something showing tasks is on screen: Calendar & Reminders (Tasks, the calendar, List) or Coming up. */
+export function tasksOnScreen(): boolean {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return false;
+  return useMail.getState().screen === 'reminders' || Boolean(settings().comingUpOpen);
+}
+
+/** Whether the timer should refresh now. Never while a refresh is already running. */
+export function refreshDue(now: number, last: number, onScreen: boolean, running: boolean): boolean {
+  if (running) return false;
+  return now - last >= (onScreen ? QUICK_REFRESH : SLOW_REFRESH) - 1000;
+}
+
+// An account that keeps failing rests a while (2, 4, 8, then 15 minutes) before the timer tries it again. The Refresh
+// button and Sign in try everyone.
+const failures: Record<string, number> = {};
+const restUntil: Record<string, number> = {};
+export function restFor(fails: number): number {
+  return [2, 4, 8, 15][Math.min(Math.max(fails, 1), 4) - 1] * 60000;
+}
 
 function troubleOf(e: unknown): TaskTrouble {
   const err = e as Error & { needsPermission?: boolean; apiOff?: boolean; needsSignIn?: boolean };
@@ -85,18 +121,20 @@ export function canHaveTasks(accountId: string): boolean {
   return Boolean(providers.get(accountId)?.listTaskLists);
 }
 
-export async function refreshTasks(): Promise<void> {
+export async function refreshTasks(opts: { auto?: boolean } = {}): Promise<void> {
   const mine = ++run;
   lastRefresh = Date.now();
   // Finished tasks from the last week: today's stay crossed out, older ones go under "Completed before today".
   const doneSince = startOfToday() - 7 * DAY;
-  const accounts = useMail.getState().accounts.filter((a) => canHaveTasks(a.id));
+  const accounts = useMail.getState().accounts.filter((a) => canHaveTasks(a.id) && !(opts.auto && (restUntil[a.id] ?? 0) > lastRefresh));
   set({ refreshing: true });
   await Promise.all(accounts.map(async (a) => {
     const p = providers.get(a.id)!;
     try {
       const lists = await p.listTaskLists!();
       const tasks = (await Promise.all(lists.map((l) => p.listTasks!(l, doneSince)))).flat().map(withMail);
+      delete failures[a.id];
+      delete restUntil[a.id];
       if (mine !== run || get().changing) return;
       const s = get();
       const trouble = { ...s.trouble };
@@ -107,6 +145,8 @@ export async function refreshTasks(): Promise<void> {
         trouble,
       });
     } catch (e) {
+      failures[a.id] = (failures[a.id] || 0) + 1;
+      restUntil[a.id] = Date.now() + restFor(failures[a.id]);
       if (mine !== run) return;
       set({ trouble: { ...get().trouble, [a.id]: troubleOf(e) } });
     }
@@ -144,8 +184,24 @@ export function defaultList(groupId: string = settings().calendarGroup): TaskLis
   const picked = lists.find((l) => l.id === settings().taskDefaults[groupId]);
   if (picked) return picked;
   const inGroup = listsInGroup(lists, groupId);
-  const order = useMail.getState().accounts.map((a) => a.id);
+  const order = accountOrder();
   return [...inGroup].sort((x, y) => order.indexOf(x.accountId) - order.indexOf(y.accountId))[0] || lists[0];
+}
+
+/** Account ids in the order set in Settings › Accounts (the mail sidebar's order). */
+export function accountOrder(): string[] {
+  return [...useMail.getState().accounts].sort((a, b) => a.order - b.order).map((a) => a.id);
+}
+
+/** Makes a list the default for a Calendar Group ('' is All calendars). */
+export function setDefaultList(groupId: string, listId: string) {
+  const s = useSettings.getState();
+  s.set({ taskDefaults: { ...s.taskDefaults, [groupId]: listId } });
+}
+
+/** The name of a Calendar Group, for "Set as default for Work". */
+export function groupName(groupId: string): string {
+  return settings().calendarGroups.find((g) => g.id === groupId)?.name || 'All calendars';
 }
 
 /** Where a task from an email goes: the default list of the group the email's account is in. */
@@ -258,6 +314,155 @@ export async function newList(accountId: string, name: string): Promise<TaskList
     toast({ text: `The list couldn't be made: ${plain(e)}`, ttl: 7000 });
     return undefined;
   }
+}
+
+/** Renames a list in Google Tasks or To Do. Shown at once, put back with a note if the account refuses. */
+export async function renameList(list: TaskList, name: string): Promise<boolean> {
+  const t = name.trim();
+  if (!t || t === list.name) return false;
+  const prov = providers.get(list.accountId);
+  if (!prov?.renameTaskList) { toast({ text: 'This list can\'t be renamed from here', ttl: 4000 }); return false; }
+  const put = (n: string) => set({ lists: get().lists.map((l) => (l.id === list.id ? { ...l, name: n } : l)) });
+  put(t);
+  try {
+    const saved = await busy(() => prov.renameTaskList!(list, t));
+    put(saved?.name || t);
+    return true;
+  } catch (e) {
+    put(list.name);
+    toast({ text: `${list.name} couldn't be renamed: ${plain(e)}`, ttl: 7000 });
+    return false;
+  }
+}
+
+/** Deletes a list and its tasks in Google Tasks or To Do. Gone at once, back with a note if the account refuses. */
+export async function deleteList(list: TaskList): Promise<boolean> {
+  const prov = providers.get(list.accountId);
+  if (!prov?.deleteTaskList) { toast({ text: 'This list can\'t be deleted from here', ttl: 4000 }); return false; }
+  const before = get();
+  const at = before.lists.findIndex((l) => l.id === list.id);
+  const itsTasks = before.tasks.filter((t) => t.listId === list.id);
+  set({ lists: before.lists.filter((l) => l.id !== list.id), tasks: before.tasks.filter((t) => t.listId !== list.id) });
+  try {
+    await busy(() => prov.deleteTaskList!(list));
+    toast({ text: `Deleted ${list.name}`, ttl: 4000 });
+    return true;
+  } catch (e) {
+    const s = get();
+    const lists = s.lists.filter((l) => l.id !== list.id);
+    lists.splice(Math.max(0, Math.min(at, lists.length)), 0, list);
+    set({ lists, tasks: [...s.tasks.filter((t) => t.listId !== list.id), ...itsTasks] });
+    toast({ text: `${list.name} couldn't be deleted: ${plain(e)}`, ttl: 7000 });
+    return false;
+  }
+}
+
+// ---- The Tasks sidebar: the order of All Tasks, Today and Scheduled, and lists with completed tasks hidden ----
+// Kept on this computer with the other Tasks things (the account rows follow Settings › Accounts).
+
+export type SmartPlace = 'all' | 'today' | 'scheduled';
+export const SMART_PLACES: SmartPlace[] = ['all', 'today', 'scheduled'];
+const PREFS = 'wgm.taskPrefs.v1';
+interface TaskPrefs { smartOrder: SmartPlace[]; hideDone: string[] }
+
+/** Your order, with any place it leaves out in its usual spot. */
+export function smartOrder(saved: unknown): SmartPlace[] {
+  const mine = (Array.isArray(saved) ? saved : []).filter((x, i, a): x is SmartPlace => SMART_PLACES.includes(x) && a.indexOf(x) === i);
+  const out = [...mine];
+  SMART_PLACES.forEach((p, i) => { if (!out.includes(p)) out.splice(Math.min(i, out.length), 0, p); });
+  return out;
+}
+
+const savedPrefs = readJson<Partial<TaskPrefs>>(PREFS, {});
+export const useTaskPrefs = create<TaskPrefs>(() => ({ smartOrder: smartOrder(savedPrefs.smartOrder), hideDone: Array.isArray(savedPrefs.hideDone) ? savedPrefs.hideDone : [] }));
+useTaskPrefs.subscribe((p) => writeJson(PREFS, p));
+
+/** Drops `from` just before `target` (or after it). */
+export function moveSmart(from: SmartPlace, target: SmartPlace, after = false) {
+  if (from === target) return;
+  const cur = useTaskPrefs.getState().smartOrder.filter((x) => x !== from);
+  cur.splice(cur.indexOf(target) + (after ? 1 : 0), 0, from);
+  useTaskPrefs.setState({ smartOrder: cur });
+}
+
+export function toggleHideDone(listId: string) {
+  const h = useTaskPrefs.getState().hideDone;
+  useTaskPrefs.setState({ hideDone: h.includes(listId) ? h.filter((x) => x !== listId) : [...h, listId] });
+}
+
+/** Moves account `from` to just before `target` (or after it), everywhere: the order in Settings › Accounts. */
+export function accountOrderAfterDrop(order: string[], from: string, target: string, after = false): string[] {
+  if (from === target || !order.includes(from) || !order.includes(target)) return order;
+  const rest = order.filter((x) => x !== from);
+  rest.splice(rest.indexOf(target) + (after ? 1 : 0), 0, from);
+  return rest;
+}
+
+// ---- Counts ----
+
+/** Open tasks due today or before: the count beside Tasks in the sidebar and Today in the Tasks view. */
+export function todayCount(tasks: Task[], now = Date.now()): number {
+  const end = midnight(now) + DAY;
+  return tasks.filter((t) => !t.done && t.due !== undefined && t.due < end).length;
+}
+
+// ---- Emails and the tasks made from them (kept in the app only, never written to the email) ----
+
+export interface EmailTaskIndex {
+  byMessage: Map<string, Task[]>;
+  /** By `${accountId}|${threadId}`, the message list's key. */
+  byThread: Map<string, Task[]>;
+}
+
+export function emailTaskIndex(tasks: Task[]): EmailTaskIndex {
+  const byMessage = new Map<string, Task[]>();
+  const byThread = new Map<string, Task[]>();
+  const add = (m: Map<string, Task[]>, k: string, t: Task) => { const a = m.get(k); if (a) a.push(t); else m.set(k, [t]); };
+  for (const t of tasks) {
+    const m = t.mail;
+    if (!m?.messageId) continue;
+    add(byMessage, m.messageId, t);
+    if (m.accountId && m.threadId) add(byThread, `${m.accountId}|${m.threadId}`, t);
+  }
+  return { byMessage, byThread };
+}
+
+let indexFor: Task[] | null = null;
+let index: EmailTaskIndex = { byMessage: new Map(), byThread: new Map() };
+/** The index for the tasks in the store, worked out once per change. */
+export function emailTasks(tasks: Task[] = get().tasks): EmailTaskIndex {
+  if (tasks !== indexFor) { indexFor = tasks; index = emailTaskIndex(tasks); }
+  return index;
+}
+
+/** For the mark in the message list: 'open' while any task from the conversation is still to do, 'done' when all are ticked. */
+export function threadTaskMark(tasks: Task[], key: string): 'open' | 'done' | undefined {
+  const ts = emailTasks(tasks).byThread.get(key);
+  if (!ts?.length) return undefined;
+  return ts.some((t) => !t.done) ? 'open' : 'done';
+}
+
+// ---- The task pop-up: when a new task starts, and a typed date ----
+
+/** The next round hour: 14:00 at 13:20 (and at 13:00). */
+export function nextRoundHour(now = Date.now()): number {
+  const d = new Date(now);
+  d.setMinutes(0, 0, 0);
+  d.setHours(d.getHours() + 1);
+  return d.getTime();
+}
+
+/** A typed day ("18 Nov", "Wednesday", "next Friday", "tomorrow 3pm"): midnight of that day, and the time if one was given. */
+export function readDay(text: string, now = Date.now()): { day: number; minutes?: number } | undefined {
+  const t = text.trim();
+  if (!t) return undefined;
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  if (iso) return { day: new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])).getTime() };
+  if (/^today$/i.test(t)) return { day: midnight(now) };
+  const w = readTaskWords(t, now);
+  if (w.due === undefined) return undefined;
+  const d = new Date(w.due);
+  return { day: midnight(w.due), ...(w.hasTime ? { minutes: d.getHours() * 60 + d.getMinutes() } : {}) };
 }
 
 // ---- Words ----

@@ -10,6 +10,7 @@ import { renderEmail, plainTextOf } from '../lib/render';
 import { loadBody, refetchBody, looksGarbled, getAttachmentData, markRead, messagesInThread, useMail, unsubscribe, toggleVip, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { SuggestedEvent } from './SuggestedEvent';
+import { EmailTasksTag } from './Tasks';
 import { saveFile, saveFilesToFolder, openExternal, openWithApp, isTauri } from '../lib/platform';
 import { noteSaved } from '../lib/saves';
 import { askConfirm } from '../lib/dialogs';
@@ -225,6 +226,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
         <div className="msg-date">
           <span>{fullDate(message.date)}</span>
           {account && <span className="acct-chip"><span className="dot" style={{ background: account.colour }} />{account.label}</span>}
+          <EmailTasksTag message={message} />
         </div>
         <button
           className="icon-btn"

@@ -93,6 +93,9 @@ export interface MailProvider {
   updateTask?(task: Task, p: TaskPatch): Promise<Task>;
   deleteTask?(task: Task): Promise<void>;
   createTaskList?(name: string): Promise<TaskList>;
+  renameTaskList?(list: TaskList, name: string): Promise<TaskList>;
+  /** Deletes the list and the tasks in it. */
+  deleteTaskList?(list: TaskList): Promise<void>;
 }
 
 /** The account hasn't allowed the app to change its calendar yet; signing in again does that. */
