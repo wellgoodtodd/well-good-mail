@@ -184,7 +184,7 @@ Beta 11 is beta 10 plus your beta 10 feedback: the New place dialog tidied, cont
 - **Task alerts:** Todd will notice them as they come. Keep this on every test list until it's seen working (a task with a time gives a notification at that time).
 - **Phone changes:** a task ticked on the phone showed once Refresh was pressed; on its own it takes a while. Todd: fine, since he's usually out when using the phone.
 - **Send to flyout near the bottom of the window** jumped away from its row and closed when the pointer moved to it, so Send to couldn't be used on a low attachment. Fixed for the next build: the flyout sits against its row (growing upwards when there's no room below, to the left when there's none on the right) and stays open for a moment while the pointer crosses.
-- **Saved toast three lines tall** (full folder path). Fixed for the next build: it names just the folder ("in PC Downloads"), at most two lines, with Open and Show in folder kept on one line each.
+- **Saved toast three lines tall** (full folder path). Fixed for the next build: just "Saved in PC Downloads" with Open and Show in folder, on one line.
 - **Show in folder** (toast and the saved-files list at the top right) brought an Explorer window that was already open to the front instead of the file's folder. Fixed for the next build: it opens the file's own folder with the file selected (explorer /select).
 - **Asked:** should attachments sit at the top of an email, as in eM Client? To decide (mock-up offered).
 - **Asked:** Claude in Google Meet: set up in Google Meet / Claude, nothing needed in Well Good Mail for now.

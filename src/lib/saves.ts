@@ -38,8 +38,8 @@ export function noteSaved(paths: string[]) {
   store(list);
   const one = paths.length === 1;
   toast({
-    // Just the folder's own name ("PC Downloads"): the whole path made the message three lines tall.
-    text: one ? `Saved ${nameOf(paths[0])} in ${nameOf(folderOf(paths[0]))}` : `Saved ${paths.length} files in ${nameOf(folderOf(paths[0]))}`,
+    // Short, on one line: just the folder's own name ("Saved in PC Downloads").
+    text: one ? `Saved in ${nameOf(folderOf(paths[0]))}` : `${paths.length} files saved in ${nameOf(folderOf(paths[0]))}`,
     actions: [
       ...(one ? [{ label: 'Open', run: () => void openSaved(paths[0]) }] : []),
       { label: 'Show in folder', run: () => void showSaved(paths[0]) },
