@@ -210,3 +210,17 @@ export const copiesOf = (inv: CalendarEvent, events: CalendarEvent[]) => {
   const list = events.filter((e) => inviteKey(e) === k && isInvitation(e));
   return list.length ? list : [inv];
 };
+
+/**
+ * The event in a calendar file opened from Windows, ready for the New event form. Files without a UID (some
+ * booking sites leave it out) are read too. A timed event with no length gets an hour.
+ */
+export function eventFromIcs(ics: string): { title: string; start: number; end: number; allDay: boolean; location?: string; notes?: string } | undefined {
+  const inv = parseInvite(ics) || (/BEGIN:VEVENT/i.test(ics) ? parseInvite(ics.replace(/BEGIN:VEVENT\r?\n/i, (m) => `${m}UID:from-file\r\n`)) : undefined);
+  if (!inv) return undefined;
+  const end = inv.end > inv.start ? inv.end : inv.start + (inv.allDay ? 86400000 : 3600000);
+  const desc = inv.description?.trim() || '';
+  const link = inv.meetingUrl && !desc.includes(inv.meetingUrl) && !(inv.location || '').includes(inv.meetingUrl) ? inv.meetingUrl : '';
+  const notes = [desc, link].filter(Boolean).join('\n\n');
+  return { title: inv.title === '(no title)' ? '' : inv.title, start: inv.start, end, allDay: inv.allDay, location: inv.location, notes: notes || undefined };
+}

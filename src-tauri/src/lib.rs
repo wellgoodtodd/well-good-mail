@@ -6,6 +6,7 @@
 
 mod crash;
 mod mailto;
+mod icsfile;
 mod dav;
 mod emoji;
 mod files;
@@ -181,6 +182,10 @@ pub fn run() {
             if let Some(link) = args.iter().find(|a| a.to_ascii_lowercase().starts_with("mailto:")) {
                 let _ = app.emit("open-mailto", link.clone());
             }
+            // A calendar file opened from Windows: show the event to add.
+            if let Some(path) = icsfile::ics_in(&args) {
+                let _ = app.emit("open-ics", path);
+            }
         }))
         // Size and place are remembered; whether it's showing is not (that's decided at start, below).
         .plugin(
@@ -244,6 +249,8 @@ pub fn run() {
             files::open_saved,
             crash::clean_exit,
             mailto::take_start_mailto,
+            icsfile::take_start_ics,
+            icsfile::read_ics,
             mailto::register_mail_app,
             mailto::is_default_mail_app,
             crash::last_run_crashed,
@@ -255,6 +262,7 @@ pub fn run() {
         .setup(|app| {
             crash::start(app.handle());
             mailto::remember_start_link();
+            icsfile::remember_start_file();
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;
             let refresh = MenuItem::with_id(app, "refresh", "Check for new mail", true, None::<&str>)?;
             let compose = MenuItem::with_id(app, "compose", "New email", true, None::<&str>)?;

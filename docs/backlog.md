@@ -6,7 +6,7 @@ Finished work is in docs/history.md (newest first). This file keeps what is stil
 
 ## After 0.7.3 (Todd, 13 Nov 2026)
 
-- [ ] **Open .ics files in Well Good Mail.** Windows offers Outlook and eM Client for a downloaded .ics but not Well Good Mail. Register the app for .ics (Tauri `fileAssociations`), and when one is opened show the event card with Add to calendar and a calendar picker. Invitations that arrive by email already work in the app.
+- [x] **Open .ics files in Well Good Mail.** (Done, for the next beta.) Windows offers Outlook and eM Client for a downloaded .ics but not Well Good Mail. Register the app for .ics (Tauri `fileAssociations`), and when one is opened show the event card with Add to calendar and a calendar picker. Invitations that arrive by email already work in the app.
 
 ## 0.7.3 (live, built 13 Nov 2026)
 

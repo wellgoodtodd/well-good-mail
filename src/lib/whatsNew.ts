@@ -12,6 +12,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.7.4',
+    date: 'November 2026',
+    highlights: [
+      'Open calendar files (.ics) in Well Good Mail: Open with › Well Good Mail shows the event, ready to add to the calendar you pick',
+    ],
+    more: [],
+  },
+  {
     version: '0.7.3',
     date: 'November 2026',
     highlights: [

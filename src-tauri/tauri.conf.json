@@ -34,6 +34,15 @@
       "nsis"
     ],
     "createUpdaterArtifacts": true,
+    "fileAssociations": [
+      {
+        "ext": ["ics"],
+        "name": "Calendar event",
+        "description": "Calendar event",
+        "mimeType": "text/calendar",
+        "role": "Viewer"
+      }
+    ],
     "licenseFile": "installer-licence.txt",
     "icon": [
       "icons/32x32.png",

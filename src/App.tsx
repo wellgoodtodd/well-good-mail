@@ -16,7 +16,8 @@ import { ReadingPane } from './components/ReadingPane';
 import { Composer } from './components/Composer';
 import { Reminders } from './components/Reminders';
 import { ComingUpPanel, MeetingBanner } from './components/ComingUp';
-import { NewEventHost, startNewEvent } from './components/NewEvent';
+import { NewEventHost, startNewEvent, newEventFrom } from './components/NewEvent';
+import { eventFromIcs } from './lib/invites';
 import { TaskEditorHost } from './components/Tasks';
 import { PrintPreview } from './components/PrintPreview';
 import { WhatsNew } from './components/WhatsNew';
@@ -165,6 +166,27 @@ function useMailtoLinks() {
     void invoke<string | null>('take_start_mailto').then((l) => { if (l) open(l); }).catch(() => undefined);
     let stop: (() => void) | undefined;
     void import('@tauri-apps/api/event').then(({ listen }) => listen<string>('open-mailto', (e) => open(e.payload))).then((u) => { stop = u; });
+    return () => stop?.();
+  }, [ready]);
+}
+
+/** Calendar files (.ics) opened from Windows (Open with › Well Good Mail): the event, in the New event form. */
+function useCalendarFiles() {
+  const ready = useMail((s) => s.accounts.length > 0);
+  useEffect(() => {
+    if (!isTauri() || isPopout() || !ready) return;
+    const open = async (path: string) => {
+      try {
+        const ev = eventFromIcs(await invoke<string>('read_ics', { path }));
+        if (ev) newEventFrom(ev);
+        else toast({ text: "There's no event in that calendar file that the app can read" });
+      } catch (e) {
+        toast({ text: `Couldn't open that calendar file: ${e instanceof Error ? e.message : String(e)}` });
+      }
+    };
+    void invoke<string | null>('take_start_ics').then((p) => { if (p) void open(p); }).catch(() => undefined);
+    let stop: (() => void) | undefined;
+    void import('@tauri-apps/api/event').then(({ listen }) => listen<string>('open-ics', (e) => void open(e.payload))).then((u) => { stop = u; });
     return () => stop?.();
   }, [ready]);
 }
@@ -783,6 +805,7 @@ function PopoutWindow() {
 export default function App() {
   useTheme();
   useMailtoLinks();
+  useCalendarFiles();
   const popout = isPopout();
   useEffect(() => {
     initMail({ popout, route: popout ? location.hash.replace('#/popout/', '') : undefined });

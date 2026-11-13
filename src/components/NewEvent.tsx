@@ -29,7 +29,11 @@ const CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 const DAY_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export interface NewEventDraft { start: number; end: number; allDay: boolean }
+export interface NewEventDraft {
+  start: number; end: number; allDay: boolean;
+  /** Filled in from a calendar file (.ics) opened from Windows: the form opens in full with these. */
+  title?: string; location?: string; notes?: string;
+}
 
 /** The new event being made, if any. The calendar views show a placeholder where it will go. */
 export const useNewEvent = create<{ draft?: NewEventDraft; seq: number }>(() => ({ seq: 0 }));
@@ -38,6 +42,11 @@ export const useNewEvent = create<{ draft?: NewEventDraft; seq: number }>(() => 
  * Opens the quick pop-up. With a time it starts there (an hour long); with a day, at 09:00 that day (or the next
  * hour, today); with neither, the picked day in the calendar, or the next hour today.
  */
+/** Opens the full form with an event from a calendar file, to choose a calendar and add it. */
+export function newEventFrom(d: Required<Pick<NewEventDraft, 'start' | 'end' | 'allDay' | 'title'>> & Pick<NewEventDraft, 'location' | 'notes'>) {
+  useNewEvent.setState((s) => ({ draft: { ...d }, seq: s.seq + 1 }));
+}
+
 export function startNewEvent(at: { day?: number; start?: number; end?: number; allDay?: boolean } = {}) {
   if (at.allDay) {
     const d = midnight(at.day ?? at.start ?? Date.now());
@@ -60,7 +69,7 @@ export function NewEventHost() {
   // A fresh form for each New event, not each change of time (the time changes as the form is filled in).
   const seq = useNewEvent((s) => s.seq);
   if (!draft) return null;
-  return <EventForm key={seq} draft={draft} onClose={close} />;
+  return <EventForm key={seq} draft={draft} onClose={close} expanded={draft.title !== undefined} />;
 }
 
 type Target = { accountId: string; calendarName: string };
@@ -230,16 +239,17 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
   const calMenu = useMenu();
   const [busy, setBusy] = useState(false);
   // Once the time has been changed by hand, words in the title no longer move it. Editing never reads the title.
-  const timeTouched = useRef(editing);
+  const fromFile = !editing && draft?.title !== undefined;
+  const timeTouched = useRef(editing || fromFile);
   const titleRead = useRef<{ rest: string } | undefined>(undefined);
   // Location filled from the title, and whether it has been changed by hand since (then the title leaves it alone).
   const placeFromTitleShown = useRef(false);
-  const placeTouched = useRef(false);
+  const placeTouched = useRef(fromFile);
   const first = useMemo<Form>(() => (event ? formFromEvent(event) : {
-    title: '', day: ymdOf(draft!.start), endDay: ymdOf(draft!.allDay ? draft!.end - 1 : draft!.end), from: draft!.allDay ? '09:00' : hmOf(draft!.start), to: draft!.allDay ? '10:00' : hmOf(draft!.end), allDay: draft!.allDay,
+    title: draft!.title ?? '', day: ymdOf(draft!.start), endDay: ymdOf(draft!.allDay ? draft!.end - 1 : draft!.end), from: draft!.allDay ? '09:00' : hmOf(draft!.start), to: draft!.allDay ? '10:00' : hmOf(draft!.end), allDay: draft!.allDay,
     // No days picked yet means the start's own day, so it follows the date.
     ...repeatFields(undefined, draft!.start),
-    alert1: 'default', alert2: null, guests: [], location: '', video: false, notes: '',
+    alert1: 'default', alert2: null, guests: [], location: draft!.location ?? '', video: false, notes: draft!.notes ?? '',
   }), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [f, setF] = useState<Form>(first);
   // Changing an event: how its series repeats is read from the calendar, and only sent back if it's changed.
@@ -272,7 +282,7 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
     return () => window.removeEventListener('keydown', k);
   }, [onClose]);
   // The placeholder in the calendar follows the time in the form.
-  useEffect(() => { if (!editing && end > start) useNewEvent.setState({ draft: { start, end, allDay: f.allDay } }); }, [start, end, f.allDay]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!editing && end > start) useNewEvent.setState((s) => ({ draft: { ...s.draft, start, end, allDay: f.allDay } })); }, [start, end, f.allDay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onTitle = (v: string) => {
     const patch: Partial<Form> = { title: v };
