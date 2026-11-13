@@ -4,7 +4,9 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## For the next beta (after beta 12)
+## 0.7.3 beta 13 (built 13 Nov 2026)
+
+Beta 12 plus the attachments setting, the shorter saved message and Send To forwards without a signature. Test list: docs/testing-0.7.3-beta13.md. Todd: if these hold up, the live 0.7.3 is next.
 
 - Settings › Appearance › Attachments: Show them above or below the email, Size small, medium or large (settings attachmentPlace, attachmentSize; default above, medium). A small preview email under the choices, greeting the person by their first name. MessageView renders the files block above or below.
 
