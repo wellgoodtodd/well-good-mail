@@ -68,6 +68,7 @@ describe('Alerts & Notifications', () => {
     await render(<NotificationsTab />);
     expect(host.querySelector('h1')?.textContent).toBe('Alerts & Notifications');
     expect(host.querySelector('#settings-calendar-alerts h2')?.textContent).toBe('Calendar and tasks');
-    expect(host.textContent).toContain('Video meeting notifications');
+    expect(host.querySelector('#settings-meeting-alerts h2')?.textContent).toBe('Video meetings');
+    expect(host.querySelector('#settings-hidden-alerts h2')?.textContent).toBe('Alerts from hidden calendars');
   });
 });

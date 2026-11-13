@@ -1,4 +1,5 @@
-// Settings › Alerts & Notifications: new mail, how alerts appear, calendar and task alerts, per account, quiet hours.
+// Settings › Alerts & Notifications: new mail, how alerts appear, new mail per account, calendar and tasks, video meetings,
+// hidden calendars, quiet hours. Each on its own card.
 import { useMail, editAccount } from '../../lib/mail';
 import { useSettings } from '../../lib/settings';
 import { isTauri, notify, openExternal } from '../../lib/platform';
@@ -6,10 +7,11 @@ import { showBanner } from '../../lib/banners';
 import { Row, Radio, Check } from '../ui';
 import { MinutesPicker } from './CalendarTab';
 
-/** Event reminders, video calls, the daily summary and tasks with a time (moved here from Calendar & Reminders in beta 7). */
+/** Event reminders and the daily summary, video meetings, and hidden calendars, each on its own card (moved here from Calendar & Reminders in beta 7). */
 function CalendarAlerts() {
   const s = useSettings();
   return (
+    <>
     <section className="set-section" id="settings-calendar-alerts">
       <h2>Calendar and tasks</h2>
       <p className="hint">Reminders always collect in the list on the Calendar screen. These settings only control interruptions.</p>
@@ -23,7 +25,9 @@ function CalendarAlerts() {
         <Row label="Summary time" htmlFor="sumtime"><input id="sumtime" type="time" value={s.summaryTime} onChange={(e) => s.set({ summaryTime: e.target.value })} /></Row>
       )}
       <p className="hint">Tasks with a time alert you at that time, like reminders, unless reminders are set to Never pop up.</p>
-      <h3 className="sub-head">Video meeting notifications</h3>
+    </section>
+    <section className="set-section" id="settings-meeting-alerts">
+      <h2>Video meetings</h2>
       <p className="hint">For events that have a Teams, Zoom or Google Meet link. Pick a time from the list, or type your own number of minutes. Other events use the reminder time set in your calendar.</p>
       <div className="min-grid"><div className="min-row"><Check checked={s.meetingAlert1On} onChange={(v) => s.set({ meetingAlert1On: v })}>First notification</Check><MinutesPicker label="First notification" value={s.meetingAlert1Mins} onChange={(n) => s.set({ meetingAlert1Mins: n })} /><span>before</span></div>
       <div className="min-row"><Check checked={s.meetingAlert2On} onChange={(v) => s.set({ meetingAlert2On: v })}>Second notification</Check><MinutesPicker label="Second notification" value={s.meetingAlert2Mins} onChange={(n) => s.set({ meetingAlert2Mins: n })} /><span>before</span></div>
@@ -33,14 +37,17 @@ function CalendarAlerts() {
         <button className="btn" onClick={() => notify('Test meeting in 5 minutes', `${new Date(Date.now() + 5 * 60000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · Google Meet link in Well Good Mail`)}>Test notification</button>
         <button className="btn" onClick={() => window.dispatchEvent(new Event('wgm-test-meeting-bar'))}>Test banner</button>
       </div>
-      <h3 className="sub-head">Alerts from hidden calendars</h3>
-      <p className="hint" style={{ marginTop: 0 }}>Calendars are shown or hidden in Settings › Accounts, under each account's Calendars. This is what happens to the alerts of the hidden ones.</p>
+    </section>
+    <section className="set-section" id="settings-hidden-alerts">
+      <h2>Alerts from hidden calendars</h2>
+      <p className="hint">Calendars are shown or hidden in Settings › Accounts, under each account's Calendars. This is what happens to the alerts of the hidden ones.</p>
       <Radio name="hidalerts" value={s.hiddenCalendarsAlerts} onChange={(v) => s.set({ hiddenCalendarsAlerts: v })} options={[
         { value: 'all', label: 'Keep all their alerts', sub: 'Hiding only tidies the views.' },
         { value: 'meetings', label: 'Mute ordinary reminders, keep video meeting alerts', sub: 'Recommended. You will not miss a call because you hid its calendar.' },
         { value: 'none', label: 'Mute everything from them', sub: 'No reminders, notifications or banner. Meetings you have said No to are always quiet.' },
       ]} />
     </section>
+    </>
   );
 }
 
@@ -74,9 +81,8 @@ export function NotificationsTab() {
           {isTauri() && <button className="btn" onClick={() => openExternal('ms-settings:notifications')}>Open Windows notification settings</button>}
         </div>
       </section>
-      <CalendarAlerts />
       <section className="set-section">
-        <h2>Per account</h2>
+        <h2>New mail per account</h2>
         {ordered.map((a) => (
           <Row key={a.id} label={a.label}>
             <select aria-label={`Alerts for ${a.email}`} value={a.notify} onChange={(e) => editAccount(a.id, { notify: e.target.value as typeof a.notify }, 'alerts')}>
@@ -87,6 +93,7 @@ export function NotificationsTab() {
           </Row>
         ))}
       </section>
+      <CalendarAlerts />
       <section className="set-section">
         <h2>Quiet hours</h2>
         {s.alertsPausedUntil > Date.now() && (

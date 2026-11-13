@@ -155,7 +155,14 @@ Beta 7 is beta 6 plus your beta 6 feedback and the compose window polish, as agr
 
 ## Found in beta 7
 
-(Your feedback goes here.)
+Todd, 13 Nov 2026. Working: Emoji in the writing window; right-hand column blocks, picked day and ✕; Alerts button, Pause and Change alerts; Tasks sidebar and dragging account rows; New task on today; AI Connection per-account switches and the amber flag; Out of Office; Alerts & Notifications; the email tasks tag, + Make another and Open in Tasks; reply and template look clean; Send later beside Send in replies and AI Drafts.
+
+- **Delete from several calendars didn't show:** an invitation from WGM, accepted on TBWELLER. The quick edit card said "On 2 of your calendars", but Delete event only gave the old "tell your guest" question, also after a refresh. Likely cause: the delete looked for the other copy only in the near-term events and matched titles more strictly than the "On 2" line. Fixed for beta 8 (and a note goes to Diagnostics if it still can't find the other copy).
+- **Location icon** was a folder: now a map pin.
+- **Add Google Meet** as a button on every event feels heavy. Agreed: a quiet line under Location ("+ Add Google Meet", or "Google Meet · Join · Settings ↗"), with the big Join button only on the day. Done for beta 8.
+- **Make a task from an email** should start on today at the next hour, like New task. Done for beta 8.
+- **Alerts & Notifications** could be tidier later: video call alerts and alerts from hidden calendars on their own cards.
+- Clicking a picked day too quickly adds an event (fine, double-click).
 
 ## If something goes wrong
 

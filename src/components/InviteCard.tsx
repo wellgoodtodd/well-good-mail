@@ -143,7 +143,7 @@ export function InviteCard({ message }: { message: Message }) {
         <div className="inv-main">
           <div className="inv-title">{invite.title}</div>
           <div className="inv-line"><Icon name="clock" size={14} /> {whenText(invite)}</div>
-          {invite.location && !invite.location.startsWith('http') && <div className="inv-line"><Icon name="folder" size={14} /> {invite.location}</div>}
+          {invite.location && !invite.location.startsWith('http') && <div className="inv-line"><Icon name="mapPin" size={14} /> {invite.location}</div>}
           {invite.organizer && <div className="inv-line"><Icon name="user" size={14} /> From {personName(invite.organizer)}</div>}
         </div>
         {invite.meetingUrl && !cancelled && <JoinButton event={{ meetingUrl: invite.meetingUrl } as CalendarEvent} />}

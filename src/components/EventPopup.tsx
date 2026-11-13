@@ -62,6 +62,7 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
   const accKind = accounts.find((a) => a.id === event.accountId)?.kind;
   const videoName = accKind === 'microsoft' ? 'Teams meeting' : accKind === 'gmail' || accKind === 'demo' ? 'Google Meet' : '';
   const [addingCall, setAddingCall] = useState(false);
+  const onTheDay = event.end > Date.now() && event.start < new Date().setHours(24, 0, 0, 0);
   const addCall = async () => { setAddingCall(true); try { await changeEvent(event, { video: true }); } finally { setAddingCall(false); } };
   const qChanged = Object.keys(qPatch).length > 0;
   const qBad = qEnd <= qStart ? 'It ends before it starts.' : '';
@@ -115,9 +116,15 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
         {calMenu.node}
         {ids.length > 1 && <div className="ev-line"><AccountDots event={event} /> On {ids.length} of your calendars</div>}
         {editable
-          ? <div className="ev-line ev-quick-place"><Icon name="folder" size={15} /><input aria-label="Location" placeholder="Add a location" value={q.place} onChange={(e) => setQ({ ...q, place: e.target.value })} /></div>
-          : event.location && !event.location.startsWith('http') && <div className="ev-line"><Icon name="folder" size={15} /> {event.location}</div>}
-        {event.meetingUrl && <div className="ev-line"><Icon name="link" size={15} /> {meetingService(event.meetingUrl)} call</div>}
+          ? <div className="ev-line ev-quick-place"><Icon name="mapPin" size={15} /><input aria-label="Location" placeholder="Add a location" value={q.place} onChange={(e) => setQ({ ...q, place: e.target.value })} /></div>
+          : event.location && !event.location.startsWith('http') && <div className="ev-line"><Icon name="mapPin" size={15} /> {event.location}</div>}
+        {/* The video call as a quiet line under Location: the call with Join and its settings, or a small "+ Add Google Meet". */}
+        {event.meetingUrl
+          ? <div className="ev-line ev-call-line"><Icon name="link" size={15} /> <span>{meetingService(event.meetingUrl)}</span>
+              <span className="ev-dot">·</span><button type="button" className="link-btn" onClick={() => void openExternal(event.meetingUrl!)}>Join</button>
+              {event.htmlLink && editable && <><span className="ev-dot">·</span><button type="button" className="link-btn quiet" onClick={() => void openMeetingSettings(event.id, event.htmlLink)}>Settings ↗</button></>}
+            </div>
+          : editable && videoName && !qChanged && <div className="ev-line ev-call-line"><Icon name="link" size={15} /> <button type="button" className="link-btn quiet" disabled={addingCall} onClick={() => void addCall()}>{addingCall ? 'Adding…' : `+ Add ${videoName}`}</button></div>}
         {event.description && <p className="ev-notes">{event.description}</p>}
         {event.guests && event.guests.length > 0 && (
           <div className="ev-guests">
@@ -129,9 +136,8 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
         <div className="ev-actions">
           {editable && qChanged && <button type="submit" className="btn primary" disabled={Boolean(qBad) || saving}>{saving ? 'Saving…' : 'Save'}</button>}
           {editable && <button type="button" className="btn" onClick={() => setEditing(true)}>More options</button>}
-          {event.meetingUrl
-            ? <><JoinButton event={event} />{event.htmlLink && editable && <button type="button" className="link-btn ev-meet-settings" onClick={() => void openMeetingSettings(event.id, event.htmlLink)}>{meetingService(event.meetingUrl)} settings ↗</button>}</>
-            : editable && videoName && !qChanged && <button type="button" className="btn" disabled={addingCall} onClick={() => void addCall()}><Icon name="plus" size={13} /> {addingCall ? 'Adding…' : `Add ${videoName}`}</button>}
+          {/* On the day itself the call is what you want: a big Join button. */}
+          {event.meetingUrl && onTheDay && <JoinButton event={event} />}
           <button type="button" className="btn" onClick={() => { void navigator.clipboard?.writeText(inviteText(event)).then(() => toast({ text: 'Invite copied. Paste it anywhere.', ttl: 2500 }), () => toast({ text: "Couldn't copy the invite", ttl: 4000 })); }}>Copy invite</button>
           <span className="cal-picker">
             <button className="btn" aria-expanded={more} onClick={() => setMore(!more)}>More <Icon name="chevronDown" size={12} /></button>

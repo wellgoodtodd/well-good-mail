@@ -3,6 +3,8 @@
 import { askChoice, askConfirm, askPick } from './dialogs';
 import { record, undoEntry } from './history';
 import { deleteEvent, editEvent, toast, useMail } from './mail';
+import { useCalCache } from './calendarCache';
+import { logLine } from './activityLog';
 import type { CalendarEvent, EventPatch, SeriesScope } from './types';
 
 /** Guests other than you, on an event you organise (only then are they told about changes). */
@@ -105,13 +107,15 @@ export function organiserCopy(ev: CalendarEvent, all: CalendarEvent[] = useMail.
 }
 
 /** The copies of one event on your different calendars (the same title and times), one per account and calendar. */
-export function copiesOf(ev: CalendarEvent, all: CalendarEvent[] = useMail.getState().events): CalendarEvent[] {
+export function copiesOf(ev: CalendarEvent, all: CalendarEvent[] = [...useMail.getState().events, ...useCalCache.getState().events]): CalendarEvent[] {
   const ids = ev.accountIds?.length ? ev.accountIds : [ev.accountId];
   if (ids.length < 2) return [ev];
+  // Matched the same way the calendar joins them ("On 2 of your calendars"), so every copy it counted is found.
+  const same = (e: CalendarEvent) => e.title.trim().toLowerCase() === ev.title.trim().toLowerCase() && e.start === ev.start && e.end === ev.end && e.allDay === ev.allDay;
   const seen = new Set<string>();
   const out: CalendarEvent[] = [];
   for (const e of [ev, ...all]) {
-    if (e.title !== ev.title || e.start !== ev.start || e.end !== ev.end || !ids.includes(e.accountId)) continue;
+    if (!same(e) || !ids.includes(e.accountId)) continue;
     const k = `${e.accountId}|${e.calendarName}`;
     if (seen.has(k)) continue;
     seen.add(k);
@@ -176,6 +180,7 @@ export async function removeEvent(ev: CalendarEvent, opts: { quietToast?: boolea
   // On more than one of your calendars: say which (unless a list of several is being deleted at once).
   const copies = opts.asked ? [ev] : copiesOf(ev);
   if (copies.length > 1) return removeFromSeveral(ev, copies, opts);
+  if (!opts.asked && (ev.accountIds?.length || 0) > 1) logLine('warn', `Delete: an event shows on ${ev.accountIds!.length} accounts but only one copy was found`);
   let scope: SeriesScope | null = 'one';
   if (ev.recurring) scope = await askScope(ev, 'delete');
   else if (!guestsToTell(ev) && !opts.asked && !(await askConfirm(`Delete "${ev.title}"?`, "It's deleted from the calendar itself.", 'Delete event'))) return false;

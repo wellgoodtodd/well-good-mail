@@ -4,6 +4,25 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.3 beta 8 (built 13 Nov 2026)
+
+Beta 7 plus the beta 7 feedback below. Test list: docs/testing-0.7.3-beta8.md. Checked in the browser demo only. If it holds up, next is the live release.
+- Delete from several calendars: copiesOf (eventFlows.ts) searches the store and the calendar copy and matches like dedupeEvents; a Diagnostics warning if the second copy still isn't found.
+- Event pop-up (EventPopup.tsx): video call as a quiet line under Location (.ev-call-line); big Join only on the day; map pin icon (Icon mapPin) for locations there and on invitation cards.
+- makeTaskFromEmail starts today at the next round hour when no date is found.
+- Sidebar footer option C (SideFooter in Sidebar.tsx): four cards (drag to reorder, kept in localStorage wgm.footerOrder.v1), Help and Settings as icons, version in Settings; a container query turns the cards into an icon row below 190px. Invitations card always shows now.
+- Alerts & Notifications (NotificationsTab.tsx): Calendar and tasks, Video meetings and Alerts from hidden calendars are separate cards; New mail per account moved up beside the other mail settings.
+- Still parked: Settings › Updates and Diagnostics moving up with the other tabs; "Make tasks from this email"; the "Make a task?" suggestion; a standalone tasks and calendar app.
+
+## Beta 7 feedback, for beta 8 (Todd, 13 Nov 2026)
+
+Aim: beta 8, then the live release. Full notes in docs/testing-0.7.3-beta7.md, "Found in beta 7".
+- Done: delete from several calendars finds the other copy (copiesOf looks in the calendar copy too and matches like dedupeEvents; logs a warning if not); location shows a map pin (Icon mapPin); Make a task from an email starts today at the next hour when the email has no date.
+- Done (agreed with Todd): the video call is a quiet line under Location in the quick edit card: "+ Add Google Meet" (Teams on Microsoft), or "Google Meet · Join · Settings ↗"; the big Join button shows only on the day of the event.
+- Dropped: the punctuation note (Todd thinks it was the transcript).
+- Yes for beta 8 (Todd): Alerts & Notifications in clearer cards (video calls, hidden calendars on their own).
+- Sidebar footer: Todd picked option C (docs/mockups/sidebar-footer.html); built for beta 8. If it wears thin, rethink or go back.
+
 ## 0.7.3 beta 7 (built 13 Nov 2026)
 
 Beta 6 plus everything under "To fix" and the mock-up decisions below, and the compose polish. Test list: docs/testing-0.7.3-beta7.md. Checked in the browser demo only.

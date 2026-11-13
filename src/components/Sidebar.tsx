@@ -24,7 +24,7 @@ import type { Account, AccountGroup, Folder, Scope, SystemFolder, View } from '.
 import { useOoo } from '../lib/oooStore';
 import { isAway } from '../lib/ooo';
 import { useInvitations, openInvitations } from './Invitations';
-import { useTasks, tasksInGroup, todayCount, startTasks } from '../lib/tasks';
+import { useTasks, tasksInGroup, todayCount, startTasks, isOverdue } from '../lib/tasks';
 import '../styles/tasks.css';
 
 const FOLDERS: { folder: SystemFolder; icon: IconName; name: string; all: string }[] = [
@@ -769,9 +769,25 @@ function textOn(hex: string): string {
   return L > 0.36 ? '#2a1a14' : '#ffffff';
 }
 
+type FooterCard = 'scheduled' | 'calendar' | 'tasks' | 'invitations';
+const FOOTER_CARDS: FooterCard[] = ['scheduled', 'calendar', 'tasks', 'invitations'];
+const FOOTER_KEY = 'wgm.footerOrder.v1';
+
+/** The order of the four cards, as dragged (kept on this computer). Any card missing from what's saved goes on the end. */
+export function footerOrder(saved: unknown): FooterCard[] {
+  const list = Array.isArray(saved) ? saved.filter((x): x is FooterCard => FOOTER_CARDS.includes(x as FooterCard)) : [];
+  const out = [...new Set(list)];
+  for (const c of FOOTER_CARDS) if (!out.includes(c)) out.push(c);
+  return out;
+}
+function readFooterOrder(): FooterCard[] {
+  try { return footerOrder(JSON.parse(localStorage.getItem(FOOTER_KEY) || '[]')); } catch { return [...FOOTER_CARDS]; }
+}
+
 /**
- * The shortcuts at the bottom of the sidebar, the same on every screen: Scheduled, Calendar, Tasks, Help & Feedback and
- * Settings. In Settings, the Settings line gives way to the version number.
+ * The bottom of the sidebar, the same on every screen: Scheduled, Calendar, Tasks and Invitations as four cards (drag to
+ * reorder), then Help & Feedback and Settings as two small icons. In Settings, the version number sits beside them.
+ * In a narrow sidebar the cards become a row of icons.
  */
 export function SideFooter({ inSettings }: { inSettings?: boolean }) {
   const screen = useMail((s) => s.screen);
@@ -780,56 +796,72 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
   const invitations = useInvitations().count;
   const alerts = useSettingsAlerts();
   const version = useUpdates((u) => u.currentVersion);
-  const taskCount = useTaskCount();
+  const { count: taskCount, late } = useTaskCount();
   const remindersView = useSettings((st) => st.remindersView);
   const onTasks = screen === 'reminders' && remindersView === 'tasks';
   const onCalendar = screen === 'reminders' && remindersView !== 'tasks';
+  const [order, setOrder] = useState<FooterCard[]>(readFooterOrder);
+  const [dragging, setDragging] = useState<FooterCard | null>(null);
+  const [over, setOver] = useState<FooterCard | null>(null);
+
+  const drop = (target: FooterCard) => {
+    if (!dragging || dragging === target) return;
+    const next = order.filter((c) => c !== dragging);
+    next.splice(next.indexOf(target) + (order.indexOf(dragging) < order.indexOf(target) ? 1 : 0), 0, dragging);
+    setOrder(next);
+    try { localStorage.setItem(FOOTER_KEY, JSON.stringify(next)); } catch { /* kept for this session only */ }
+  };
+
+  const cards: Record<FooterCard, { icon: IconName; name: string; count?: number; late?: boolean; isNew?: boolean; selected: boolean; title?: string; open: () => void }> = {
+    scheduled: { icon: 'clock', name: 'Scheduled', count: scheduledCount, selected: screen === 'scheduled', title: 'Emails waiting to send', open: () => openScreen(screen === 'scheduled' ? 'mail' : 'scheduled') },
+    calendar: { icon: 'calendar', name: 'Calendar', count: reminderCount, selected: onCalendar, open: () => {
+      if (onCalendar) return openScreen('mail');
+      if (onTasks) useSettings.getState().set({ remindersView: 'calendar' });
+      openScreen('reminders');
+    } },
+    tasks: { icon: 'check', name: 'Tasks', count: taskCount, late, selected: onTasks, title: late ? 'Tasks due today, some of them late' : 'Tasks due today and overdue', open: () => {
+      if (onTasks) return openScreen('mail');
+      useSettings.getState().set({ remindersView: 'tasks' });
+      openScreen('reminders');
+    } },
+    invitations: { icon: 'mail', name: 'Invitations', count: invitations, isNew: invitations > 0, selected: false, title: invitations ? 'Answer your new invitations' : 'Invitations', open: openInvitations },
+  };
+
   return (
     <div className="side-footer">
-      <div className="side-row">
-        <button className={`side-item ${screen === 'scheduled' ? 'selected' : ''}`} onClick={() => openScreen(screen === 'scheduled' ? 'mail' : 'scheduled')}>
-          <Icon name="clock" /><span className="name">Scheduled</span>{scheduledCount ? <span className="count">{scheduledCount}</span> : null}
-        </button>
+      <div className="foot-cards">
+        {order.map((k) => {
+          const c = cards[k];
+          return (
+            <button key={k} className={`foot-card${c.selected ? ' selected' : ''}${dragging === k ? ' lifted' : ''}${over === k && dragging && dragging !== k ? ' drop' : ''}`}
+              title={c.title || c.name} aria-label={`${c.name}${c.count ? `, ${c.count}` : ''}`} onClick={c.open}
+              draggable onDragStart={(e) => { setDragging(k); e.dataTransfer.setData('text/wgm-footer', k); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragEnd={() => { setDragging(null); setOver(null); }}
+              onDragOver={(e) => { if (!dragging) return; e.preventDefault(); setOver(k); }}
+              onDragLeave={() => setOver((o) => (o === k ? null : o))}
+              onDrop={(e) => { e.preventDefault(); drop(k); setDragging(null); setOver(null); }}>
+              <span className="foot-top">
+                <Icon name={c.icon} size={16} />
+                {c.isNew && <span className="side-badge">New</span>}
+                {c.count ? <span className={`foot-count${c.late ? ' late' : ''}`}>{c.count}</span> : null}
+              </span>
+              <span className="foot-name">{c.name}</span>
+            </button>
+          );
+        })}
       </div>
-      <div className="side-row">
-        <button className={`side-item ${onCalendar ? 'selected' : ''}`} onClick={() => {
-          if (onCalendar) return openScreen('mail');
-          if (onTasks) useSettings.getState().set({ remindersView: 'calendar' });
-          openScreen('reminders');
-        }}>
-          <Icon name="calendar" /><span className="name">Calendar</span>{reminderCount ? <span className="count">{reminderCount}</span> : null}
+      <div className="foot-mini">
+        <button className={`foot-icon${screen === 'help' ? ' selected' : ''}`} title="Help & Feedback" aria-label="Help & Feedback" onClick={() => openScreen('help')}>
+          <Icon name="help" size={16} />
         </button>
-      </div>
-      <div className="side-row">
-        <button className={`side-item ${onTasks ? 'selected' : ''}`} title="Tasks due today and overdue" onClick={() => {
-          if (onTasks) return openScreen('mail');
-          useSettings.getState().set({ remindersView: 'tasks' });
-          openScreen('reminders');
-        }}>
-          <Icon name="check" /><span className="name">Tasks</span>{taskCount ? <span className="count">{taskCount}</span> : null}
-        </button>
-      </div>
-      {/* Only while new invitations wait for an answer. */}
-      {invitations > 0 && (
-        <div className="side-row">
-          <button className="side-item" title="Answer your new invitations" onClick={openInvitations}>
-            <Icon name="mail" /><span className="name">Invitations</span><span className="side-badge">New</span><span className="count">{invitations}</span>
+        {!inSettings && (
+          <button className={`foot-icon${screen === 'settings' ? ' selected' : ''}`} title={alerts.any ? `Settings. ${Object.values(alerts.tabs).join('. ')}` : 'Settings'} aria-label="Settings" onClick={() => openScreen('settings')}>
+            <Icon name="settings" size={16} />{alerts.any ? <span className="attn-dot" aria-hidden="true" /> : null}
           </button>
-        </div>
-      )}
-      <div className="side-row">
-        <button className={`side-item ${screen === 'help' ? 'selected' : ''}`} onClick={() => openScreen('help')}>
-          <Icon name="help" /><span className="name">Help &amp; Feedback</span>
-        </button>
-      </div>
-      <div className="side-row">
-        {inSettings ? (
-          <button className="side-item side-version" onClick={() => useMail.setState({ settingsTab: 'updates' })} title="Updates">
-            <span className="name">Version {version || '...'}</span>{alerts.tabs.updates ? <span className="attn-dot" title={alerts.tabs.updates} aria-label={alerts.tabs.updates} /> : null}
-          </button>
-        ) : (
-          <button className={`side-item ${screen === 'settings' ? 'selected' : ''}`} onClick={() => openScreen('settings')}>
-            <Icon name="settings" /><span className="name">Settings</span>{alerts.any ? <span className="attn-dot" title={Object.values(alerts.tabs).join('. ')} aria-label={Object.values(alerts.tabs).join('. ')} /> : null}
+        )}
+        {inSettings && (
+          <button className="foot-version" onClick={() => useMail.setState({ settingsTab: 'updates' })} title="Updates">
+            Version {version || '...'}{alerts.tabs.updates ? <span className="attn-dot" title={alerts.tabs.updates} aria-label={alerts.tabs.updates} /> : null}
           </button>
         )}
       </div>
@@ -849,7 +881,7 @@ function useTaskCount() {
   // Worked out again on the hour, so overnight the count moves on to the new day.
   const [hour, setHour] = useState(() => new Date().getHours());
   useEffect(() => { const t = () => setHour(new Date().getHours()); window.addEventListener('wgm-minute', t); return () => window.removeEventListener('wgm-minute', t); }, []);
-  return useMemo(() => todayCount(tasksInGroup(tasks, calendarGroup)), [tasks, calendarGroup, calendarGroups, hour]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => { const mine = tasksInGroup(tasks, calendarGroup); return { count: todayCount(mine), late: mine.some((t) => isOverdue(t)) }; }, [tasks, calendarGroup, calendarGroups, hour]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** How many reminders are waiting, for the count beside Reminders. */

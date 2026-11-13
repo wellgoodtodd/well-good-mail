@@ -1890,3 +1890,40 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .comp-att-x { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; padding: 0; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--text); cursor: pointer; opacity: 0; transition: opacity 0.12s; }
 .comp-att:hover .comp-att-x, .comp-att:focus-within .comp-att-x { opacity: 1; }
 .comp-att-x:hover { color: var(--danger); }
+
+/* ---------- sidebar footer: four cards, then Help and Settings as small icons ---------- */
+.side-footer { container-type: inline-size; }
+.foot-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px 0 6px; }
+.foot-card {
+  display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 7px 8px; border-radius: 9px; text-align: left;
+  border: 1px solid var(--border); background: var(--bg-subtle); color: var(--text); font: inherit; cursor: default;
+}
+.foot-card:hover { background: var(--bg-hover); }
+.foot-card.selected { background: var(--bg-selected); border-color: transparent; }
+.foot-card.lifted { opacity: 0.5; }
+.foot-card.drop { border-color: var(--accent); }
+.foot-card:focus-visible, .foot-icon:focus-visible, .foot-version:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.foot-top { display: flex; align-items: center; gap: 5px; min-height: 18px; }
+.foot-top svg { flex: none; color: var(--text-muted); }
+.foot-card.selected .foot-top svg { color: var(--accent); }
+.foot-top .side-badge { margin-left: auto; }
+.foot-count { margin-left: auto; font-size: 1.08em; font-weight: 600; font-variant-numeric: tabular-nums; }
+.foot-top .side-badge + .foot-count { margin-left: 4px; }
+.foot-count.late { color: var(--danger); }
+.foot-name { font-size: 0.88em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.foot-card.selected .foot-name { color: var(--text); }
+.foot-mini { display: flex; align-items: center; gap: 2px; padding-top: 6px; border-top: 1px solid var(--border); }
+.foot-icon { position: relative; width: 32px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 7px; background: none; color: var(--text-muted); cursor: default; }
+.foot-icon:hover { background: var(--bg-hover); color: var(--text); }
+.foot-icon.selected { background: var(--bg-selected); color: var(--accent); }
+.foot-icon .attn-dot { position: absolute; top: 4px; right: 5px; width: 7px; height: 7px; margin: 0; }
+.foot-version { margin-left: auto; display: flex; align-items: center; gap: 6px; border: 0; background: none; font: inherit; font-size: 0.86em; color: var(--text-muted); padding: 4px 6px; border-radius: 6px; cursor: default; }
+.foot-version:hover { background: var(--bg-hover); }
+.foot-version .attn-dot { margin-left: 0; }
+/* A narrow sidebar: the cards become a row of icons with their counts. */
+@container (max-width: 190px) {
+  .foot-cards { grid-template-columns: repeat(4, 1fr); gap: 2px; }
+  .foot-card { position: relative; align-items: center; padding: 7px 0; border-color: transparent; background: none; }
+  .foot-name, .foot-top .side-badge { display: none; }
+  .foot-count { position: absolute; top: 1px; right: 2px; font-size: 0.72em; background: var(--bg-elev); border-radius: 8px; padding: 0 4px; }
+}

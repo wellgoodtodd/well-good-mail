@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sidebar footer</title>
+<style>
+:root{--bg:#1c1c1e;--side:#232326;--elev:#2a2a2d;--hover:rgba(255,255,255,.06);--sel:rgba(59,130,246,.28);--line:#38383d;--text:#ececef;--muted:#9c9ca5;--faint:#7b7d86;--accent:#3b82f6;--late:#e8735a}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1100px;margin:0 auto}
+h1{font-size:20px;margin:0 0 6px}
+.intro{color:var(--muted);max-width:760px;margin:0 0 26px}
+.grid{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+.opt{width:240px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0}
+.why b{color:var(--text);font-weight:600}
+.side{background:var(--side);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+.top{padding:8px 8px 6px;color:var(--muted)}
+.sec{font-size:11.5px;padding:4px 8px;color:var(--faint)}
+.it{display:flex;align-items:center;gap:9px;padding:5px 8px;border-radius:7px;color:var(--text)}
+.it svg{width:16px;height:16px;flex:none;color:var(--muted)}
+.it .n{margin-left:auto;font-size:12px;color:var(--muted);min-width:2.2ch;text-align:right}
+.it.sel{background:var(--sel)}
+.it.sel svg{color:var(--text)}
+.new{font-size:9.5px;font-weight:700;letter-spacing:.03em;color:var(--accent);margin-left:auto}
+.new+.n{margin-left:6px}
+.foot{border-top:1px solid var(--line);padding:6px 8px 8px}
+.space{height:70px}
+/* A and C: cards */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px}
+.card{background:var(--elev);border:1px solid var(--line);border-radius:9px;padding:7px 8px;display:flex;flex-direction:column;gap:6px;min-height:52px}
+.card .r{display:flex;align-items:center}
+.card svg{width:16px;height:16px;color:var(--muted)}
+.card .n{margin-left:auto;font-size:15px;font-weight:600}
+.card .n.late{color:var(--late)}
+.card .nm{font-size:12px;color:var(--muted)}
+.card.sel{background:var(--sel);border-color:transparent}
+.card.sel svg,.card.sel .nm{color:var(--text)}
+.card .new{margin-left:auto;margin-right:5px}
+/* B: one row of icons */
+.icons{display:flex;justify-content:space-between;padding:8px 10px}
+.ib{position:relative;width:44px;height:36px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.ib svg{width:18px;height:18px}
+.ib.sel{background:var(--sel);color:var(--text)}
+.ib b{position:absolute;top:1px;right:3px;font-size:10px;font-weight:600;background:#3a3a42;color:var(--text);border-radius:8px;padding:0 4px;line-height:15px}
+.ib b.blue{background:var(--accent);color:#fff}
+/* C: help and settings as a small row */
+.mini{display:flex;align-items:center;gap:4px;padding:6px 8px 8px;border-top:1px solid var(--line)}
+.mini .ib{width:32px;height:28px}
+.mini .ib svg{width:16px;height:16px}
+.mini span{font-size:11.5px;color:var(--faint);margin-left:4px}
+.note{margin-top:30px;background:#1b1b1e;border:1px solid var(--line);border-radius:12px;padding:14px 16px;max-width:760px}
+.note h2{font-size:14px;margin:0 0 6px}
+.note p{margin:4px 0;color:var(--muted)}
+.note b{color:var(--text)}
+</style></head><body><div class="w">
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+<symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+<symbol id="mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></symbol>
+<symbol id="help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+<symbol id="gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+</defs></svg>
+
+<h1>Sidebar footer</h1>
+<p class="intro">The bottom-left corner of the mail sidebar. Today it is one list of six. The idea is to lift Scheduled, Calendar, Tasks and Invitations above the line, and keep Help &amp; Feedback and Settings quietly underneath. Calendar is shown as the page you're on.</p>
+
+<div class="grid">
+
+<div class="opt">
+<p class="lbl">Now (beta 7)</p>
+<div class="side">
+ <div class="top"><div class="sec">Smart Mailboxes</div><div class="it"><svg><use href="#plus"/></svg>New Smart Mailbox</div></div>
+ <div class="space"></div>
+ <div class="foot">
+  <div class="it"><svg><use href="#clock"/></svg>Scheduled</div>
+  <div class="it sel"><svg><use href="#cal"/></svg>Calendar<span class="n">5</span></div>
+  <div class="it"><svg><use href="#check"/></svg>Tasks<span class="n">5</span></div>
+  <div class="it"><svg><use href="#mail"/></svg>Invitations<span class="new">NEW</span><span class="n">3</span></div>
+  <div class="it"><svg><use href="#help"/></svg>Help &amp; Feedback</div>
+  <div class="it"><svg><use href="#gear"/></svg>Settings</div>
+ </div>
+</div>
+<p class="why">Six rows of the same weight. Places you go every day sit in with Help and Settings.</p>
+</div>
+
+<div class="opt">
+<p class="lbl">A. Four cards, two rows below</p>
+<div class="side">
+ <div class="top"><div class="sec">Smart Mailboxes</div><div class="it"><svg><use href="#plus"/></svg>New Smart Mailbox</div></div>
+ <div class="space"></div>
+ <div class="cards" style="border-top:1px solid var(--line)">
+  <div class="card"><div class="r"><svg><use href="#clock"/></svg><span class="n">2</span></div><span class="nm">Scheduled</span></div>
+  <div class="card sel"><div class="r"><svg><use href="#cal"/></svg><span class="n">5</span></div><span class="nm">Calendar</span></div>
+  <div class="card"><div class="r"><svg><use href="#check"/></svg><span class="n late">5</span></div><span class="nm">Tasks</span></div>
+  <div class="card"><div class="r"><svg><use href="#mail"/></svg><span class="new">NEW</span><span class="n" style="margin-left:0">3</span></div><span class="nm">Invitations</span></div>
+ </div>
+ <div class="foot">
+  <div class="it"><svg><use href="#help"/></svg>Help &amp; Feedback</div>
+  <div class="it"><svg><use href="#gear"/></svg>Settings</div>
+ </div>
+</div>
+<p class="why"><b>Like Apple Reminders' tiles.</b> Counts are big and easy to see at a glance (red when tasks are late). Same height as today.</p>
+</div>
+
+<div class="opt">
+<p class="lbl">B. One row of icons</p>
+<div class="side">
+ <div class="top"><div class="sec">Smart Mailboxes</div><div class="it"><svg><use href="#plus"/></svg>New Smart Mailbox</div></div>
+ <div class="space" style="height:118px"></div>
+ <div class="icons" style="border-top:1px solid var(--line)">
+  <div class="ib" title="Scheduled"><svg><use href="#clock"/></svg><b>2</b></div>
+  <div class="ib sel" title="Calendar"><svg><use href="#cal"/></svg><b>5</b></div>
+  <div class="ib" title="Tasks"><svg><use href="#check"/></svg><b>5</b></div>
+  <div class="ib" title="Invitations"><svg><use href="#mail"/></svg><b class="blue">3</b></div>
+ </div>
+ <div class="foot">
+  <div class="it"><svg><use href="#help"/></svg>Help &amp; Feedback</div>
+  <div class="it"><svg><use href="#gear"/></svg>Settings</div>
+ </div>
+</div>
+<p class="why"><b>Smallest.</b> Gives the most room to mailboxes, but no names, so you go by icon (names show on hover).</p>
+</div>
+
+<div class="opt">
+<p class="lbl">C. Four cards, Help and Settings as icons</p>
+<div class="side">
+ <div class="top"><div class="sec">Smart Mailboxes</div><div class="it"><svg><use href="#plus"/></svg>New Smart Mailbox</div></div>
+ <div class="space" style="height:96px"></div>
+ <div class="cards" style="border-top:1px solid var(--line)">
+  <div class="card"><div class="r"><svg><use href="#clock"/></svg><span class="n">2</span></div><span class="nm">Scheduled</span></div>
+  <div class="card sel"><div class="r"><svg><use href="#cal"/></svg><span class="n">5</span></div><span class="nm">Calendar</span></div>
+  <div class="card"><div class="r"><svg><use href="#check"/></svg><span class="n late">5</span></div><span class="nm">Tasks</span></div>
+  <div class="card"><div class="r"><svg><use href="#mail"/></svg><span class="new">NEW</span><span class="n" style="margin-left:0">3</span></div><span class="nm">Invitations</span></div>
+ </div>
+ <div class="mini">
+  <div class="ib" title="Help &amp; Feedback"><svg><use href="#help"/></svg></div>
+  <div class="ib" title="Settings"><svg><use href="#gear"/></svg></div>
+  <span>Up to date</span>
+ </div>
+</div>
+<p class="why"><b>My pick.</b> The cards from A, with Help and Settings as two small icons on one line (plus a quiet sync note). Shorter than today, and it reads clearly as "places" above, "the app" below.</p>
+</div>
+
+</div>
+
+<div class="note">
+<h2>How it would work</h2>
+<p><b>Same behaviour as now:</b> click a card to go there; counts follow the group you're looking at (Scheduled would gain a count of emails waiting to send). The page you're on is shaded blue.</p>
+<p><b>Drag to reorder</b> the four cards, like the Tasks sidebar's All Tasks, Today and Scheduled.</p>
+<p><b>Narrow sidebar:</b> below about 200px wide the cards fall back to option B's icon row, so nothing gets squashed.</p>
+<p><b>Size:</b> a small job (one part of the sidebar, plus its styles), so it could go in beta 8, or wait for the release after.</p>
+</div>
+</div></body></html>

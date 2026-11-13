@@ -16,6 +16,11 @@ describe('Deleting from several calendars', () => {
     const all = [ev('1', 'a'), ev('2', 'b'), ev('3', 'c'), ev('4', 'b', { title: 'Other' })];
     expect(copiesOf(shown, all).map((e) => e.accountId)).toEqual(['a', 'b']);
   });
+  it('matches copies the way the calendar joins them (title case and spaces)', () => {
+    const shown = ev('1', 'a', { accountIds: ['a', 'b'] });
+    const all = [ev('1', 'a'), ev('2', 'b', { title: 'studio walkthrough ', canEdit: false })];
+    expect(copiesOf(shown, all).map((e) => e.accountId)).toEqual(['a', 'b']);
+  });
   it('is just the one event when it is on one calendar', () => {
     const one = ev('1', 'a');
     expect(copiesOf(one, [one, ev('2', 'b')])).toEqual([one]);
@@ -50,5 +55,14 @@ describe('The Alerts card', () => {
     const now = new Date(2026, 10, 13, 14, 0).getTime();
     const s = { ...useSettings.getState(), alertsPausedUntil: now + 3600000 } as ReturnType<typeof useSettings.getState>;
     expect(alertLines(s, now)[0]).toBe('Paused until 15:00');
+  });
+});
+
+describe('Sidebar footer cards', () => {
+  it('keeps a dragged order and adds any card that is missing', async () => {
+    const { footerOrder } = await import('../../components/Sidebar');
+    expect(footerOrder(['tasks', 'calendar'])).toEqual(['tasks', 'calendar', 'scheduled', 'invitations']);
+    expect(footerOrder(['nope', 'tasks', 'tasks'])).toEqual(['tasks', 'scheduled', 'calendar', 'invitations']);
+    expect(footerOrder(null)).toEqual(['scheduled', 'calendar', 'tasks', 'invitations']);
   });
 });

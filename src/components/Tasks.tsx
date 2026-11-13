@@ -547,8 +547,10 @@ export function makeTaskFromEmail(m: Message, chosenText?: string) {
   // Read from the day the email was sent ("by Friday" in Thursday's email is that Friday); a day already gone is left out.
   const read = words.due === undefined ? readTaskWords(m.snippet || '', m.date) : undefined;
   const fromSnippet = read?.due !== undefined && read.due >= startOfToday() ? read : undefined;
-  const due = words.due ?? fromSnippet?.due;
-  const hasTime = words.due !== undefined ? words.hasTime : Boolean(fromSnippet?.hasTime);
+  // No date in it: today at the next round hour, the same as New task (easy to clear).
+  const found = words.due ?? fromSnippet?.due;
+  const due = found ?? nextRoundHour();
+  const hasTime = words.due !== undefined ? words.hasTime : fromSnippet ? Boolean(fromSnippet.hasTime) : true;
   useEditor.setState((s) => ({ task: undefined, draft: { title: (words.dateText ? words.title : source).slice(0, 200), due, hasTime, listId: listForAccount(m.accountId)?.id, mail }, seq: s.seq + 1 }));
 }
 
