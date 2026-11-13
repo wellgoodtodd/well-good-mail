@@ -8,6 +8,22 @@ Finished work is in docs/history.md (newest first). This file keeps what is stil
 
 - 13 Nov 2026: compose window polish, inspired by Apple Mail's compose window. Todd likes the current one, so this is optional, small and mock-up first. Ideas worth trying: font and size as neat boxed dropdowns (with the up/down arrows) instead of plain selects; clearer "on" state for bold, italic, underline and alignment (a filled blue box like Apple's); an emoji button (opens the Windows emoji panel, Win + .); attach and emoji as labelled buttons near the top (icon with the word under it); a roomier attachments area (bigger cards with thumbnails rather than small chips). Not wanted: Mac window buttons, Writing Tools.
 
+## Beta 5 feedback, for beta 6 (Todd, 13 Nov 2026)
+
+Working well: drags, group moves and deletes are quick; calendar header; Move to calendar flyout; repeating-event question; the weekly event now drags; Add a note; Accept on an invitation's pop-up; Cancel and tell guests now emails the guest; Out of Office wording; plain-words Microsoft errors (Microsoft had a global outage that day, so the retry couldn't really be tested).
+
+To fix:
+- **A calendar refresh waits for the slowest account.** refreshEvents uses Promise.all, so one slow Outlook holds every account's events. Show each account's events as soon as it answers. An account that keeps failing is tried less often (back off) without being switched off, and the account page still says it's having trouble.
+- **Deleting a series:** the full edit window stayed open for a couple of seconds and then closed by itself. Close it at once, and show a thin moving bar under the calendar header while a change is on its way (with a note if it's refused).
+- **Typing invitee names is a little slow:** look contacts up after a short pause, not on every key.
+- **Invites showed late in the calendar** (needed a manual refresh). When a new invitation email arrives, refresh that account's calendar. Mail fetches stay separate from the calendar otherwise.
+- **Out of Office Template picker:** the Message card is busy. Account tabs first, then subject; move Template to the far right of the account tabs row (alone on the right of that row when "Different message for each account" is off).
+- **Place suggestions:** only show once you start typing (an empty list on click isn't much help).
+- **Location from the title:** "Lunch with Sam at Five Guys" fills Location with "Five Guys" (the words after "at" or "@"), shown highlighted like dates so it can be undone; the same for events made from an email. A rough place name is fine; picking the exact branch needs map search later.
+- Alerts: two (+ Add alert) is enough.
+
+**Tasks, decided 13 Nov 2026** (mock-up docs/mockups/tasks-view.html updated): Day and Week show tasks in the calendar itself (strip and markers, tick off from the circle); Month shows them in a panel beside it with a "2 tasks" line per day; ticking off works both ways with the phone; ticked tasks stay crossed out for the rest of the day, then go under Completed before today; overdue turns red; task lists follow Calendar Groups, each group with a default list; quick add goes to the current group's default, a task from an email to the default of that email's group; tasks with a time alert like reminders; AI apps' add_task goes to a list or group chosen in AI Connection, asking first; ticking off never archives the email. Still open: "Make tasks from this email" now or later.
+
 ## 0.7.3 beta 5 (built 13 Nov 2026)
 
 Beta 4 plus everything under "To fix" in Todd's beta 4 calendar and Out of Office feedback (now in docs/history.md), and place suggestions in Location. Test list: docs/testing-0.7.3-beta5.md. Checked in the browser demo only, not on real accounts.
