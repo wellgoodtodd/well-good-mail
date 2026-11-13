@@ -194,6 +194,7 @@ Later the same day (beta 12): Todd would like it as a web app saved to the phone
 - Alerts are the hard part: a home-screen web app can't wake itself at 10:00; reliable task alerts need a small push server. Google Calendar's own notifications keep working meanwhile.
 - Claude on the phone can't reach the desktop app's AI Connection. It would need a hosted connector (a remote MCP server, e.g. a Cloudflare Worker) that writes to Google Tasks, which then shows everywhere.
 Not a tonight job: several sessions. Best started as its own project with a spec and a phone mock-up first.
+Todd's decisions (13 Nov): no alerts in the web app (Google Tasks and Calendar already notify); it's a place to see, add and tick things off, kept in step with the desktop app through Google. Google accounts only to start. A connector for Claude on the phone can come later. A personal project first; bundle it with Well Good Mail if it works out.
 
 ## Future idea: tasks (12 Nov 2026)
 
