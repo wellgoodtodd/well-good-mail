@@ -189,6 +189,8 @@ Beta 12 is beta 11 plus your beta 11 feedback. If something goes badly wrong, be
 ## Found in beta 12
 
 - **Attachments above or below, in three sizes** (Todd agreed the mock-up, and asked for a preview in Settings so people can see what each choice looks like). Done for the next build: Settings › Appearance › Attachments, with a small sample email under the choices that greets you by name. Default: above the email, medium.
+- **Send To on a real invoice works** (Todd, 13 Nov): SocialPilot May invoice saved as 260524_SocialPilot 81.00.pdf in the Y4_2026-27 receipts folder, and a SocialPilot rule made. The Zoom invoice forwarded to Hubdoc earlier with its PDF.
+- Forwards to a place carried Todd's signature at the top. Fixed for the next build: Send To forwards go without a signature.
 
 ## If something goes wrong
 

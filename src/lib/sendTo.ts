@@ -248,6 +248,8 @@ async function sendOne(place: SendPlace, m: Message, opts: { attachmentId?: stri
   if (place.forwardTo) {
     const draft = createDraft('forward', full, composeContext(), {
       to: [{ email: place.forwardTo.trim() }],
+      // A place like Hubdoc reads the files, so no signature at the top of the forward.
+      signatureOf: '',
       includeSourceAttachments: false,
       attachments: data.map((f) => ({ id: f.a.id, filename: f.a.filename, mimeType: f.a.mimeType, size: f.bytes.length, dataB64: toB64(f.bytes) })),
       includeQuote: !place.filesOnly || !data.length,
