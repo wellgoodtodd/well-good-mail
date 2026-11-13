@@ -4,6 +4,11 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## For the next beta (Todd's beta 10 feedback, batched)
+
+- New place: boxes fit the dialog; Forward to uses RecipientField (anyAddress) so contacts are suggested as you type.
+- Send To places can rename saved files (SendPlace.rename: start, end or ask; fillDate and renamedFile in sendTo.ts, tested). Todd's own convention: YYMMDD_ then the invoice's name.
+
 ## 0.7.3 beta 10 (built 13 Nov 2026)
 
 Beta 9 with the footer from docs/mockups/sidebar-footer-3.html (Todd: beta 9 hid the card icons, not what was agreed). Cards: icon and name always, a dot in the card's corner (red: late task, blue: new invitations), counts only when the footer is 290px or wider, counts in the tooltip; very narrow: icons with the dot on the icon. Test list: docs/testing-0.7.3-beta10.md.

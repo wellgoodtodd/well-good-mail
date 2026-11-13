@@ -8,7 +8,7 @@ import { store } from './db';
 import { inSystemFolder } from './mailbox';
 import { invoke, isTauri } from './platform';
 import { settings, useSettings, type SendPlace, type SendRule } from './settings';
-import { askConfirm } from './dialogs';
+import { askConfirm, askText } from './dialogs';
 import type { Message } from './types';
 
 // ---------- plain helpers (tested) ----------
@@ -38,6 +38,22 @@ export function subfolderFor(p: Pick<SendPlace, 'subfolders'>, date: number): st
   if (p.subfolders === 'year') return String(d.getFullYear());
   if (p.subfolders === 'month') return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')} ${MONTHS[d.getMonth()]}`;
   return '';
+}
+
+/** The text with YYYY, YY, MM and DD swapped for a date: "YYMMDD_" on 13 Nov 2026 is "261113_". */
+export function fillDate(text: string, date: number): string {
+  const d = new Date(date);
+  const two = (n: number) => String(n).padStart(2, '0');
+  return text.replace(/YYYY|YY|MM|DD/g, (t) => (t === 'YYYY' ? String(d.getFullYear()) : t === 'YY' ? two(d.getFullYear() % 100) : t === 'MM' ? two(d.getMonth() + 1) : two(d.getDate())));
+}
+
+/** A saved file's name with the place's text added to the start, or to the end before the extension. */
+export function renamedFile(name: string, rename: SendPlace['rename'], date: number): string {
+  if (!rename?.on || rename.how === 'ask' || !rename.text) return name;
+  const add = fillDate(rename.text, date);
+  if (rename.how === 'start') return `${add}${name}`;
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? `${name.slice(0, dot)}${add}${name.slice(dot)}` : `${name}${add}`;
 }
 
 /** Big free email services, where a rule matches the whole address rather than everyone at the domain. */
@@ -143,7 +159,16 @@ async function sendOne(place: SendPlace, m: Message, opts: { attachmentId?: stri
   if (folder && data.length) {
     if (!isTauri()) throw new Error('Saving into a folder works in the desktop app');
     const sub = subfolderFor(place, full.date);
-    for (const f of data) await invoke<string>('save_into_subfolder', { folder, subfolder: sub, name: f.a.filename, data: toB64(f.bytes) });
+    for (const f of data) {
+      let name = renamedFile(f.a.filename, place.rename, full.date);
+      if (place.rename?.on && place.rename.how === 'ask' && !opts.quiet) {
+        const asked = await askText(`Save ${f.a.filename} as`, `${fillDate(place.rename.text || '', full.date)}${f.a.filename}`, 'Save');
+        if (asked === null) continue;
+        name = asked.trim() || f.a.filename;
+        if (!/\.[a-z0-9]{1,5}$/i.test(name) && /\.[a-z0-9]{1,5}$/i.test(f.a.filename)) name += f.a.filename.slice(f.a.filename.lastIndexOf('.'));
+      }
+      await invoke<string>('save_into_subfolder', { folder, subfolder: sub, name, data: toB64(f.bytes) });
+    }
     saved = sub ? `${folder.split(/[\\/]/).filter(Boolean).pop()} › ${sub.replace('/', ' › ')}` : folder.split(/[\\/]/).filter(Boolean).pop();
     done.push(`saved in ${saved}`);
   }

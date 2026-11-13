@@ -10,7 +10,7 @@ import { askConfirm, askText } from '../lib/dialogs';
 import { useSettings, settings, type SendPlace, type SendRule } from '../lib/settings';
 import {
   addRule, closeSendToDialog, findInvoiceSenders, forwardName, openFindInvoices, openPlaceEditor, placeSummary, sendLog, sendToPlace,
-  subfolderFor, useSendToDialog, type InvoiceSender, type SendLogEntry,
+  subfolderFor, useSendToDialog, renamedFile, fillDate, type InvoiceSender, type SendLogEntry,
 } from '../lib/sendTo';
 import type { Message } from '../lib/types';
 
@@ -59,7 +59,10 @@ function PlaceEditor({ place, then }: { place?: SendPlace; then?: (p: SendPlace)
   const okFolder = !save || p.askFolder || Boolean(p.folder);
   const name = p.name.trim() || (forward && email ? forwardName(email) : '');
   const ready = Boolean(name) && (forward || save) && okEmail && okFolder;
-  const example = p.folder ? `${p.folder.replace(/[\\/]+$/, '')}${subfolderFor(p, Date.now()) ? `\\${subfolderFor(p, Date.now()).replace('/', '\\')}` : ''}\\Invoice.pdf` : '';
+  const rename = p.rename || { on: false, how: 'start' as const, text: 'YYMMDD_' };
+  const sampleName = renamedFile('Invoice-48213.pdf', rename.on ? rename : undefined, Date.now());
+  const sampleAsk = `${fillDate(rename.text || '', Date.now())}Invoice-48213.pdf`;
+  const example = p.folder ? `${p.folder.replace(/[\\/]+$/, '')}${subfolderFor(p, Date.now()) ? `\\${subfolderFor(p, Date.now()).replace('/', '\\')}` : ''}\\${sampleName}` : '';
   const done = () => {
     const final: SendPlace = { ...p, name, forwardTo: forward ? email : '', folder: save ? p.folder : '', askFolder: save ? p.askFolder : false };
     const list = settings().sendPlaces;
@@ -89,6 +92,16 @@ function PlaceEditor({ place, then }: { place?: SendPlace; then?: (p: SendPlace)
             {!p.askFolder && <Radio name="Put it in" value={p.subfolders} onChange={(v) => change({ subfolders: v })} options={[{ value: 'none', label: 'That folder' }, { value: 'year', label: 'Year' }, { value: 'month', label: 'Year › Month' }]} />}
             {!p.askFolder && example && <p className="hint">Saves as {example}</p>}
             <Check checked={Boolean(p.askFolder)} onChange={(v) => change({ askFolder: v })}>Ask me for a folder each time</Check>
+            <Check checked={Boolean(rename.on)} onChange={(v) => change({ rename: { ...rename, on: v } })}>Rename the files</Check>
+            {rename.on && (
+              <div className="sendto-indent">
+                <Radio name="Rename" value={rename.how} onChange={(v) => change({ rename: { ...rename, how: v, text: rename.text || (v === 'end' ? '_YYMMDD' : 'YYMMDD_') } })}
+                  options={[{ value: 'start', label: 'Add to the start' }, { value: 'end', label: 'Add to the end' }, { value: 'ask', label: 'Ask each time' }]} />
+                <label className="sendto-field"><span>{rename.how === 'ask' ? 'Suggest a name starting with' : rename.how === 'end' ? 'Add to the end' : 'Add to the start'}</span>
+                  <input value={rename.text} placeholder={rename.how === 'end' ? '_YYMMDD' : 'YYMMDD_'} onChange={(e) => change({ rename: { ...rename, text: e.target.value } })} /></label>
+                <p className="hint">YYYY, YY, MM and DD become the email's date. {rename.how === 'ask' ? `Each file asks for its name first, starting as ${sampleAsk}. Rules don't ask: they keep the name as it came.` : `Invoice-48213.pdf is saved as ${sampleName}.`}</p>
+              </div>
+            )}
           </div>
         )}
         {!okEmail && email && <p className="hint status-bad">{email} doesn't look like an email address.</p>}

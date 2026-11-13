@@ -172,6 +172,7 @@ Beta 10 is beta 9 with the sidebar footer as agreed in round three (docs/mockups
 
 - **New place: the boxes ran past the edge of the dialog** (Todd). Fixed for the next build: they fit the dialog.
 - **Forward to should suggest contacts as you type** (Todd), like the To box and event guests. Done for the next build: it offers your contacts (service addresses like Hubdoc's too) after a short pause, and shows the chosen one as a chip.
+- **Rename saved invoices** (Todd: he names them YYMMDD_ then the invoice name). Done for the next build: a place that saves files has Rename the files, with Add to the start, Add to the end (text such as YYMMDD_, where YYYY, YY, MM and DD become the email's date) or Ask each time (suggests a name starting with that text; rules don't ask and keep the name).
 
 ## If something goes wrong
 

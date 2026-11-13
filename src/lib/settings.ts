@@ -31,6 +31,8 @@ export interface SendPlace {
   subfolders: 'none' | 'year' | 'month';
   /** Ask for a folder each time instead. */
   askFolder?: boolean;
+  /** Rename saved files: add text to the start or end of the name (YYYY, YY, MM and DD become the email's date), or ask each time. */
+  rename?: { on: boolean; how: 'start' | 'end' | 'ask'; text: string };
 }
 
 /** A Send To rule: new mail from a sender (and with a PDF, or words in the subject) goes to a place. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findInvoiceSenders, forwardName, placeSummary, ruleMatches, senderKey, subfolderFor } from '../sendTo';
+import { fillDate, findInvoiceSenders, forwardName, placeSummary, renamedFile, ruleMatches, senderKey, subfolderFor } from '../sendTo';
 import type { SendRule } from '../settings';
 import type { Message } from '../types';
 
@@ -47,5 +47,15 @@ describe('Send To', () => {
     const found = findInvoiceSenders([...canva, news, mine], new Set(['me@example.com']), now);
     expect(found).toHaveLength(1);
     expect(found[0]).toMatchObject({ key: 'canva.com', name: 'Canva', count: 4, cadence: 'monthly' });
+  });
+
+  it('renames saved files with the date of the email', () => {
+    const d = new Date(2026, 10, 3).getTime();
+    expect(fillDate('YYMMDD_', d)).toBe('261103_');
+    expect(fillDate('YYYY-MM', d)).toBe('2026-11');
+    expect(renamedFile('Invoice-1.pdf', { on: true, how: 'start', text: 'YYMMDD_' }, d)).toBe('261103_Invoice-1.pdf');
+    expect(renamedFile('Invoice-1.pdf', { on: true, how: 'end', text: '_YYMMDD' }, d)).toBe('Invoice-1_261103.pdf');
+    expect(renamedFile('Invoice-1.pdf', { on: false, how: 'start', text: 'YYMMDD_' }, d)).toBe('Invoice-1.pdf');
+    expect(renamedFile('Invoice-1.pdf', { on: true, how: 'ask', text: 'YYMMDD_' }, d)).toBe('Invoice-1.pdf');
   });
 });
