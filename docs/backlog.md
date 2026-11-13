@@ -4,6 +4,14 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.4 beta 1 (built 13 Nov 2026)
+
+0.7.3 plus opening calendar files (.ics) from Windows. Test list: `testing-0.7.4-beta1.md`. First build to compile the Rust side of it (`src-tauri/src/icsfile.rs`).
+
+- Windows file association for .ics (`fileAssociations` in tauri.conf.json). Open with › Well Good Mail, or a double-click once Always is ticked, opens New event filled in from the file (`eventFromIcs` in invites.ts, `newEventFrom` in NewEvent.tsx). Works when the app is closed (the start file is remembered) or already running (single instance sends `open-ics`).
+- A file with no event gives a short message. Help topic "Open a calendar file (.ics)".
+- Still to see from 0.7.3: task alerts, the EA draft signature, the SocialPilot Send To rule.
+
 ## After 0.7.3 (Todd, 13 Nov 2026)
 
 - [x] **Open .ics files in Well Good Mail.** (Done, for the next beta.) Windows offers Outlook and eM Client for a downloaded .ics but not Well Good Mail. Register the app for .ics (Tauri `fileAssociations`), and when one is opened show the event card with Add to calendar and a calendar picker. Invitations that arrive by email already work in the app.
