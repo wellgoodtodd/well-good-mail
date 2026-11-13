@@ -798,7 +798,7 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
   const invitations = useInvitations().count;
   const alerts = useSettingsAlerts();
   const version = useUpdates((u) => u.currentVersion);
-  const { count: taskCount, late } = useTaskCount();
+  const { count: taskCount, late, lateCount } = useTaskCount();
   const remindersView = useSettings((st) => st.remindersView);
   const onTasks = screen === 'reminders' && remindersView === 'tasks';
   const onCalendar = screen === 'reminders' && remindersView !== 'tasks';
@@ -815,18 +815,18 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
   };
 
   const cards: Record<FooterCard, { icon: IconName; name: string; count?: number; late?: boolean; isNew?: boolean; selected: boolean; title?: string; open: () => void }> = {
-    scheduled: { icon: 'clock', name: 'Scheduled', count: scheduledCount, selected: screen === 'scheduled', title: 'Emails waiting to send', open: () => openScreen(screen === 'scheduled' ? 'mail' : 'scheduled') },
-    calendar: { icon: 'calendar', name: 'Calendar', count: reminderCount, selected: onCalendar, open: () => {
+    scheduled: { icon: 'clock', name: 'Scheduled', count: scheduledCount, selected: screen === 'scheduled', title: scheduledCount ? `Scheduled: ${scheduledCount} ${scheduledCount === 1 ? 'email' : 'emails'} waiting to send` : 'Scheduled: nothing waiting to send', open: () => openScreen(screen === 'scheduled' ? 'mail' : 'scheduled') },
+    calendar: { icon: 'calendar', name: 'Calendar', count: reminderCount, selected: onCalendar, title: reminderCount ? `Calendar: ${reminderCount} coming up` : 'Calendar', open: () => {
       if (onCalendar) return openScreen('mail');
       if (onTasks) useSettings.getState().set({ remindersView: 'calendar' });
       openScreen('reminders');
     } },
-    tasks: { icon: 'check', name: 'Tasks', count: taskCount, late, selected: onTasks, title: late ? 'Tasks due today, some of them late' : 'Tasks due today and overdue', open: () => {
+    tasks: { icon: 'check', name: 'Tasks', count: taskCount, late, selected: onTasks, title: `Tasks: ${taskCount} due today${lateCount ? `, ${lateCount} late` : ''}`, open: () => {
       if (onTasks) return openScreen('mail');
       useSettings.getState().set({ remindersView: 'tasks' });
       openScreen('reminders');
     } },
-    invitations: { icon: 'mail', name: 'Invitations', count: invitations, isNew: invitations > 0, selected: false, title: invitations ? 'Answer your new invitations' : 'Invitations', open: openInvitations },
+    invitations: { icon: 'mail', name: 'Invitations', count: invitations, isNew: invitations > 0, selected: false, title: invitations ? `Invitations: ${invitations} new to answer` : 'Invitations: none waiting', open: openInvitations },
   };
 
   return (
@@ -836,15 +836,18 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
           const c = cards[k];
           return (
             <button key={k} className={`foot-card${c.selected ? ' selected' : ''}${dragging === k ? ' lifted' : ''}${over === k && dragging && dragging !== k ? ' drop' : ''}`}
-              title={c.title || c.name} aria-label={`${c.name}${c.count ? `, ${c.count}` : ''}`} onClick={c.open}
+              title={c.title || c.name} aria-label={c.title || c.name} onClick={c.open}
               draggable onDragStart={(e) => { setDragging(k); e.dataTransfer.setData('text/wgm-footer', k); e.dataTransfer.effectAllowed = 'move'; }}
               onDragEnd={() => { setDragging(null); setOver(null); }}
               onDragOver={(e) => { if (!dragging) return; e.preventDefault(); setOver(k); }}
               onDragLeave={() => setOver((o) => (o === k ? null : o))}
               onDrop={(e) => { e.preventDefault(); drop(k); setDragging(null); setOver(null); }}>
-              <Icon name={c.icon} size={16} />
+              {/* A dot when something needs you: red for late tasks, blue for new invitations. It sits in the card's
+                  corner, on the icon when the sidebar is very narrow, and gives way to the count when it's wide. */}
+              <span className="foot-ic"><Icon name={c.icon} size={16} />{(c.late || c.isNew) && <i className={`foot-dot ${c.late ? 'late' : 'new'}`} aria-hidden="true" />}</span>
               <span className="foot-name">{c.name}</span>
-              {c.count ? <span className={`foot-count${c.late ? ' late' : ''}${c.isNew ? ' new' : ''}`} title={c.isNew ? `${c.count} new` : undefined}>{c.count}</span> : null}
+              {(c.late || c.isNew) && <i className={`foot-cdot ${c.late ? 'late' : 'new'}`} aria-hidden="true" />}
+              {c.count ? <span className={`foot-count${c.late ? ' late' : ''}${c.isNew ? ' new' : ''}`}>{c.count}</span> : null}
             </button>
           );
         })}
@@ -881,7 +884,7 @@ function useTaskCount() {
   // Worked out again on the hour, so overnight the count moves on to the new day.
   const [hour, setHour] = useState(() => new Date().getHours());
   useEffect(() => { const t = () => setHour(new Date().getHours()); window.addEventListener('wgm-minute', t); return () => window.removeEventListener('wgm-minute', t); }, []);
-  return useMemo(() => { const mine = tasksInGroup(tasks, calendarGroup); return { count: todayCount(mine), late: mine.some((t) => isOverdue(t)) }; }, [tasks, calendarGroup, calendarGroups, hour]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => { const mine = tasksInGroup(tasks, calendarGroup); const lateCount = mine.filter((t) => isOverdue(t)).length; return { count: todayCount(mine), late: lateCount > 0, lateCount }; }, [tasks, calendarGroup, calendarGroups, hour]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** How many reminders are waiting, for the count beside Reminders. */

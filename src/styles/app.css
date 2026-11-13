@@ -1903,7 +1903,7 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .side-footer { container-type: inline-size; }
 .foot-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px 0 6px; }
 .foot-card {
-  display: flex; align-items: center; gap: 6px; min-width: 0; padding: 9px 8px; border-radius: 9px; text-align: left;
+  position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; padding: 9px 7px; border-radius: 9px; text-align: left;
   border: 1px solid var(--border); background: var(--bg-elev); color: var(--text); font: inherit; cursor: default;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
@@ -1912,13 +1912,19 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .foot-card.lifted { opacity: 0.5; }
 .foot-card.drop { border-color: var(--accent); }
 .foot-card:focus-visible, .foot-icon:focus-visible, .foot-version:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.foot-count { margin-left: auto; font-size: 0.95em; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Counts only when the sidebar is wide enough; otherwise a dot in the card's corner, and the count on hover. */
+.foot-count { display: none; margin-left: auto; font-size: 0.95em; font-weight: 600; font-variant-numeric: tabular-nums; }
+.foot-ic { position: relative; display: grid; place-items: center; flex: none; color: color-mix(in srgb, var(--text) 70%, var(--text-muted)); }
+.foot-card.selected .foot-ic { color: var(--accent); }
+.foot-dot, .foot-cdot { width: 7px; height: 7px; border-radius: 50%; }
+.foot-dot { display: none; position: absolute; top: -3px; right: -4px; box-shadow: 0 0 0 2px var(--bg-sidebar); }
+.foot-cdot { position: absolute; top: 5px; right: 5px; }
+.foot-dot.late, .foot-cdot.late { background: var(--danger); }
+.foot-dot.new, .foot-cdot.new { background: var(--accent); }
+@container (min-width: 290px) { .foot-count { display: inline; } .foot-cdot { display: none; } .foot-card { padding: 9px 9px; } }
 .foot-count.late { color: var(--danger); }
 .foot-count.new { color: var(--accent); }
 /* A sidebar a little narrower than usual: the names keep their room and the icons step aside. */
-@container (max-width: 236px) and (min-width: 191px) { .foot-card > svg { display: none; } .foot-card { padding: 9px 10px; } }
-.foot-card > svg { flex: none; color: color-mix(in srgb, var(--text) 70%, var(--text-muted)); }
-.foot-card.selected > svg { color: var(--accent); }
 .foot-card .side-badge { margin-left: auto; }
 .foot-card .side-badge + .foot-count { margin-left: 4px; }
 .foot-name { flex: 1; min-width: 0; font-size: 0.9em; font-weight: 500; color: color-mix(in srgb, var(--text) 82%, var(--text-muted)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1943,9 +1949,10 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 @container (max-width: 190px) {
   .foot-cards { grid-template-columns: repeat(4, 1fr); gap: 2px; }
   .foot-card { position: relative; justify-content: center; padding: 7px 0; border-color: transparent; background: none; box-shadow: none; }
-  .foot-name, .foot-card .side-badge, .foot-settings span:not(.attn-dot) { display: none; }
+  .foot-name, .foot-cdot, .foot-count, .foot-settings span:not(.attn-dot) { display: none; }
+  .foot-dot { display: block; }
   .foot-settings { flex: 0 0 auto; padding: 0 8px; }
-  .foot-count { position: absolute; top: 1px; right: 2px; font-size: 0.72em; background: var(--bg-elev); border-radius: 8px; padding: 0 4px; }
+  .foot-mini .foot-icon { margin-left: auto; }
 }
 
 /* Send To (Settings › Send To, the place editor, Find my invoices) */

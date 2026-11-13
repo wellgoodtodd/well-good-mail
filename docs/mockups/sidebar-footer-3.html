@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sidebar footer, round three</title>
+<style>
+:root{--side:#232326;--elev:#2c2c30;--line:#38383d;--text:#ececef;--muted:#9c9ca5;--faint:#7b7d86;--sel:rgba(59,130,246,.28);--accent:#3b82f6;--late:#e5484d;--coral:#ef6f5e}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:900px;margin:0 auto}
+h1{font-size:20px;margin:0 0 6px}
+.intro{color:var(--muted);max-width:700px;margin:0 0 22px}
+.grid{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0;max-width:260px}
+svg{width:16px;height:16px;flex:none}
+.side{background:var(--side);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+.sec{font-size:11.5px;padding:8px 10px 2px;color:var(--faint)}
+.it{display:flex;align-items:center;gap:9px;padding:5px 10px}
+.it svg{color:var(--muted)}
+.it .n{margin-left:auto;font-size:12px;color:var(--muted)}
+.space{height:40px}
+.foot{border-top:1px solid var(--line);padding:8px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.card{background:var(--elev);border:1px solid var(--line);border-radius:9px;padding:9px 6px;display:flex;align-items:center;gap:6px;min-width:0;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.card svg{color:#c9c9d0}
+.card .nm{font-size:12px;font-weight:500;color:#d6d6dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.card.sel{background:var(--sel);border-color:transparent}
+.card.sel svg{color:var(--accent)}
+.dot{width:7px;height:7px;border-radius:50%;flex:none;margin-left:auto}
+.ic{position:relative;display:grid;place-items:center;flex:none}
+.ic .dot{position:absolute;top:-3px;right:-4px;width:7px;height:7px;margin:0;box-shadow:0 0 0 2px var(--elev)}
+.dot.late{background:var(--late)}
+.dot.new{background:var(--accent)}
+.dot.attn{background:var(--coral)}
+.mini{display:flex;align-items:center;gap:4px;padding-top:8px;margin-top:8px;border-top:1px solid var(--line)}
+.set{flex:1;display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:8px;color:#d6d6dc;font-weight:500}
+.set svg{color:#c9c9d0}
+.set .dot{margin-left:0}
+.ib{width:32px;height:30px;border-radius:7px;display:grid;place-items:center;color:var(--muted)}
+.tip{display:inline-block;margin-top:8px;background:#2a2a2d;border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:12px;color:var(--text)}
+.icons{display:grid;grid-template-columns:repeat(4,1fr);gap:2px}
+.icons span{position:relative;height:32px;display:grid;place-items:center;color:#c9c9d0}
+.icons .dot{position:absolute;top:5px;right:9px;margin:0}
+</style></head><body><div class="w">
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+<symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+<symbol id="mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></symbol>
+<symbol id="help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+<symbol id="cog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+<symbol id="inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+</defs></svg>
+
+<h1>Sidebar footer, round three</h1>
+<p class="intro">Icon and name on every card, always. The sidebar starts at 240px wide, where every name fits; dragged narrower than about 225px, the longer names shorten with dots before it turns into a row of icons. No numbers: just a dot when something needs you. Hover a card for the count.</p>
+
+<div class="grid">
+  <div>
+    <p class="lbl">Usual width (240px)</p>
+    <div class="side" style="width:240px">
+      <div class="sec">Mailboxes</div><div class="it"><svg><use href="#inbox"/></svg>All Inboxes<span class="n">5</span></div><div class="space"></div>
+      <div class="foot">
+        <div class="cards">
+          <div class="card"><svg><use href="#clock"/></svg><span class="nm">Scheduled</span></div>
+          <div class="card"><svg><use href="#cal"/></svg><span class="nm">Calendar</span></div>
+          <div class="card"><span class="ic"><svg><use href="#check"/></svg><i class="dot late"></i></span><span class="nm">Tasks</span></div>
+          <div class="card"><span class="ic"><svg><use href="#mail"/></svg><i class="dot new"></i></span><span class="nm">Invitations</span></div>
+        </div>
+        <div class="mini"><span class="set"><svg><use href="#cog"/></svg>Settings<span class="dot attn"></span></span><span class="ib"><svg><use href="#help"/></svg></span></div>
+      </div>
+    </div>
+    <span class="tip">Tasks: 5 due today, 2 late</span>
+    <p class="why">The dot sits on the icon, so the names keep their room. <b>Red</b> on Tasks when one is late, <b>blue</b> on Invitations when new ones are waiting. Coral on Settings as now. Nothing on Scheduled and Calendar.</p>
+  </div>
+
+  <div>
+    <p class="lbl">Wider sidebar (280px)</p>
+    <div class="side" style="width:280px">
+      <div class="sec">Mailboxes</div><div class="it"><svg><use href="#inbox"/></svg>All Inboxes<span class="n">5</span></div><div class="space"></div>
+      <div class="foot">
+        <div class="cards">
+          <div class="card sel"><svg><use href="#clock"/></svg><span class="nm">Scheduled</span></div>
+          <div class="card"><svg><use href="#cal"/></svg><span class="nm">Calendar</span></div>
+          <div class="card"><svg><use href="#check"/></svg><span class="nm">Tasks</span></div>
+          <div class="card"><svg><use href="#mail"/></svg><span class="nm">Invitations</span></div>
+        </div>
+        <div class="mini"><span class="set"><svg><use href="#cog"/></svg>Settings</span><span class="ib"><svg><use href="#help"/></svg></span></div>
+      </div>
+    </div>
+    <p class="why">The page you're on is shaded blue (here, Scheduled). With nothing waiting, no dots at all.</p>
+  </div>
+
+  <div>
+    <p class="lbl">Very narrow (as now)</p>
+    <div class="side" style="width:150px">
+      <div class="foot">
+        <div class="icons"><span><svg><use href="#clock"/></svg></span><span><svg><use href="#cal"/></svg></span><span><svg><use href="#check"/></svg><i class="dot late"></i></span><span><svg><use href="#mail"/></svg><i class="dot new"></i></span></div>
+        <div class="mini"><span class="set" style="flex:0 0 auto"><svg><use href="#cog"/></svg><span class="dot attn" style="margin-left:-4px"></span></span><span class="ib" style="margin-left:auto"><svg><use href="#help"/></svg></span></div>
+      </div>
+    </div>
+    <p class="why">Just the icons, with the same dots.</p>
+  </div>
+</div>
+</div></body></html>

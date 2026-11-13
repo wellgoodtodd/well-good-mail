@@ -4,6 +4,10 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.3 beta 10 (built 13 Nov 2026)
+
+Beta 9 with the footer from docs/mockups/sidebar-footer-3.html (Todd: beta 9 hid the card icons, not what was agreed). Cards: icon and name always, a dot in the card's corner (red: late task, blue: new invitations), counts only when the footer is 290px or wider, counts in the tooltip; very narrow: icons with the dot on the icon. Test list: docs/testing-0.7.3-beta10.md.
+
 ## 0.7.3 beta 9 (built 13 Nov 2026)
 
 Beta 8 plus the beta 8 feedback. Test list: docs/testing-0.7.3-beta9.md. Checked in the browser demo only; the installer hook, secret_list and save_into_subfolder were never compiled locally (no cargo).
