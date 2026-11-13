@@ -4,6 +4,11 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## For the next beta (Todd's beta 11 feedback, batched)
+
+- Send To renaming: SendPlace.rename.how custom | start | end | ask (old 'smart' read as custom), pattern with {sender} {amount} {description} {name} and YYYY/YY/MM/DD (fillName, renamedFile, nameFacts, invoiceAmount in sendTo.ts, tested); placeholder buttons in the place editor.
+- Find my invoices: drop-downs keep their own width; PAYMENT_DOMAINS (Stripe, PayPal, Paddle...) key senders by address; quotes trimmed from sender names.
+
 ## 0.7.3 beta 11 (built 13 Nov 2026)
 
 Beta 10 plus Todd's beta 10 feedback. Test list: docs/testing-0.7.3-beta11.md. Checked in the browser demo only.

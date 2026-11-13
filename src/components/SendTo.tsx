@@ -10,7 +10,7 @@ import { askConfirm, askText } from '../lib/dialogs';
 import { useSettings, settings, type SendPlace, type SendRule } from '../lib/settings';
 import {
   addRule, closeSendToDialog, findInvoiceSenders, forwardName, openFindInvoices, openPlaceEditor, placeSummary, sendLog, sendToPlace,
-  subfolderFor, useSendToDialog, renamedFile, fillDate, type InvoiceSender, type SendLogEntry,
+  subfolderFor, useSendToDialog, renamedFile, NAME_PARTS, DEFAULT_PATTERN, type NameFacts, type InvoiceSender, type SendLogEntry,
 } from '../lib/sendTo';
 import type { Message } from '../lib/types';
 
@@ -59,9 +59,21 @@ function PlaceEditor({ place, then }: { place?: SendPlace; then?: (p: SendPlace)
   const okFolder = !save || p.askFolder || Boolean(p.folder);
   const name = p.name.trim() || (forward && email ? forwardName(email) : '');
   const ready = Boolean(name) && (forward || save) && okEmail && okFolder;
-  const rename = p.rename || { on: false, how: 'start' as const, text: 'YYMMDD_' };
-  const sampleName = renamedFile('Invoice-48213.pdf', rename.on ? rename : undefined, Date.now());
-  const sampleAsk = `${fillDate(rename.text || '', Date.now())}Invoice-48213.pdf`;
+  const stored = p.rename || { on: false, how: 'custom' as const, text: 'YYMMDD_' };
+  const rename = { ...stored, how: stored.how === 'smart' ? 'custom' as const : stored.how, pattern: stored.pattern ?? DEFAULT_PATTERN };
+  // An example receipt for the previews.
+  const sample: NameFacts = { date: Date.now(), sender: 'Frame.io', amount: '18.00', description: 'Your receipt', original: 'Invoice-48213.pdf' };
+  const sampleName = renamedFile(rename.on ? rename : undefined, sample);
+  const renameBox = useRef<HTMLInputElement>(null);
+  const editsPattern = rename.how === 'custom' || rename.how === 'ask';
+  const insertPart = (bit: string) => {
+    const key = editsPattern ? 'pattern' : 'text';
+    const now = (editsPattern ? rename.pattern : rename.text) || '';
+    const el = renameBox.current;
+    const at = el && document.activeElement === el ? el.selectionStart ?? now.length : now.length;
+    change({ rename: { ...rename, [key]: now.slice(0, at) + bit + now.slice(at) } });
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(at + bit.length, at + bit.length); });
+  };
   const example = p.folder ? `${p.folder.replace(/[\\/]+$/, '')}${subfolderFor(p, Date.now()) ? `\\${subfolderFor(p, Date.now()).replace('/', '\\')}` : ''}\\${sampleName}` : '';
   const done = () => {
     const final: SendPlace = { ...p, name, forwardTo: forward ? email : '', folder: save ? p.folder : '', askFolder: save ? p.askFolder : false };
@@ -95,11 +107,15 @@ function PlaceEditor({ place, then }: { place?: SendPlace; then?: (p: SendPlace)
             <Check checked={Boolean(rename.on)} onChange={(v) => change({ rename: { ...rename, on: v } })}>Rename the files</Check>
             {rename.on && (
               <div className="sendto-indent">
-                <Radio name="Rename" value={rename.how} onChange={(v) => change({ rename: { ...rename, how: v, text: rename.text || (v === 'end' ? '_YYMMDD' : 'YYMMDD_') } })}
-                  options={[{ value: 'start', label: 'Add to the start' }, { value: 'end', label: 'Add to the end' }, { value: 'ask', label: 'Ask each time' }]} />
-                <label className="sendto-field"><span>{rename.how === 'ask' ? 'Suggest a name starting with' : rename.how === 'end' ? 'Add to the end' : 'Add to the start'}</span>
-                  <input value={rename.text} placeholder={rename.how === 'end' ? '_YYMMDD' : 'YYMMDD_'} onChange={(e) => change({ rename: { ...rename, text: e.target.value } })} /></label>
-                <p className="hint">YYYY, YY, MM and DD become the email's date. {rename.how === 'ask' ? `Each file asks for its name first, starting as ${sampleAsk}. Rules don't ask: they keep the name as it came.` : `Invoice-48213.pdf is saved as ${sampleName}.`}</p>
+                <Radio name="Rename" value={rename.how} onChange={(v) => change({ rename: { ...rename, how: v, text: v === rename.how ? rename.text : v === 'end' ? '_YYMMDD' : v === 'start' ? 'YYMMDD_' : rename.text } })}
+                  options={[{ value: 'custom', label: 'Custom' }, { value: 'start', label: 'Prefix' }, { value: 'end', label: 'Suffix' }, { value: 'ask', label: 'Ask each time' }]} />
+                <label className="sendto-field"><span>{editsPattern ? (rename.how === 'ask' ? 'Suggest the name' : 'Name') : rename.how === 'end' ? 'Add to the end' : 'Add to the start'}</span>
+                  <input ref={renameBox} value={editsPattern ? rename.pattern : rename.text} placeholder={editsPattern ? DEFAULT_PATTERN : rename.how === 'end' ? '_YYMMDD' : 'YYMMDD_'}
+                    onChange={(e) => change({ rename: { ...rename, [editsPattern ? 'pattern' : 'text']: e.target.value } })} /></label>
+                <div className="sendto-parts" aria-label="Add to the name">
+                  {NAME_PARTS.filter((x) => editsPattern || x.insert !== '{name}').map((x) => <button key={x.label} type="button" className="chip-btn" onClick={() => insertPart(x.insert)}><Icon name="plus" size={11} />{x.label}</button>)}
+                </div>
+                <p className="hint">Saves as <strong>{rename.how === 'ask' ? renamedFile({ ...rename, how: 'custom' }, sample) : sampleName}</strong>{rename.how === 'ask' ? ', or whatever you change it to. Rules don’t ask.' : '.'} Date is YYMMDD (change it to YYYY-MM-DD and so on); Amount is the amount paid, found in the email, and left out if there isn't one.</p>
               </div>
             )}
           </div>

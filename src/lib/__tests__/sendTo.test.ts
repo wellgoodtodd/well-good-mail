@@ -28,6 +28,8 @@ describe('Send To', () => {
   it('matches a company by domain and a Gmail user by address', () => {
     expect(senderKey('billing@mail.canva.com')).toBe('canva.com');
     expect(senderKey('Someone@Gmail.com')).toBe('someone@gmail.com');
+    // Stripe and PayPal send for many companies, so each address is its own sender.
+    expect(senderKey('invoice+statements+acct_1AB@stripe.com')).toBe('invoice+statements+acct_1ab@stripe.com');
   });
 
   it('runs a rule only on the right sender, with a PDF when asked', () => {
@@ -49,13 +51,16 @@ describe('Send To', () => {
     expect(found[0]).toMatchObject({ key: 'canva.com', name: 'Canva', count: 4, cadence: 'monthly' });
   });
 
-  it('renames saved files with the date of the email', () => {
-    const d = new Date(2026, 10, 3).getTime();
-    expect(fillDate('YYMMDD_', d)).toBe('261103_');
-    expect(fillDate('YYYY-MM', d)).toBe('2026-11');
-    expect(renamedFile('Invoice-1.pdf', { on: true, how: 'start', text: 'YYMMDD_' }, d)).toBe('261103_Invoice-1.pdf');
-    expect(renamedFile('Invoice-1.pdf', { on: true, how: 'end', text: '_YYMMDD' }, d)).toBe('Invoice-1_261103.pdf');
-    expect(renamedFile('Invoice-1.pdf', { on: false, how: 'start', text: 'YYMMDD_' }, d)).toBe('Invoice-1.pdf');
-    expect(renamedFile('Invoice-1.pdf', { on: true, how: 'ask', text: 'YYMMDD_' }, d)).toBe('Invoice-1.pdf');
+  it('renames saved files: custom, prefix and suffix', () => {
+    const f = { date: new Date(2026, 10, 3).getTime(), sender: 'Frame.io', amount: '18.00', description: 'Your receipt', original: 'Invoice-1.pdf' };
+    expect(fillDate('YYMMDD_', f.date)).toBe('261103_');
+    expect(fillDate('YYYY-MM', f.date)).toBe('2026-11');
+    expect(renamedFile({ on: true, how: 'custom', text: '', pattern: 'YYMMDD_{sender} {amount}' }, f)).toBe('261103_Frame.io 18.00.pdf');
+    expect(renamedFile({ on: true, how: 'custom', text: '', pattern: 'YYMMDD_{sender} {amount}' }, { ...f, amount: '' })).toBe('261103_Frame.io.pdf');
+    expect(renamedFile({ on: true, how: 'custom', text: '', pattern: 'YYYY-MM-DD {description} ({name})' }, f)).toBe('2026-11-03 Your receipt (Invoice-1).pdf');
+    expect(renamedFile({ on: true, how: 'start', text: 'YYMMDD_' }, f)).toBe('261103_Invoice-1.pdf');
+    expect(renamedFile({ on: true, how: 'end', text: '_YYMMDD' }, f)).toBe('Invoice-1_261103.pdf');
+    expect(renamedFile({ on: false, how: 'start', text: 'YYMMDD_' }, f)).toBe('Invoice-1.pdf');
+    expect(renamedFile({ on: true, how: 'custom', text: '', pattern: 'YYMMDD_{sender}' }, { ...f, sender: 'Daddy Day Care' })).toBe('261103_Daddy Day Care.pdf');
   });
 });

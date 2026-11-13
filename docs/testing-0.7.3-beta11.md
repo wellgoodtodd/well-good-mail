@@ -177,7 +177,9 @@ Beta 11 is beta 10 plus your beta 10 feedback: the New place dialog tidied, cont
 
 ## Found in beta 11
 
-(Your feedback goes here.)
+- **Send To works** (Todd). Saving and forwarding to Hubdoc tried on real mail.
+- **Naming saved invoices** (Todd names them YYMMDD_ then the supplier and the amount, like "261113_Frame.io 18.00"). Done for the next build: Rename the files is now Custom, Prefix, Suffix or Ask each time. Custom is a name with placeholders added from buttons (Date, Sender, Amount, Description, Original name), starting as YYMMDD_{sender} {amount}; Amount is the amount paid found in the email, left out if there isn't one. Ask each time suggests the Custom name; rules don't ask.
+- **Find my invoices was cramped** (Todd): the place drop-downs took the whole row and squashed the names. Fixed for the next build. Also, receipts sent through Stripe, PayPal and the like are now grouped by the company (each has its own address) rather than all under stripe.com.
 
 ## If something goes wrong
 

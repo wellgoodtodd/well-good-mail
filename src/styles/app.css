@@ -1962,6 +1962,13 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .sendto-form .chips input:not([type="checkbox"]) { width: auto; flex: 1; }
 .sendto-form .comp-field { border: 1px solid var(--border); border-radius: 7px; background: var(--bg); padding: 0 8px; }
 .sendto-form .comp-field > label { display: none; }
+.sendto-parts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: -4px; }
+.chip-btn { display: inline-flex; align-items: center; gap: 3px; border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-muted); border-radius: 999px; padding: 2px 8px 2px 6px; font: inherit; font-size: 0.82em; cursor: default; }
+.chip-btn:hover { color: var(--text); background: var(--bg-hover); }
+/* Find my invoices: the name gets the room; the count and the place list stay their own size. */
+.sendto-row select { width: auto; max-width: 160px; flex: none; }
+.sendto-row .grow strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sendto-past select { width: auto; }
 .sendto-field { display: grid; gap: 4px; }
 .sendto-field > span { font-size: 0.86em; color: var(--text-muted); }
 .sendto-indent { display: grid; gap: 8px; margin: -2px 0 4px 14px; padding-left: 12px; border-left: 2px solid var(--border); }

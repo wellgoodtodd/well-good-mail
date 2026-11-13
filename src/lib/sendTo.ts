@@ -9,6 +9,7 @@ import { inSystemFolder } from './mailbox';
 import { invoke, isTauri } from './platform';
 import { settings, useSettings, type SendPlace, type SendRule } from './settings';
 import { askConfirm, askText } from './dialogs';
+import { htmlToText } from './mime';
 import type { Message } from './types';
 
 // ---------- plain helpers (tested) ----------
@@ -47,31 +48,100 @@ export function fillDate(text: string, date: number): string {
   return text.replace(/YYYY|YY|MM|DD/g, (t) => (t === 'YYYY' ? String(d.getFullYear()) : t === 'YY' ? two(d.getFullYear() % 100) : t === 'MM' ? two(d.getMonth() + 1) : two(d.getDate())));
 }
 
-/** A saved file's name with the place's text added to the start, or to the end before the extension. */
-export function renamedFile(name: string, rename: SendPlace['rename'], date: number): string {
-  if (!rename?.on || rename.how === 'ask' || !rename.text) return name;
-  const add = fillDate(rename.text, date);
-  if (rename.how === 'start') return `${add}${name}`;
-  const dot = name.lastIndexOf('.');
-  return dot > 0 ? `${name.slice(0, dot)}${add}${name.slice(dot)}` : `${name}${add}`;
+/** The placeholders a file name can use, for the buttons under the box. Dates use the letters YYYY, YY, MM and DD. */
+export const NAME_PARTS: { label: string; insert: string }[] = [
+  { label: 'Date', insert: 'YYMMDD' },
+  { label: 'Sender', insert: '{sender}' },
+  { label: 'Amount', insert: '{amount}' },
+  { label: 'Description', insert: '{description}' },
+  { label: 'Original name', insert: '{name}' },
+];
+export const DEFAULT_PATTERN = 'YYMMDD_{sender} {amount}';
+
+/** What fills the placeholders for one saved file. */
+export interface NameFacts { date: number; sender: string; amount: string; description: string; original: string }
+
+const cleanPart = (s: string) => s.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** Fills a pattern like "YYMMDD_{sender} {amount}". Empty parts leave no stray spaces or separators. */
+export function fillName(pattern: string, f: NameFacts): string {
+  const dot = f.original.lastIndexOf('.');
+  const stem = dot > 0 ? f.original.slice(0, dot) : f.original;
+  const parts: Record<string, string> = { sender: f.sender, amount: f.amount, description: f.description, name: stem };
+  // The placeholders are swapped out first, so a sender called "Daddy's" doesn't have its D's taken for a date.
+  const slots: string[] = [];
+  const marked = pattern.replace(/\{(sender|supplier|amount|description|name)\}/gi, (_, k: string) => { slots.push(cleanPart(parts[k.toLowerCase() === 'supplier' ? 'sender' : k.toLowerCase()] || '')); return `\u0000${slots.length - 1}\u0000`; });
+  const out = fillDate(marked, f.date).replace(/\u0000(\d+)\u0000/g, (_, i: string) => slots[Number(i)])
+    .replace(/\s{2,}/g, ' ').replace(/([_\-\s])[_\-\s]+/g, '$1').replace(/^[_\-\s]+|[_\-\s]+$/g, '');
+  return out || stem;
 }
+
+/**
+ * A saved file's name: Custom (a pattern), Prefix or Suffix (text added to the start or end), or the original. "Ask
+ * each time" is asked by the caller, starting from the Custom name.
+ */
+export function renamedFile(rename: SendPlace['rename'], f: NameFacts): string {
+  const dot = f.original.lastIndexOf('.');
+  const ext = dot > 0 ? f.original.slice(dot) : '';
+  const stem = dot > 0 ? f.original.slice(0, dot) : f.original;
+  if (!rename?.on) return f.original;
+  const how = rename.how === 'smart' ? 'custom' : rename.how;
+  if (how === 'custom' || how === 'ask') return `${fillName(rename.pattern || DEFAULT_PATTERN, f)}${ext}`;
+  if (!rename.text) return f.original;
+  const add = fillName(`{name}${rename.text}`, f).slice(stem.length);
+  const addStart = fillName(`${rename.text}{name}`, f);
+  return how === 'start' ? `${addStart.slice(0, addStart.length - stem.length) || ''}${stem}${ext}` : `${stem}${add}${ext}`;
+}
+
+/** The facts for a file from its email: the sender's name, the amount paid, and the subject as a description. */
+export function nameFacts(m: Pick<Message, 'from' | 'subject' | 'date'>, text: string, original: string): NameFacts {
+  const sender = cleanPart(senderName(m)).replace(/,?\s+(PBC|Ltd\.?|Limited|Inc\.?|LLC|GmbH|plc)$/i, '');
+  const description = cleanPart(m.subject.replace(/^((re|fwd?|fw)\s*:\s*)+/i, '')).slice(0, 60);
+  return { date: m.date, sender, amount: invoiceAmount(`${m.subject}\n${text}`), description, original };
+}
+
+const AMOUNT = String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+\.\d{2})`;
+const CURRENCY = String.raw`(?:£|€|US\$|\$|GBP|USD|EUR)\s?`;
+/** Words that come before the amount actually paid, most telling first. */
+const PAID_WORDS = [
+  String.raw`amount paid|total paid|you paid|payment of|amount charged|charged|paid`,
+  String.raw`grand total|total due|amount due|balance due|invoice total`,
+  String.raw`total`,
+];
+
+/** The amount an invoice or receipt is for, as plain numbers ("18.00"), or "" when none is found. */
+export function invoiceAmount(text: string): string {
+  const pick = (re: RegExp) => { const m = re.exec(text); return m ? m[1].replace(/,/g, '') : ''; };
+  for (const words of PAID_WORDS) {
+    const hit = pick(new RegExp(String.raw`\b(?:${words})\b[^0-9£€$\n]{0,40}(?:${CURRENCY})?${AMOUNT}`, 'i'));
+    if (hit) return hit;
+  }
+  return pick(new RegExp(`${CURRENCY}${AMOUNT}`)) || pick(new RegExp(String.raw`${AMOUNT}\s?(?:GBP|USD|EUR)\b`));
+}
+
 
 /** Big free email services, where a rule matches the whole address rather than everyone at the domain. */
 const SHARED_DOMAINS = /^(gmail|googlemail|outlook|hotmail|live|msn|icloud|me|mac|aol|proton|protonmail|gmx|yahoo)\./i;
+
+/** Payment services that send receipts on behalf of many companies (Stripe, PayPal, Paddle and so on). */
+const PAYMENT_DOMAINS = /(^|\.)(stripe\.com|paypal\.com|paypal\.co\.uk|paddle\.com|paddle\.net|squareup\.com|square\.com|gocardless\.com|chargebee\.com|recurly\.com|fastspring\.com|gumroad\.com|lemonsqueezy\.com|shopify\.com|xero\.com|quickbooks\.com|intuit\.com|sumup\.com|zettle\.com)$/i;
 
 /** What a rule for this sender matches: the domain for a company ("canva.com"), the address for a Gmail user. */
 export function senderKey(email: string): string {
   const e = email.trim().toLowerCase();
   const domain = e.split('@')[1] || e;
-  return SHARED_DOMAINS.test(domain) ? e : domain.replace(/^(mail|email|e|info|billing|invoice|invoices|receipts|no-?reply|news|updates)\./, '');
+  // Payment services send receipts for many different companies, each from its own address.
+  if (SHARED_DOMAINS.test(domain) || PAYMENT_DOMAINS.test(domain)) return e;
+  return domain.replace(/^(mail|email|e|info|billing|invoice|invoices|receipts|no-?reply|news|updates)\./, '');
 }
 
 /** A name for a sender: "Canva" from canva.com, or the person's name. */
 export function senderName(m: Pick<Message, 'from'>): string {
   const key = senderKey(m.from.email);
-  if (key.includes('@')) return m.from.name || key;
+  const given = (m.from.name || '').replace(/^["'\s]+|["'\s]+$/g, '');
+  if (key.includes('@')) return given || key;
   const base = key.split('.')[0];
-  return m.from.name && !/no.?reply|billing|invoice|receipt|team|support/i.test(m.from.name) ? m.from.name : base.charAt(0).toUpperCase() + base.slice(1);
+  return given && !/no.?reply|billing|invoice|receipt|team|support/i.test(given) ? given : base.charAt(0).toUpperCase() + base.slice(1);
 }
 
 const hasPdf = (m: Pick<Message, 'attachments' | 'hasAttachments'>) => m.attachments.some((a) => !a.inline && (a.mimeType === 'application/pdf' || /\.pdf$/i.test(a.filename)));
@@ -159,10 +229,13 @@ async function sendOne(place: SendPlace, m: Message, opts: { attachmentId?: stri
   if (folder && data.length) {
     if (!isTauri()) throw new Error('Saving into a folder works in the desktop app');
     const sub = subfolderFor(place, full.date);
+    const text = full.bodyText || htmlToText(full.bodyHtml || '') || full.snippet;
     for (const f of data) {
-      let name = renamedFile(f.a.filename, place.rename, full.date);
+      // Rules never ask, so for them "Ask each time" uses the Custom name.
+      let name = renamedFile(place.rename, nameFacts(full, text, f.a.filename));
       if (place.rename?.on && place.rename.how === 'ask' && !opts.quiet) {
-        const asked = await askText(`Save ${f.a.filename} as`, `${fillDate(place.rename.text || '', full.date)}${f.a.filename}`, 'Save');
+        // Suggests the Custom name, so usually it's just Enter.
+        const asked = await askText(`Save ${f.a.filename} as`, name, 'Save');
         if (asked === null) continue;
         name = asked.trim() || f.a.filename;
         if (!/\.[a-z0-9]{1,5}$/i.test(name) && /\.[a-z0-9]{1,5}$/i.test(f.a.filename)) name += f.a.filename.slice(f.a.filename.lastIndexOf('.'));
