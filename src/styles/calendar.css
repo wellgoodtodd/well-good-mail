@@ -6,9 +6,23 @@
 .cal-head .cal-nav .jump-host { min-width: 0; }
 .cal-head .cal-arrow { border: 1px solid var(--border); border-radius: 7px; width: 28px; height: 28px; }
 .cal-head .cal-nav .btn { margin-left: 6px; }
-.cal-zoom { display: inline-flex; align-items: center; gap: 2px; color: var(--text-muted); }
-.cal-zoom input[type=range] { width: 76px; accent-color: var(--accent); }
+.cal-head .grow { flex: 1; }
+.cal-head .cal-nav strong { flex: none; }
+/* The zoom: a thin line with a dot, with minus and plus either side. */
+.cal-zoom { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); margin-right: 4px; }
 .cal-zoom .icon-btn { width: 22px; height: 22px; font-size: 15px; line-height: 1; }
+.cal-zoom input[type=range] { -webkit-appearance: none; appearance: none; width: 80px; height: 14px; margin: 0; background: transparent; cursor: pointer; }
+.cal-zoom input[type=range]::-webkit-slider-runnable-track { height: 2px; border-radius: 1px; background: var(--border-strong, var(--border)); }
+.cal-zoom input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; margin-top: -5px; border-radius: 50%; background: var(--text-muted); border: 0; }
+.cal-zoom input[type=range]:hover::-webkit-slider-thumb { background: var(--text); }
+.cal-zoom input[type=range]:focus-visible { outline: none; }
+.cal-zoom input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); }
+.cal-zoom input[type=range]::-moz-range-track { height: 2px; background: var(--border-strong, var(--border)); }
+.cal-zoom input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--text-muted); border: 0; }
+/* All-day events dragged between days in Day and Week view. */
+.tg-chip.can-drag { cursor: grab; touch-action: none; user-select: none; }
+.tg-chip.lifted { opacity: 0.55; }
+.tg-allday-cell.drop { outline: 2px dashed var(--text-muted); outline-offset: -2px; border-radius: 4px; }
 
 /* Finer lines when zoomed in. */
 .tg-line.sub { border-top-style: dotted; opacity: 0.45; }

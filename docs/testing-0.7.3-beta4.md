@@ -1,5 +1,7 @@
 # 0.7.3 beta 4: what to test
 
+Everything here not yet ticked has moved into [testing-0.7.3-beta5.md](testing-0.7.3-beta5.md). This list is kept as a record of what was ticked in beta 4.
+
 Beta 4 is beta 3 plus work under the hood. You're going straight from beta 2 to beta 4, so everything below is new to you. The first section is beta 4's own changes: nothing should look different, so anything slower, missing or odd counts as a problem. Then come beta 3's new features, then everything from betas 1 and 2 not ticked yet. If something goes badly wrong, beta 3 is on the GitHub releases page to go back to.
 
 ## Found in beta 4 (fixing in beta 5)

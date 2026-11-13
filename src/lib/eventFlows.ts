@@ -16,10 +16,11 @@ export async function askScope(ev: CalendarEvent, verb: 'change' | 'delete' | 'm
   if (!ev.recurring) return 'one';
   const title = verb === 'delete' ? 'Delete a repeating event' : 'Change a repeating event';
   const what = verb === 'delete' ? 'Delete just this one, this one and every one after it, or the whole series?' : verb === 'move' ? 'Move just this one, or this one and every one after it?' : 'Change just this one, this one and every one after it, or the whole series?';
+  // Reading order, left to right: the smallest change first.
   const choices = [
-    ...(verb === 'move' ? [] : [{ id: 'all', label: 'All events', danger: verb === 'delete' }]),
-    { id: 'following', label: 'This and all future events', danger: verb === 'delete' },
     { id: 'one', label: 'Only this event', primary: true, danger: verb === 'delete' },
+    { id: 'following', label: 'This and all future events', danger: verb === 'delete' },
+    ...(verb === 'move' ? [] : [{ id: 'all', label: 'The whole series', danger: verb === 'delete' }]),
   ];
   const r = await askChoice(title, `"${ev.title}" repeats. ${what}`, choices);
   return (r as SeriesScope | null) || null;
@@ -70,7 +71,7 @@ export async function changeEvent(ev: CalendarEvent, patch: EventPatch, opts: { 
   try {
     await editEvent(ev, patch, { scope, notify });
   } catch (e) {
-    toast({ text: `Couldn't save "${ev.title}": ${e instanceof Error ? e.message : e}`, ttl: 9000 });
+    toast({ text: `Couldn't save "${ev.title}", so it's back as it was: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
     return false;
   }
   if (opts.quietToast) return true;
@@ -88,6 +89,21 @@ export async function changeEvent(ev: CalendarEvent, patch: EventPatch, opts: { 
   return true;
 }
 
+/**
+ * The organiser's own copy of an event that is on several of your calendars. Deleting a guest's copy (another of your
+ * calendars the organiser's account can also write to) only takes it off that calendar and tells nobody, so a
+ * cancellation has to delete the organiser's copy for the calendar to email the guests.
+ */
+export function organiserCopy(ev: CalendarEvent, all: CalendarEvent[] = useMail.getState().events): CalendarEvent {
+  const who = ev.organiser?.email?.toLowerCase();
+  if (!who) return ev;
+  const copies = all.filter((e) => e.title === ev.title && e.start === ev.start && e.end === ev.end && e.canEdit);
+  const accounts = useMail.getState().accounts;
+  const own = copies.find((e) => e.id.toLowerCase().includes(`|${who}|`))
+    || copies.find((e) => e.organiser?.self && accounts.find((a) => a.id === e.accountId)?.email.toLowerCase() === who);
+  return own || ev;
+}
+
 /** Deletes an event after asking what's needed. Returns false if cancelled or it failed. */
 export async function removeEvent(ev: CalendarEvent, opts: { quietToast?: boolean; asked?: boolean } = {}): Promise<boolean> {
   let scope: SeriesScope | null = 'one';
@@ -97,9 +113,9 @@ export async function removeEvent(ev: CalendarEvent, opts: { quietToast?: boolea
   const notify = await askNotify(ev, 'delete');
   if (notify === null) return false;
   try {
-    await deleteEvent(ev, { scope, notify });
+    await deleteEvent(notify && guestsToTell(ev) ? organiserCopy(ev) : ev, { scope, notify });
   } catch (e) {
-    toast({ text: `Couldn't delete "${ev.title}": ${e instanceof Error ? e.message : e}`, ttl: 9000 });
+    toast({ text: `Couldn't delete "${ev.title}", so it's back: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
     return false;
   }
   if (!opts.quietToast) toast({ text: scope === 'one' ? `"${ev.title}" deleted.` : scope === 'all' ? `"${ev.title}" series deleted.` : `"${ev.title}" deleted from this one on.` });

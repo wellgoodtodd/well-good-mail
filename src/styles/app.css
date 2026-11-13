@@ -338,7 +338,9 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .dialog-backdrop { position: fixed; inset: 0; z-index: var(--z-dialog); background: rgba(0, 0, 0, 0.35); display: flex; align-items: center; justify-content: center; }
 .dialog { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 18px; width: min(460px, 92vw); }
 .dialog h2 { margin: 0 0 10px; font-size: 1.1em; }
-.dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.dialog .actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.dialog .actions .btn { white-space: nowrap; }
+.dialog.wide { width: min(600px, 94vw); }
 
 .toasts { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: var(--z-top); align-items: center; }
 .toast { display: flex; align-items: center; gap: 12px; padding: 9px 12px 9px 14px; border-radius: 10px; background: #2c2c2e; color: #f2f2f5; box-shadow: var(--shadow); min-width: 240px; max-width: 560px; }
@@ -1623,7 +1625,6 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .rem-head h1 { margin: 0 6px 0 0; line-height: 1.2; }
 .rem-head .grow { flex: 1; }
 .rem-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.cal-modes button { padding: 4px 11px; font-size: 0.9em; }
 
 /* The email appears once drawn, with no white flash (0.7.2 beta 6) */
 .email-frame { transition: opacity 90ms ease-out; }
@@ -1816,3 +1817,7 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .tpl-part small { color: var(--text-muted); font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tpl-list .cg-row .grow small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dialog:has(.tpl-groups), .dialog:has(.tpl-list) { width: min(540px, 92vw); }
+/* New event: places used before, offered under the Location box. */
+.ne-where { position: relative; min-width: 0; }
+.ne-where .suggest { min-width: 100%; box-sizing: border-box; }
+.ne-where .suggest button { color: var(--text); font: inherit; cursor: pointer; }

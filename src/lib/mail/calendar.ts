@@ -66,52 +66,135 @@ export function applyPatch(copy: EventCopy, pt: EventPatch): EventCopy {
   return c;
 }
 
+/** Changes still on their way to a calendar. While any are, a refresh that comes back is not used (it may predate them). */
+let changing = 0;
+
+/** Same series: by the calendar's series id where it gives one, else same account, calendar, name and time of day. */
+export function sameSeries(a: CalendarEvent, b: CalendarEvent): boolean {
+  if (!a.recurring || !b.recurring) return a.id === b.id;
+  if (a.seriesId || b.seriesId) return a.seriesId === b.seriesId;
+  const tod = (t: number) => { const d = new Date(t); return d.getHours() * 60 + d.getMinutes(); };
+  return a.accountId === b.accountId && a.calendarName === b.calendarName && a.title === b.title && a.allDay === b.allDay && tod(a.start) === tod(b.start);
+}
+
+/** The events a series change touches: this one, this one on, or the whole series. */
+export function touched(ev: CalendarEvent, scope: ChangeOptions['scope'], list: CalendarEvent[]): CalendarEvent[] {
+  if (!ev.recurring || !scope || scope === 'one') return list.filter((e) => e.id === ev.id);
+  return list.filter((e) => e.id === ev.id || (sameSeries(e, ev) && (scope === 'all' || e.start >= ev.start)));
+}
+
 /**
- * Changes an event in its own calendar, then shows the change here straight away and refreshes the copy.
- * For a series: scope 'one' (this one), 'all' (the whole series) or 'following' (this one on: the series is ended
- * the day before and made again from here, so guests get a new invitation for that part).
+ * Shows a change on screen at once, in the near list and the longer copy. Returns a function that puts the events
+ * it touched back as they were (for when the calendar refuses), leaving everything else alone.
+ */
+async function showNow(fn: (list: CalendarEvent[]) => CalendarEvent[]): Promise<() => void> {
+  const cal = await import('../calendarCache');
+  const near = get().events;
+  const copy = cal.useCalCache.getState().events;
+  const nextNear = fn(near);
+  const nextCopy = fn(copy);
+  set({ events: nextNear });
+  cal.useCalCache.setState({ events: nextCopy });
+  const diff = (before: CalendarEvent[], after: CalendarEvent[]) => {
+    const kept = new Set(after);
+    const was = new Set(before);
+    return { gone: before.filter((e) => !kept.has(e)), added: new Set(after.filter((e) => !was.has(e)).map((e) => e.id)) };
+  };
+  const a = diff(near, nextNear);
+  const b = diff(copy, nextCopy);
+  return () => {
+    const back = (list: CalendarEvent[], d: { gone: CalendarEvent[]; added: Set<string> }) => {
+      const ids = new Set([...d.added, ...d.gone.map((e) => e.id)]);
+      return [...list.filter((e) => !ids.has(e.id)), ...d.gone];
+    };
+    set({ events: back(get().events, a) });
+    cal.useCalCache.setState((s) => ({ events: back(s.events, b) }));
+    for (const e of [...a.gone, ...b.gone]) goneEvents.delete(e.id);
+  };
+}
+
+/** Runs the calendar's side of a change, holding back refreshes meanwhile, and puts the screen back if it fails. */
+async function sendChange<T>(undo: () => void, work: () => Promise<T>): Promise<T> {
+  changing++;
+  try {
+    return await work();
+  } catch (e) {
+    undo();
+    throw e;
+  } finally {
+    changing--;
+  }
+}
+
+/** The patch's simple fields put onto an event, with a time change moving it by the same amount (for a series). */
+export function patched(e: CalendarEvent, ev: CalendarEvent, patch: EventPatch): CalendarEvent {
+  const shift = patch.start !== undefined ? patch.start - ev.start : 0;
+  const endShift = patch.end !== undefined ? patch.end - ev.end : shift;
+  const same = e.id === ev.id;
+  return {
+    ...e,
+    ...(patch.title !== undefined ? { title: patch.title } : {}),
+    ...(patch.start !== undefined || patch.end !== undefined ? { start: same && patch.start !== undefined ? patch.start : e.start + shift, end: same && patch.end !== undefined ? patch.end : e.end + endShift } : {}),
+    ...(patch.allDay !== undefined ? { allDay: patch.allDay } : {}),
+    ...(patch.location !== undefined ? { location: patch.location || undefined } : {}),
+    ...(patch.description !== undefined ? { description: patch.description || undefined } : {}),
+    ...(patch.calendarName ? { calendarName: patch.calendarName } : {}),
+    ...(patch.alerts !== undefined ? { reminderMinutes: patch.alerts } : {}),
+  };
+}
+
+/**
+ * Changes an event in its own calendar. The change shows here straight away and is put back (the error says why)
+ * if the calendar refuses. For a series: scope 'one' (this one), 'all' (the whole series) or 'following' (this one
+ * on: the series is ended the day before and made again from here, so guests get a new invitation for that part).
  */
 export async function editEvent(ev: CalendarEvent, patch: EventPatch, opts: ChangeOptions = {}): Promise<void> {
   const p = providers.get(ev.accountId);
   if (!p?.editEvent) throw new Error("This calendar can't be changed from here yet");
-  if (ev.recurring && opts.scope === 'following' && p.copyOfEvent && p.endSeries && p.createEvent) {
-    const copy = applyPatch(await p.copyOfEvent(ev, { series: true }), patch);
-    if (copy.repeatUnsupported) throw new Error("This series repeats in a way that can't be split here. Change all of them, or just this one.");
-    await p.endSeries(ev);
-    await p.createEvent(patch.calendarName || ev.calendarName, copy);
-    await afterCalendarChange();
-    return;
-  }
-  await p.editEvent(ev, patch, opts);
-  if (ev.recurring && (opts.scope === 'all' || patch.repeat !== undefined)) { await afterCalendarChange(); return; }
-  const changed = (e: CalendarEvent): CalendarEvent => (e.id === ev.id ? { ...e, ...(patch.title !== undefined ? { title: patch.title } : {}), ...(patch.start !== undefined ? { start: patch.start } : {}), ...(patch.end !== undefined ? { end: patch.end } : {}), ...(patch.allDay !== undefined ? { allDay: patch.allDay } : {}), ...(patch.location !== undefined ? { location: patch.location || undefined } : {}), ...(patch.description !== undefined ? { description: patch.description || undefined } : {}), ...(patch.calendarName ? { calendarName: patch.calendarName } : {}) } : e);
-  set({ events: get().events.map(changed) });
+  const series = Boolean(ev.recurring && (opts.scope === 'all' || opts.scope === 'following'));
+  const undo = await showNow((list) => {
+    const ids = new Set(touched(ev, opts.scope, list).map((e) => e.id));
+    return list.map((e) => (ids.has(e.id) ? patched(e, ev, patch) : e));
+  });
+  await sendChange(undo, async () => {
+    if (series && opts.scope === 'following' && p.copyOfEvent && p.endSeries && p.createEvent) {
+      const copy = applyPatch(await p.copyOfEvent(ev, { series: true }), patch);
+      if (copy.repeatUnsupported) throw new Error("This series repeats in a way that can't be split here. Change all of them, or just this one.");
+      await p.endSeries(ev);
+      await p.createEvent(patch.calendarName || ev.calendarName, copy);
+    } else await p.editEvent!(ev, patch, opts);
+  });
   const cal = await import('../calendarCache');
-  cal.useCalCache.setState((s) => ({ events: s.events.map(changed) }));
   void refreshEvents();
   void cal.refreshCalendarCopy();
+  refreshSoon();
 }
 
-/** Refreshes the calendar here and the long copy after a change that touches more than one event. */
-async function afterCalendarChange(): Promise<void> {
-  const cal = await import('../calendarCache');
-  await refreshEvents();
-  void cal.refreshCalendarCopy();
+/** Refreshes once more a few seconds after a change, for what the calendar fills in later (guests' answers, repeats). */
+/** Guests' answers and the other side of an invitation can take Google or Outlook a few seconds, so it looks twice. */
+let soonTimers: ReturnType<typeof setTimeout>[] = [];
+export function refreshSoon(): void {
+  soonTimers.forEach(clearTimeout);
+  soonTimers = [4000, 15000].map((ms) => setTimeout(() => { void refreshEvents(); }, ms));
 }
 
-/** Deletes an event you made, from its own calendar and from here. A series: just this one, this one on, or all. */
+/** Deletes an event you made, from its own calendar and from here, at once. A series: just this one, this one on, or all. */
 export async function deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<void> {
   const p = providers.get(ev.accountId);
   if (!p?.deleteEvent) throw new Error("This calendar can't be changed from here yet");
-  if (ev.recurring && opts.scope === 'following' && p.endSeries) { await p.endSeries(ev); await afterCalendarChange(); return; }
-  await p.deleteEvent(ev, opts);
-  forgetEvent(ev.id);
-  if (ev.recurring && opts.scope === 'all') { await afterCalendarChange(); return; }
-  set({ events: get().events.filter((e) => e.id !== ev.id) });
+  const undo = await showNow((list) => {
+    const ids = new Set(touched(ev, opts.scope, list).map((e) => e.id));
+    ids.forEach(forgetEvent);
+    return list.filter((e) => !ids.has(e.id));
+  });
+  await sendChange(undo, async () => {
+    if (ev.recurring && opts.scope === 'following' && p.endSeries) await p.endSeries(ev);
+    else await p.deleteEvent!(ev, opts);
+  });
   const cal = await import('../calendarCache');
-  cal.useCalCache.setState((s) => ({ events: s.events.filter((e) => e.id !== ev.id) }));
   void refreshEvents();
   void cal.refreshCalendarCopy();
+  if (opts.notify) refreshSoon();
 }
 
 /** Every calendar events can be put in, account by account, in the order the accounts are listed. */
@@ -136,38 +219,51 @@ export async function eventCopy(ev: CalendarEvent, series: boolean): Promise<Eve
 
 /**
  * Puts an event in another account's calendar, then takes it out of the first (a series from this one on), only once
- * the new one is made. Changes from the form go across too. Returns the new event's id.
+ * the new one is made. Changes from the form go across too. It shows in its new place at once and goes back if the
+ * calendar refuses. Returns the new event's id.
  */
 export async function moveEventAcross(ev: CalendarEvent, to: { accountId: string; calendarName: string }, opts: { patch?: EventPatch; copy?: EventCopy; removeOriginal: boolean }): Promise<string> {
   const from = providers.get(ev.accountId);
   const dest = providers.get(to.accountId);
   if (!from || !dest?.createEvent) throw new Error("That calendar can't take events from here yet");
-  const copy = { ...(opts.copy || (await eventCopy(ev, Boolean(ev.recurring)))) };
-  if (copy.repeatUnsupported) throw new Error("This series repeats in a way that can't be copied to another account");
   const pt = opts.patch || {};
-  if (pt.title !== undefined) copy.title = pt.title;
-  if (pt.start !== undefined) copy.start = pt.start;
-  if (pt.end !== undefined) copy.end = pt.end;
-  if (pt.allDay !== undefined) copy.allDay = pt.allDay;
-  if (pt.location !== undefined) copy.location = pt.location || undefined;
-  if (pt.description !== undefined) copy.description = pt.description || undefined;
-  const newId = await dest.createEvent(to.calendarName, copy);
-  const made: CalendarEvent = { ...ev, id: newId, accountId: to.accountId, accountIds: undefined, calendarName: to.calendarName, title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay, location: copy.location, description: copy.description, htmlLink: undefined, canEdit: true, meetingUrl: copy.video ? undefined : ev.meetingUrl };
+  const tempId = `moving|${ev.id}|${Date.now()}`;
+  const shown: CalendarEvent = { ...patched(ev, ev, pt), id: tempId, accountId: to.accountId, accountIds: undefined, calendarName: to.calendarName, htmlLink: undefined, canEdit: true, seriesId: undefined };
   const cal = await import('../calendarCache');
-  const swap = (list: CalendarEvent[]) => [...(opts.removeOriginal ? list.filter((e) => e.id !== ev.id) : list), made];
-  if (opts.removeOriginal) {
-    try {
-      if (ev.recurring) await from.endSeries!(ev); else await from.deleteEvent!(ev);
-    } catch (e) {
-      void refreshEvents(); void cal.refreshCalendarCopy();
-      throw new Error(`It's now in ${accountName(to.accountId)}, but the original couldn't be removed (${e instanceof Error ? e.message : e}). Delete it there by hand.`);
-    }
-  }
+  const leaving = (list: CalendarEvent[]) => new Set(touched(ev, ev.recurring ? 'following' : 'one', list).map((e) => e.id));
+  const undo = await showNow((list) => { const ids = leaving(list); return [...(opts.removeOriginal ? list.filter((e) => !ids.has(e.id)) : list), shown]; });
+  let made: CalendarEvent = shown;
+  await sendChange(undo, async () => {
+    const copy = { ...(opts.copy || (await eventCopy(ev, Boolean(ev.recurring)))) };
+    if (copy.repeatUnsupported) throw new Error("This series repeats in a way that can't be copied to another account");
+    if (pt.title !== undefined) copy.title = pt.title;
+    if (pt.start !== undefined) copy.start = pt.start;
+    if (pt.end !== undefined) copy.end = pt.end;
+    if (pt.allDay !== undefined) copy.allDay = pt.allDay;
+    if (pt.location !== undefined) copy.location = pt.location || undefined;
+    if (pt.description !== undefined) copy.description = pt.description || undefined;
+    const newId = await dest.createEvent!(to.calendarName, copy);
+    made = { ...shown, id: newId, title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay, location: copy.location, description: copy.description, meetingUrl: copy.video ? undefined : ev.meetingUrl };
+  });
+  const swap = (list: CalendarEvent[]) => list.map((e) => (e.id === tempId ? made : e));
   set({ events: swap(get().events) });
   cal.useCalCache.setState((s) => ({ events: swap(s.events) }));
+  if (opts.removeOriginal) {
+    changing++;
+    try {
+      if (ev.recurring) await from.endSeries!(ev); else await from.deleteEvent!(ev);
+      forgetEvent(ev.id);
+    } catch (e) {
+      set({ events: [...get().events.filter((x) => x.id !== ev.id), ev] });
+      void refreshEvents(); void cal.refreshCalendarCopy();
+      throw new Error(`It's now in ${accountName(to.accountId)}, but the original couldn't be removed (${e instanceof Error ? e.message : e}). Delete it there by hand.`);
+    } finally {
+      changing--;
+    }
+  }
   void refreshEvents();
   void cal.refreshCalendarCopy();
-  return newId;
+  return made.id;
 }
 
 /** Makes a new event in any account's calendar (guests are invited by the account itself), and shows it here at once. */
@@ -187,6 +283,7 @@ export async function createNewEvent(to: { accountId: string; calendarName: stri
   // The calendar gives the real details (the video link, each repeat) on the next refresh.
   void refreshEvents();
   void cal.refreshCalendarCopy();
+  refreshSoon();
   return made;
 }
 
@@ -230,6 +327,7 @@ export async function answerEvent(copies: CalendarEvent[], status: Rsvp, note?: 
   const cal = await import('../calendarCache');
   cal.useCalCache.setState((s) => ({ events: s.events.map(changed) }));
   void refreshEvents();
+  refreshSoon();
 }
 
 let eventsFetchedAt = 0;
@@ -280,7 +378,8 @@ export async function refreshEvents(): Promise<string[]> {
       failed.push(`${a.label || a.email}${e instanceof Error ? ` (${e.message.replace(/\s+/g, ' ').slice(0, 90)})` : ''}`);
     }
   }));
-  if (run !== eventsRun) return failed;
+  // An older refresh, or one that set off while a change was still on its way, could show things as they were.
+  if (run !== eventsRun || changing) return failed;
   const kept = all.filter((e) => !recentlyDeletedEvent(e.id));
   for (const [id, events] of Object.entries(fresh)) store.replaceEvents(id, events.filter((e) => !recentlyDeletedEvent(e.id)));
   const events = keepUnchanged(get().events, kept);

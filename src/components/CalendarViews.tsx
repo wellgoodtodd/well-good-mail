@@ -255,6 +255,8 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const justDragged = useRef(false);
+  // The click that ends a drag (or a Ctrl-click) is ignored, and only that one: any later click works as normal.
+  const holdClick = () => { justDragged.current = true; setTimeout(() => { justDragged.current = false; }, 80); };
   const [lasso, setLasso] = useState<{ x0: number; y0: number; x1: number; y1: number; add: boolean } | null>(null);
   const body = useRef<HTMLDivElement>(null);
   const snap = snapFor(HOUR_PX);
@@ -298,7 +300,7 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
     dragRef.current = null;
     if (!d) return;
     if (!d.moved) { setDrag(null); return; }
-    justDragged.current = true;
+    holdClick();
     const e = events.find((x) => x.id === d.id);
     if (!e || (d.start === e.start && d.end === e.end)) { setDrag(null); return; }
     // The event stays where it was dropped while the questions are asked and the change is saved.
@@ -318,13 +320,20 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
     const r = body.current!.getBoundingClientRect();
     setLasso({ ...lasso, x1: ev.clientX - r.left, y1: ev.clientY - r.top });
   };
-  const onBodyUp = () => {
+  const onBodyUp = (ev: React.PointerEvent<HTMLDivElement>) => {
     if (dragRef.current) return;
     if (!lasso) return;
     const box = { l: Math.min(lasso.x0, lasso.x1), r: Math.max(lasso.x0, lasso.x1), t: Math.min(lasso.y0, lasso.y1), b: Math.max(lasso.y0, lasso.y1) };
     setLasso(null);
-    if (box.r - box.l < 6 && box.b - box.t < 6) return; // a plain click
-    justDragged.current = true;
+    if (box.r - box.l < 6 && box.b - box.t < 6) {
+      // A plain click on empty space lets go of picked events (and in Week view picks that day). The body holds the
+      // pointer while a box might be drawn, so the click lands here rather than on the day's column.
+      if (!lasso.add) clearSelected();
+      const day = dayUnder(ev.clientX, ev.clientY);
+      if (mode === 'week' && day !== undefined && !lasso.add) setAnchor(new Date(day));
+      return;
+    }
+    holdClick();
     const base = body.current!.getBoundingClientRect();
     const hit: string[] = [];
     body.current!.querySelectorAll<HTMLElement>('.tg-event[data-id]').forEach((el) => {
@@ -334,6 +343,41 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
     });
     setSelected(hit, lasso.add);
   };
+
+  // ----- dragging an all-day event to another day, in the all-day row -----
+  const [dayDrag, setDayDrag] = useState<{ id: string; day0: number; day: number; x0: number; moved: boolean } | null>(null);
+  const dayDragRef = useRef<typeof dayDrag>(null);
+  const dayDragging = Boolean(dayDrag);
+  useEffect(() => {
+    if (!dayDragging) return;
+    const move = (ev: PointerEvent) => {
+      const d = dayDragRef.current;
+      if (!d) return;
+      if (!d.moved && Math.abs(ev.clientX - d.x0) < 5) return;
+      const cell = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-allday], .tg-col') as HTMLElement | null;
+      const day = cell ? Number(cell.dataset.allday || cell.dataset.day) : d.day;
+      const next = { ...d, moved: true, day: Number.isFinite(day) ? day : d.day };
+      dayDragRef.current = next;
+      setDayDrag(next);
+    };
+    const up = async () => {
+      const d = dayDragRef.current;
+      dayDragRef.current = null;
+      if (!d || !d.moved) { setDayDrag(null); return; }
+      holdClick();
+      const e = events.find((x) => x.id === d.id);
+      const days = Math.round((d.day - d.day0) / DAY_MS);
+      if (e && days) {
+        const s = new Date(e.start); s.setDate(s.getDate() + days);
+        const en = new Date(e.end); en.setDate(en.getDate() + days);
+        await changeEvent(e, { start: s.getTime(), end: en.getTime() });
+      }
+      setDayDrag(null);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  }, [dayDragging, events]);
 
   // While dragging, the window follows the pointer: the event is drawn again in other columns as it moves.
   const live = useRef({ move: onDragMove, end: endDrag });
@@ -404,9 +448,14 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
           const start = d.getTime();
           const list = events.filter((e) => (e.allDay || e.end - e.start >= DAY_MS) && e.start < start + DAY_MS && e.end > start);
           return (
-            <div key={d.toISOString()} className="tg-allday-cell">
-              {list.map((e) => <button key={e.id} className={`tg-chip ${selected.includes(e.id) ? 'selected' : ''}`} style={{ background: colour(e.accountId) }} title={e.title}
-                onClick={(ev) => { if (ev.ctrlKey || ev.metaKey) { toggleSelected(e.id); return; } onPick(e); }} onContextMenu={(ev) => eventMenu(e, ev)}>{e.title}</button>)}
+            <div key={d.toISOString()} data-allday={start} className={`tg-allday-cell ${dayDrag?.moved && dayDrag.day === start && dayDrag.day !== dayDrag.day0 ? 'drop' : ''}`}
+              onClick={(ev) => { if (ev.target === ev.currentTarget) clearSelected(); }}>
+              {list.map((e) => {
+                const can = draggable(e) && e.allDay;
+                return <button key={e.id} className={`tg-chip ${can ? 'can-drag' : ''} ${dayDrag?.moved && dayDrag.id === e.id ? 'lifted' : ''} ${selected.includes(e.id) ? 'selected' : ''}`} style={{ background: colour(e.accountId) }} title={can ? `${e.title}. Drag to another day to move it.` : e.title}
+                  onPointerDown={(ev) => { if (can && ev.button === 0 && !ev.ctrlKey && !ev.metaKey) { const dd = { id: e.id, day0: start, day: start, x0: ev.clientX, moved: false }; dayDragRef.current = dd; setDayDrag(dd); } }}
+                  onClick={(ev) => { if (justDragged.current) { justDragged.current = false; return; } if (ev.ctrlKey || ev.metaKey) { toggleSelected(e.id); return; } clearSelected(); onPick(e); }} onContextMenu={(ev) => eventMenu(e, ev)}>{e.title}</button>;
+              })}
             </div>
           );
         })}
@@ -427,7 +476,7 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
             const ghostOf = drag?.moved ? events.find((x) => x.id === drag.id && !x.allDay && x.start < start + DAY_MS && x.end > start && (x.start !== drag.start || x.end !== drag.end)) : undefined;
             return (
               <div key={d.toISOString()} data-day={start} className={`tg-col ${mode === 'week' && picked === d.getTime() ? 'picked' : ''}`} title="Double-click to make an event here, or drag across events to pick them"
-                onClick={(ev) => { if (justDragged.current) { justDragged.current = false; return; } if (ev.target === ev.currentTarget || (ev.target as HTMLElement).classList.contains('tg-line')) { clearSelected(); if (mode === 'week') setAnchor(d); } }}
+                onClick={(ev) => { if (justDragged.current) { justDragged.current = false; return; } if (!(ev.target as HTMLElement).closest('.tg-event')) { clearSelected(); if (mode === 'week') setAnchor(d); } }}
                 onDoubleClick={(ev) => { if (ev.target === ev.currentTarget || (ev.target as HTMLElement).classList.contains('tg-line') || (ev.target as HTMLElement).classList.contains('tg-work')) startNewEvent({ start: timeAt(d, ev) }); }}
                 onContextMenu={(ev) => { if (!(ev.target as HTMLElement).closest('.tg-event')) dayMenu(d, timeAt(d, ev), ev); }}>
                 {workDay(d) && <div className="tg-work" style={{ top: (minutesOf(work.from) / 60) * HOUR_PX, height: ((minutesOf(work.to) - minutesOf(work.from)) / 60) * HOUR_PX }} />}
@@ -514,6 +563,8 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
   const [drag, setDrag] = useState<{ id: string; day0: number; x: number; y: number; x0: number; y0: number; over?: number; moved: boolean } | null>(null);
   const dragRef = useRef<typeof drag>(null);
   const justDragged = useRef(false);
+  // The click that ends a drag (or a Ctrl-click) is ignored, and only that one: any later click works as normal.
+  const holdClick = () => { justDragged.current = true; setTimeout(() => { justDragged.current = false; }, 80); };
   const shiftDays = (ms: number, n: number) => { const d = new Date(ms); d.setDate(d.getDate() + n); return d.getTime(); };
   const dragging = drag?.moved ? events.find((e) => e.id === drag.id) : undefined;
   const moveTo = dragging && drag?.over !== undefined ? Math.round((drag.over - drag.day0) / DAY_MS) : 0;
@@ -558,7 +609,7 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
     dragRef.current = null;
     if (!d) return;
     if (!d.moved) { setDrag(null); return; }
-    justDragged.current = true;
+    holdClick();
     const e = events.find((x) => x.id === d.id);
     const n = d.over !== undefined ? Math.round((d.over - d.day0) / DAY_MS) : 0;
     if (!e || !n) { setDrag(null); return; }

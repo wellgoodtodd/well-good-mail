@@ -78,6 +78,21 @@ export function graphGuests(
   return { guests: list.slice(0, 60), myResponse: yours ?? me?.answer ?? (e.responseStatus ? answer(e.responseStatus.response) : undefined) };
 }
 
+/**
+ * How long to wait (ms) before trying a failed Graph call once more, or undefined to give up straight away.
+ * 503 and 429 mean the request wasn't handled, so any call can try again (429 after its Retry-After, up to 20s).
+ * A 502 or 504 might have half happened, so a POST (sending, making an event) isn't tried twice.
+ */
+export function graphRetryWait(status: number, body: string, method: string, retryAfter?: string | null): number | undefined {
+  if (status === 429) {
+    const s = retryAfter ? Number(retryAfter) : NaN;
+    return Number.isFinite(s) && s >= 0 ? Math.min(s * 1000, 20000) : 2000;
+  }
+  if (status === 503 || /"code"\s*:\s*"ServiceNotAvailable"/.test(body)) return 800;
+  if ((status === 502 || status === 504 || /"code"\s*:\s*"UnknownError"/.test(body)) && status >= 500 && method !== 'POST') return 800;
+  return undefined;
+}
+
 export class MicrosoftProvider implements MailProvider {
   private folderIds: Partial<Record<SystemFolder, string>> = {};
   constructor(public readonly account: Account) {}
@@ -91,7 +106,7 @@ export class MicrosoftProvider implements MailProvider {
     for (const f of folders) if (f.system && f.system !== 'flagged') this.folderIds[f.system] = f.id;
   }
 
-  private async call<T>(url: string, init: RequestInit = {}, extra?: string[]): Promise<T> {
+  private async call<T>(url: string, init: RequestInit = {}, extra?: string[], retried = false): Promise<T> {
     const token = await getMicrosoftAccessToken(this.account.email, extra);
     const res = await httpFetch(url.startsWith('http') ? url : G + url, {
       ...init,
@@ -101,8 +116,17 @@ export class MicrosoftProvider implements MailProvider {
       const text = (await res.text()).slice(0, 300);
       // A token without the newer permission (mailbox settings, calendar, contacts) is turned away: one more sign in fixes it.
       if (extra?.length && res.status === 403 && /AccessDenied|scope|permission/i.test(text)) throw new NeedsPermissionError();
-      const err = new Error(`Microsoft ${res.status}: ${text}`) as Error & { status?: number };
+      const wait = graphRetryWait(res.status, text, (init.method || 'GET').toUpperCase(), res.headers.get('Retry-After'));
+      if (!retried && wait !== undefined) {
+        // Graph often has a moment (502 UnknownError, 503, a busy 429): one quiet try again usually works.
+        await new Promise((r) => setTimeout(r, wait));
+        return this.call<T>(url, init, extra, true);
+      }
+      const busy = res.status === 429;
+      const gone = res.status >= 500 || /"code"\s*:\s*"(UnknownError|ServiceNotAvailable)"/.test(text);
+      const err = new Error(busy ? 'Outlook is busy right now.' : gone ? "Outlook didn't answer." : `Microsoft ${res.status}: ${text}`) as Error & { status?: number; detail?: string };
       err.status = res.status;
+      err.detail = `Microsoft ${res.status}: ${text}`;
       throw err;
     }
     if (res.status === 202 || res.status === 204) return undefined as T;
@@ -251,8 +275,10 @@ export class MicrosoftProvider implements MailProvider {
   }
 
   async listContacts(): Promise<Address[]> {
-    const page = await this.call<{ value: { displayName?: string; emailAddresses: { address: string }[] }[] }>('/contacts?$top=500');
-    return page.value.flatMap((c) => c.emailAddresses.map((e) => ({ name: c.displayName, email: e.address.toLowerCase() })));
+    type Postal = { street?: string; city?: string; postalCode?: string; state?: string; countryOrRegion?: string };
+    const page = await this.call<{ value: { displayName?: string; emailAddresses: { address: string }[]; homeAddress?: Postal; businessAddress?: Postal }[] }>('/contacts?$top=500');
+    const line = (p?: Postal) => [p?.street, p?.city, p?.postalCode, p?.countryOrRegion].map((x) => x?.trim()).filter(Boolean).join(', ');
+    return page.value.flatMap((c) => { const address = line(c.homeAddress) || line(c.businessAddress); return c.emailAddresses.map((e) => ({ name: c.displayName, email: e.address.toLowerCase(), ...(address ? { address } : {}) })); });
   }
 
   private calNames: string[] = [];
@@ -371,6 +397,7 @@ export class MicrosoftProvider implements MailProvider {
       ...graphGuests(e, [this.account.email, ...(this.account.aliases || []).map((a) => a.email)]),
       canEdit: e.isOrganizer !== false,
       recurring: Boolean(e.seriesMasterId),
+      seriesId: e.seriesMasterId ? `${this.account.id}|${e.seriesMasterId}` : undefined,
       organiser: e.organizer?.emailAddress?.address ? { email: e.organizer.emailAddress.address.toLowerCase(), name: e.organizer.emailAddress.name || undefined, self: e.isOrganizer || undefined } : undefined,
       cancelled: e.isCancelled || undefined,
     }));

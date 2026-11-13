@@ -39,6 +39,12 @@ function moveItems(list: CalendarEvent[], onPick: (to: { accountId: string; cale
   return items;
 }
 
+/** Runs the work for each item, four at a time (each change already shows on screen). */
+async function inTurn<T>(items: T[], work: (item: T) => Promise<void>): Promise<void> {
+  const queue = [...items];
+  await Promise.all(Array.from({ length: Math.min(4, queue.length) }, async () => { while (queue.length) await work(queue.shift()!); }));
+}
+
 /** Moves the picked events to one calendar: within an account they keep their id and replies; across, they're made again. */
 export async function moveSelected(list: CalendarEvent[], to: { accountId: string; calendarName: string }) {
   const mine = list.filter((e) => e.canEdit);
@@ -58,14 +64,15 @@ export async function moveSelected(list: CalendarEvent[], to: { accountId: strin
   }
   let done = 0;
   const failed: string[] = [];
-  for (const e of go) {
+  clearSelected();
+  // Each one shows in its new calendar at once; a few go to the calendar side by side, and any refused go back.
+  await inTurn(go, async (e) => {
     try {
       if (e.accountId === to.accountId) { if (e.calendarName !== to.calendarName) await editEvent(e, { calendarName: to.calendarName }, { scope: 'one' }); }
       else await moveEventAcross(e, to, { removeOriginal: true });
       done++;
     } catch (err) { failed.push(`${e.title} (${err instanceof Error ? err.message : err})`); }
-  }
-  clearSelected();
+  });
   const notes = [
     skipped ? `${skipped} made by someone else stayed where ${skipped === 1 ? 'it was' : 'they were'}` : '',
     cantGo.length ? `${cantGo.length} repeating ${cantGo.length === 1 ? 'event' : 'events'} can only move one at a time from its own pop-up` : '',
@@ -82,9 +89,9 @@ export async function deleteSelected(list: CalendarEvent[]) {
   const ok = await askConfirm(`Delete ${mine.length} ${mine.length === 1 ? 'event' : 'events'}?`, `They're deleted from the calendars themselves.${guests ? ` ${guests === 1 ? 'One has guests, who are' : `${guests} have guests, who are`} told it's cancelled.` : ''}${mine.some((e) => e.recurring) ? ' For repeating events, only these ones go, not the whole series.' : ''}${mine.length < list.length ? ` ${list.length - mine.length} made by someone else stay.` : ''}`, 'Delete');
   if (!ok) return;
   let done = 0;
-  for (const e of mine) { try { await deleteEvent(e, { scope: 'one' }); done++; } catch { /* counted below */ } }
   clearSelected();
-  toast({ text: `${done} ${done === 1 ? 'event' : 'events'} deleted.${done < mine.length ? ` ${mine.length - done} couldn't be deleted.` : ''}` });
+  await inTurn(mine, async (e) => { try { await deleteEvent(e, { scope: 'one', notify: true }); done++; } catch { /* counted below */ } });
+  toast({ text: `${done} ${done === 1 ? 'event' : 'events'} deleted.${done < mine.length ? ` ${mine.length - done} couldn't be deleted and ${mine.length - done === 1 ? 'is' : 'are'} back.` : ''}` });
 }
 
 /** The right-click menu for a picked group. */

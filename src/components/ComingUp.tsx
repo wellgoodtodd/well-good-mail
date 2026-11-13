@@ -2,10 +2,11 @@
 // video meeting. The event pop-up is in EventPopup.tsx, the month, week and day views in CalendarViews.tsx.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, refreshEvents, openScreen, toast } from '../lib/mail';
+import { useMail, refreshEvents, reconnectAccount, openScreen, toast } from '../lib/mail';
 import { useCalDay, selectDay, openDay } from './CalendarViews';
 import { useCalCache, cachedBetween } from '../lib/calendarCache';
 import { useSettings } from '../lib/settings';
+import { calendarFailureToast } from '../lib/plainErrors';
 import { upcoming, alertMute } from '../lib/reminders';
 import { meetingsSoon, dedupeEvents, visibleEvents, inGroupView, meetingPhase, meetingPhaseText, type CalendarGroup } from '../lib/meetings';
 import type { CalendarEvent } from '../lib/types';
@@ -69,7 +70,7 @@ export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' 
     setLooking(true);
     try {
       const failed = await refreshEvents();
-      toast({ text: failed.length ? `Couldn't reach the calendar for ${failed.join('; ')}` : 'Calendars updated', ttl: failed.length ? 12000 : 2500 });
+      toast(failed.length ? calendarFailureToast(failed, useMail.getState().accounts, () => void lookAgain(), (id) => void reconnectAccount(id)) : { text: 'Calendars updated', ttl: 2500 });
     } finally { setLooking(false); }
   };
   const why = (id: string) => errors[id] || 'No calendar has come through yet.';

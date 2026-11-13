@@ -129,36 +129,12 @@ function InvitationRow({ event: e, all, onOpen }: { event: CalendarEvent; all: C
   const accounts = useMail((s) => s.accounts);
   const colour = useColour();
   const [busy, setBusy] = useState(false);
-  const [noteOpen, setNoteOpen] = useState(false);
-  const [note, setNote] = useState('');
   const org = organiserOf(e);
   const orgName = org ? org.name || org.email : 'Someone';
   const account = accounts.find((a) => a.id === e.accountId);
   const current = rsvpOfAnswer(e.myResponse);
   const clash = useMemo(() => (current ? undefined : clashFor(e, all)), [e, all, current]);
   const where = e.meetingUrl ? meetingService(e.meetingUrl) : e.location && !/^https?:/i.test(e.location) ? e.location : '';
-
-  const answer = async (status: Rsvp) => {
-    if (busy || status === current) return;
-    setBusy(true);
-    const before = current;
-    const copies = copiesOf(e, all);
-    const said = note.trim() || undefined;
-    try {
-      await answerEvent(copies, status, said);
-      setNote(''); setNoteOpen(false);
-      toast({
-        text: `"${e.title}": ${RSVP_WORDS[status].past}. ${org ? `${orgName} has been told.` : 'The organiser has been told.'}`,
-        ttl: 7000,
-        // Google has no "not answered" to go back to, so Undo is only there when changing an earlier answer.
-        undo: before ? () => { answerEvent(copies, before).catch((err) => toast({ text: `Couldn't change it back: ${err instanceof Error ? err.message : err}`, ttl: 9000 })); } : undefined,
-      });
-    } catch (err) {
-      if (err instanceof CalendarPermissionError && account) {
-        toast({ text: `${account.label || account.email} needs one more sign in so Well Good Mail can answer invitations.`, action: { label: 'Sign in', run: () => void reconnectAccount(account.id) }, ttl: 12000 });
-      } else toast({ text: `Couldn't send your answer: ${err instanceof Error ? err.message : err}`, ttl: 9000 });
-    } finally { setBusy(false); }
-  };
 
   const remove = async () => {
     setBusy(true);
@@ -180,22 +156,67 @@ function InvitationRow({ event: e, all, onOpen }: { event: CalendarEvent; all: C
         {clash && <div className="inv-clash"><Icon name="alert" size={12} /> Clashes with {clash.title}</div>}
         {e.cancelled ? (
           <div className="inv-answers"><button className="btn small" disabled={busy} onClick={remove}>Remove from my calendar</button></div>
-        ) : (
-          <>
-            <div className="inv-answers" role="group" aria-label={`Your answer to ${e.title}`}>
-              {RSVP_ORDER.map((s) => (
-                <button key={s} className={`inv-ans ${current === s ? `on ${s}` : ''}`} aria-pressed={current === s} disabled={busy} onClick={() => answer(s)}>{RSVP_WORDS[s].label}</button>
-              ))}
-            </div>
-            {noteOpen ? (
-              <textarea className="inv-note-box" rows={2} autoFocus placeholder={`A note for ${orgName}, sent with your answer`} aria-label={`Note for ${orgName}`} value={note} onChange={(x) => setNote(x.target.value)} />
-            ) : (
-              <button className="link-btn inv-add-note" onClick={() => setNoteOpen(true)}>Add a note</button>
-            )}
-          </>
-        )}
+        ) : <InviteAnswers event={e} all={all} />}
       </div>
       <button className="icon-btn inv-open" title="Open the event" aria-label={`Open ${e.title}`} onClick={onOpen}><Icon name="chevronRight" size={14} /></button>
+    </div>
+  );
+}
+
+/**
+ * Accept, Maybe and Decline for an invitation, with Add a note (sent with the answer). Used in Invitations and on the
+ * event pop-up. Once answered, picking another answer changes it, and a note can go with that too.
+ */
+export function InviteAnswers({ event: e, all }: { event: CalendarEvent; all?: CalendarEvent[] }) {
+  const accounts = useMail((s) => s.accounts);
+  const near = useMail((s) => s.events);
+  const copy = useCalCache((c) => c.events);
+  const [busy, setBusy] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const org = organiserOf(e);
+  const orgName = org ? org.name || org.email : 'Someone';
+  const account = accounts.find((a) => a.id === e.accountId);
+  const current = rsvpOfAnswer(e.myResponse);
+
+  const answer = async (status: Rsvp) => {
+    if (busy || (status === current && !note.trim())) return;
+    setBusy(true);
+    const before = current;
+    const everything = all || [...near, ...copy.filter((x) => !near.some((n) => n.id === x.id))];
+    const copies = copiesOf(e, everything);
+    const said = note.trim() || undefined;
+    try {
+      await answerEvent(copies, status, said);
+      setNote(''); setNoteOpen(false);
+      toast({
+        text: `"${e.title}": ${RSVP_WORDS[status].past}.${said ? ' Your note went with it.' : ''} ${org ? `${orgName} has been told.` : 'The organiser has been told.'}`,
+        ttl: 7000,
+        // Google has no "not answered" to go back to, so Undo is only there when changing an earlier answer.
+        undo: before && before !== status ? () => { answerEvent(copies, before).catch((err) => toast({ text: `Couldn't change it back: ${err instanceof Error ? err.message : err}`, ttl: 9000 })); } : undefined,
+      });
+    } catch (err) {
+      if (err instanceof CalendarPermissionError && account) {
+        toast({ text: `${account.label || account.email} needs one more sign in so Well Good Mail can answer invitations.`, action: { label: 'Sign in', run: () => void reconnectAccount(account.id) }, ttl: 12000 });
+      } else toast({ text: `Couldn't send your answer: ${err instanceof Error ? err.message : err}`, ttl: 9000 });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="inv-answer-block">
+      <div className="inv-answers" role="group" aria-label={`Your answer to ${e.title}`}>
+        {RSVP_ORDER.map((s) => (
+          <button type="button" key={s} className={`inv-ans ${current === s ? `on ${s}` : ''}`} aria-pressed={current === s} disabled={busy} title={current === s && note.trim() ? 'Send your note with this answer' : undefined} onClick={() => answer(s)}>{RSVP_WORDS[s].label}</button>
+        ))}
+      </div>
+      {noteOpen ? (
+        <>
+          <textarea className="inv-note-box" rows={2} autoFocus placeholder={`A note for ${orgName}, sent with your answer`} aria-label={`Note for ${orgName}`} value={note} onChange={(x) => setNote(x.target.value)} />
+          <div className="inv-note-hint">{current ? `Pick an answer to send it. Picking ${RSVP_WORDS[current].label} again sends just the note.` : 'Pick an answer above to send it.'}</div>
+        </>
+      ) : (
+        <button type="button" className="link-btn inv-add-note" onClick={() => setNoteOpen(true)}>{current ? 'Change your answer with a note' : 'Add a note'}</button>
+      )}
     </div>
   );
 }

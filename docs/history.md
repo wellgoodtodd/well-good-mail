@@ -2,6 +2,33 @@
 
 Finished backlog sections, moved here from docs/backlog.md on 12 Nov 2026. Newest first.
 
+## Beta 4 calendar feedback (Todd, 12 Nov 2026), fixed in beta 5
+
+Working well: right-click Move to calendar for a group, Meeting settings, the quick edit (type or use the pickers), dragging and resizing ("really smooth", likes the grab animation), Ctrl + wheel and slider zoom, Ctrl-click and the drag box, Invitations (Accept, Decline with a note reached the organiser with the note), "Send an update to your guest", the repeating-event question after a drag (and Cancel puts it back).
+
+To fix:
+- **Changes should show at once.** Moving a group, dragging, and "this and all future events" wait for Google (about a second per event; a series delete showed the old form for 3 to 4 seconds). Show the change straight away, and put it back with a note if Google refuses. For a series, take the old events off screen at once.
+- **Calendar header layout broke:** the slider and Day / Week / Month ended up on the left and Day / Week / Month look smaller. Put the views on the right at their old size. The slider should be a thin line with a dot (no filled oval), with − and + either side.
+- **Move to calendar submenu lost its look:** no account names as headings and no colour dots in the flyout (the right-click menu's submenu doesn't draw headings or dots the way the main menu does).
+- **Repeating-event question:** buttons in reading order, left to right: Only this event, This and all future events, The whole series (not "All events"). Text to match: "Delete just this one, this one and every one after it, or the whole series?" The question box spills outside the event pop-up behind it (also the guests question); keep it inside or above it cleanly.
+- **Clicking empty space should let go of picked events** in Day and Week view (Month view already does, because it picks the day).
+- **All-day events can't be dragged in Day or Week view** (they can in Month). Let all-day chips drag between days in the all-day row.
+- **Repeating events can't be dragged in some cases** (one weekly event wouldn't move). Check why; they should drag and then ask which ones.
+- **Invitations: Add a note** is easy to miss. Give the row more room at the bottom and make the link stand out a little (subtle colour or underline). Also offer Accept / Maybe / Decline (with Add a note) on the event pop-up of an invitation you haven't answered. Changing an answer from Replied should also allow a note.
+- **Cancel the meeting and tell guests sent no emails** (Todd tried it on 3 of 4 copies, guests were his own accounts). Check whether Google's cancellation email goes out (sendUpdates=all on the organiser's copy) and whether deleting a guest's copy only removes it from that calendar. Also, the same event on four of his calendars needed deleting four times; fine for now.
+- **Microsoft 502 "UnknownError"** toast ("Couldn't reach the calendar for WGM Microsoft") came up twice during refreshes. Probably Outlook having a moment; retry once quietly before showing it, and word it more plainly.
+- **Guest answers and new invitations still take a refresh to show** (5 to 6 seconds after Refresh). Look again at refreshing sooner after an answer or a change.
+- Later: typing a contact's name in the New event title could offer to invite them.
+- **Second alert:** worked; Todd missed the small + button. Make it "+ Add alert" with words, not just a +.
+- **Events on several of your calendars** show once with "On 4 of your calendars", but the Calendar line only highlights one of them, and there's no easy way to take it off just one calendar. Idea for later: list each calendar it's on with a "Remove from this calendar" (for copies you were invited to, that's declining or deleting that copy). Not urgent.
+
+**Out of Office on beta 4 (Todd, 12 Nov 2026).** The page works: switches, templates, different message per account, Schedule for several accounts.
+- **WGM Microsoft can't be checked or switched on:** "Couldn't check: {"error":{"code":"UnknownError"...". The same Microsoft 502 as the calendar, or the account lacks the MailboxSettings permission. Find out which; show plain words ("Outlook didn't answer. Try again") instead of the raw error, with a Try again button, and Sign in if it's a permission.
+- **While I'm away row:** don't list every option that's on. A general line like "Choose what happens while you're away" with the "4 of 5 on" count, opening to the switches.
+- **Move the Template picker next to the message:** inside the MESSAGE card (or just below Accounts), since that's where it's used; at the top it's far from the text.
+- **Template picker and per-account tabs:** with "Different message for each account" on, picking a template on one tab and then switching tabs doesn't show which template that tab has. Show each tab's own template in the picker.
+- Day view at 5-minute lines is a lot, but leave it.
+
 ## 0.7.3 beta 3 (built 12 Nov 2026)
 
 Aim: the last 0.7.3 beta before live, so one round of testing, not several. Test list: docs/testing-0.7.3-beta3.md.

@@ -4,40 +4,27 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## Beta 4 calendar feedback, for beta 5 (Todd, 12 Nov 2026)
+## 0.7.3 beta 5 (built 13 Nov 2026)
 
-Working well: right-click Move to calendar for a group, Meeting settings, the quick edit (type or use the pickers), dragging and resizing ("really smooth", likes the grab animation), Ctrl + wheel and slider zoom, Ctrl-click and the drag box, Invitations (Accept, Decline with a note reached the organiser with the note), "Send an update to your guest", the repeating-event question after a drag (and Cancel puts it back).
-
-To fix:
-- **Changes should show at once.** Moving a group, dragging, and "this and all future events" wait for Google (about a second per event; a series delete showed the old form for 3 to 4 seconds). Show the change straight away, and put it back with a note if Google refuses. For a series, take the old events off screen at once.
-- **Calendar header layout broke:** the slider and Day / Week / Month ended up on the left and Day / Week / Month look smaller. Put the views on the right at their old size. The slider should be a thin line with a dot (no filled oval), with − and + either side.
-- **Move to calendar submenu lost its look:** no account names as headings and no colour dots in the flyout (the right-click menu's submenu doesn't draw headings or dots the way the main menu does).
-- **Repeating-event question:** buttons in reading order, left to right: Only this event, This and all future events, The whole series (not "All events"). Text to match: "Delete just this one, this one and every one after it, or the whole series?" The question box spills outside the event pop-up behind it (also the guests question); keep it inside or above it cleanly.
-- **Clicking empty space should let go of picked events** in Day and Week view (Month view already does, because it picks the day).
-- **All-day events can't be dragged in Day or Week view** (they can in Month). Let all-day chips drag between days in the all-day row.
-- **Repeating events can't be dragged in some cases** (one weekly event wouldn't move). Check why; they should drag and then ask which ones.
-- **Invitations: Add a note** is easy to miss. Give the row more room at the bottom and make the link stand out a little (subtle colour or underline). Also offer Accept / Maybe / Decline (with Add a note) on the event pop-up of an invitation you haven't answered. Changing an answer from Replied should also allow a note.
-- **Cancel the meeting and tell guests sent no emails** (Todd tried it on 3 of 4 copies, guests were his own accounts). Check whether Google's cancellation email goes out (sendUpdates=all on the organiser's copy) and whether deleting a guest's copy only removes it from that calendar. Also, the same event on four of his calendars needed deleting four times; fine for now.
-- **Microsoft 502 "UnknownError"** toast ("Couldn't reach the calendar for WGM Microsoft") came up twice during refreshes. Probably Outlook having a moment; retry once quietly before showing it, and word it more plainly.
-- **Guest answers and new invitations still take a refresh to show** (5 to 6 seconds after Refresh). Look again at refreshing sooner after an answer or a change.
-- Later: typing a contact's name in the New event title could offer to invite them.
-- **Second alert:** worked; Todd missed the small + button. Make it "+ Add alert" with words, not just a +.
-- **Events on several of your calendars** show once with "On 4 of your calendars", but the Calendar line only highlights one of them, and there's no easy way to take it off just one calendar. Idea for later: list each calendar it's on with a "Remove from this calendar" (for copies you were invited to, that's declining or deleting that copy). Not urgent.
-
-**Out of Office on beta 4 (Todd, 12 Nov 2026).** The page works: switches, templates, different message per account, Schedule for several accounts.
-- **WGM Microsoft can't be checked or switched on:** "Couldn't check: {"error":{"code":"UnknownError"...". The same Microsoft 502 as the calendar, or the account lacks the MailboxSettings permission. Find out which; show plain words ("Outlook didn't answer. Try again") instead of the raw error, with a Try again button, and Sign in if it's a permission.
-- **While I'm away row:** don't list every option that's on. A general line like "Choose what happens while you're away" with the "4 of 5 on" count, opening to the switches.
-- **Move the Template picker next to the message:** inside the MESSAGE card (or just below Accounts), since that's where it's used; at the top it's far from the text.
-- **Template picker and per-account tabs:** with "Different message for each account" on, picking a template on one tab and then switching tabs doesn't show which template that tab has. Show each tab's own template in the picker.
-- Day view at 5-minute lines is a lot, but leave it.
+Beta 4 plus everything under "To fix" in Todd's beta 4 calendar and Out of Office feedback (now in docs/history.md), and place suggestions in Location. Test list: docs/testing-0.7.3-beta5.md. Checked in the browser demo only, not on real accounts.
+- Changes show at once (drag, group move, delete, series delete, move across accounts) and go back with a note if Google or Outlook refuses; refreshes that set off before a change are not used while it is on its way. Another refresh 4 and 15 seconds after a change or an answer.
+- Calendar header back in order (the `.grow` spacer had lost its style); Day / Week / Month at the normal size; the zoom a thin line with a dot.
+- Menu submenus draw headings, dividers and colour dots. Choice dialogs widen for long buttons; the repeating question reads Only this event, This and all future events, The whole series.
+- Empty-space click lets go of picked events (the click landed on the grid body, which holds the pointer for the drag box). All-day events drag between days in Day and Week. A merged event (on several of your calendars) now shows the copy you can change, the likely reason one weekly event wouldn't drag.
+- Invitations: Accept / Maybe / Decline on an unanswered invitation's pop-up, Add a note in the accent colour with more room, Change your answer with a note.
+- Cancel the meeting and tell guests: the app deleted whichever copy it showed, often a guest's copy (another of Todd's calendars the organiser's account can also write to), which tells nobody. It now deletes the organiser's own copy with sendUpdates=all.
+- Microsoft: one quiet retry on 502/503/504 and Graph UnknownError, Retry-After on 429; plain words (src/lib/plainErrors.ts) with Try again, and Sign in for permission problems, in the calendar refresh note and on the Out of Office page. Out of Office on WGM Microsoft was the same 502, not a missing permission.
+- Out of Office: While I'm away is one general line with the count; the Template picker sits in the Message card and follows each account's tab.
+- Location suggestions from places in Todd's own events and contacts' addresses (Google People `addresses`, Outlook home or business address), local only. "+ Add alert" in words.
+- Mock-up for Tasks: docs/mockups/tasks-view.html (not built).
 
 ## 0.7.3 beta 4 (built 12 Nov 2026)
 
 Beta 3 plus under the hood: email bodies out of memory (loaded on open, last 50 cached), search index about half the size (first 4,000 characters of each email, indexed once), iCloud calendar addresses remembered, mail.ts split into src/lib/mail/ (mail.ts re-exports everything), and Tiptap 3.33.1. Test list: docs/testing-0.7.3-beta4.md. Behaviour changes to watch: words beyond the first 4,000 characters aren't found in search, and Smart Mailboxes "Any text" matches whole words or word starts in the body.
 
-## Tasks and place suggestions (mock-ups shown 12 Nov 2026, for beta 5 or 6)
+## Tasks and place suggestions (mock-ups shown 12 Nov 2026; place suggestions built in beta 5, Tasks next)
 
-Mock-up: docs/mockups/tasks-and-places.html. To decide: Tasks as a third view in Calendar & Reminders (my pick) or its own sidebar place; kept in step with Google Tasks and Microsoft To Do (my pick; Google Tasks has due dates but no due time over its API) or app-only; tasks with a due time shown in Day and Week view; make a task from an email (right-click or T, linked back to it); AI apps can add tasks, asking first. Places: suggestions from places used before and contacts' addresses (private, my pick), map search (Google Places or Azure Maps, needs a key and has costs) only as an opt-in switch; Directions in the event pop-up.
+Mock-ups: docs/mockups/tasks-and-places.html, then docs/mockups/tasks-view.html (13 Nov 2026, Tasks as a third view, with open questions at the end). To decide: Tasks as a third view in Calendar & Reminders (my pick) or its own sidebar place; kept in step with Google Tasks and Microsoft To Do (my pick; Google Tasks has due dates but no due time over its API) or app-only; tasks with a due time shown in Day and Week view; make a task from an email (right-click or T, linked back to it); AI apps can add tasks, asking first. Places: suggestions from places used before and contacts' addresses (private, my pick), map search (Google Places or Azure Maps, needs a key and has costs) only as an opt-in switch; Directions in the event pop-up.
 
 **Todd's answers (12 Nov 2026):**
 - Tasks kept in step with Google Tasks (and Microsoft To Do), so they're on his phone. He's installing the Google Tasks app.

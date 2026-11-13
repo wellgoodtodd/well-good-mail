@@ -7,6 +7,8 @@ export interface Address {
   email: string;
   /** Google contact photo, when there is one. */
   photo?: string;
+  /** A contact's postal address on one line, when the contacts list has one (offered as a place for events). */
+  address?: string;
 }
 
 /** A "send as" address. Gmail aliases come in automatically. */
@@ -160,6 +162,8 @@ export interface CalendarEvent {
   canEdit?: boolean;
   /** One of a repeating series (changes here change only this one). */
   recurring?: boolean;
+  /** For one of a series: the series it belongs to (same for every one), when the calendar says. */
+  seriesId?: string;
   /** Who sent the invitation, when the calendar says. `self` when it's you. */
   organiser?: { email: string; name?: string; self?: boolean };
   /** The organiser cancelled it, but it is still in your calendar (Outlook keeps these until you remove them). */

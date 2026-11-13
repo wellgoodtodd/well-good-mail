@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tasks view</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6;--line:#33333a;--amber:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1100px;margin:0 auto;display:grid;gap:40px}
+h1{font-size:18px;margin:4px 0 0}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.opt{display:inline-block;font-size:11px;font-weight:700;background:#2b3a5a;color:#9fc0ff;border-radius:5px;padding:1px 7px;margin-right:6px}
+.rec{background:#1f3a2e;color:#7fe0b4}
+.why{color:var(--muted);font-size:12.5px;margin:8px 0 0;max-width:760px}
+.why b{color:var(--text);font-weight:600}
+.pair{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:22px}
+.grow{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:4px 11px;background:#2f2f35;font-size:12.5px;white-space:nowrap}
+.ghost{background:transparent}.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.small{padding:2px 8px;font-size:11.5px}
+.seg{display:inline-flex;border:1px solid #44444b;border-radius:7px;overflow:hidden}
+.seg span{padding:4px 11px;font-size:12.5px}.seg .on{background:#3a3a42}
+.app{background:#1b1b1e;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.head b{font-size:16px}
+.ibtn{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;border:1px solid #44444b;font-size:14px;color:var(--muted)}
+.body{display:flex;min-height:300px;flex-wrap:wrap}
+.side{width:210px;border-right:1px solid var(--line);padding:8px;flex:none}
+.si{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;font-size:13px}
+.si.on{background:#2b3a5a}
+.si .n{margin-left:auto;color:var(--muted);font-size:11.5px}
+.si .n.late{color:#ff8a8d}
+.sh{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:10px 8px 4px;display:flex;gap:6px;align-items:center}
+.sh i{font-style:normal;text-transform:none;letter-spacing:0;font-size:10.5px;border:1px solid #44444b;border-radius:4px;padding:0 5px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.main{flex:1;min-width:300px;padding:4px 0 10px}
+.aside{width:250px;border-left:1px solid var(--line);padding:12px;flex:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+.card h3{margin:0 0 8px;font-size:13.5px}
+.add{margin:10px 14px 4px;border:1px solid #4a4a52;border-radius:8px;padding:7px 10px;background:#1d1d20;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.add.focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.ph{color:var(--muted)}
+.hl{background:rgba(59,130,246,.22);color:#bcd3ff;border-radius:4px;padding:0 3px;border-bottom:1.5px solid #6aa0ff}
+.caret{display:inline-block;width:1px;height:15px;background:var(--text);vertical-align:-3px;margin-left:1px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;border-radius:999px;padding:1px 9px;border:1px solid #44444b;background:#2a2a30;white-space:nowrap}
+.chip.when{background:#20304f;border-color:#3b5a92;color:#bcd3ff}
+.gh{display:flex;align-items:center;gap:8px;padding:12px 14px 4px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.gh .n{font-weight:400;letter-spacing:0}
+.gh.late{color:#ff8a8d}
+.t{display:flex;gap:10px;align-items:flex-start;padding:7px 14px;border-top:1px solid #2a2a30}
+.t.sel{background:#232a38}
+.ring{width:17px;height:17px;border-radius:50%;border:1.5px solid #7a7a84;flex:none;margin-top:1px;display:grid;place-items:center;font-size:10px;color:#fff}
+.ring.done{background:var(--accent);border-color:var(--accent)}
+.ring.sm{width:14px;height:14px;font-size:9px;margin-top:2px}
+.t small{display:block;color:var(--muted);font-size:12px}
+.t .end{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:11.5px}
+.due{color:#fbbf24}.late{color:#ff8a8d}
+.mail{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:#8fb3ff}
+.fold{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;margin-top:6px}
+.pop{width:400px;max-width:100%;background:var(--card);border:1px solid #44444b;border-radius:12px;padding:14px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.r{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.k{width:66px;color:var(--muted);font-size:12px;flex:none}
+.in{border:1px solid #4a4a52;border-radius:7px;padding:5px 9px;background:#1d1d20;font-size:12.5px}
+.in.focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.from{display:flex;gap:9px;align-items:center;border:1px solid #3b5a92;background:#1c2740;border-radius:8px;padding:7px 10px;margin-top:10px}
+.from .grow small{display:block;color:var(--muted);font-size:11.5px}
+.menu{background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:4px;width:240px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.mi{display:flex;gap:9px;align-items:center;padding:5px 8px;border-radius:6px;font-size:12.5px}
+.mi.hover{background:#2b3a5a}
+.mi kbd{margin-left:auto;font:11px Inter,'Segoe UI',sans-serif;color:var(--muted);border:1px solid #4a4a52;border-radius:4px;padding:0 5px}
+.sep{height:1px;background:#3a3a42;margin:4px 6px}
+.ic{width:16px;text-align:center;color:var(--muted);flex:none}
+.msg{background:#1b1b1e;border:1px solid var(--line);border-radius:12px;width:470px;max-width:100%;overflow:hidden;position:relative}
+.msg .mh{padding:12px 14px;border-bottom:1px solid var(--line)}
+.msg .mh .s{font-size:15px;font-weight:600}
+.msg .mh small{color:var(--muted);font-size:12px}
+.msg .mb{padding:12px 14px;color:#cfcfd6;font-size:12.5px;min-height:150px}
+.av{width:28px;height:28px;border-radius:50%;background:#4b4f7a;display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.toast{display:inline-flex;gap:10px;align-items:center;background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:7px 12px;font-size:12.5px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.cu{width:300px;max-width:100%;background:#1b1b1e;border:1px solid var(--line);border-radius:12px;padding:12px}
+.cuh{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.cus{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px;display:flex}
+.row{display:flex;gap:9px;align-items:flex-start;padding:6px 4px;border-radius:6px}
+.row small{display:block;color:var(--muted);font-size:11.5px}
+.bar{width:3px;border-radius:2px;flex:none;align-self:stretch}
+/* week grid */
+.wk{background:#1b1b1e;border:1px solid var(--line);border-radius:12px;overflow:hidden;flex:1;min-width:300px}
+.wkh{display:grid;grid-template-columns:48px repeat(3,1fr);border-bottom:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+.wkh div{padding:6px;border-left:1px solid var(--line)}
+.wkh div:first-child{border-left:0}
+.wkh .today{color:#9fc0ff;font-weight:600}
+.ad{display:grid;grid-template-columns:48px repeat(3,1fr);border-bottom:1px solid var(--line)}
+.ad>div{border-left:1px solid var(--line);padding:4px;min-height:28px;display:flex;flex-direction:column;gap:3px}
+.ad>div:first-child{border-left:0;font-size:10px;color:var(--muted);text-align:right;padding-right:6px;justify-content:center}
+.allday{font-size:11px;border-radius:5px;padding:1px 6px;background:#3a2650;border-left:3px solid #e879f9}
+.tstrip{font-size:11px;border-radius:5px;padding:1px 6px;border:1px dashed #6a8fd6;background:rgba(59,130,246,.10);display:flex;gap:5px;align-items:center;white-space:nowrap;overflow:hidden}
+.tg{display:grid;grid-template-columns:48px repeat(3,1fr);position:relative}
+.tg .hrs div{height:38px;font-size:10.5px;color:var(--muted);text-align:right;padding-right:6px;border-top:1px solid #2a2a30}
+.tg .day{position:relative;border-left:1px solid var(--line);background:repeating-linear-gradient(#1b1b1e 0 37px,#2a2a30 37px 38px)}
+.ev{position:absolute;left:3px;right:3px;border-radius:6px;padding:3px 6px;font-size:11px;overflow:hidden}
+.mk{position:absolute;left:3px;right:3px;height:20px;display:flex;align-items:center;gap:5px;font-size:11px;padding:0 5px;border-radius:5px;background:#1b1b1e;border:1px solid #6a8fd6;white-space:nowrap;overflow:hidden;z-index:2}
+.mk::before{content:'';position:absolute;left:-4px;top:9px;width:4px;height:1px}
+.now{position:absolute;left:0;right:0;height:2px;background:#ff5a5f;z-index:3}
+.tpanel{width:210px;flex:none;background:#1b1b1e;border:1px solid var(--line);border-radius:12px;padding:10px}
+.notice{border:1px solid #8f6f1f;background:#2a2312;border-radius:12px;padding:14px 16px;max-width:880px}
+.notice h2{margin:0 0 6px;font-size:15px;color:#fcd34d}
+.notice p{margin:6px 0 0;font-size:12.8px;color:#e8d7b5}
+.notice b{color:#fff3d6}
+.signin{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid #44444b;border-radius:10px;padding:10px 12px;margin-top:12px;max-width:620px;flex-wrap:wrap}
+.q{border-left:3px solid var(--amber);padding:4px 0 4px 12px;color:#e8d7b5;font-size:12.8px;max-width:820px;line-height:1.7}
+table{border-collapse:collapse;font-size:12.5px;width:100%;max-width:880px}
+td,th{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600}
+</style></head><body><div class="w">
+
+<div><h1>Tasks in Calendar &amp; Reminders</h1>
+<p class="why" style="margin-top:4px">Following Todd's answers of 12 Nov: tasks start as a third view in Calendar &amp; Reminders, kept in step with Google Tasks and Microsoft To Do so they're on the phone too, and today's tasks also show in Coming up. Shown as it would look on Friday 13 November.</p></div>
+
+<!-- ================= 1 ================= -->
+<section>
+<div class="lbl">1 · The Tasks view</div>
+<div class="app">
+<div class="head"><b>Calendar &amp; Reminders</b><span class="seg"><span>☰ List</span><span>▦ Calendar</span><span class="on">✓ Tasks</span></span><span class="grow"></span><span class="ibtn">⟳</span><span class="btn ghost">Show completed</span><span class="btn pri">+ New task</span></div>
+<div class="body">
+<div class="side">
+<div class="si on">☀ Today <span class="n">4</span></div>
+<div class="si">▤ Scheduled <span class="n">11</span></div>
+<div class="si">≡ All Tasks <span class="n">17</span></div>
+<div class="sh">Main account <i>Google Tasks</i></div>
+<div class="si"><span class="dot" style="background:#3b82f6"></span>My Tasks <span class="n">5</span></div>
+<div class="si"><span class="dot" style="background:#22c55e"></span>Studio <span class="n">4</span></div>
+<div class="si"><span class="dot" style="background:#06b6d4"></span>Podcast <span class="n">2</span></div>
+<div class="sh">Personal account <i>Google Tasks</i></div>
+<div class="si"><span class="dot" style="background:#e879f9"></span>Home <span class="n late">1 late</span></div>
+<div class="si"><span class="dot" style="background:#a78bfa"></span>Shopping <span class="n">3</span></div>
+<div class="sh">Client work <i>Microsoft To Do</i></div>
+<div class="si"><span class="dot" style="background:#f59e0b"></span>Tasks <span class="n">2</span></div>
+<div class="si" style="color:var(--muted)">+ New list</div>
+</div>
+
+<div class="main">
+<div class="add"><span style="color:var(--muted)">+</span><span class="ph grow">Add a task to My Tasks, e.g. "Ring the dentist Friday 3pm"</span><span class="chip"><span class="dot" style="background:#3b82f6"></span>My Tasks ▾</span></div>
+
+<div class="gh late">Overdue <span class="n">1</span></div>
+<div class="t"><span class="ring"></span><div class="grow">Renew the car insurance<small><span class="late">Wed 11 Nov</span> · Home</small></div><span class="end"><span class="dot" style="background:#e879f9"></span></span></div>
+
+<div class="gh">Today <span class="n">3</span></div>
+<div class="t"><span class="ring"></span><div class="grow">Send the venue deposit for the March shoot<small><span class="due">Today, 14:00</span> · My Tasks · <span class="mail">✉ Re: Venue deposit for March</span></small></div><span class="end"><span class="dot" style="background:#3b82f6"></span></span></div>
+<div class="t"><span class="ring"></span><div class="grow">Back up the SD cards from Thursday<small><span class="due">Today</span> · Studio</small></div><span class="end"><span class="dot" style="background:#22c55e"></span></span></div>
+<div class="t"><span class="ring"></span><div class="grow">Approve the episode 42 thumbnail<small><span class="due">Today</span> · Podcast · <span class="mail">✉ Thumbnail options</span></small></div><span class="end"><span class="dot" style="background:#06b6d4"></span></span></div>
+
+<div class="gh">Tomorrow <span class="n">1</span></div>
+<div class="t"><span class="ring"></span><div class="grow">Pick up the frames from the framer<small>Sat 14 Nov, 10:30 · Home</small></div><span class="end"><span class="dot" style="background:#e879f9"></span></span></div>
+
+<div class="gh">Later <span class="n">4</span></div>
+<div class="t"><span class="ring"></span><div class="grow">Ring the dentist<small>Fri 20 Nov, 15:00 · My Tasks</small></div><span class="end"><span class="dot" style="background:#3b82f6"></span></span></div>
+<div class="t"><span class="ring"></span><div class="grow">Invoice for the October edits<small>Mon 23 Nov · Tasks (Client work)</small></div><span class="end"><span class="dot" style="background:#f59e0b"></span></span></div>
+<div class="t"><span class="ring"></span><div class="grow">Book the van for the January shoot<small>Thu 3 Dec · Studio</small></div><span class="end"><span class="dot" style="background:#22c55e"></span></span></div>
+<div class="t" style="color:var(--muted);font-size:12.5px;border-top:0;padding-top:2px"><span style="width:17px"></span>and 1 more</div>
+
+<div class="gh">No date <span class="n">2</span></div>
+<div class="t"><span class="ring"></span><div class="grow">Look into a second microphone<small>Podcast</small></div><span class="end"><span class="dot" style="background:#06b6d4"></span></span></div>
+<div class="t"><span class="ring"></span><div class="grow">Oat milk, coffee beans, bin bags<small>Shopping</small></div><span class="end"><span class="dot" style="background:#a78bfa"></span></span></div>
+
+<div class="fold">› Completed <span class="chip">6 this week</span><span class="grow"></span><span style="font-size:11.5px">Folded away</span></div>
+</div>
+
+<div class="aside">
+<div class="card"><h3>Coming up</h3>
+<div class="row"><span class="bar" style="background:#3b82f6"></span><div class="grow">Edit podcast<small>Today, 11:00 · Work</small></div></div>
+<div class="row"><span class="bar" style="background:#e879f9"></span><div class="grow">Dinner with Sam<small>Today, 19:30 · Personal</small></div></div>
+<div class="row"><span class="bar" style="background:#22c55e"></span><div class="grow">Studio day<small>Mon 16 Nov · Studio</small></div></div>
+</div>
+</div>
+</div></div>
+<p class="why"><b>Lists</b> down the left come from each account, under its name, with the kind of list beside it (Google Tasks or Microsoft To Do). The colour dot follows the list, and a new list is made in the account you pick. <b>Today, Scheduled and All Tasks</b> look across every account, like Apple Reminders' smart lists.</p>
+<p class="why"><b>Groups</b> are Overdue, Today, Tomorrow, Later and No date. Click the circle to tick a task off: it fades, then moves into <b>Completed</b>, which stays folded away until you open it. Ctrl+Z (or Undo in the toast) brings it back. Coming up stays on the right, as it does in List and Calendar.</p>
+</section>
+
+<!-- ================= 2 ================= -->
+<section>
+<div class="lbl">2 · Quick add reads dates as you type</div>
+<div class="pair">
+<div style="width:520px;max-width:100%">
+<div class="app" style="padding-bottom:10px">
+<div class="add focus" style="margin-top:12px"><span style="color:var(--muted)">+</span><span class="grow">Ring the dentist <span class="hl">Friday 3pm</span><span class="caret"></span></span></div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 14px 0">
+<span class="chip when">📅 Fri 20 Nov, 15:00 <span style="opacity:.7">✕</span></span>
+<span class="chip"><span class="dot" style="background:#3b82f6"></span>My Tasks · Main account ▾</span>
+<span class="grow"></span>
+<span style="color:var(--muted);font-size:11.5px">Enter to add · Tab for more</span>
+</div>
+</div>
+<div class="app" style="padding-bottom:10px;margin-top:14px">
+<div class="add focus" style="margin-top:12px"><span style="color:var(--muted)">+</span><span class="grow">Order more gaffer tape <span class="hl">next Tuesday</span> <span class="hl" style="background:rgba(34,197,94,.18);color:#a7f3c9;border-bottom-color:#22c55e">#studio</span><span class="caret"></span></span></div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 14px 0">
+<span class="chip when">📅 Tue 17 Nov <span style="opacity:.7">✕</span></span>
+<span class="chip" style="border-color:#2f8f5f"><span class="dot" style="background:#22c55e"></span>Studio · Main account ▾</span>
+</div>
+</div>
+</div>
+<div style="max-width:440px">
+<p class="why" style="margin-top:0">The words it understood are <b>highlighted in the text</b>, and the chip underneath says what it made of them. They're taken out of the title when the task is saved, so this one is called "Ring the dentist". Click ✕ on the chip to keep the words as typed instead.</p>
+<p class="why"><b>"Friday" on a Friday</b> means next Friday, as people usually mean it. "Today 3pm" is there for this afternoon.</p>
+<p class="why"><b>The list</b> is the one you're looking at (or the default list when you're in Today or All Tasks). Click the chip to change it, or type #studio, #home and so on.</p>
+<p class="why">It reads the same words New event already understands: today, tomorrow, weekdays, next week, 3pm, 15:00, 20 Nov, in 2 weeks, every Monday.</p>
+</div>
+</div>
+</section>
+
+<!-- ================= 3 ================= -->
+<section>
+<div class="lbl">3 · A task from an email</div>
+<div class="pair">
+<div>
+<div class="msg">
+<div class="mh" style="display:flex;gap:10px;align-items:center"><span class="av">HV</span><div class="grow"><div class="s">Re: Venue deposit for March</div><small>Harbour View Events · to Main account · 09:14</small></div></div>
+<div class="mb">Hi Todd,<br><br>Thanks for confirming the dates. To hold the 12th and 13th of March we'll need the deposit by end of day today. Bank details are on the attached invoice.<br><br>Kind regards,<br>The bookings team</div>
+<div class="menu" style="position:absolute;left:170px;top:92px">
+<div class="mi"><span class="ic">↩</span>Reply<kbd>R</kbd></div>
+<div class="mi"><span class="ic">⇉</span>Forward<kbd>F</kbd></div>
+<div class="sep"></div>
+<div class="mi"><span class="ic">⚑</span>Flag</div>
+<div class="mi"><span class="ic">⏰</span>Snooze</div>
+<div class="mi hover"><span class="ic">✓</span>Make a task<kbd>T</kbd></div>
+<div class="mi"><span class="ic">📅</span>Add to calendar</div>
+<div class="sep"></div>
+<div class="mi"><span class="ic">🗄</span>Archive<kbd>E</kbd></div>
+</div>
+</div>
+<div style="margin-top:12px"><span class="toast">✓ Task added to My Tasks, due today <span class="btn small">Open</span><span class="btn small ghost">Undo</span></span></div>
+</div>
+
+<div class="pop">
+<div class="r" style="margin-top:0"><span class="ring" style="margin-top:0"></span><span class="in focus grow" style="font-weight:600">Send the venue deposit for the March shoot</span></div>
+<div class="from"><span style="color:#8fb3ff">✉</span><div class="grow">From: Re: Venue deposit for March<small>Harbour View Events · today 09:14</small></div><span class="btn small">Open email</span></div>
+<div class="r"><span class="k">Due</span><span class="in">Today</span><span class="in">14:00</span><span class="btn ghost small">✕</span></div>
+<div class="r"><span class="k">List</span><span class="in"><span class="dot" style="background:#3b82f6"></span> My Tasks · Main account ▾</span></div>
+<div class="r"><span class="k">Repeat</span><span class="in">Never ▾</span></div>
+<div class="r"><span class="k">Notes</span><span class="in grow" style="color:var(--muted)">Invoice attached to the email</span></div>
+<div class="r" style="margin-top:14px"><span class="btn ghost">Delete</span><span class="grow"></span><span class="btn">Cancel</span><span class="btn pri">Save</span></div>
+</div>
+</div>
+<p class="why"><b>Right-click › Make a task</b> in the message list or the message view, or press <b>T</b>. The subject becomes the title (with "Re:" and "Fwd:" taken off) and you can change it before it's saved. If the email mentions a date ("by end of day today"), the due date is filled in with it, highlighted so you can see where it came from.</p>
+<p class="why">In the list the task carries a small <span class="mail">✉ subject</span> link. Opening the task shows <b>From: &lt;subject&gt;</b> at the top; clicking it opens the email, in any folder, even after it's archived. The link is saved in the task's notes too, so Google Tasks and To Do on the phone show a link back to the email in Gmail or Outlook.</p>
+</section>
+
+<!-- ================= 4 ================= -->
+<section>
+<div class="lbl">4 · Today's tasks in Coming up</div>
+<div class="pair">
+<div class="cu">
+<div class="cuh"><b class="grow">Coming up</b><span class="ibtn">☰</span><span class="ibtn">✕</span></div>
+<div class="cus">Today</div>
+<div class="row"><span class="bar" style="background:#3b82f6"></span><div class="grow">Edit podcast<small>Today, 11:00 · Work</small></div><span class="btn small">Join</span></div>
+<div class="row"><span class="bar" style="background:#e879f9"></span><div class="grow">Dinner with Sam<small>Today, 19:30 · Personal</small></div></div>
+<div class="cus">Tasks today <span class="grow"></span><span style="text-transform:none;letter-spacing:0">3 of 4</span></div>
+<div class="row"><span class="ring sm"></span><div class="grow"><span class="late" style="font-size:11.5px">Wed</span> Renew the car insurance</div></div>
+<div class="row"><span class="ring sm"></span><div class="grow">Send the venue deposit for the March shoot<small><span class="due">14:00</span> · <span class="mail">✉</span> My Tasks</small></div></div>
+<div class="row"><span class="ring sm"></span><div class="grow">Back up the SD cards from Thursday<small>Studio</small></div></div>
+<div class="row" style="color:var(--muted);text-decoration:line-through"><span class="ring sm done">✓</span><div class="grow">Approve the episode 42 thumbnail</div></div>
+<div class="row" style="color:var(--muted);font-size:12px">Open Tasks ›</div>
+<div class="cus">Next week</div>
+<div class="row"><span class="bar" style="background:#22c55e"></span><div class="grow">Studio day<small>Mon 16 Nov · Studio</small></div></div>
+</div>
+<div style="max-width:470px">
+<p class="why" style="margin-top:0">Coming up (the panel beside your mail, and the card in Calendar &amp; Reminders) gets a <b>Tasks today</b> part next to today's events: anything due today, plus anything overdue in red. Tick the circle to mark it done right there; it stays crossed out until the end of the day so you see what you've got through.</p>
+<p class="why">Click a task to open it in the same pop-up as in the Tasks view. The Calendar &amp; Reminders count in the sidebar includes tasks due today, so there's still no new line in the sidebar.</p>
+<p class="why">If there are no tasks today the part isn't shown at all, so Coming up looks as it does now.</p>
+</div>
+</div>
+</section>
+
+<!-- ================= 5 ================= -->
+<section>
+<div class="lbl">5 · Dated tasks in Day and Week view: two options</div>
+<div class="cols">
+<div>
+<p style="margin:0 0 8px"><span class="opt rec">A · MY PICK</span>In the calendar itself: a Tasks strip and markers</p>
+<div class="wk">
+<div class="wkh"><div></div><div class="today">Fri 13</div><div>Sat 14</div><div>Sun 15</div></div>
+<div class="ad"><div>all day</div><div><span class="allday">Jen's birthday</span></div><div></div><div></div></div>
+<div class="ad"><div>Tasks</div>
+<div><span class="tstrip"><span class="ring sm" style="margin:0"></span><span class="late">Renew the car insur…</span></span><span class="tstrip"><span class="ring sm" style="margin:0"></span>Back up the SD cards</span><span class="tstrip" style="color:var(--muted)">+1 more</span></div>
+<div></div><div><span class="tstrip"><span class="ring sm" style="margin:0"></span>Water the plants</span></div></div>
+<div class="tg">
+<div class="hrs"><div>10:00</div><div>11:00</div><div>12:00</div><div>13:00</div><div>14:00</div><div>15:00</div></div>
+<div class="day">
+<div class="ev" style="top:40px;height:56px;background:#1e3a66;border-left:3px solid #3b82f6">Edit podcast<br><span style="color:var(--muted)">11:00 to 12:30</span></div>
+<div class="mk" style="top:142px"><span class="ring sm" style="margin:0"></span>Send the venue deposit</div>
+<div class="now" style="top:118px"></div>
+</div>
+<div class="day"><div class="mk" style="top:18px"><span class="ring sm" style="margin:0"></span>Pick up the frames</div></div>
+<div class="day"><div class="ev" style="top:118px;height:56px;background:#3a2650;border-left:3px solid #e879f9">Lunch at Mum's</div></div>
+</div>
+</div>
+<table style="margin-top:10px">
+<tr><th style="width:50%">For</th><th>Against</th></tr>
+<tr><td>Everything for a day in one place: you see the 14:00 deadline right beside the meeting before it.</td><td>The all-day area gets taller on busy days (capped at 2 rows, then "+1 more").</td></tr>
+<tr><td>Tasks with a time sit at their time, as a thin marker that doesn't take up a block, so events still read clearly.</td><td>A marker sits over any event at that time, so it needs a clear outline to stay readable.</td></tr>
+<tr><td>Tick off and drag to another day or time, like events. Same idea as Google Calendar and Outlook.</td><td>More to build: dragging tasks in the grid, and the strip.</td></tr>
+</table>
+</div>
+
+<div>
+<p style="margin:0 0 8px"><span class="opt">B</span>Beside the calendar: a thin Tasks panel</p>
+<div class="pair" style="gap:10px;flex-wrap:nowrap">
+<div class="wk" style="min-width:0">
+<div class="wkh"><div></div><div class="today">Fri 13</div><div>Sat 14</div><div>Sun 15</div></div>
+<div class="ad"><div>all day</div><div><span class="allday">Jen's birthday</span></div><div></div><div></div></div>
+<div class="tg">
+<div class="hrs"><div>10:00</div><div>11:00</div><div>12:00</div><div>13:00</div><div>14:00</div><div>15:00</div></div>
+<div class="day"><div class="ev" style="top:40px;height:56px;background:#1e3a66;border-left:3px solid #3b82f6">Edit podcast</div><div class="now" style="top:118px"></div></div>
+<div class="day"></div>
+<div class="day"><div class="ev" style="top:118px;height:56px;background:#3a2650;border-left:3px solid #e879f9">Lunch at Mum's</div></div>
+</div>
+</div>
+<div class="tpanel">
+<div style="font-weight:600;margin-bottom:4px">Tasks</div>
+<div class="cus" style="margin-top:4px">Fri 13</div>
+<div class="row"><span class="ring sm"></span><div class="grow late" style="font-size:12px">Renew the car insurance</div></div>
+<div class="row"><span class="ring sm"></span><div class="grow" style="font-size:12px">Send the venue deposit<small class="due">14:00</small></div></div>
+<div class="row"><span class="ring sm"></span><div class="grow" style="font-size:12px">Back up the SD cards</div></div>
+<div class="cus">Sat 14</div>
+<div class="row"><span class="ring sm"></span><div class="grow" style="font-size:12px">Pick up the frames<small>10:30</small></div></div>
+<div class="cus">Sun 15</div>
+<div class="row"><span class="ring sm"></span><div class="grow" style="font-size:12px">Water the plants</div></div>
+</div>
+</div>
+<table style="margin-top:10px">
+<tr><th style="width:50%">For</th><th>Against</th></tr>
+<tr><td>The grid stays exactly as it is now: only events, nothing laid over them.</td><td>You have to look across to see that the deposit is due straight after the podcast edit.</td></tr>
+<tr><td>Simpler to build, and the panel can fold away.</td><td>Takes width from the grid, which matters in Week view on a laptop.</td></tr>
+<tr><td>Works for Google Tasks without a time just as well as with one.</td><td>A second list of the same tasks, close to the Tasks view itself.</td></tr>
+</table>
+</div>
+</div>
+<p class="why"><b>Why I'd pick A:</b> the point of seeing tasks in the calendar is seeing them against your time, and B puts them back in a list beside it, which the Tasks view and Coming up already do. A's markers are deliberately slim (one line, outlined, not a block), so a busy day still reads as events first. Both options leave tasks out of Month view for now (see the questions).</p>
+</section>
+
+<!-- ================= 6 ================= -->
+<section>
+<div class="notice">
+<h2>⚠ One more sign-in per account, once</h2>
+<p><b>Google:</b> Well Good Mail will need the <b>Google Tasks</b> permission, which it hasn't asked for until now. After the update, each Google account signs in once more (one time only). Until it does, its lists show "Sign in again to see tasks" and nothing else changes: mail and calendar carry on as normal. The Google Tasks API also needs turning on in Todd's Cloud project, so it goes into SETUP.md and the first-run guide.</p>
+<p><b>Microsoft:</b> Microsoft To Do needs the <b>Tasks.ReadWrite</b> permission, so each Microsoft 365 account signs in once more in the same way.</p>
+<p><b>Being honest about times:</b> Google Tasks keeps a due <b>date</b> over its API but not a due <b>time</b>. A time set here (like 14:00 for the deposit) lives only in Well Good Mail, and is also written at the top of the task's notes ("Due 14:00") so it isn't lost on the phone. The Google Tasks app shows the date only, and its own reminder can't use our time. Microsoft To Do keeps both date and time, so there's no catch there. iCloud and other IMAP accounts have no tasks.</p>
+<div class="signin"><span class="dot" style="background:#3b82f6;width:11px;height:11px"></span><div class="grow">Main account needs to sign in again to show its tasks<div style="color:var(--muted);font-size:12px">Google will ask to let Well Good Mail see and change your tasks.</div></div><span class="btn ghost">Later</span><span class="btn pri">Sign in</span></div>
+</div>
+</section>
+
+<!-- ================= 7 ================= -->
+<section>
+<div class="lbl">Open questions</div>
+<div class="q">
+1. Day and Week view: A (Tasks strip and markers in the calendar) or B (a thin Tasks panel beside it)?<br>
+2. Completed tasks: tick off both ways (done on the phone shows done here, and the other way round)? And how long to keep showing them under Completed: a week, a month, or until you clear them?<br>
+3. Default list for quick add from Today or All Tasks, and for tasks made from an email: always My Tasks in the main account, or the list in the same account as the email?<br>
+4. Should tasks with a time alert like reminders (a quiet notification at the time), or only show in Coming up and the count?<br>
+5. Show tasks in Month view too (a small "3 tasks" line on each day), or keep Month for events?<br>
+6. AI apps (the add_task tool in AI Connection): which list should their tasks go into, and should they ask first each time, or just add and show a toast with Undo?<br>
+7. "Make tasks from this email", turning each line of a list into its own task: build it with tasks now, or later?<br>
+8. Ticking off a task made from an email: also archive the email (a switch, off by default), or leave mail alone?
+</div>
+</section>
+
+</div></body></html>

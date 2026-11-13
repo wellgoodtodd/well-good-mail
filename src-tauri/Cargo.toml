@@ -1,6 +1,6 @@
 [package]
 name = "well-good-mail"
-version = "0.7.3-beta.4"
+version = "0.7.3-beta.5"
 description = "Well Good Mail: an email app for Windows, inspired by Apple Mail"
 authors = ["Well Good Media Ltd"]
 edition = "2021"

@@ -10,6 +10,8 @@ import { meetingService, dedupeEvents, inviteText } from '../lib/meetings';
 import { startCompose } from '../lib/composeActions';
 import { openExternal } from '../lib/platform';
 import type { CalendarEvent, EventGuest, EventPatch } from '../lib/types';
+import { InviteAnswers } from './Invitations';
+import { isInvitation } from '../lib/invites';
 import { AccountDots, GuestList, JoinButton, chipBackground, dayText, timeText, useColour } from './calendarBits';
 
 /** A small window with the details of one event. */
@@ -61,6 +63,8 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
   }, [onClose, editing]);
+  // An invitation you haven't answered yet can be answered right here.
+  const unanswered = isInvitation(event) && !event.cancelled && event.myResponse === 'waiting' && Boolean(providerFor(event.accountId)?.respondToEvent);
   const sameDay = new Date(event.start).toDateString() === new Date(event.end).toDateString();
   const guestList = (event.guests || []).map((g) => { if (!g.self || g.name) return g; const acc = accounts.find((x) => x.email.toLowerCase() === g.email || x.aliases.some((al) => al.email.toLowerCase() === g.email)); const name = acc?.aliases.find((al) => al.isDefault)?.name || acc?.aliases[0]?.name; return name ? { ...g, name } : g; });
   const others = guestList.filter((g) => !g.self);
@@ -101,7 +105,8 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
             <GuestList guests={guestList} subject={event.title} actions={false} />
           </div>
         )}
-        {!event.canEdit && event.guests?.some((g) => g.organiser && !g.self) && <p className="hint ev-note">Only the organiser can change the time or details. You can still answer from the invitation email.</p>}
+        {!event.canEdit && event.guests?.some((g) => g.organiser && !g.self) && <p className="hint ev-note">Only the organiser can change the time or details.{unanswered ? '' : ' You can still change your answer in Invitations.'}</p>}
+        {unanswered && <InviteAnswers event={event} />}
         <div className="ev-actions">
           {editable && qChanged && <button type="submit" className="btn primary" disabled={Boolean(qBad) || saving}>{saving ? 'Saving…' : 'Save'}</button>}
           {editable && <button type="button" className="btn" onClick={() => setEditing(true)}>More options</button>}

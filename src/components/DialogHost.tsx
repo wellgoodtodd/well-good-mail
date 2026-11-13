@@ -41,6 +41,7 @@ export function DialogHost() {
     return (
       <Dialog
         title={pending.title}
+        wide={list.length >= 3 || list.reduce((n, c) => n + c.label.length, 0) > 36}
         onClose={() => closeDialog(null)}
         actions={<>
           <button className="btn" onClick={() => closeDialog(null)}>{pending.cancelLabel || 'Cancel'}</button>

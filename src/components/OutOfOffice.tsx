@@ -109,11 +109,11 @@ export function OutOfOfficeTab() {
   };
   const outsideOn = supOutside && plan.outsideDifferent && plan.audience !== 'org';
   const extras = [
-    { on: plan.addEvent, off: plan.mode === 'open', short: 'Away event' },
-    { on: plan.remindBefore, off: plan.mode === 'open', short: 'Reminder the day before' },
-    { on: plan.decline, off: !supDecline || plan.mode === 'open' || !plan.addEvent, short: 'Decline new invitations' },
-    { on: plan.pauseAlerts, off: false, short: 'Pause new-mail alerts' },
-    { on: plan.awaySummary, off: false, short: '"While you were away" when I\'m back' },
+    { on: plan.addEvent, off: plan.mode === 'open' },
+    { on: plan.remindBefore, off: plan.mode === 'open' },
+    { on: plan.decline, off: !supDecline || plan.mode === 'open' || !plan.addEvent },
+    { on: plan.pauseAlerts, off: false },
+    { on: plan.awaySummary, off: false },
   ];
   const extrasOn = extras.filter((x) => x.on && !x.off);
   const mainLabel = busy ? 'Working...' : `${ticked.some((a) => stateWords(by[a.id]?.reply).state !== 'off') ? 'Update' : scheduling ? 'Schedule' : 'Turn on'}${ticked.length ? ` for ${ticked.length > 2 ? `${ticked.length} accounts` : listNames(ticked.map(nameOf))}` : ''}`;
@@ -180,8 +180,6 @@ export function OutOfOfficeTab() {
         </div>
       )}
 
-      <TemplateBar editing={editAcc?.id} onBuiltIn={(t) => setMsg({ subject: t.subject, html: t.html })} />
-
       <section className="set-section ooo-card">
         <h2>Accounts</h2>
         <OooSignInBar />
@@ -196,10 +194,11 @@ export function OutOfOfficeTab() {
               <span className="grow ooo-acc-text">
                 <span className="ooo-acc-name">{nameOf(a)}</span>
                 <span className="ooo-acc-state">
-                  {x?.loading ? 'Checking...' : x?.needsPermission ? <span className="ooo-warnword">Needs one more sign in</span> : x?.error ? <span className="status-bad" title={x.error}>Couldn't check: {shortReason(x.error)}</span> : <span className={`ooo-state ${st.state}`}>{st.state !== 'off' && <Icon name="plane" size={12} />}{st.words}</span>}
+                  {x?.loading ? 'Checking...' : x?.needsPermission ? <span className="ooo-warnword">Needs one more sign in</span> : x?.error ? <span className="status-bad" title={x.errorDetail || x.error}>{shortReason(x.error).replace(/\.$/, '')}. {x.errorSignIn ? 'Sign in again to fix it.' : 'Try again in a moment.'}</span> : <span className={`ooo-state ${st.state}`}>{st.state !== 'off' && <Icon name="plane" size={12} />}{st.words}</span>}
                 </span>
               </span>
-              {x?.needsPermission && <button className="btn small" onClick={async () => { await reconnectAccount(a.id); void refreshOoo([a.id]); }}>Sign in</button>}
+              {x?.error && !x.loading && !x.needsPermission && <button className="btn small" onClick={() => void refreshOoo([a.id])}>Try again</button>}
+              {(x?.needsPermission || (x?.error && x.errorSignIn && !x.loading)) && <button className="btn small" onClick={async () => { await reconnectAccount(a.id); void refreshOoo([a.id]); }}>Sign in</button>}
               <input type="checkbox" role="switch" className="switch" aria-label={`Out of Office for ${nameOf(a)}`} checked={on} onChange={(e) => setPlan((p) => setAccountOn(p, a.id, e.target.checked))} />
             </div>
           );
@@ -222,6 +221,7 @@ export function OutOfOfficeTab() {
             <input type="checkbox" role="switch" className="switch" checked={perAccount} disabled={!ticked.length} title={ticked.length ? '' : 'Switch on an account first'} onChange={(e) => setPlan((p) => setPerAccount(p, e.target.checked))} />
           </label>
         </div>
+        <TemplateBar editing={editAcc?.id} onBuiltIn={(t) => setMsg({ subject: t.subject, html: t.html })} />
         {editAcc && (
           <div className="ooo-tabs" role="tablist" aria-label="Which account's message">
             {ticked.map((a) => (
@@ -307,7 +307,7 @@ export function OutOfOfficeTab() {
         <h2>While I'm away</h2>
         <button type="button" className="ooo-fold" aria-expanded={extrasOpen} onClick={() => setExtrasOpen(!extrasOpen)}>
           <Icon name={extrasOpen ? 'chevronDown' : 'chevronRight'} size={14} />
-          <span className="grow">{extrasOn.length ? extrasOn.map((x) => x.short).join(', ') : 'Nothing extra'}</span>
+          <span className="grow">Choose what happens while you're away</span>
           <span className="ooo-muted">{extrasOn.length} of {extras.length} on</span>
         </button>
         {extrasOpen && (

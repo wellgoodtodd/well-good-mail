@@ -56,8 +56,8 @@ export async function refreshContacts() {
   for (const c of [...get().contacts, ...all]) {
     const e = c.email.toLowerCase();
     const had = map.get(e);
-    if (!had || (!had.name && c.name)) map.set(e, { email: e, name: c.name || had?.name, photo: c.photo || had?.photo });
-    else if (!had.photo && c.photo) had.photo = c.photo;
+    if (!had || (!had.name && c.name)) map.set(e, { email: e, name: c.name || had?.name, photo: c.photo || had?.photo, address: c.address || had?.address });
+    else { if (!had.photo && c.photo) had.photo = c.photo; if (c.address) had.address = c.address; }
   }
   const list = [...map.values()].filter((c) => !isMachineAddress(c.email));
   set({ contacts: list });

@@ -48,6 +48,8 @@ export interface OooPlan {
   ownParked?: Record<string, OooMessage>;
   /** The saved template last applied on the page (and the account message it went into), for the Changed pill. */
   lastTemplate?: { id: string; editing?: string };
+  /** The template picked for each account's tab ("" for the shared message), so switching tabs shows that tab's own. */
+  tabTemplates?: Record<string, string>;
   addEvent: boolean;
   remindBefore: boolean;
   decline: boolean;

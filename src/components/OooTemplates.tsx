@@ -8,24 +8,23 @@ import { Icon } from './Icon';
 import { useMail, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { TEMPLATES, htmlToText, type OooPlan } from '../lib/ooo';
-import { PART_GROUPS, changedWords, copyTemplate, daysWords, findTemplate, partsWords, applyTemplate, templateChanges, templateFromPlan, templateSummary, updateTemplateFromPlan, type OooPart, type OooTemplate } from '../lib/oooTemplates';
+import { PART_GROUPS, changedWords, copyTemplate, daysWords, findTemplate, partsWords, applyTemplate, templateChanges, templateFor, templateFromPlan, withTemplatePicked, templateSummary, updateTemplateFromPlan, type OooPart, type OooTemplate } from '../lib/oooTemplates';
 
 const accName = (id: string) => { const a = useMail.getState().accounts.find((x) => x.id === id); return a ? a.label || a.email : 'an account'; };
 const saveList = (list: OooTemplate[]) => useSettings.getState().set({ oooTemplates: list });
 const BUILT_IN = 'builtin:';
 /** Remembers the template last applied, in the plan, so it survives a reload. */
-const setLast = (last: OooPlan['lastTemplate']) => useSettings.getState().set({ ooo: { ...useSettings.getState().ooo, lastTemplate: last } });
+const setLast = (last: NonNullable<OooPlan['lastTemplate']>) => useSettings.getState().set({ ooo: withTemplatePicked(useSettings.getState().ooo, last.id, last.editing) });
 
 /** Puts a saved template into the page, with Undo. `editing` is the account whose own message is showing, if any. */
 export function applyToPage(t: OooTemplate, editing?: string) {
   const before = useSettings.getState().ooo;
-  useSettings.getState().set({ ooo: { ...applyTemplate(before, t, { editing }), lastTemplate: { id: t.id, editing } } });
+  useSettings.getState().set({ ooo: withTemplatePicked(applyTemplate(before, t, { editing }), t.id, editing) });
   toast({ text: `Applied ${t.name}: ${partsWords(t)}.`, ttl: 8000, undo: () => useSettings.getState().set({ ooo: before }) });
 }
 
 /** The saved template last applied, and what's been changed on the page since, if anything. */
-export function templateChange(plan: OooPlan, list: OooTemplate[]): { t: OooTemplate; parts: OooPart[]; editing?: string } | undefined {
-  const last = plan.lastTemplate;
+export function templateChange(plan: OooPlan, list: OooTemplate[], last = plan.lastTemplate): { t: OooTemplate; parts: OooPart[]; editing?: string } | undefined {
   const t = last ? list.find((x) => x.id === last.id) : undefined;
   if (!last || !t) return undefined;
   const parts = templateChanges(t, plan, last.editing);
@@ -58,10 +57,12 @@ export function TemplateBar({ editing, onBuiltIn }: { editing?: string; onBuiltI
   const plan = useSettings((s) => s.ooo);
   const [dialog, setDialog] = useState<null | 'save' | 'saveFrom' | 'manage'>(null);
   const menu = useMenu();
-  const lastId = plan.lastTemplate?.id || '';
+  // The template for the message showing: each account tab keeps its own.
+  const shown = templateFor(plan, editing);
+  const lastId = shown?.id || '';
   const current = mine.find((t) => t.id === lastId);
   const builtIn = lastId.startsWith(BUILT_IN) ? TEMPLATES.find((t) => BUILT_IN + t.id === lastId) : undefined;
-  const change = templateChange(plan, mine);
+  const change = templateChange(plan, mine, shown);
   const open = (e: MouseEvent<HTMLButtonElement>) => {
     const items: MenuItem[] = [];
     if (mine.length) items.push({ heading: 'Your templates' }, ...mine.map((t) => ({ label: t.name, active: t.id === lastId, onClick: () => applyToPage(t, editing) })));

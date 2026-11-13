@@ -168,3 +168,25 @@ export function changedWords(parts: OooPart[]): string {
 export function updateTemplateFromPlan(t: OooTemplate, plan: OooPlan, editing?: string): OooTemplate {
   return { ...templateFromPlan(t.name, t.parts, plan, { id: t.id, editing }), copiedFrom: t.copiedFrom };
 }
+
+/**
+ * The template picked for the message showing: the account tab's own while each account has its own message, or the
+ * shared message's. A tab nobody has picked for yet shows the shared message's, since its message started as a copy.
+ */
+export function templateFor(plan: OooPlan, editing?: string): { id: string; editing?: string } | undefined {
+  const key = editing || '';
+  const own = plan.tabTemplates?.[key];
+  if (own) return { id: own, editing };
+  const last = plan.lastTemplate;
+  if (last && (last.editing || '') === key) return last;
+  if (editing) {
+    const shared = plan.tabTemplates?.[''] || (last && !last.editing ? last.id : undefined);
+    if (shared) return { id: shared, editing };
+  }
+  return undefined;
+}
+
+/** Notes a template as picked for the message showing, and as the one last applied. */
+export function withTemplatePicked(plan: OooPlan, id: string, editing?: string): OooPlan {
+  return { ...plan, lastTemplate: { id, editing }, tabTemplates: { ...(plan.tabTemplates || {}), [editing || '']: id } };
+}

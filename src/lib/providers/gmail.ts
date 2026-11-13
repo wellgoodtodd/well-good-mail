@@ -517,13 +517,16 @@ export class GmailProvider implements MailProvider {
 
   async listContacts(): Promise<Address[]> {
     const out: Address[] = [];
-    const collect = (people?: { names?: { displayName?: string }[]; emailAddresses?: { value: string }[]; photos?: { url?: string; default?: boolean }[] }[]) =>
-      people?.forEach((p) => p.emailAddresses?.forEach((e) => out.push({ name: p.names?.[0]?.displayName, email: e.value.toLowerCase(), photo: p.photos?.find((ph) => ph.url && !ph.default)?.url })));
+    const collect = (people?: { names?: { displayName?: string }[]; emailAddresses?: { value: string }[]; photos?: { url?: string; default?: boolean }[]; addresses?: { formattedValue?: string }[] }[]) =>
+      people?.forEach((p) => {
+        const address = p.addresses?.find((x) => x.formattedValue?.trim())?.formattedValue?.replace(/\s*\n\s*/g, ', ').trim();
+        p.emailAddresses?.forEach((e) => out.push({ name: p.names?.[0]?.displayName, email: e.value.toLowerCase(), photo: p.photos?.find((ph) => ph.url && !ph.default)?.url, ...(address ? { address } : {}) }));
+      });
     try {
       let token: string | undefined;
       do {
         const r: { connections?: never[]; nextPageToken?: string } = await this.call(
-          `https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,photos&pageSize=1000${token ? `&pageToken=${token}` : ''}`,
+          `https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,photos,addresses&pageSize=1000${token ? `&pageToken=${token}` : ''}`,
         );
         collect(r.connections);
         token = r.nextPageToken;
@@ -593,6 +596,7 @@ export class GmailProvider implements MailProvider {
             ...guestsOf(e.attendees),
             canEdit: (cal.accessRole === 'owner' || cal.accessRole === 'writer') && (e.organizer?.self ?? true),
             recurring: Boolean(e.recurringEventId),
+            seriesId: e.recurringEventId ? `${this.account.id}|${cal.id}|${e.recurringEventId}` : undefined,
             organiser: e.organizer?.email ? { email: e.organizer.email.toLowerCase(), name: e.organizer.displayName, self: e.organizer.self || undefined } : undefined,
           });
         }

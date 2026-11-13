@@ -1,8 +1,9 @@
 // Reminders: calendar items and follow ups that wait quietly until you clear them.
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Icon } from './Icon';
-import { useMail, dismissReminders, openScreen, refreshEvents, setView, selectThread, toast } from '../lib/mail';
+import { useMail, dismissReminders, openScreen, refreshEvents, reconnectAccount, setView, selectThread, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
+import { calendarFailureToast } from '../lib/plainErrors';
 import { dueReminders, eventKey, alertMute } from '../lib/reminders';
 import { inGroupView } from '../lib/meetings';
 import { startNewEvent } from './NewEvent';
@@ -50,7 +51,7 @@ export function Reminders() {
     setRefreshing(true);
     try {
       const failed = await refreshEvents();
-      toast({ text: failed.length ? `Couldn't reach the calendar for ${failed.join('; ')}` : 'Calendars updated', ttl: failed.length ? 15000 : 2500 });
+      toast(failed.length ? calendarFailureToast(failed, useMail.getState().accounts, () => void refresh(), (id) => void reconnectAccount(id)) : { text: 'Calendars updated', ttl: 2500 });
     } finally { setRefreshing(false); }
   };
   const eventFor = (r: ReminderItem) => (r.kind === 'event' ? events.find((e) => eventKey(e) === r.id) : undefined);

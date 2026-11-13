@@ -1,6 +1,6 @@
 # 0.7.3 beta 2: what to test
 
-> Kept as a record. Everything not ticked here has moved into [testing-0.7.3-beta4.md](testing-0.7.3-beta4.md).
+> Kept as a record. Everything not ticked here has moved into [testing-0.7.3-beta5.md](testing-0.7.3-beta5.md).
 
 One list for everything in 0.7.3 so far: beta 1's clean-up and beta 2's new calendar features. Ticked items are ones you've already said work (12 Nov). Anything that feels slower, looks off or behaves differently from 0.7.2 counts as a problem.
 

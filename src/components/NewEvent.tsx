@@ -16,6 +16,8 @@ import { changeEvent, guestsToTell, removeEvent } from '../lib/eventFlows';
 import { openExternal } from '../lib/platform';
 import type { Address, CalendarEvent, EventCopy, EventPatch, Repeat } from '../lib/types';
 import { useCalDay } from './CalendarViews';
+import { useCalCache } from '../lib/calendarCache';
+import { placesFromEvents, suggestPlaces } from '../lib/places';
 
 const DAY = 86400000;
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -461,7 +463,7 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
                   <option value="none">None</option>
                   {alertOptions.map((a) => <option key={a.mins} value={a.mins}>{a.label}</option>)}
                 </select>
-                {typeof f.alert1 === 'number' && f.alert2 === null && <button type="button" className="btn ghost small" aria-label="Add a second alert" title="Add a second alert" onClick={() => set({ alert2: alertOptions.find((a) => a.mins !== f.alert1)?.mins ?? 0 })}><Icon name="plus" size={13} /></button>}
+                {typeof f.alert1 === 'number' && f.alert2 === null && <button type="button" className="btn ghost small" onClick={() => set({ alert2: alertOptions.find((a) => a.mins !== f.alert1)?.mins ?? 0 })}>+ Add alert</button>}
               </div>
               {f.alert2 !== null && <>
                 <span>Second alert</span>
@@ -476,7 +478,7 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
               <span>Invitees</span>
               <div className="ne-guests"><RecipientField label="Invitees" value={f.guests} contacts={contacts} onAdd={(list) => set({ guests: [...f.guests, ...list.filter((a) => !f.guests.some((g) => g.email.toLowerCase() === a.email.toLowerCase()))] })} onRemove={(email) => set({ guests: f.guests.filter((g) => g.email !== email) })} /></div>
               <label htmlFor="ne-where">Location</label>
-              <input id="ne-where" placeholder="Add a place" value={f.location} onChange={(e) => set({ location: e.target.value })} />
+              <LocationField value={f.location} onChange={(location) => set({ location })} />
               {(videoName || (event?.meetingUrl && !f.video)) && <><span>Video call</span>
                 <div className="ev-when">
                   {f.video
@@ -502,6 +504,67 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The Location box, with places used before in the person's own events offered as they type (and a few recent ones
+ * when it's empty). Arrow keys move, Enter picks, Escape closes the list but not the form, Tab moves on.
+ */
+function LocationField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const storeEvents = useMail((s) => s.events);
+  const copyEvents = useCalCache((s) => s.events);
+  const contacts = useMail((s) => s.contacts);
+  const places = useMemo(() => placesFromEvents([...storeEvents, ...copyEvents]), [storeEvents, copyEvents]);
+  // Contacts' addresses only once something is typed, so the empty list stays your own recent places.
+  const contactPlaces = useMemo(() => contacts.filter((c) => c.address).map((c) => ({ place: c.address!, name: c.name || c.email })), [contacts]);
+  const list = useMemo(() => (open ? suggestPlaces(value, places, value.trim() ? contactPlaces : []) : []), [open, value, places, contactPlaces]);
+  const showing = open && list.length > 0;
+  const pick = (place: string) => { onChange(place); setOpen(false); setActive(-1); };
+
+  return (
+    <div className="ne-where">
+      <input id="ne-where" placeholder="Add a place" autoComplete="off" value={value}
+        role="combobox" aria-expanded={showing} aria-controls="ne-where-list" aria-autocomplete="list"
+        aria-activedescendant={showing && active >= 0 ? `ne-where-${active}` : undefined}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(-1); }}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        onBlur={() => { setOpen(false); setActive(-1); }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            if (!showing) { setOpen(true); return; }
+            e.preventDefault();
+            const n = list.length;
+            setActive((a) => (e.key === 'ArrowDown' ? (a + 1) % n : (a <= 0 ? n - 1 : a - 1)));
+          } else if (e.key === 'Enter' && showing && active >= 0) {
+            e.preventDefault();
+            pick(list[active].place);
+          } else if (e.key === 'Escape' && showing) {
+            // Closes the list only: the form listens for Escape on the window to close itself.
+            e.preventDefault();
+            e.stopPropagation();
+            e.nativeEvent.stopImmediatePropagation();
+            setOpen(false);
+            setActive(-1);
+          } else if (e.key === 'Tab') {
+            setOpen(false);
+          }
+        }} />
+      {showing && (
+        <div className="suggest" role="listbox" id="ne-where-list" aria-label="Places">
+          {list.map((p, i) => (
+            <button type="button" key={p.place} id={`ne-where-${i}`} role="option" aria-selected={i === active} tabIndex={-1}
+              className={i === active ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); pick(p.place); }}>
+              <span>{p.place}</span>
+              {p.name && <span className="sub"> {p.name}</span>}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

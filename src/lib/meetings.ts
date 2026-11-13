@@ -33,6 +33,8 @@ export function dedupeEvents(events: CalendarEvent[]): CalendarEvent[] {
     if (!have) { byKey.set(k, { event: { ...e, accountIds: [e.accountId] }, answers: [e.myResponse] }); continue; }
     have.answers.push(e.myResponse);
     if (!have.event.accountIds!.includes(e.accountId)) have.event.accountIds!.push(e.accountId);
+    // The copy you can change stands for the event, so it can be dragged and edited (a guest's copy can't).
+    if (!have.event.canEdit && e.canEdit) have.event = { ...e, accountIds: have.event.accountIds, meetingUrl: e.meetingUrl || have.event.meetingUrl, guests: e.guests?.length ? e.guests : have.event.guests };
     if (!have.event.meetingUrl && e.meetingUrl) have.event.meetingUrl = e.meetingUrl;
     if (!have.event.guests?.length && e.guests?.length) have.event.guests = e.guests;
   }

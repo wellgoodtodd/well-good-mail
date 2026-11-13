@@ -6,12 +6,18 @@ import { askConfirm } from './dialogs';
 import { settings, useSettings, isQuietNow } from './settings';
 import { notify } from './platform';
 import type { Account, Message } from './types';
+import { plainError } from './plainErrors';
 import { AWAY_WORDS, fillBackDate, htmlToText, isAway, messageFor, oooSupport, windowOf, type AutoReply, type OooActive, type OooPlan } from './ooo';
 
 export interface AccountOoo {
   loading?: boolean;
   reply?: AutoReply;
+  /** What went wrong, in plain words ("Outlook didn't answer."). */
   error?: string;
+  /** The provider's own words for it, for the tooltip. */
+  errorDetail?: string;
+  /** Signing in again should fix the error (the account turned the request away). */
+  errorSignIn?: boolean;
   /** Signed in before Out of Office was allowed: one more sign in fixes it. */
   needsPermission?: boolean;
 }
@@ -33,6 +39,14 @@ const nameOf = (a?: Account) => (a ? a.label || a.email : 'an account');
 /** When each account's Out of Office was last changed from here. A check that started before then is out of date, so it is ignored. */
 const changedAt: Record<string, number> = {};
 
+/** The error fields for an account, in plain words, from whatever its provider threw. */
+function errorFields(e: unknown, a: Account): Pick<AccountOoo, 'error' | 'errorDetail' | 'errorSignIn' | 'needsPermission'> {
+  const err = e as Error & { needsPermission?: boolean; detail?: string };
+  if (err?.needsPermission) return { needsPermission: true, error: undefined, errorDetail: undefined, errorSignIn: false };
+  const p = plainError(e, a.kind);
+  return { needsPermission: false, error: p.text, errorDetail: err?.detail || err?.message || String(e), errorSignIn: p.permission };
+}
+
 /** Accounts Out of Office can be set on from here. */
 export const nativeAccounts = () => accounts().filter((a) => oooSupport(a).native && providerFor(a.id)?.getAutoReply);
 
@@ -45,10 +59,9 @@ export async function refreshOoo(ids?: string[]): Promise<void> {
     try {
       const reply = await providerFor(a.id)!.getAutoReply!();
       if ((changedAt[a.id] || 0) >= asked) { setAcc(a.id, { loading: false }); return; }
-      setAcc(a.id, { loading: false, reply, error: undefined, needsPermission: false });
+      setAcc(a.id, { loading: false, reply, error: undefined, errorDetail: undefined, errorSignIn: false, needsPermission: false });
     } catch (e) {
-      const err = e as Error & { needsPermission?: boolean };
-      setAcc(a.id, { loading: false, needsPermission: Boolean(err.needsPermission), error: err.needsPermission ? undefined : err.message });
+      setAcc(a.id, { loading: false, ...errorFields(e, a) });
     }
   }));
 }
@@ -92,11 +105,11 @@ export async function turnOnOoo(plan: OooPlan): Promise<{ done: string[]; failed
       changedAt[a.id] = Date.now();
       await p.setAutoReply(reply);
       changedAt[a.id] = Date.now();
-      setAcc(a.id, { reply, error: undefined, needsPermission: false });
+      setAcc(a.id, { reply, error: undefined, errorDetail: undefined, errorSignIn: false, needsPermission: false });
       done.push(a.id);
     } catch (e) {
       const err = e as Error & { needsPermission?: boolean };
-      setAcc(a.id, { needsPermission: Boolean(err.needsPermission), error: err.needsPermission ? undefined : err.message });
+      setAcc(a.id, errorFields(e, a));
       if (err.needsPermission) needSignIn.push(a.id); else failed.push(nameOf(a));
       continue;
     }
@@ -157,12 +170,10 @@ export async function oooSignIn(ids?: string[], opts: { ask?: boolean } = {}): P
   return due.filter((a) => !still.includes(a)).map((a) => a.id);
 }
 
-/** A short reason from a provider's error, for "Couldn't check". */
+/** A short reason from a provider's error, for "Couldn't check": plain words, never raw JSON. */
 export function shortReason(error?: string): string {
   if (!error) return '';
-  const m = /"message"\s*:\s*"([^"]+)"/.exec(error);
-  const text = (m ? m[1] : error.replace(/^(Gmail|Microsoft) \d+:\s*/, '')).trim();
-  return text.length > 90 ? `${text.slice(0, 88)}...` : text;
+  return plainError(error).text;
 }
 
 /** Turns Out of Office off now in these accounts (all of them if none given), and takes the Away event out of the calendar. */
@@ -192,8 +203,7 @@ export async function turnOffOoo(ids?: string[]): Promise<{ done: string[]; fail
         delete events[a.id];
       }
     } catch (e) {
-      const err = e as Error & { needsPermission?: boolean };
-      setAcc(a.id, { reply: was, needsPermission: Boolean(err.needsPermission), error: err.needsPermission ? undefined : err.message });
+      setAcc(a.id, { reply: was, ...errorFields(e, a) });
       failed.push(nameOf(a));
     }
   }

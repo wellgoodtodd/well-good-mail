@@ -107,12 +107,16 @@ export function Menu({ anchor, items, onClose, align = 'left' }: { anchor: DOMRe
               </button>
               {sub?.at === i && (
                 <div className="menu submenu" role="menu" style={{ left: sub.left, top: sub.top }}>
-                  {it.submenu.map((c, j) => (
-                    <button key={j} role="menuitem" className={c.active ? 'active' : ''} disabled={c.disabled} onClick={() => { onClose(); c.onClick?.(); }}>
-                      {c.brand ? <BrandMark brand={c.brand} /> : c.icon ? <Icon name={c.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
-                      <span>{c.label}</span>
-                    </button>
-                  ))}
+                  {it.submenu.map((c, j) =>
+                    c.divider ? <hr key={j} /> : c.heading ? (
+                      <div key={j} className="menu-label">{c.heading}</div>
+                    ) : (
+                      <button key={j} role="menuitem" className={c.active ? 'active' : ''} disabled={c.disabled} onClick={() => { onClose(); c.onClick?.(); }}>
+                        {c.dot ? <span className="menu-dot" style={{ background: c.dot }} /> : c.brand ? <BrandMark brand={c.brand} /> : c.icon ? <Icon name={c.icon} /> : <span style={{ width: 16, flex: 'none' }} />}
+                        <span>{c.label}</span>
+                      </button>
+                    ),
+                  )}
                 </div>
               )}
             </div>
@@ -172,7 +176,7 @@ export function Splitter({ size, horizontal = false }: { size: { value: number; 
   );
 }
 
-export function Dialog({ title, children, onClose, actions }: { title: string; children: ReactNode; onClose: () => void; actions?: ReactNode }) {
+export function Dialog({ title, children, onClose, actions, wide }: { title: string; children: ReactNode; onClose: () => void; actions?: ReactNode; wide?: boolean }) {
   const focusRef = useDialogFocus();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -181,7 +185,7 @@ export function Dialog({ title, children, onClose, actions }: { title: string; c
   }, [onClose]);
   return createPortal(
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="dialog" role="dialog" aria-label={title} ref={focusRef}>
+      <div className={`dialog${wide ? ' wide' : ''}`} role="dialog" aria-label={title} ref={focusRef}>
         <h2>{title}</h2>
         {children}
         {actions && <div className="actions">{actions}</div>}
