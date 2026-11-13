@@ -12,6 +12,7 @@ mod files;
 mod imapmail;
 mod mcp;
 mod pdf;
+mod recovery;
 mod wake;
 
 /// For main(): the pass-through mode an AI app starts with `--mcp`.
@@ -205,6 +206,8 @@ pub fn run() {
             secret_set,
             secret_get,
             secret_delete,
+            recovery::secret_list,
+            recovery::open_recycle_bin,
             set_unread_count,
             imapmail::imap_folders,
             imapmail::imap_flags,
@@ -237,6 +240,7 @@ pub fn run() {
             files::open_attachment,
             files::mark_downloaded,
             files::save_to_folder,
+            files::save_into_subfolder,
             files::open_saved,
             crash::clean_exit,
             mailto::take_start_mailto,

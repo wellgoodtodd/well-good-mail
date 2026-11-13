@@ -16,6 +16,38 @@ export type PanePosition = 'right' | 'bottom' | 'off';
 import type { SmartMailbox } from './smartMailboxes';
 export interface DraftGroup { id: string; name: string; colour?: string }
 
+/** A Send To place: forwards to an address, saves into a folder, or both. */
+export interface SendPlace {
+  id: string;
+  name: string;
+  /** Forward to this address. Empty: no forwarding. */
+  forwardTo?: string;
+  /** Send straight away (with Undo), or open the writing window first. */
+  sendMode: 'now' | 'open';
+  /** Forward only the files, not the email's text. */
+  filesOnly: boolean;
+  /** Save the files into this folder. Empty: no saving. */
+  folder?: string;
+  subfolders: 'none' | 'year' | 'month';
+  /** Ask for a folder each time instead. */
+  askFolder?: boolean;
+}
+
+/** A Send To rule: new mail from a sender (and with a PDF, or words in the subject) goes to a place. */
+export interface SendRule {
+  id: string;
+  name: string;
+  /** A domain like canva.com (subdomains match too), or a full address. */
+  from: string;
+  needsPdf: boolean;
+  subjectHas?: string;
+  placeId: string;
+  on: boolean;
+  /** Only mail that arrives after this is sent, so a rule never works through old mail by itself. */
+  since: number;
+  sent: number;
+}
+
 export interface Settings {
   theme: ThemeSetting;
   accent: string;
@@ -117,6 +149,10 @@ export interface Settings {
   vips: string[];
   /** Senders whose emails go straight to Junk. */
   blockedSenders: string[];
+  /** Send To: saved places an email or attachment can be forwarded to, saved in, or both. In menu order. */
+  sendPlaces: SendPlace[];
+  /** Send To rules: new mail that matches goes to a place by itself. */
+  sendRules: SendRule[];
   mutedThreads: string[];
   templates: Template[];
   groups: AccountGroup[];
@@ -300,6 +336,8 @@ export const defaultSettings: Settings = {
   whatsNewSeen: '',
   vips: [],
   blockedSenders: [],
+  sendPlaces: [],
+  sendRules: [],
   mutedThreads: [],
   templates: [
     {
@@ -370,7 +408,7 @@ const SETTING_NAMES: Record<string, string> = {
   theme: 'appearance', accent: 'accent colour', density: 'density', textScale: 'text size', palette: 'account colours', darkSkin: 'dark look', lightSkin: 'light look',
   interfaceFont: 'font', writingFont: 'writing font', writingSize: 'writing size', readingFont: 'reading font', signatures: 'signatures', defaultFromEmail: 'default address',
   smartMailboxes: 'Smart Mailboxes', draftGroups: 'draft groups', draftSignOff: 'sign-off', mcp: 'AI Connection', sectionOrder: 'sidebar order', favourites: 'Favourites',
-  hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders',
+  hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders', sendPlaces: 'Send To places', sendRules: 'Send To rules',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
   toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', oooTemplates: 'Out of Office templates', calendarGroups: 'Calendar Groups', taskDefaults: 'task lists', aiTaskTarget: 'AI Connection', calendarGroup: 'calendar group', groupAlertsOnly: 'calendar group alerts', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', spellWords: 'dictionary', spellLang: 'spelling', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',

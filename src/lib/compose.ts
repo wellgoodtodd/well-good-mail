@@ -192,6 +192,37 @@ export interface SourceAttachment {
   data: Uint8Array;
 }
 
+const squash = (t: string) => t.replace(/\s+/g, '').toLowerCase();
+
+/**
+ * Takes the person's own signature out of a draft's text. A draft saved to Gmail or Outlook carries the signature
+ * (and the quote) in its body, so bringing it back in and sending it would add the signature twice. Signatures inside
+ * quoted earlier emails stay. With the signature's HTML, a copy whose markup was lost (only its words left, at the end
+ * of the draft's own text) goes too.
+ */
+export function stripOwnSignature(html: string, signatureHtml = ''): string {
+  if (!html || typeof DOMParser === 'undefined') return html;
+  const sigText = signatureHtml ? squash(new DOMParser().parseFromString(`<body>${signatureHtml}</body>`, 'text/html').body.textContent || '') : '';
+  if (!/wgm-signature/.test(html) && !sigText) return html;
+  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+  let changed = false;
+  doc.querySelectorAll('div.wgm-signature').forEach((el) => { if (!el.closest('blockquote')) { el.remove(); changed = true; } });
+  if (sigText) {
+    // The draft's own part: everything before the quote.
+    const box = doc.body.children.length === 1 && doc.body.firstElementChild?.tagName === 'DIV' && !doc.body.firstElementChild.className ? doc.body.firstElementChild : doc.body;
+    const kids = [...box.childNodes];
+    const quoteAt = kids.findIndex((n) => n instanceof Element && (n.matches('blockquote, .wgm-quote, .wgm-forward, .gmail_quote') || Boolean(n.querySelector('blockquote'))));
+    const own = quoteAt >= 0 ? kids.slice(0, quoteAt) : kids;
+    let text = '';
+    for (let i = own.length - 1; i >= 0; i--) {
+      text = squash(own[i].textContent || '') + text;
+      if (text === sigText) { own.slice(i).forEach((n) => n.remove()); changed = true; break; }
+      if (text.length > sigText.length || !sigText.endsWith(text)) break;
+    }
+  }
+  return changed ? doc.body.innerHTML : html;
+}
+
 /** Turns a draft into the message that gets sent. */
 export function draftToOutgoing(draft: Draft, source: Message | undefined, ctx: ComposeContext, sourceAttachments: SourceAttachment[] = []): { accountId: string; message: OutgoingMessage } {
   const hit = findAlias(ctx.accounts, draft.fromEmail, draft.fromAccountId);
@@ -202,7 +233,9 @@ export function draftToOutgoing(draft: Draft, source: Message | undefined, ctx: 
     ? `<p>${draft.driveLinks.map((l) => `<a href="${escapeHtml(l.url)}">${escapeHtml(l.name)}</a> (Google Drive)`).join('<br>')}</p>`
     : '';
   const quote = draft.includeQuote ? draft.quotedHtml : '';
-  const body = ctx.signaturePlacement === 'above' ? draft.html + links + sigBlock + quote : draft.html + links + quote + sigBlock;
+  // A draft brought back from the server may still hold the signature it was saved with: take that out first.
+  const own = signature ? stripOwnSignature(draft.html) : draft.html;
+  const body = ctx.signaturePlacement === 'above' ? own + links + sigBlock + quote : own + links + quote + sigBlock;
   const html = `<div dir="ltr"${ctx.bodyStyle ? ` style="${ctx.bodyStyle}"` : ''}>${body}</div>`;
 
   const sameAccount = source && source.accountId === hit.account.id;

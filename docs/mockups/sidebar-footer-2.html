@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sidebar footer, round two</title>
+<style>
+:root{--side:#232326;--elev:#2c2c30;--line:#38383d;--text:#ececef;--muted:#9c9ca5;--faint:#7b7d86;--sel:rgba(59,130,246,.28);--accent:#3b82f6;--late:#e8735a;--coral:#ef6f5e}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1100px;margin:0 auto}
+h1{font-size:20px;margin:0 0 6px}
+.intro{color:var(--muted);max-width:760px;margin:0 0 22px}
+.grid{display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start}
+.opt{width:236px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0}
+.why b{color:var(--text);font-weight:600}
+svg{width:16px;height:16px;flex:none}
+.side{background:var(--side);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13px}
+.sec{font-size:11.5px;padding:8px 10px 2px;color:var(--faint)}
+.it{display:flex;align-items:center;gap:9px;padding:5px 10px;color:var(--text)}
+.it svg{color:var(--muted)}
+.it .n{margin-left:auto;font-size:12px;color:var(--muted)}
+.space{height:40px}
+.foot{border-top:1px solid var(--line);padding:8px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.card{background:var(--elev);border:1px solid var(--line);border-radius:9px;padding:7px 8px;display:flex;flex-direction:column;gap:6px;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.card .r{display:flex;align-items:center}
+.card svg{color:#c9c9d0}
+.card .n{margin-left:auto;font-size:15px;font-weight:600}
+.card .nm{font-size:12px;font-weight:500;color:#d6d6dc}
+.card.sel{background:var(--sel);border-color:transparent}
+.late{color:var(--late)!important}
+.new{font-size:9.5px;font-weight:700;letter-spacing:.03em;color:var(--accent);margin-left:auto;margin-right:5px}
+/* slim one-line cards */
+.slim{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.slim .card{flex-direction:row;align-items:center;gap:7px;padding:6px 8px;min-height:0}
+.slim .card .nm{font-size:12.5px}
+.slim .card .n{font-size:12.5px}
+.slim .new{margin-right:0}
+/* the bottom row */
+.mini{display:flex;align-items:center;gap:4px;padding-top:8px;margin-top:8px;border-top:1px solid var(--line)}
+.ib{position:relative;width:32px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--muted)}
+.dot{position:absolute;top:4px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--coral)}
+.ver{margin-left:auto;font-size:11.5px;color:var(--faint)}
+.btnrow{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;color:#d6d6dc;font-weight:500;position:relative}
+.btnrow svg{color:#c9c9d0}
+.btnrow.box{background:var(--elev);border:1px solid var(--line)}
+.btnrow .dot{position:static;margin-left:2px}
+.menu{background:#2a2a2d;border:1px solid var(--line);border-radius:10px;padding:4px;width:236px;font-size:13px}
+.menu .it{padding:6px 9px;border-radius:6px}
+.menu .k{margin-left:auto;font-size:11.5px;color:var(--faint)}
+.menu .div{height:1px;background:var(--line);margin:4px 2px}
+.menu .new-tag{margin-left:6px;font-size:9.5px;font-weight:700;color:var(--accent)}
+.note{margin-top:30px;background:#1b1b1e;border:1px solid var(--line);border-radius:12px;padding:14px 16px;max-width:760px}
+.note h2{font-size:14px;margin:0 0 6px}
+.note p,.note li{margin:4px 0;color:var(--muted)}
+.note b{color:var(--text)}
+@media (max-width:520px){.opt{width:100%}}
+</style></head><body><div class="w">
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+<symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+<symbol id="mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></symbol>
+<symbol id="help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+<symbol id="sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></symbol>
+<symbol id="cog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+<symbol id="inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+</defs></svg>
+
+<h1>Sidebar footer, round two</h1>
+<p class="intro">Beta 8's cards with the brighter look from beta 9, and three ways to make Settings easier to hit. Settings gets a cog (it was sliders) and sits bottom left in B and C.</p>
+
+<div class="grid">
+  <div class="opt">
+    <p class="lbl">A · Beta 9 as it stands</p>
+    <div class="side">
+      <div class="sec">Mailboxes</div><div class="it"><svg><use href="#inbox"/></svg>All Inboxes<span class="n">5</span></div><div class="space"></div>
+      <div class="foot">
+        <div class="cards">
+          <div class="card"><div class="r"><svg><use href="#clock"/></svg></div><span class="nm">Scheduled</span></div>
+          <div class="card"><div class="r"><svg><use href="#cal"/></svg><span class="n">5</span></div><span class="nm">Calendar</span></div>
+          <div class="card"><div class="r"><svg><use href="#check"/></svg><span class="n late">5</span></div><span class="nm">Tasks</span></div>
+          <div class="card"><div class="r"><svg><use href="#mail"/></svg><span class="new">NEW</span><span class="n" style="margin-left:0">3</span></div><span class="nm">Invitations</span></div>
+        </div>
+        <div class="mini"><span class="ib"><svg><use href="#help"/></svg></span><span class="ib"><svg><use href="#sliders"/></svg><span class="dot"></span></span><span class="ver">0.7.3 beta 9</span></div>
+      </div>
+    </div>
+    <p class="why">Brighter cards, but Help and Settings stay small icons.</p>
+  </div>
+
+  <div class="opt">
+    <p class="lbl">B · Settings with its name</p>
+    <div class="side">
+      <div class="sec">Mailboxes</div><div class="it"><svg><use href="#inbox"/></svg>All Inboxes<span class="n">5</span></div><div class="space"></div>
+      <div class="foot">
+        <div class="cards">
+          <div class="card"><div class="r"><svg><use href="#clock"/></svg></div><span class="nm">Scheduled</span></div>
+          <div class="card"><div class="r"><svg><use href="#cal"/></svg><span class="n">5</span></div><span class="nm">Calendar</span></div>
+          <div class="card"><div class="r"><svg><use href="#check"/></svg><span class="n late">5</span></div><span class="nm">Tasks</span></div>
+          <div class="card"><div class="r"><svg><use href="#mail"/></svg><span class="new">NEW</span><span class="n" style="margin-left:0">3</span></div><span class="nm">Invitations</span></div>
+        </div>
+        <div class="mini"><span class="btnrow"><svg><use href="#cog"/></svg>Settings<span class="dot"></span></span><span class="ib" style="margin-left:auto"><svg><use href="#help"/></svg></span></div>
+      </div>
+    </div>
+    <p class="why"><b>Settings bottom left with a cog and its name</b>, a much bigger target. Help is the ? on the right. The version moves into Settings › Updates.</p>
+  </div>
+
+  <div class="opt">
+    <p class="lbl">C · Slimmer cards, Settings as a card (suggested)</p>
+    <div class="side">
+      <div class="sec">Mailboxes</div><div class="it"><svg><use href="#inbox"/></svg>All Inboxes<span class="n">5</span></div><div class="space" style="height:52px"></div>
+      <div class="foot">
+        <div class="slim cards">
+          <div class="card"><svg><use href="#clock"/></svg><span class="nm">Scheduled</span></div>
+          <div class="card"><svg><use href="#cal"/></svg><span class="nm">Calendar</span><span class="n">5</span></div>
+          <div class="card"><svg><use href="#check"/></svg><span class="nm">Tasks</span><span class="n late">5</span></div>
+          <div class="card"><svg><use href="#mail"/></svg><span class="nm">Invites</span><span class="n" style="color:var(--accent)">3</span></div>
+          <div class="card"><svg><use href="#cog"/></svg><span class="nm">Settings</span><span class="dot" style="position:static;margin-left:auto"></span></div>
+          <div class="card"><svg><use href="#help"/></svg><span class="nm">Help</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="why"><b>Six one-line cards in about the same height as four.</b> Settings is bottom left, with its coral dot. Invitations shortens to Invites and shows new ones in blue. Same look, same drag to reorder, and Settings and Help can be dragged too.</p>
+  </div>
+
+  <div class="opt">
+    <p class="lbl">And the ☰ menu</p>
+    <div class="menu">
+      <div class="it"><svg><use href="#cal"/></svg>Calendar<span class="k">Ctrl+2</span></div>
+      <div class="it"><svg><use href="#check"/></svg>Tasks<span class="k">Ctrl+3</span></div>
+      <div class="it"><svg><use href="#mail"/></svg>Invitations</div>
+      <div class="it"><svg><use href="#clock"/></svg>Scheduled</div>
+      <div class="div"></div>
+      <div class="it"><svg><use href="#cog"/></svg>Settings<span class="k">Ctrl+,</span></div>
+      <div class="it"><svg><use href="#help"/></svg>Help &amp; Feedback</div>
+    </div>
+    <p class="why">The menu at the top left gets the same places as the footer, in the same words, in place of the old Reminders line.</p>
+  </div>
+</div>
+
+<div class="note">
+  <h2>My suggestion</h2>
+  <p><b>C.</b> It answers both points: Settings is easy to hit and where you'd look for it, and the cards get smaller rather than bigger. The narrow sidebar still turns them into a row of icons. Shortcuts shown in the menu are only examples until we check they're free.</p>
+</div>
+</div></body></html>

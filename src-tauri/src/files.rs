@@ -138,6 +138,25 @@ pub fn save_to_folder(folder: String, name: String, data: String) -> Result<Stri
     Ok(path.to_string_lossy().to_string())
 }
 
+/// Send To: saves a file into a place's folder, inside a year or month folder made as needed ("2026" or "2026/11 November").
+/// The place's own folder has to be there already. Returns where it went.
+#[tauri::command]
+pub fn save_into_subfolder(folder: String, subfolder: String, name: String, data: String) -> Result<String, String> {
+    let base = PathBuf::from(&folder);
+    if !base.is_dir() {
+        return Err(format!("The folder {} isn't there any more. Choose another for this place in Settings, Send To.", folder));
+    }
+    let mut dir = base;
+    for part in subfolder.split(['/', '\\']).filter(|p| !p.is_empty() && *p != "." && *p != "..") {
+        dir.push(clean_name(part));
+    }
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = free_path(&dir, &clean_name(&name));
+    fs::write(&path, decode(&data)?).map_err(|e| e.to_string())?;
+    mark_from_internet(&path);
+    Ok(path.to_string_lossy().to_string())
+}
+
 fn walk(dir: &Path, f: &mut dyn FnMut(&Path, &fs::Metadata)) {
     if let Ok(entries) = fs::read_dir(dir) {
         for e in entries.flatten() {

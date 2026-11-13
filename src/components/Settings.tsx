@@ -23,6 +23,7 @@ import { ShortcutsTab } from './settings/ShortcutsTab';
 import { AccessibilityTab } from './settings/AccessibilityTab';
 import { UpdatesTab } from './settings/UpdatesTab';
 import { DiagnosticsTab } from './settings/DiagnosticsTab';
+import { SendToTab } from './SendTo';
 
 const TABS = [
   ['general', 'General'],
@@ -32,6 +33,7 @@ const TABS = [
   ['groups', 'Inbox Groups'],
   ['appearance', 'Appearance'],
   ['writing', 'Composing'],
+  ['sendto', 'Send To'],
   ['notifications', 'Alerts & Notifications'],
   ['calendar', 'Calendar & Reminders'],
   ['access', 'Accessibility'],
@@ -44,12 +46,12 @@ const TABS = [
 ] as const;
 
 /** The groups in the Settings list, by what you're doing (not A to Z), with a gap between each. */
-const TAB_GROUPS: string[][] = [['general'], ['accounts', 'signatures', 'ooo', 'groups'], ['appearance', 'writing', 'notifications', 'calendar', 'access'], ['privacy', 'offline', 'ai', 'shortcuts'], ['updates', 'diagnostics']];
+const TAB_GROUPS: string[][] = [['general'], ['accounts', 'signatures', 'ooo', 'groups'], ['appearance', 'writing', 'sendto', 'notifications', 'calendar', 'access'], ['privacy', 'offline', 'ai', 'shortcuts'], ['updates', 'diagnostics']];
 
 /** Each tab's icon and colour: a solid, slightly softened tile with a white line icon. */
 const TAB_ICONS: Record<string, [IconName, string]> = {
   general: ['settings', '#7c7c86'], accounts: ['user', '#3b82f6'], signatures: ['pen', '#8b5cf6'], ooo: ['plane', '#f59e0b'], groups: ['layers', '#14b8a6'],
-  appearance: ['contrast', '#ec4899'], writing: ['compose', '#0ea5e9'], notifications: ['bell', '#ef4444'], calendar: ['calendar', '#e11d48'], access: ['accessibility', '#3b82f6'],
+  appearance: ['contrast', '#ec4899'], writing: ['compose', '#0ea5e9'], sendto: ['send', '#06b6d4'], notifications: ['bell', '#ef4444'], calendar: ['calendar', '#e11d48'], access: ['accessibility', '#3b82f6'],
   privacy: ['shield', '#64748b'], offline: ['database', '#22c55e'], ai: ['sparkle', '#a855f7'], shortcuts: ['keyboard', '#a8a29e'], updates: ['refresh', '#f97316'], diagnostics: ['activity', '#84cc16'],
 };
 const TabIcon = ({ id }: { id: string }) => { const [name, colour] = TAB_ICONS[id] || ['settings', '#888']; return <span className="set-tile" style={{ background: colour }}><Icon name={name} size={13} /></span>; };
@@ -71,6 +73,7 @@ const SETTINGS_INDEX: [string, string, string?][] = [
   ['Blocked senders', 'privacy', 'block spam'], ['Pictures in emails', 'privacy', 'remote images trackers'],
   ['Back up my keys', 'offline', 'google key backup'], ['Export and import mail', 'offline', 'move computer cache'], ['Attachments folder and previews', 'offline', 'downloads save'],
   ['Keyboard Shortcuts', 'shortcuts', 'keys hotkeys'], ['Accessibility', 'access', 'contrast focus motion narrator easy read underline borders'],
+  ['Send To places and rules', 'sendto', 'forward hubdoc invoices receipts bookkeeping rules folder save automatic'], ['Find my invoices', 'sendto', 'invoices subscriptions receipts'],
   ['AI Connection', 'ai', 'claude mcp assistant'], ['Updates and test versions', 'updates', 'beta version'], ['Diagnostics', 'diagnostics', 'logs problem'],
 ];
 
@@ -137,6 +140,7 @@ export function SettingsScreen() {
         {tab === 'groups' && <GroupsTab />}
         {tab === 'appearance' && <AppearanceTab />}
         {tab === 'writing' && <><WritingTab /><TemplatesTab /></>}
+        {tab === 'sendto' && <SendToTab />}
         {tab === 'notifications' && <NotificationsTab />}
         {tab === 'calendar' && <RemindersTab />}
         {tab === 'privacy' && <><PrivacyTab /><PeopleTab /></>}

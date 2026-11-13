@@ -1,5 +1,5 @@
 // Starting a new email, reply or forward, inline or in its own window.
-import { createDraft } from './compose';
+import { createDraft, stripOwnSignature, signatureFor } from './compose';
 import { store } from './db';
 import { loadBody, useMail } from './mail';
 import { openPopout } from './platform';
@@ -62,7 +62,7 @@ export async function editServerDraft(m: Message) {
     cc: full.cc,
     bcc: full.bcc,
     subject: full.subject === '(no subject)' ? '' : full.subject,
-    html: full.bodyHtml || (full.bodyText || '').replace(/\n/g, '<br>'),
+    html: stripOwnSignature(full.bodyHtml || (full.bodyText || '').replace(/\n/g, '<br>'), signatureFor(full.from.email, composeContext())),
     serverDraftId: full.draftId,
     serverAccountId: full.accountId,
     serverDraftMessageId: full.providerId,

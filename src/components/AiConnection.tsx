@@ -416,12 +416,13 @@ export function AiConnectionTab() {
         <p className="hint">Each switch is for every shared account. Open a switch with its arrow to set it for each account. Writing applies only to accounts set to Read and write. Ask means it asks you each time. Tidying, invitations and sending come later, each with its own switch.</p>
         {(() => {
           // One row to set every switch at once. Allow only goes as far as each switch allows, so sending still asks.
-          const values = new Set(caps.map((c) => mcp.modes[c.id]));
-          const all = values.size === 1 ? [...values][0] : undefined;
+          // A switch that can only go to Ask (Out of Office, sending) counts as "as far as it can go" when the rest are Allow.
+          const upTo = (v: Mode, max: Mode): Mode => (v === 'allow' && max !== 'allow' ? 'ask' : v);
+          const all = (['off', 'ask', 'allow'] as Mode[]).find((v) => caps.every((c) => mcp.modes[c.id] === upTo(v, c.max)));
           return (
             <div className="ai-row ai-all">
               <div className="grow"><strong>All switches</strong><small>{all ? `All set to ${all === 'off' ? 'Off' : all === 'ask' ? 'Ask' : 'Allow, as far as each one can go'}` : 'Mixed. Set them all at once, then change any below.'}</small></div>
-              <Segmented<Mode> label="Set every switch" value={all} options={modeOptions('allow')} onChange={(v) => save({ modes: { ...mcp.modes, ...Object.fromEntries(caps.map((c) => [c.id, v])) } })} />
+              <Segmented<Mode> label="Set every switch" value={all} options={modeOptions('allow')} onChange={(v) => save({ modes: { ...mcp.modes, ...Object.fromEntries(caps.map((c) => [c.id, upTo(v, c.max)])) } })} />
             </div>
           );
         })()}

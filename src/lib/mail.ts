@@ -8,7 +8,8 @@ export { importMessages, refreshTaskbarCount, reloadMessagesFromDb } from './mai
 export { getAttachmentData, loadBody, looksGarbled, refetchBody, savedCopy, warmBodies, warmInbox } from './mail/bodies';
 export { adoptRemote, goBack, goForward, localSearch, messagesInThread, openScreen, runSearch, selectThread, setView } from './mail/views';
 export type { Place } from './mail/views';
-export { addGoogleAccount, addGoogleAccountStrict, addImapAccountStrict, addMicrosoftAccount, addMicrosoftAccountStrict, applyPalette, editAccount, forgetKeptAccount, keptAccounts, leaveDemo, reconnectAccount, removeAccount, reorderAccounts, setLeaveOutOfAll, startDemo, updateAccount } from './mail/accounts';
+export type { SavedSignIn } from './mail/accounts';
+export { addGoogleAccount, addGoogleAccountStrict, addImapAccountStrict, addMicrosoftAccount, addMicrosoftAccountStrict, applyPalette, editAccount, forgetKeptAccount, keptAccounts, leaveDemo, reconnectAccount, removeAccount, reorderAccounts, restoreSignIns, savedSignIns, setLeaveOutOfAll, startDemo, updateAccount } from './mail/accounts';
 export { isSyncing, refreshAll, restartSync, syncAccount } from './mail/sync';
 export { addFollowup, applyLabel, archive, blockSender, idsForKeys, latestPerConversation, markRead, markSpam, markViewRead, moveToInbox, moveToLabel, restoreFromBin, selectedMessageIds, snooze, toggleFlag, toggleMute, toggleVip, trash, unblockSender, unsnooze, unsubscribe } from './mail/actions';
 export { addInviteToCalendar, answerEvent, answerInvite, applyPatch, calendarChoices, canAddToCalendar, canMoveAcross, createNewEvent, deleteEvent, dismissReminders, editEvent, eventCopy, eventsBetween, inviteStatus, lastEventsRefresh, moveEventAcross, recentlyDeletedEvent, refreshEvents, updateAddedEvent, writableCalendars } from './mail/calendar';

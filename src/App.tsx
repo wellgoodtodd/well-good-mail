@@ -3,6 +3,10 @@ import { EventEditDialog } from './components/SuggestedEvent';
 import { parseMailto, mailtoBodyHtml } from './lib/mailtoLink';
 import { CrashPrompt } from './components/Feedback';
 import { openHelp } from './components/Help';
+import { restoreEverything } from './lib/recovery';
+import { SendToHost } from './components/SendTo';
+import { openInvitations } from './components/Invitations';
+import { presetForEmail } from './lib/imapUtil';
 import { useSaves, openSaved, showSaved, clearSaves, markSavesSeen } from './lib/saves';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './components/Icon';
@@ -31,7 +35,7 @@ import { backupDue, haveOwnKeys, importKeys } from './lib/backup';
 import {
   useMail, initMail, refreshAll, runSearch, dismissToast, archive, trash, toggleFlag, markRead, selectedMessageIds, selectThread, startDemo,
   markSpam, snooze, markViewRead, openScreen,
-  adoptOutboxItem, messagesInThread, reloadMessagesFromDb, toast, reconnectAccount, goBack, goForward,
+  adoptOutboxItem, messagesInThread, reloadMessagesFromDb, toast, reconnectAccount, goBack, goForward, savedSignIns, type SavedSignIn,
 } from './lib/mail';
 import { startCompose, popoutMessage } from './lib/composeActions';
 import { useViewList } from './lib/useList';
@@ -42,7 +46,7 @@ import { startSettingsSync } from './lib/settingsSync';
 import { restoreOpenDrafts } from './lib/openDrafts';
 import { CommandPalette } from './components/CommandPalette';
 import { isPopout, isTauri, invoke, onTauriEvent, rememberPopoutSize, setAutostart, setCloseQuits } from './lib/platform';
-import { loadGoogleKeys, useGoogleConfigured, calendarEditAllowed } from './lib/auth/google';
+import { loadGoogleKeys, useGoogleConfigured, useGoogleKeys, calendarEditAllowed } from './lib/auth/google';
 import { loadMicrosoftKeys } from './lib/auth/microsoft';
 import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from './lib/updater';
 import { startMcpWatch } from './lib/mcp/server';
@@ -257,11 +261,42 @@ function Welcome() {
           <button className="btn primary" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), addAccountItems())} style={{ height: 36, padding: '0 16px' }}><Icon name="plus" /> Add account <Icon name="chevronDown" size={14} /></button>
           <button className="btn" onClick={() => startDemo()} style={{ height: 36, padding: '0 16px' }}>Try demo mode</button>
         </div>
+        <WelcomeBack />
         {!configured && !moving && <p className="note">Gmail needs a free key from Google first. The guide takes about 10 minutes and walks you through it.</p>}
         <button className="link-btn welcome-move" aria-expanded={moving} onClick={() => setMoving(!moving)}>Moving from another computer?</button>
         {moving && <MovingChecklist configured={configured} onAdd={(el) => menu.open(el.getBoundingClientRect(), addAccountItems())} />}
+        <div className="welcome-links">
+          <button className="link-btn" onClick={() => openHelp('reinstalling')}>Lost your accounts after reinstalling?</button>
+          <button className="link-btn" onClick={() => openHelp()}>Help</button>
+        </div>
         {menu.node}
       </div>
+    </div>
+  );
+}
+
+const SIGN_IN_KIND: Record<SavedSignIn['kind'], string> = { gmail: 'Google', microsoft: 'Microsoft', imap: 'IMAP' };
+
+/**
+ * After the app's data was deleted (say by the uninstaller's data box), Windows still has the sign-ins, so the
+ * accounts can come back with one click and no signing in.
+ */
+function WelcomeBack() {
+  const [found, setFound] = useState<SavedSignIn[]>([]);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { void savedSignIns().then(setFound); }, []);
+  if (!found.length) return null;
+  const n = found.length;
+  return (
+    <div className="welcome-back" role="region" aria-label="Welcome back">
+      <strong>Welcome back</strong>
+      <span>This computer still has the sign-ins for {n === 1 ? 'one account' : `${n} accounts`}. Add {n === 1 ? 'it' : 'them'} back with no signing in.</span>
+      <ul>
+        {found.map((s) => (
+          <li key={`${s.kind}:${s.email}`}><span>{s.email}</span><span className="welcome-back-kind">{s.kind === 'imap' ? presetForEmail(s.email)?.name || 'IMAP' : SIGN_IN_KIND[s.kind]}</span></li>
+        ))}
+      </ul>
+      <button className="btn primary" disabled={busy} onClick={() => { setBusy(true); void restoreEverything(found); }}>{busy ? 'Adding...' : n === 1 ? 'Add it back' : `Add all ${n} back`}</button>
     </div>
   );
 }
@@ -532,10 +567,15 @@ function MainWindow() {
       { divider: true },
       { label: 'Add account', icon: 'plus', submenu: addAccountItems() },
       { divider: true },
-      { label: 'Reminders', icon: 'bell', onClick: () => openScreen('reminders') },
+      // The same places as the sidebar footer, in the same order.
+      { label: 'Scheduled', icon: 'clock', disabled: !hasAccounts, onClick: () => openScreen('scheduled') },
+      { label: 'Calendar', icon: 'calendar', disabled: !hasAccounts, onClick: () => { useSettings.getState().set({ remindersView: 'calendar' }); openScreen('reminders'); } },
+      { label: 'Tasks', icon: 'check', disabled: !hasAccounts, onClick: () => { useSettings.getState().set({ remindersView: 'tasks' }); openScreen('reminders'); } },
+      { label: 'Invitations', icon: 'mail', disabled: !hasAccounts, onClick: openInvitations },
+      { divider: true },
       { label: 'Out of Office', icon: 'plane', disabled: !hasAccounts, onClick: () => openScreen('settings', 'ooo') },
-      { label: 'Settings', icon: 'settings', submenu: [tab('Accounts', 'accounts'), tab('Appearance', 'appearance'), tab('Notifications and Reminders', 'notifications'), tab('Keyboard Shortcuts', 'shortcuts'), tab('Updates', 'updates'), tab('Diagnostics', 'diagnostics')] },
-      { label: 'Help', icon: 'help', onClick: () => openScreen('help') },
+      { label: 'Settings', icon: 'cog', submenu: [tab('Accounts', 'accounts'), tab('Appearance', 'appearance'), tab('Alerts & Notifications', 'notifications'), tab('Send To', 'sendto'), tab('Keyboard Shortcuts', 'shortcuts'), tab('Updates', 'updates'), tab('Diagnostics', 'diagnostics')] },
+      { label: 'Help & Feedback', icon: 'help', onClick: () => openScreen('help') },
       { divider: true },
       { label: s.sidebarVisible ? 'Hide sidebar' : 'Show sidebar', icon: 'sidebar', kbd: 'Ctrl+Shift+S', onClick: () => s.set({ sidebarVisible: !s.sidebarVisible }) },
     ];
@@ -557,9 +597,11 @@ function MainWindow() {
   // First run in the desktop app: nothing is set up yet, so start the guide.
   const guide = useGuide((g) => g.mode);
   const configured = useGoogleConfigured();
+  // Wait until the saved key has been read, or a reinstall with the key still saved opens the guide anyway.
+  const keysLoaded = useGoogleKeys((k) => k.loaded);
   useEffect(() => {
-    if (ready && isTauri() && !configured && !accounts.length && !useGuide.getState().mode) openGuide('setup');
-  }, [ready, configured, accounts.length]);
+    if (ready && keysLoaded && isTauri() && !configured && !accounts.length && !useGuide.getState().mode) openGuide('setup');
+  }, [ready, keysLoaded, configured, accounts.length]);
 
   // An account that needs signing in again gets one friendly prompt per session.
   const prompted = useRef(new Set<string>());
@@ -641,6 +683,7 @@ function MainWindow() {
       {accounts.length > 0 && !guide && <MeetingBanner />}
       {accounts.length > 0 && <NewEventHost />}
       {accounts.length > 0 && <TaskEditorHost />}
+      {accounts.length > 0 && <SendToHost />}
       {accounts.length > 0 && !guide && <OooBanner />}
       {!online && <div className="offline">You're offline. Mail you've already downloaded is still here, and anything you send will go when you're back online.</div>}
       {update.status === 'ready' && <div className="update-bar">Version {update.version} is ready. <button className="btn" onClick={restartToUpdate}>Restart to update</button></div>}

@@ -9,7 +9,7 @@ import { useMenu, type MenuItem } from './ui';
 import { useSettings, type Settings } from '../lib/settings';
 import { useSettingsAlerts } from '../lib/alerts';
 import { useUpdates } from '../lib/updater';
-import { useMail, countsFor, setView, openScreen, providerFor, archive, trash, markSpam, moveToInbox, moveToLabel, idsForKeys, reconnectAccount, markViewRead, toast, syncAccount, editAccount } from '../lib/mail';
+import { useMail, countsFor, setView, openScreen, providerFor, archive, trash, markSpam, moveToInbox, moveToLabel, idsForKeys, reconnectAccount, markViewRead, toast, syncAccount, editAccount, setLeaveOutOfAll } from '../lib/mail';
 import { ColourPicker } from './ColourPicker';
 import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
@@ -250,6 +250,8 @@ function Item({ d, level = 0, twisty, onTwisty, inFavourites = false, favIndex, 
     const lastClick = useRef(0);
     const selected = screen === 'mail' && sameView(view, d.view) && !(twisty === 'open' && d.account);
     const canTakeEmails = Boolean(d.dropFolder && d.dropFolder !== 'drafts' && d.dropFolder !== 'sent') || Boolean(d.dropLabel);
+    // A favourite lives in Favourites only, not twice. Rows that open to show others (All Inboxes, an account) stay put.
+    if (!inFavourites && !twisty && !accountRow && !dim && s.favourites.includes(d.ref)) return null;
     return (
       <div
         className={`side-row ${favDrop !== null && inFavourites && favIndex === favDrop ? 'drop-before' : ''}`}
@@ -516,7 +518,7 @@ export function Sidebar({ width }: { width: number }) {
     if (hidden.has(d.ref)) items.push({ label: 'Show in sidebar', icon: 'inbox', onClick: () => s.unhide(d.ref) });
     else if (!inFavourites) items.push({ label: 'Hide', icon: 'imageOff', onClick: () => { s.hide(d.ref); toast({ text: `${d.name} moved to Hidden`, undo: () => s.unhide(d.ref) }); } });
     if (d.account) {
-      items.push({ divider: true }, { label: 'Change colour...', icon: 'layers', onClick: () => setPicker({ accountId: d.account!.id, anchor: { x: 60, y: 200 } }) }, { label: 'Check for new mail', icon: 'refresh', onClick: () => syncAccount(d.account!.id) }, { label: 'Account settings', icon: 'settings', onClick: () => openScreen('settings', 'accounts') });
+      items.push({ divider: true }, { label: 'Change colour...', icon: 'layers', onClick: () => setPicker({ accountId: d.account!.id, anchor: { x: 60, y: 200 } }) }, { label: 'Check for new mail', icon: 'refresh', onClick: () => syncAccount(d.account!.id) }, ...(accounts.length > 1 ? [{ label: d.account.leaveOutOfAll ? 'Show in All Inboxes' : 'Leave out of All Inboxes', icon: 'inbox' as const, onClick: () => setLeaveOutOfAll(d.account!.id, !d.account!.leaveOutOfAll) }] : []), { label: 'Account settings', icon: 'settings', onClick: () => openScreen('settings', 'accounts') });
     }
     return items;
   };
@@ -840,23 +842,18 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
               onDragOver={(e) => { if (!dragging) return; e.preventDefault(); setOver(k); }}
               onDragLeave={() => setOver((o) => (o === k ? null : o))}
               onDrop={(e) => { e.preventDefault(); drop(k); setDragging(null); setOver(null); }}>
-              <span className="foot-top">
-                <Icon name={c.icon} size={16} />
-                {c.isNew && <span className="side-badge">New</span>}
-                {c.count ? <span className={`foot-count${c.late ? ' late' : ''}`}>{c.count}</span> : null}
-              </span>
+              <Icon name={c.icon} size={16} />
               <span className="foot-name">{c.name}</span>
+              {c.count ? <span className={`foot-count${c.late ? ' late' : ''}${c.isNew ? ' new' : ''}`} title={c.isNew ? `${c.count} new` : undefined}>{c.count}</span> : null}
             </button>
           );
         })}
       </div>
+      {/* Settings with its name, bottom left where people look for it; Help beside it. In Settings, the version. */}
       <div className="foot-mini">
-        <button className={`foot-icon${screen === 'help' ? ' selected' : ''}`} title="Help & Feedback" aria-label="Help & Feedback" onClick={() => openScreen('help')}>
-          <Icon name="help" size={16} />
-        </button>
         {!inSettings && (
-          <button className={`foot-icon${screen === 'settings' ? ' selected' : ''}`} title={alerts.any ? `Settings. ${Object.values(alerts.tabs).join('. ')}` : 'Settings'} aria-label="Settings" onClick={() => openScreen('settings')}>
-            <Icon name="settings" size={16} />{alerts.any ? <span className="attn-dot" aria-hidden="true" /> : null}
+          <button className={`foot-settings${screen === 'settings' ? ' selected' : ''}`} title={alerts.any ? `Settings. ${Object.values(alerts.tabs).join('. ')}` : 'Settings'} onClick={() => openScreen('settings')}>
+            <Icon name="cog" size={16} /><span>Settings</span>{alerts.any ? <span className="attn-dot" aria-hidden="true" /> : null}
           </button>
         )}
         {inSettings && (
@@ -864,6 +861,9 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
             Version {version || '...'}{alerts.tabs.updates ? <span className="attn-dot" title={alerts.tabs.updates} aria-label={alerts.tabs.updates} /> : null}
           </button>
         )}
+        <button className={`foot-icon${screen === 'help' ? ' selected' : ''}`} title="Help & Feedback" aria-label="Help & Feedback" onClick={() => openScreen('help')}>
+          <Icon name="help" size={16} />
+        </button>
       </div>
     </div>
   );

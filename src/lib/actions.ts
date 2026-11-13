@@ -8,6 +8,7 @@ import { inSystemFolder } from './mailbox';
 import { bindingsFor, isSingleKey, type ShortcutAction } from './shortcuts';
 import { openExternal } from './platform';
 import { printThread, savePdfThread } from './print';
+import { sendToItems } from '../components/SendTo';
 
 /** The shortcut to show next to a menu item (first one with a modifier or a named key). */
 export function kbd(action: ShortcutAction): string | undefined {
@@ -74,7 +75,12 @@ export function messageMenu(keys: string[]): MenuItem[] {
   // Junk moves this email. Block stops everything from this sender, so it sits right beside it.
   if (single) items.push(blocked ? { label: `Unblock ${senderName}`, icon: 'userBlock', onClick: () => unblockSender(sender) } : { label: `Block ${senderName}`, icon: 'userBlock', onClick: () => blockSender(sender, ids) });
   // The longer lists sit behind a flyout so the menu stays short.
-  items.push({ divider: true }, { label: 'Snooze', icon: 'clock', submenu: snoozeOptions().slice(0, 4).map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => snooze(ids, o.at) })) });
+  // Send to › a place (Hubdoc, an invoices folder): the newest email in each conversation, from someone else.
+  items.push({ divider: true }, sendToItems(() => keys.map((k) => {
+    const inThread = idsForKeys([k]).map((id) => useMail.getState().messages[id]).filter((m) => m && !m.isDraft);
+    return inThread.filter((m) => m.attachments.length || m.hasAttachments).sort((a, b) => b.date - a.date)[0] || inThread.sort((a, b) => b.date - a.date)[0];
+  }).filter(Boolean)));
+  items.push({ label: 'Snooze', icon: 'clock', submenu: snoozeOptions().slice(0, 4).map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => snooze(ids, o.at) })) });
   if (labels.length) {
     items.push(
       { label: 'Move to', icon: 'folder', submenu: labels.map((l) => ({ label: l.name, icon: 'folder' as const, onClick: () => moveToLabel(ids, latest.accountId, l.id) })) },

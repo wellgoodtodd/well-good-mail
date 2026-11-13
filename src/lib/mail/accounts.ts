@@ -8,13 +8,14 @@ import { ImapProvider } from '../providers/imap';
 import { openImapGuide } from '../guide';
 import { record, useHistory } from '../history';
 import { askAiForNewAccount } from '../aiAsk';
-import { removeImapPassword, saveImapPassword, testImap, imapReset, type ImapSettings } from '../auth/imap';
+import { getImapPassword, removeImapPassword, saveImapPassword, testImap, imapReset, type ImapSettings } from '../auth/imap';
 import { DemoProvider, DEMO_ACCOUNTS, resetDemo } from '../providers/demo';
 import type { MailProvider } from '../providers/provider';
-import { signInWithGoogle, signOutGoogle } from '../auth/google';
-import { signInWithMicrosoft, signOutMicrosoft } from '../auth/microsoft';
+import { signInWithGoogle, signOutGoogle, getGoogleAccessToken } from '../auth/google';
+import { signInWithMicrosoft, signOutMicrosoft, getMicrosoftAccessToken } from '../auth/microsoft';
+import { presetForEmail } from '../imapUtil';
 import { indexMessages, removeFromIndex } from '../search';
-import { isTauri, invoke } from '../platform';
+import { isTauri, invoke, httpFetch } from '../platform';
 import { paletteById, colourFor } from '../palettes';
 import type { Account } from '../types';
 import { refreshEvents } from './calendar';
@@ -168,6 +169,61 @@ export async function reconnectAccount(id: string) {
   } catch (e) {
     errorToast(e, 'Sign in failed');
   }
+}
+
+export interface SavedSignIn { kind: 'gmail' | 'microsoft' | 'imap'; email: string }
+
+/** Reads Credential Manager's list (names only) and keeps the sign-ins that aren't accounts in the app. Exported for tests. */
+export function signInsFromKeys(keys: string[], accounts: Pick<Account, 'kind' | 'email'>[]): SavedSignIn[] {
+  const have = new Set(accounts.map((a) => `${a.kind}:${a.email.toLowerCase()}`));
+  const out: SavedSignIn[] = [];
+  for (const k of keys) {
+    const m = /^(google|microsoft|imap):([^\s@]+@[^\s@]+)$/.exec(k);
+    if (!m) continue;
+    const kind = m[1] === 'google' ? 'gmail' : (m[1] as 'microsoft' | 'imap');
+    const email = m[2].toLowerCase();
+    // Custom IMAP servers need their server details again, so only known services (iCloud, Yahoo...) come back by themselves.
+    if (kind === 'imap' && !presetForEmail(email)) continue;
+    if (!have.has(`${kind}:${email}`) && !out.some((o) => o.kind === kind && o.email === email)) out.push({ kind, email });
+  }
+  const rank = { gmail: 0, microsoft: 1, imap: 2 };
+  return out.sort((a, b) => rank[a.kind] - rank[b.kind] || a.email.localeCompare(b.email));
+}
+
+/**
+ * Sign-ins still saved on this computer for accounts the app doesn't have, as after an uninstall that deleted the
+ * app's data (Credential Manager is kept). The welcome page offers to add them back with no signing in.
+ */
+export async function savedSignIns(): Promise<SavedSignIn[]> {
+  if (!isTauri()) return [];
+  const keys = await invoke<string[]>('secret_list').catch(() => [] as string[]);
+  return signInsFromKeys(keys, get().accounts);
+}
+
+/** Adds one saved sign-in back as an account. Throws if the saved sign-in no longer works. */
+export async function restoreSignIn(s: SavedSignIn): Promise<void> {
+  if (s.kind === 'gmail') {
+    const token = await getGoogleAccessToken(s.email);
+    const info = await httpFetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).catch(() => ({}));
+    await addAccount('gmail', s.email, (info as { name?: string }).name || s.email);
+  } else if (s.kind === 'microsoft') {
+    const token = await getMicrosoftAccessToken(s.email);
+    const me = await httpFetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).catch(() => ({}));
+    await addAccount('microsoft', s.email, (me as { displayName?: string }).displayName || s.email);
+  } else {
+    const preset = presetForEmail(s.email);
+    const pass = await getImapPassword(s.email);
+    if (!preset || !pass) throw new Error(`The saved password for ${s.email} wasn't found`);
+    const imap = { host: preset.host, port: preset.port, smtpHost: preset.smtpHost, smtpPort: preset.smtpPort, username: s.email };
+    await testImap(imap, pass);
+    await addAccount('imap', s.email, s.email, { imap });
+  }
+}
+
+/** Adds several back. They start together; each one's mail downloads as it would after signing in. Returns the ones that failed. */
+export async function restoreSignIns(list: SavedSignIn[]): Promise<{ s: SavedSignIn; error: string }[]> {
+  const results = await Promise.allSettled(list.map((s) => restoreSignIn(s)));
+  return results.flatMap((r, i) => (r.status === 'rejected' ? [{ s: list[i], error: r.reason instanceof Error ? r.reason.message : String(r.reason) }] : []));
 }
 
 /** Accounts removed with "Keep its mail on this computer": the record, kept so adding it again picks up where it left off. */

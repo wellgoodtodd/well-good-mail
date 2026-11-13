@@ -6,7 +6,7 @@ import { settings, useSettings, type DraftGroup } from '../settings';
 import type { Draft, Message } from '../types';
 import { useMail, providerFor, queueSend, loadBody, getAttachmentData } from '../mail';
 import { bytesToBase64 } from '../mime';
-import { draftToOutgoing, createDraft } from '../compose';
+import { draftToOutgoing, createDraft, stripOwnSignature, signatureFor } from '../compose';
 import { composeContext } from '../composeActions';
 import { record } from '../history';
 
@@ -25,7 +25,7 @@ export const htmlToText = (html: string) => html
  */
 export function splitQuote(html: string): { own: string; quote: string } {
   const at = (re: RegExp) => { const m = re.exec(html); return m ? m.index : -1; };
-  const marks = [at(/<div[^>]*class="[^"]*gmail_quote/i), at(/<blockquote/i)].filter((i) => i >= 0);
+  const marks = [at(/<div[^>]*class="[^"]*(gmail_quote|wgm-quote|wgm-forward)/i), at(/<blockquote/i)].filter((i) => i >= 0);
   if (!marks.length) return { own: html, quote: '' };
   const i = Math.min(...marks);
   return { own: html.slice(0, i), quote: html.slice(i) };
@@ -174,7 +174,7 @@ export async function syncServerDrafts(): Promise<number> {
           const m = byMessage(now);
           if (m && m.date > d.updatedAt) {
             const full = (await loadBody(m.id)) || m;
-            next = { ...next, subject: full.subject === '(no subject)' ? '' : full.subject, to: full.to, cc: full.cc, bcc: full.bcc, html: full.bodyHtml || textToHtml(full.bodyText || ''), attachments: await draftFiles(full), serverDraftMessageId: now, updatedAt: m.date };
+            next = { ...next, subject: full.subject === '(no subject)' ? '' : full.subject, to: full.to, cc: full.cc, bcc: full.bcc, html: stripOwnSignature(full.bodyHtml || textToHtml(full.bodyText || ''), signatureFor(next.fromEmail, composeContext())), attachments: await draftFiles(full), serverDraftMessageId: now, updatedAt: m.date };
           }
         }
         if (next !== d) { await store.putDraft(next); changed++; }
@@ -192,9 +192,11 @@ export async function syncServerDrafts(): Promise<number> {
         const full = (await loadBody(m.id)) || m;
         // A reply keeps its conversation: the newest email in the thread that isn't a draft.
         const source = look().latestInThread.get(full.threadId);
-        const html = full.bodyHtml || textToHtml(full.bodyText || '');
+        const fromEmail = full.from.email || account.email;
+        // The server copy carries the signature it was saved with; the app adds the signature itself.
+        const html = stripOwnSignature(full.bodyHtml || textToHtml(full.bodyText || ''), signatureFor(fromEmail, composeContext()));
         const draft = createDraft('new', undefined, composeContext(), {
-          fromEmail: full.from.email || account.email,
+          fromEmail,
           fromAccountId: account.id,
           to: full.to,
           cc: full.cc,

@@ -26,11 +26,12 @@ export const GOOGLE_SCOPES = [
  * The Google key (client ID and secret). People paste their own in the setup guide and it is kept in Windows
  * Credential Manager. A key built into the app (VITE_GOOGLE_*) is still used when nothing has been pasted.
  */
-interface GoogleKeys { id?: string; secret?: string; /** true when the key came from the setup guide */ own: boolean }
+interface GoogleKeys { id?: string; secret?: string; /** true when the key came from the setup guide */ own: boolean; /** true once Credential Manager has been read at start */ loaded: boolean }
 export const useGoogleKeys = create<GoogleKeys>(() => ({
   id: import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined,
   secret: import.meta.env.VITE_GOOGLE_CLIENT_SECRET as string | undefined,
   own: false,
+  loaded: false,
 }));
 
 const clientId = () => useGoogleKeys.getState().id;
@@ -45,6 +46,7 @@ export async function loadGoogleKeys(): Promise<void> {
     const id = await secrets.get('google-client-id');
     if (id) useGoogleKeys.setState({ id, secret: (await secrets.get('google-client-secret')) || undefined, own: true });
   } catch { /* no saved key */ }
+  useGoogleKeys.setState({ loaded: true });
 }
 
 export async function saveGoogleKeys(id: string, secret: string): Promise<void> {

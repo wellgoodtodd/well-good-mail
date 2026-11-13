@@ -27,8 +27,8 @@ function driveAccount(): string | undefined {
   return (google.find((a) => a.email === settings().defaultFromEmail) || google[0])?.email;
 }
 
-async function drive<T>(path: string, init: RequestInit = {}, upload = false): Promise<T> {
-  const email = driveAccount();
+async function drive<T>(path: string, init: RequestInit = {}, upload = false, account?: string): Promise<T> {
+  const email = account || driveAccount();
   if (!email) throw new Error('No Google account to keep the settings file in');
   const token = await getGoogleAccessToken(email);
   const base = upload ? 'https://www.googleapis.com/upload/drive/v3' : 'https://www.googleapis.com/drive/v3';
@@ -37,9 +37,9 @@ async function drive<T>(path: string, init: RequestInit = {}, upload = false): P
   return (await res.json()) as T;
 }
 
-async function findFile(): Promise<{ id: string; modifiedTime: string } | undefined> {
+async function findFile(account?: string): Promise<{ id: string; modifiedTime: string } | undefined> {
   const q = encodeURIComponent(`name='${FILE_NAME}' and trashed=false`);
-  const r = await drive<{ files: { id: string; modifiedTime: string }[] }>(`/files?q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc&pageSize=1`);
+  const r = await drive<{ files: { id: string; modifiedTime: string }[] }>(`/files?q=${q}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc&pageSize=1`, {}, false, account);
   return r.files[0];
 }
 
@@ -109,4 +109,23 @@ export async function enableSettingsSync() {
     await pushSettings();
     toast({ text: 'Settings saved to Google Drive. Turn this on in the other computer too.' });
   }
+}
+
+/**
+ * After the app's data was lost: looks in each Google account's Drive for the settings file (it lives in whichever
+ * account was the default sender), newest first. Undefined when there is none.
+ */
+export async function findSettingsBackup(): Promise<{ email: string; modifiedTime: string } | undefined> {
+  const google = useMail.getState().accounts.filter((a) => a.kind === 'gmail');
+  const found = await Promise.all(google.map((a) => findFile(a.email).then((f) => (f ? { email: a.email, modifiedTime: f.modifiedTime } : undefined)).catch(() => undefined)));
+  return found.filter((f): f is { email: string; modifiedTime: string } => Boolean(f)).sort((a, b) => Date.parse(b.modifiedTime) - Date.parse(a.modifiedTime))[0];
+}
+
+/** Brings the settings back from that file and keeps them in step from then on. */
+export async function restoreSettingsFrom(email: string) {
+  fileId = undefined;
+  // Quietly, so switching sync on doesn't push this computer's empty settings over the backup before it is read.
+  applying = true;
+  try { useSettings.getState().set({ syncSettings: true, defaultFromEmail: email }, { quiet: true }); } finally { applying = false; }
+  await enableSettingsSync();
 }

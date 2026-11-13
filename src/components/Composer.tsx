@@ -26,7 +26,7 @@ import type { Address, ComposeMode, Draft } from '../lib/types';
 
 const MODE_LABEL: Record<ComposeMode, string> = { new: 'New email', reply: 'Reply', replyAll: 'Reply All', forward: 'Forward' };
 
-function readFileB64(file: File): Promise<string> {
+export function readFileB64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result).split(',')[1] || '');

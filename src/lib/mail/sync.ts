@@ -146,6 +146,9 @@ function applyRulesToNew(msgs: Message[]) {
   const muted = new Set(settings().mutedThreads);
   const toArchive = msgs.filter((m) => muted.has(threadKey(m).toLowerCase()) || muted.has(threadKey(m)));
   if (toArchive.length) archive(toArchive.map((m) => m.id), { silent: true, markRead: true });
+  // Send To rules (forward invoices to Hubdoc and so on). Loaded when needed: it imports the mail code.
+  const rest = msgs.filter((m) => !unwanted.includes(m));
+  if (rest.length && settings().sendRules?.some((r) => r.on)) void import('../sendTo').then((s) => s.runSendRules(rest));
 }
 
 function notifyNewMail(msgs: Message[]) {

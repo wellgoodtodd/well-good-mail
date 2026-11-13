@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Send To</title>
+<style>
+:root{--bg:#1c1c1e;--pane:#232326;--elev:#2a2a2d;--hover:rgba(255,255,255,.06);--sel:rgba(59,130,246,.28);--line:#38383d;--text:#ececef;--muted:#9c9ca5;--faint:#7b7d86;--accent:#3b82f6;--danger:#e5484d;--ok:#3fb27f}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1100px;margin:0 auto}
+h1{font-size:20px;margin:0 0 6px}
+h2{font-size:15px;margin:34px 0 4px}
+.intro,.sub{color:var(--muted);max-width:760px;margin:0 0 16px}
+.row{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+svg.i{width:15px;height:15px;flex:none;color:var(--muted)}
+/* the reading pane bit */
+.pane{background:var(--pane);border:1px solid var(--line);border-radius:12px;padding:14px;width:360px;max-width:100%;position:relative;min-height:330px}
+.att{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--bg)}
+.ftile{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;font-weight:700;font-size:12px;background:rgba(229,72,77,.18);color:var(--danger)}
+.fname{font-weight:500}.fsize{font-size:12px;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--elev);color:var(--text);border-radius:7px;padding:5px 10px;font:inherit;font-size:12.5px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ghost{background:transparent}
+.menu{position:absolute;background:var(--elev);border:1px solid var(--line);border-radius:9px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:4px;min-width:210px;font-size:13px;z-index:2}
+.mi{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:6px}
+.mi.hl{background:var(--sel)}
+.mi .k{margin-left:auto;color:var(--faint);font-size:12px}
+.mi .d{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+.div{height:1px;background:var(--line);margin:4px 2px}
+.new{font-size:9.5px;font-weight:700;letter-spacing:.03em;color:var(--accent);margin-left:6px}
+/* toast */
+.toast{background:var(--elev);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.45);padding:10px 12px;width:360px;max-width:100%;font-size:13px}
+.toast .t{display:flex;align-items:center;gap:8px}
+.toast .t b{font-weight:600}
+.toast .s{color:var(--muted);font-size:12px;margin:2px 0 0 23px}
+.toast .ask{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line)}
+.toast .ask span{flex:1}
+.link{color:var(--accent)}
+/* dialogs and settings cards */
+.dlg,.card{background:var(--pane);border:1px solid var(--line);border-radius:12px;padding:16px;width:420px;max-width:100%}
+.card{width:520px}
+.dlg h3,.card h3{font-size:14.5px;margin:0 0 12px}
+.f{margin:0 0 12px}
+.f>label{display:block;font-size:12px;color:var(--muted);margin:0 0 4px}
+.in{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:6px 9px;color:var(--text)}
+.in.ph{color:var(--faint)}
+.chk{display:flex;gap:9px;align-items:flex-start;margin:0 0 6px}
+.box{width:15px;height:15px;border-radius:4px;border:1px solid var(--muted);flex:none;margin-top:2px;display:grid;place-items:center}
+.box.on{background:var(--accent);border-color:var(--accent)}
+.box.on::after{content:'';width:7px;height:4px;border:2px solid #fff;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.rad{width:15px;height:15px;border-radius:50%;border:1px solid var(--muted);flex:none;margin-top:2px;display:grid;place-items:center}
+.rad.on{border-color:var(--accent)}.rad.on::after{content:'';width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.indent{margin-left:24px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;font-size:12.5px}
+.seg span{padding:4px 10px;color:var(--muted)}.seg span.on{background:var(--sel);color:var(--text)}
+.hint{font-size:12px;color:var(--faint)}
+.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.list .li{display:flex;align-items:center;gap:10px;padding:8px 6px;border-top:1px solid var(--line)}
+.list .li:first-child{border-top:0}
+.grip{color:var(--faint);font-size:12px;letter-spacing:-2px;cursor:grab}
+.li .nm{font-weight:500}.li .ds{font-size:12px;color:var(--muted)}
+.li .grow{flex:1;min-width:0}
+.sw{width:30px;height:17px;border-radius:9px;background:var(--accent);position:relative;flex:none}
+.sw::after{content:'';position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fff}
+.sw.off{background:#4a4a50}.sw.off::after{right:auto;left:2px}
+.pill{font-size:11.5px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--muted);white-space:nowrap}
+.tbl .li .n{font-size:12px;color:var(--muted);width:66px;text-align:right}
+.note{margin-top:34px;background:#1b1b1e;border:1px solid var(--line);border-radius:12px;padding:14px 16px;max-width:760px}
+.note h2{margin:0 0 6px}
+.note p,.note li{color:var(--muted);margin:4px 0}
+.note b{color:var(--text)}
+.ok{color:var(--ok)}
+@media (max-width:520px){body{padding:12px}.menu{position:static;margin-top:10px}.pane{min-height:0}.pane,.toast,.dlg,.card{width:100%}}
+</style></head><body><div class="w">
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="pop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></symbol>
+<symbol id="dl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+<symbol id="fwd" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 17 20 12 15 7"/><path d="M4 18v-2a4 4 0 0 1 4-4h12"/></symbol>
+<symbol id="send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
+<symbol id="folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+<symbol id="book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></symbol>
+<symbol id="mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></symbol>
+<symbol id="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+<symbol id="search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></symbol>
+</defs></svg>
+
+<h1>Send To: forwarding and filing attachments</h1>
+<p class="intro">From the real attachment card in the reading pane. Four parts: the right-click menu, what happens after a send (with "Do this every time?"), the places and rules in Settings, and Find my invoices. Example addresses here are made up.</p>
+
+<h2>1. Right-click an attachment</h2>
+<p class="sub">Forward opens the normal writing window as a forward with only this file, from your usual sender. Send to lists your saved places.</p>
+<div class="row">
+  <div>
+    <p class="lbl">Menu</p>
+    <div class="pane">
+      <div class="att"><span class="ftile">PDF</span><span style="flex:1"><div class="fname">Invoice-CNV-48213.pdf</div><div class="fsize">96 KB</div></span><span class="btn">Preview</span></div>
+      <div class="menu" style="left:70px;top:62px">
+        <div class="mi"><svg class="i"><use href="#eye"/></svg>Preview</div>
+        <div class="mi"><svg class="i"><use href="#pop"/></svg>Open in its own app</div>
+        <div class="mi"><svg class="i"><use href="#dl"/></svg>Save to downloads folder</div>
+        <div class="div"></div>
+        <div class="mi"><svg class="i"><use href="#fwd"/></svg>Forward...</div>
+        <div class="mi hl"><svg class="i"><use href="#send"/></svg>Send to<svg class="i" style="margin-left:auto"><use href="#chev"/></svg></div>
+      </div>
+      <div class="menu" style="left:150px;top:205px;min-width:200px">
+        <div class="mi"><svg class="i"><use href="#book"/></svg><span>Bookkeeping<span class="d">Hubdoc and Invoices folder</span></span></div>
+        <div class="mi"><svg class="i"><use href="#mail"/></svg><span>Hubdoc<span class="d">Forward only</span></span></div>
+        <div class="mi"><svg class="i"><use href="#folder"/></svg><span>Invoices folder<span class="d">Save only</span></span></div>
+        <div class="div"></div>
+        <div class="mi"><svg class="i"><use href="#plus"/></svg>New place...</div>
+      </div>
+    </div>
+  </div>
+  <div style="max-width:330px">
+    <p class="lbl">Also here</p>
+    <p class="sub" style="margin:0 0 8px">The same <b>Forward</b> and <b>Send to</b> appear when you right-click an email in the list, and when several are selected: search "invoice", select them all, Send to › Bookkeeping, and each email goes as its own forward with its files.</p>
+    <p class="sub" style="margin:0">Places are a short list you set up once. The top one can be the default, like lists in Tasks: ☆ in Settings.</p>
+  </div>
+</div>
+
+<h2>2. New place</h2>
+<p class="sub">A place forwards, saves, or does both. Made from New place... in the menu, or in Settings.</p>
+<div class="row">
+  <div class="dlg">
+    <h3>New place</h3>
+    <div class="f"><label>Name</label><div class="in">Bookkeeping</div></div>
+    <div class="chk"><span class="box on"></span><span>Forward to</span></div>
+    <div class="indent f">
+      <div class="in" style="margin:0 0 8px">receipts.example@app.hubdoc.com</div>
+      <div class="chk"><span class="rad on"></span><span>Send straight away<br><span class="hint">With Undo, like any send</span></span></div>
+      <div class="chk"><span class="rad"></span><span>Open the writing window first</span></div>
+      <div class="chk" style="margin-top:8px"><span class="box on"></span><span>Only the attachments, not the email's text</span></div>
+    </div>
+    <div class="chk"><span class="box on"></span><span>Save the file to a folder</span></div>
+    <div class="indent f">
+      <div style="display:flex;gap:6px;margin:0 0 8px"><div class="in" style="flex:1">D:\Accounts\Invoices</div><span class="btn">Choose...</span></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="hint">Put it in</span><span class="seg"><span>That folder</span><span>Year</span><span class="on">Year › Month</span></span></div>
+      <div class="hint" style="margin-top:6px">Saves as D:\Accounts\Invoices\2026\11 November\Invoice-CNV-48213.pdf</div>
+      <div class="chk" style="margin-top:8px"><span class="box"></span><span>Ask me for a folder each time instead</span></div>
+    </div>
+    <div class="foot"><span class="btn ghost">Cancel</span><span class="btn primary">Save place</span></div>
+  </div>
+</div>
+
+<h2>3. After sending</h2>
+<p class="sub">The usual toast at the bottom, with Undo. The first time a sender goes to a place, it asks once whether to make it a rule.</p>
+<div class="row">
+  <div class="toast">
+    <div class="t"><svg class="i ok"><use href="#check"/></svg><span><b>Sent to Bookkeeping</b></span><span class="link" style="margin-left:auto">Undo</span></div>
+    <div class="s">Forwarded to Hubdoc · saved in Invoices › 2026 › 11 November</div>
+    <div class="ask"><span>Always send invoices from <b>Canva</b> to Bookkeeping?</span><span class="btn">Not now</span><span class="btn primary">Make a rule</span></div>
+  </div>
+</div>
+
+<h2>4. Settings › Send To</h2>
+<p class="sub">Two cards, like the other Settings pages. Right-click to rename, edit, set as default or delete; drag to reorder; the switch pauses a rule.</p>
+<div class="row">
+  <div class="card list">
+    <h3>Places</h3>
+    <div class="li"><span class="grip">⋮⋮</span><svg class="i"><use href="#book"/></svg><span class="grow"><div class="nm">Bookkeeping ☆</div><div class="ds">Hubdoc · Invoices › Year › Month</div></span></div>
+    <div class="li"><span class="grip">⋮⋮</span><svg class="i"><use href="#mail"/></svg><span class="grow"><div class="nm">Hubdoc</div><div class="ds">receipts.example@app.hubdoc.com</div></span></div>
+    <div class="li"><span class="grip">⋮⋮</span><svg class="i"><use href="#folder"/></svg><span class="grow"><div class="nm">Invoices folder</div><div class="ds">D:\Accounts\Invoices</div></span></div>
+    <div style="margin-top:10px"><span class="btn"><svg class="i"><use href="#plus"/></svg>New place</span></div>
+  </div>
+  <div class="card list">
+    <h3>Rules</h3>
+    <div class="li"><span class="grip">⋮⋮</span><span class="grow"><div class="nm">Canva</div><div class="ds">From canva.com, with a PDF › Bookkeeping</div></span><span class="pill">3 sent</span><span class="sw"></span></div>
+    <div class="li"><span class="grip">⋮⋮</span><span class="grow"><div class="nm">Zoom</div><div class="ds">From zoom.us, with a PDF › Bookkeeping</div></span><span class="pill">1 sent</span><span class="sw"></span></div>
+    <div class="li"><span class="grip">⋮⋮</span><span class="grow"><div class="nm">Adobe</div><div class="ds">From adobe.com, subject has "invoice" › Hubdoc</div></span><span class="pill">0 sent</span><span class="sw off"></span></div>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><span class="btn"><svg class="i"><use href="#search"/></svg>Find my invoices...</span><span class="btn ghost">What's been sent</span></div>
+    <p class="hint" style="margin:10px 0 0">Rules run as mail arrives while the app is open, and catch up when you open it. Nothing is sent twice.</p>
+  </div>
+</div>
+
+<h2>5. Find my invoices</h2>
+<p class="sub">Looks back through the last year for emails with PDFs and words like invoice or receipt, grouped by sender. Tick the ones you want and pick a place.</p>
+<div class="row">
+  <div class="card tbl">
+    <h3>Find my invoices</h3>
+    <p class="hint" style="margin:-6px 0 10px">Found 9 senders in the last 12 months</p>
+    <div class="list">
+      <div class="li"><span class="box on"></span><span class="grow"><div class="nm">Canva</div><div class="ds">Last on 3 Nov · monthly</div></span><span class="n">12 emails</span><span class="pill">Bookkeeping ▾</span></div>
+      <div class="li"><span class="box on"></span><span class="grow"><div class="nm">Zoom</div><div class="ds">Last on 28 Oct · monthly</div></span><span class="n">12 emails</span><span class="pill">Bookkeeping ▾</span></div>
+      <div class="li"><span class="box on"></span><span class="grow"><div class="nm">Adobe</div><div class="ds">Last on 21 Oct · monthly</div></span><span class="n">12 emails</span><span class="pill">Bookkeeping ▾</span></div>
+      <div class="li"><span class="box on"></span><span class="grow"><div class="nm">Google Workspace</div><div class="ds">Last on 1 Nov · monthly</div></span><span class="n">12 emails</span><span class="pill">Bookkeeping ▾</span></div>
+      <div class="li"><span class="box"></span><span class="grow"><div class="nm">Amazon</div><div class="ds">Last on 9 Nov · now and then</div></span><span class="n">7 emails</span><span class="pill">Choose ▾</span></div>
+      <div class="li"><span class="box"></span><span class="grow"><div class="nm">Frame.io</div><div class="ds">Last on 14 Sep · yearly</div></span><span class="n">1 email</span><span class="pill">Choose ▾</span></div>
+    </div>
+    <div class="chk" style="margin-top:12px"><span class="box"></span><span>Also send the ones already here, from <span class="pill">the last 3 months ▾</span><br><span class="hint">12 emails. Each goes as its own forward.</span></span></div>
+    <div class="foot"><span class="btn ghost">Cancel</span><span class="btn primary">Make 4 rules</span></div>
+  </div>
+</div>
+
+<div class="note">
+  <h2>To agree</h2>
+  <ul>
+    <li><b>Name:</b> "Send to" in menus and "Send To" in Settings, with "places" for the saved list. Or "Forward to" if you prefer that wording.</li>
+    <li><b>Sending:</b> a place sends straight away with Undo (shown), unless you pick "Open the writing window first" for it.</li>
+    <li><b>What goes:</b> only the attachments by default (Hubdoc reads the PDF), with a tick to send the email's text too.</li>
+    <li><b>Rules</b> only run while Well Good Mail is open, catching up when it starts. Gmail's own filters could forward with the app closed, but only for Gmail, and the address has to be confirmed in Gmail first.</li>
+    <li><b>Later:</b> asking an AI app to "send this year's subscription invoices to Bookkeeping", with an approval card.</li>
+  </ul>
+</div>
+</div></body></html>

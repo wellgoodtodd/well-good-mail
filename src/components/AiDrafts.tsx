@@ -18,9 +18,9 @@ import { composeContext, writingStyle } from '../lib/composeActions';
 import { useSettings } from '../lib/settings';
 import { store } from '../lib/db';
 import { openDraft } from '../lib/composeActions';
-import { cssToStyle } from './Composer';
+import { cssToStyle, readFileB64 } from './Composer';
 import { DraftFilesPreview, draftFile, openDraftFile } from './AttachmentPreview';
-import { allAliases, draftSignature } from '../lib/compose';
+import { allAliases, draftSignature, stripOwnSignature } from '../lib/compose';
 import { askConfirm, askText } from '../lib/dialogs';
 import { undoSteps, record } from '../lib/history';
 import { useAiDrafts, saveDraftEverywhere, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, quickSave, quickSend, splitQuote, OUTSIDE_WRITER } from '../lib/mcp/aiDrafts';
@@ -398,7 +398,8 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
   const [filePreview, setFilePreview] = useState<number | null>(null);
   const editMenu = useMenu();
   // Only the reply itself is edited here; earlier emails quoted under it fold away and are kept as they are.
-  const parts = useMemo(() => splitQuote(d.html), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // A draft brought in before beta 9 may still hold its signature, which the box below shows anyway.
+  const parts = useMemo(() => splitQuote(stripOwnSignature(d.html, draftSignature(d, composeContext()))), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [showQuote, setShowQuote] = useState(false);
   const [form, setForm] = useState<QuickForm>(() => ({ fromAccountId: d.fromAccountId || acc?.id, fromEmail: d.fromEmail, to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, html: parts.own, signatureOf: d.signatureOf }));
   const writing = { font: useSettings((s) => s.writingFont), size: useSettings((s) => s.writingSize) };
@@ -409,6 +410,25 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
     onUpdate: ({ editor: ed }) => change({ html: ed.getHTML() }),
     onBlur: () => void flush(),
   });
+  // Files can't be added in this quick view, so dropping or pasting one opens the full editor with it attached.
+  const filesOf = (dt: DataTransfer | null) => [...(dt?.files || [])];
+  const withFiles = async (files: File[]) => {
+    await flush();
+    const cur = await store.getDraft(d.id);
+    if (!cur) return;
+    const added = await Promise.all(files.map(async (f) => ({ id: Math.random().toString(36).slice(2), filename: f.name, mimeType: f.type || 'application/octet-stream', size: f.size, dataB64: await readFileB64(f) })));
+    await store.putDraft({ ...cur, attachments: [...cur.attachments, ...added], updatedAt: Date.now() });
+    onClose();
+    void openDraft(d.id);
+    toast({ text: `Opened in the editor with ${files.length === 1 ? files[0].name : `${files.length} files`} attached` });
+  };
+  useEffect(() => {
+    if (!editor) return;
+    editor.setOptions({ editorProps: { ...editor.options.editorProps,
+      handleDrop: (_v, e) => { const f = filesOf((e as DragEvent).dataTransfer); if (!f.length) return false; e.preventDefault(); void withFiles(f); return true; },
+      handlePaste: (_v, e) => { const f = filesOf(e.clipboardData); if (!f.length) return false; e.preventDefault(); void withFiles(f); return true; },
+    } });
+  }, [editor]); // eslint-disable-line react-hooks/exhaustive-deps
   const signature = draftSignature({ fromEmail: form.fromEmail, signatureOf: form.signatureOf }, composeContext());
   const [showCc, setShowCc] = useState(d.cc.length > 0);
   const [showBcc, setShowBcc] = useState(d.bcc.length > 0);
@@ -450,7 +470,9 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
   const toEditor = async () => { await flush(); onClose(); void openDraft(d.id); };
 
   return (
-    <div className="ai-draft-detail" onClick={(e) => e.stopPropagation()}>
+    <div className="ai-draft-detail" onClick={(e) => e.stopPropagation()}
+      onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
+      onDrop={(e) => { const f = filesOf(e.dataTransfer); if (!f.length) return; e.preventDefault(); void withFiles(f); }}>
       <div className="ai-fields">
         <div className="comp-field">
           <label htmlFor={`aifrom-${d.id}`}>From</label>
@@ -501,7 +523,7 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
         </div>
       )}
       <div className="ai-quick-note ai-note-row">
-        <span>{writerText(d)}. To add or remove attachments, or change fonts, use Open in editor.</span>
+        <span>{writerText(d)}. To change fonts or attachments, use Open in editor. Dropping a file here opens it there with the file attached.</span>
         <span className={`ai-saved ${saving}`} aria-live="polite">{saving === 'saving' ? 'Saving...' : saving === 'saved' ? 'Saved' : ''}</span>
       </div>
       <div className="ai-quick-actions">
