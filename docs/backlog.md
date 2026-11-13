@@ -4,9 +4,9 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## Ideas (not scheduled)
+## For beta 7 (batched by Todd, 13 Nov 2026; start once beta 6 is out)
 
-- 13 Nov 2026: compose window polish, inspired by Apple Mail's compose window. Todd likes the current one, so this is optional, small and mock-up first. Ideas worth trying: font and size as neat boxed dropdowns (with the up/down arrows) instead of plain selects; clearer "on" state for bold, italic, underline and alignment (a filled blue box like Apple's); an emoji button (opens the Windows emoji panel, Win + .); attach and emoji as labelled buttons near the top (icon with the word under it); a roomier attachments area (bigger cards with thumbnails rather than small chips). Not wanted: Mac window buttons, Writing Tools.
+- 13 Nov 2026: compose window polish, inspired by Apple Mail's compose window. Todd likes the current one, so keep it small and show mock-ups first. Ideas worth trying: font and size as neat boxed dropdowns (with the up/down arrows) instead of plain selects; clearer "on" state for bold, italic, underline and alignment (a filled blue box like Apple's); an emoji button (opens the Windows emoji panel, Win + .); attach and emoji as labelled buttons near the top (icon with the word under it); a roomier attachments area (bigger cards with thumbnails rather than small chips). Not wanted: Mac window buttons, Writing Tools.
 
 ## Beta 5 feedback, for beta 6 (Todd, 13 Nov 2026)
 
