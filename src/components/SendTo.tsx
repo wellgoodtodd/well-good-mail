@@ -2,6 +2,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { Dialog, Check, Radio, fullDate, useMenu, type MenuItem } from './ui';
+import { RecipientField } from './RecipientField';
 import { useMail } from '../lib/mail';
 import { myAddresses } from '../lib/compose';
 import { isTauri } from '../lib/platform';
@@ -46,6 +47,7 @@ function PlaceEditor({ place, then }: { place?: SendPlace; then?: (p: SendPlace)
   const [forward, setForward] = useState(Boolean(place ? place.forwardTo : true));
   const [save, setSave] = useState(Boolean(place ? place.folder || place.askFolder : false));
   const change = (patch: Partial<SendPlace>) => setP((x) => ({ ...x, ...patch }));
+  const contacts = useMail((m) => m.contacts);
   const choose = async () => {
     if (!isTauri()) return;
     const { open } = await import('@tauri-apps/plugin-dialog');
@@ -72,7 +74,8 @@ function PlaceEditor({ place, then }: { place?: SendPlace; then?: (p: SendPlace)
         <Check checked={forward} onChange={setForward}>Forward to an address</Check>
         {forward && (
           <div className="sendto-indent">
-            <input type="email" aria-label="Forward to" value={p.forwardTo || ''} placeholder="you@app.hubdoc.com" onChange={(e) => change({ forwardTo: e.target.value })} />
+            <RecipientField label="Forward to" anyAddress placeholder="Type a name or address, like your Hubdoc one" contacts={contacts} value={email ? [{ email }] : []}
+              onAdd={(list) => change({ forwardTo: list[list.length - 1].email })} onRemove={() => change({ forwardTo: '' })} />
             <Radio name="Sending" value={p.sendMode} onChange={(v) => change({ sendMode: v })} options={[{ value: 'now', label: 'Send straight away', sub: 'With Undo, like any send. Rules always do this.' }, { value: 'open', label: 'Open the writing window first' }]} />
             <Check checked={p.filesOnly} onChange={(v) => change({ filesOnly: v })}>Only the attachments, not the email's text</Check>
           </div>
@@ -88,7 +91,7 @@ function PlaceEditor({ place, then }: { place?: SendPlace; then?: (p: SendPlace)
             <Check checked={Boolean(p.askFolder)} onChange={(v) => change({ askFolder: v })}>Ask me for a folder each time</Check>
           </div>
         )}
-        {!okEmail && email && <p className="hint status-bad">That address doesn't look right.</p>}
+        {!okEmail && email && <p className="hint status-bad">{email} doesn't look like an email address.</p>}
       </div>
     </Dialog>
   );

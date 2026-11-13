@@ -9,13 +9,16 @@ import { PersonCard, personItems } from './Person';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFocus }: {
+export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFocus, placeholder, anyAddress }: {
   label: string;
   value: Address[];
   contacts: Address[];
   onAdd: (a: Address[]) => void;
   onRemove: (email: string) => void;
   autoFocus?: boolean;
+  placeholder?: string;
+  /** Offer service addresses too (receipts@..., Hubdoc), not only people. */
+  anyAddress?: boolean;
 }) {
   const [text, setText] = useState('');
   const [active, setActive] = useState(0);
@@ -25,7 +28,7 @@ export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFo
   const id = `rcpt-${label.toLowerCase()}`;
 
   // The contacts worth offering, worked out once (not on every key press): lower-case names and no machine addresses.
-  const people = useMemo(() => contacts.filter((c) => !isMachineAddress(c.email)).map((c) => ({ c, name: (c.name || '').toLowerCase() })), [contacts]);
+  const people = useMemo(() => contacts.filter((c) => anyAddress || !isMachineAddress(c.email)).map((c) => ({ c, name: (c.name || '').toLowerCase() })), [contacts, anyAddress]);
   const suggestFor = (typed: string) => {
     const q = typed.trim().toLowerCase();
     if (q.length < 1) return [];
@@ -73,6 +76,8 @@ export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFo
           ref={inputRef}
           value={text}
           autoFocus={autoFocus}
+          placeholder={value.length ? undefined : placeholder}
+          aria-label={label}
           autoComplete="off"
           spellCheck={false}
           onChange={(e) => {

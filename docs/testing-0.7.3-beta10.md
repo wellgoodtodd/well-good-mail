@@ -170,7 +170,8 @@ Beta 10 is beta 9 with the sidebar footer as agreed in round three (docs/mockups
 
 ## Found in beta 10
 
-(Your feedback goes here.)
+- **New place: the boxes ran past the edge of the dialog** (Todd). Fixed for the next build: they fit the dialog.
+- **Forward to should suggest contacts as you type** (Todd), like the To box and event guests. Done for the next build: it offers your contacts (service addresses like Hubdoc's too) after a short pause, and shows the chosen one as a chip.
 
 ## If something goes wrong
 

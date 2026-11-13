@@ -1956,7 +1956,11 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 }
 
 /* Send To (Settings › Send To, the place editor, Find my invoices) */
-.sendto-form { display: grid; gap: 10px; min-width: min(460px, 80vw); }
+.sendto-form { display: grid; gap: 10px; min-width: 0; }
+.sendto-form input:not([type="checkbox"]):not([type="radio"]), .sendto-form select { width: 100%; min-width: 0; box-sizing: border-box; }
+.sendto-form .chips input:not([type="checkbox"]) { width: auto; flex: 1; }
+.sendto-form .comp-field { border: 1px solid var(--border); border-radius: 7px; background: var(--bg); padding: 0 8px; }
+.sendto-form .comp-field > label { display: none; }
 .sendto-field { display: grid; gap: 4px; }
 .sendto-field > span { font-size: 0.86em; color: var(--text-muted); }
 .sendto-indent { display: grid; gap: 8px; margin: -2px 0 4px 14px; padding-left: 12px; border-left: 2px solid var(--border); }
