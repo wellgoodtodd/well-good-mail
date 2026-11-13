@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Well Good Mail",
-  "version": "0.7.3",
+  "version": "0.7.4-beta.1",
   "identifier": "media.wellgood.mail",
   "build": {
     "frontendDist": "../dist",
@@ -36,7 +36,9 @@
     "createUpdaterArtifacts": true,
     "fileAssociations": [
       {
-        "ext": ["ics"],
+        "ext": [
+          "ics"
+        ],
         "name": "Calendar event",
         "description": "Calendar event",
         "mimeType": "text/calendar",
