@@ -159,7 +159,43 @@ export function AppearanceTab() {
         <button className="btn ghost" onClick={() => s.set({ sidebarWidth: 240, listWidth: 380, listHeight: 320 })}>Reset column sizes</button>
         <button className="btn ghost" onClick={() => s.set({ toolbarOrder: ['archive', 'bin', 'junk', 'read', 'flag', 'snooze', 'popout', 'more'] })}>Reset toolbar order</button>
       </section>
+      <section className="set-section">
+        <div className="set-h2-row"><h2>Attachments</h2>{partReset('Attachments', { attachmentPlace: d0.attachmentPlace, attachmentSize: d0.attachmentSize })}</div>
+        <Row label="Show them">
+          <Radio name="attachplace" value={s.attachmentPlace} onChange={(v) => s.set({ attachmentPlace: v })} options={[{ value: 'above', label: 'Above the email' }, { value: 'below', label: 'Below the email' }]} />
+        </Row>
+        <Row label="Size">
+          <Radio name="attachsize" value={s.attachmentSize} onChange={(v) => s.set({ attachmentSize: v })} options={[{ value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' }]} />
+        </Row>
+        <AttachmentPreview place={s.attachmentPlace} size={s.attachmentSize} />
+      </section>
     </>
+  );
+}
+
+/** A small email showing where attachments go and how big they are, using the reading pane's own styles. */
+function AttachmentPreview({ place, size }: { place: S['attachmentPlace']; size: S['attachmentSize'] }) {
+  const accounts = useMail((st) => st.accounts);
+  const me = accounts.find((a) => a.email === useSettings.getState().defaultFromEmail) || accounts[0];
+  const first = (me?.displayName || '').split(/\s+/)[0];
+  const files = [{ name: 'Invoice-1042.pdf', size: '96 KB' }, { name: 'Receipt-November.pdf', size: '41 KB' }];
+  const block = (
+    <div className={`attachments ${size === 'small' ? 'chips' : size === 'medium' ? 'cards' : 'single large'} ${place}`} aria-hidden="true">
+      {files.map((f) => (
+        <div key={f.name} className="attachment">
+          <span className="open"><span className="ftile pdf">PDF</span><span className="info"><div className="fname">{f.name}</div><div className="fsize">{f.size}</div></span></span>
+          {size === 'large' && <span className="btn small">Preview</span>}
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <div className="attach-preview" aria-label="Preview">
+      <div className="attach-preview-head"><span className="avatar">NS</span><div><strong>Northwind Studio</strong><small>Your invoice for November</small></div></div>
+      {place === 'above' && block}
+      <div className="attach-preview-body"><p>Hi{first ? ` ${first}` : ''},</p><p>Thanks for your payment of £18.00. Your invoice and receipt are attached.</p></div>
+      {place === 'below' && block}
+    </div>
   );
 }
 

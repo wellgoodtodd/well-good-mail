@@ -846,6 +846,17 @@ li.yes .g-word { color: var(--success); } li.no .g-word { color: var(--danger); 
 .attachments.single .attachment .open { flex: 1; gap: 12px; }
 .attachments.single .ftile { width: 48px; height: 48px; border-radius: 10px; font-size: 13px; }
 .attachments.single .info { display: block; }
+/* Attachments above the email sit just under the header, before the text. */
+.attachments.above { padding: 4px 14px 10px; }
+/* Medium: cards, two or more to a row. */
+.attachments.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
+.attachments.cards .attachment { max-width: none; min-width: 0; border-radius: 10px; padding: 5px 4px 5px 6px; }
+.attachments.cards .ftile { width: 32px; height: 32px; border-radius: 8px; font-size: 10px; }
+.attachments.cards .attachment .open { flex: 1; min-width: 0; gap: 9px; }
+.attachments.cards > .btn { justify-self: start; }
+/* Large: a full card for each file, with Preview. */
+.attachments.large { flex-direction: column; }
+.attachments.large .attachment { max-width: 520px; width: 100%; }
 .ev-guests > .btn.ghost { margin-left: -10px; }
 .attachment .open { background: transparent; border: 0; }
 .attachment .open:hover { background: transparent; }
@@ -1987,3 +1998,14 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .sendto-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .sendto-past { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .check-inline { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Settings › Appearance › Attachments: a small email showing the choice. */
+.attach-preview { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-subtle); max-width: 560px; padding: 10px 0 6px; pointer-events: none; }
+.attach-preview-head { display: flex; align-items: center; gap: 10px; padding: 0 14px 6px; }
+.attach-preview-head .avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; background: #6b7c93; flex: none; }
+.attach-preview-head strong, .attach-preview-head small { display: block; }
+.attach-preview-head small { color: var(--text-muted); }
+.attach-preview-body { margin: 4px 14px 8px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 0.92em; }
+.attach-preview-body p { margin: 0 0 6px; }
+.attach-preview-body p:last-child { margin: 0; }
+.attach-preview .attachments:not(.above) { padding-top: 0; }

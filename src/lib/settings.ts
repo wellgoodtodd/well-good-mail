@@ -204,6 +204,9 @@ export interface Settings {
   suggestMuted: string[];
   /** Where Save puts attachments without asking. Empty: ask each time. */
   downloadFolder: string;
+  /** Reading an email: attachments above or below the text, and how big. */
+  attachmentPlace: 'above' | 'below';
+  attachmentSize: 'small' | 'medium' | 'large';
   /** Out of Office: the next time away, as set up in Settings › Out of Office. */
   ooo: OooPlan;
   /** A time away Well Good Mail turned on, for its extras. */
@@ -357,6 +360,8 @@ export const defaultSettings: Settings = {
   wakeToSend: true,
   ooo: defaultPlan(),
   downloadFolder: '',
+  attachmentPlace: 'above',
+  attachmentSize: 'medium',
   suggestEvents: true,
   motion: 'system',
   focusRing: 'standard',
@@ -413,7 +418,7 @@ const SETTING_NAMES: Record<string, string> = {
   hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders', sendPlaces: 'Send To places', sendRules: 'Send To rules',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
-  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', oooTemplates: 'Out of Office templates', calendarGroups: 'Calendar Groups', taskDefaults: 'task lists', aiTaskTarget: 'AI Connection', calendarGroup: 'calendar group', groupAlertsOnly: 'calendar group alerts', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', spellWords: 'dictionary', spellLang: 'spelling', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', oooTemplates: 'Out of Office templates', calendarGroups: 'Calendar Groups', taskDefaults: 'task lists', aiTaskTarget: 'AI Connection', calendarGroup: 'calendar group', groupAlertsOnly: 'calendar group alerts', downloadFolder: 'downloads folder', attachmentPlace: 'attachment position', attachmentSize: 'attachment size', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', spellWords: 'dictionary', spellLang: 'spelling', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
 };
 let lastStep: { id: string; keys: string; at: number } | null = null;
 

@@ -168,6 +168,8 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
 
   const name = message.from.name || message.from.email;
   const attachments = message.attachments.filter((a) => !pointedAt(message, a));
+  const attachPlace = useSettings((st) => st.attachmentPlace);
+  const attachSize = useSettings((st) => st.attachmentSize);
 
   const download = async (id: string, filename: string, mime: string, ask = false) => {
     try {
@@ -195,6 +197,47 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
       toast({ text: `Couldn't save the files: ${e instanceof Error ? e.message : e}` });
     }
   };
+
+  // Where the files sit (above or below the email) and how big, from Settings › Appearance.
+  const filesBlock = attachments.length > 0 ? (
+    <div className={`attachments ${attachSize === 'small' ? 'chips' : attachSize === 'medium' ? 'cards' : 'single large'} ${attachPlace}`}>
+          {attachments.map((a, i) => {
+            const canPreview = previewKind(a) !== null;
+            const single = attachSize === 'large';
+            // Big files are slow to load, so they skip the hover preview and say to click instead.
+            const big = a.size > 5 * 1024 * 1024;
+            return (
+              <div key={a.id} className="attachment" onContextMenu={(e) => { e.preventDefault(); setPeek(null); menu.open({ x: e.clientX, y: e.clientY }, [
+                ...(canPreview ? [{ label: 'Preview', icon: 'eye' as const, onClick: () => setPreviewAt(i) }] : []),
+                ...(isTauri() ? [{ label: 'Open in its own app', icon: 'popout' as const, onClick: () => openApp(a.id, a.filename, a.mimeType) }] : []),
+                { label: useSettings.getState().downloadFolder ? 'Save to downloads folder' : 'Save...', icon: 'download' as const, onClick: () => download(a.id, a.filename, a.mimeType) },
+                // With a downloads folder set, Save as... still offers the Windows box to pick a folder and a name.
+                ...(useSettings.getState().downloadFolder ? [{ label: 'Save as...', icon: 'folder' as const, onClick: () => download(a.id, a.filename, a.mimeType, true) }] : []),
+                ...(attachments.length > 1 ? [{ label: `Save all ${attachments.length} to a folder...`, icon: 'folder' as const, onClick: saveAll }] : []),
+                { divider: true },
+                { label: 'Forward...', icon: 'forward' as const, onClick: () => void forwardAttachment(message, a.id) },
+                sendToItems(() => [message], a.id),
+              ]); }} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); clearTimeout(peekTimer.current); if (!canPreview || !big) peekTimer.current = setTimeout(() => setPeek({ i, rect }), 400); }} onMouseLeave={() => { clearTimeout(peekTimer.current); setPeek(null); }}>
+                <button className="open" onClick={() => (canPreview ? (setPeek(null), setPreviewAt(i)) : isTauri() ? openApp(a.id, a.filename, a.mimeType) : download(a.id, a.filename, a.mimeType))} title={canPreview ? (big ? `Large file: click to preview ${a.filename}` : `Preview ${a.filename}`) : isTauri() ? `Open ${a.filename} in its own app` : `Save ${a.filename}`}>
+                  <span className={`ftile ${fileTone(a)}`} aria-hidden="true">{fileTag(a)}</span>
+                  <span className="info">
+                    <div className="fname">{a.filename}</div>
+                    <div className="fsize">{fileSize(a.size)}</div>
+                  </span>
+                </button>
+                {single && canPreview && <button className="btn small" onClick={() => { setPeek(null); setPreviewAt(i); }}>Preview</button>}
+                <button className="icon-btn" onClick={() => download(a.id, a.filename, a.mimeType)} title={`Save ${a.filename}`} aria-label={`Save ${a.filename}`}><Icon name="download" /></button>
+                {!canPreview && peek?.i === i && previewAt === null && (
+                  <FileCard item={a} at={peek.rect} onOpen={isTauri() ? () => { setPeek(null); void openApp(a.id, a.filename, a.mimeType); } : undefined} onSave={() => { setPeek(null); void download(a.id, a.filename, a.mimeType); }} />
+                )}
+              </div>
+            );
+          })}
+          {attachments.length > 1 && (
+            <button className="btn ghost" onClick={saveAll}>Save all</button>
+          )}
+        </div>
+  ) : null;
 
   if (!expanded) {
     return (
@@ -275,50 +318,13 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
           <button className="btn" onClick={() => editServerDraft(message)}>Edit draft</button>
         </div>
       )}
+      {attachPlace === 'above' && filesBlock}
       {message.attachments.some((a) => /calendar|ics/i.test(a.mimeType) || /.ics$/i.test(a.filename)) ? <InviteCard message={message} /> : <SuggestedEvent message={message} />}
       <div className="frame-wrap">
         {rendered ? <EmailFrame html={rendered.html} onLinkHover={onLinkHover} onContext={onFrameContext} /> : <div className="empty">Loading...</div>}
       </div>
 
-      {attachments.length > 0 && (
-        <div className={`attachments ${attachments.length === 1 ? 'single' : 'chips'}`}>
-          {attachments.map((a, i) => {
-            const canPreview = previewKind(a) !== null;
-            const single = attachments.length === 1;
-            // Big files are slow to load, so they skip the hover preview and say to click instead.
-            const big = a.size > 5 * 1024 * 1024;
-            return (
-              <div key={a.id} className="attachment" onContextMenu={(e) => { e.preventDefault(); setPeek(null); menu.open({ x: e.clientX, y: e.clientY }, [
-                ...(canPreview ? [{ label: 'Preview', icon: 'eye' as const, onClick: () => setPreviewAt(i) }] : []),
-                ...(isTauri() ? [{ label: 'Open in its own app', icon: 'popout' as const, onClick: () => openApp(a.id, a.filename, a.mimeType) }] : []),
-                { label: useSettings.getState().downloadFolder ? 'Save to downloads folder' : 'Save...', icon: 'download' as const, onClick: () => download(a.id, a.filename, a.mimeType) },
-                // With a downloads folder set, Save as... still offers the Windows box to pick a folder and a name.
-                ...(useSettings.getState().downloadFolder ? [{ label: 'Save as...', icon: 'folder' as const, onClick: () => download(a.id, a.filename, a.mimeType, true) }] : []),
-                ...(attachments.length > 1 ? [{ label: `Save all ${attachments.length} to a folder...`, icon: 'folder' as const, onClick: saveAll }] : []),
-                { divider: true },
-                { label: 'Forward...', icon: 'forward' as const, onClick: () => void forwardAttachment(message, a.id) },
-                sendToItems(() => [message], a.id),
-              ]); }} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); clearTimeout(peekTimer.current); if (!canPreview || !big) peekTimer.current = setTimeout(() => setPeek({ i, rect }), 400); }} onMouseLeave={() => { clearTimeout(peekTimer.current); setPeek(null); }}>
-                <button className="open" onClick={() => (canPreview ? (setPeek(null), setPreviewAt(i)) : isTauri() ? openApp(a.id, a.filename, a.mimeType) : download(a.id, a.filename, a.mimeType))} title={canPreview ? (big ? `Large file: click to preview ${a.filename}` : `Preview ${a.filename}`) : isTauri() ? `Open ${a.filename} in its own app` : `Save ${a.filename}`}>
-                  <span className={`ftile ${fileTone(a)}`} aria-hidden="true">{fileTag(a)}</span>
-                  <span className="info">
-                    <div className="fname">{a.filename}</div>
-                    <div className="fsize">{fileSize(a.size)}</div>
-                  </span>
-                </button>
-                {single && canPreview && <button className="btn small" onClick={() => { setPeek(null); setPreviewAt(i); }}>Preview</button>}
-                <button className="icon-btn" onClick={() => download(a.id, a.filename, a.mimeType)} title={`Save ${a.filename}`} aria-label={`Save ${a.filename}`}><Icon name="download" /></button>
-                {!canPreview && peek?.i === i && previewAt === null && (
-                  <FileCard item={a} at={peek.rect} onOpen={isTauri() ? () => { setPeek(null); void openApp(a.id, a.filename, a.mimeType); } : undefined} onSave={() => { setPeek(null); void download(a.id, a.filename, a.mimeType); }} />
-                )}
-              </div>
-            );
-          })}
-          {attachments.length > 1 && (
-            <button className="btn ghost" onClick={saveAll}>Save all</button>
-          )}
-        </div>
-      )}
+      {attachPlace === 'below' && filesBlock}
 
       {peek && previewAt === null && attachments[peek.i] && previewKind(attachments[peek.i]) && <AttachmentPeek messageId={message.id} item={attachments[peek.i]} at={peek.rect} />}
       {previewAt !== null && <AttachmentPreview messageId={message.id} items={attachments} start={previewAt} onClose={() => setPreviewAt(null)} onOpenApp={isTauri() ? (a) => void openApp(a.id, a.filename, a.mimeType) : undefined} />}

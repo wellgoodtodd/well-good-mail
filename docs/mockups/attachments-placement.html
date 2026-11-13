@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Attachment placement</title>
+<style>
+:root{--pane:#1c1c1e;--card:#232326;--elev:#2c2c30;--line:#38383d;--text:#ececef;--muted:#9c9ca5;--faint:#7b7d86;--accent:#3b82f6;--pdf:#e5484d;--sel:rgba(59,130,246,.28)}
+*{box-sizing:border-box}
+body{margin:0;background:#111113;color:var(--text);font:13.5px/1.45 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:1180px;margin:0 auto}
+h1{font-size:20px;margin:0 0 6px}
+h2{font-size:15px;margin:30px 0 4px}
+.intro,.sub{color:var(--muted);max-width:760px;margin:0 0 16px}
+.grid{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+.opt{width:360px;max-width:100%}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+.why{color:var(--muted);font-size:12.5px;margin:10px 0 0}
+.why b{color:var(--text)}
+.pane{background:var(--pane);border:1px solid var(--line);border-radius:12px;padding:14px}
+.subj{font-size:17px;font-weight:700;margin:0 0 10px}
+.msg{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.head{display:flex;gap:10px;align-items:flex-start}
+.av{width:34px;height:34px;border-radius:50%;background:#2d8cff;display:grid;place-items:center;font-weight:700;font-size:12px;flex:none}
+.who b{display:block}.who span{color:var(--muted);font-size:12px}
+.date{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+.body{background:#141416;border-radius:8px;padding:12px;margin-top:10px;color:#d6d6dc;font-size:13px}
+.body p{margin:0 0 8px}
+.ftile{display:inline-grid;place-items:center;flex:none;font-weight:700;background:rgba(229,72,77,.18);color:var(--pdf)}
+.ftile.img{background:rgba(59,130,246,.18);color:var(--accent)}
+.att{display:flex;flex-wrap:wrap;gap:6px}
+/* small chips */
+.chip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px;background:var(--elev);max-width:100%;font-size:12.5px}
+.chip .ftile{width:20px;height:20px;border-radius:50%;font-size:7px}
+.chip .s{color:var(--muted);font-size:11.5px}
+.top{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+/* medium cards */
+.mcard{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;padding:6px 10px 6px 6px;background:var(--elev);width:calc(50% - 3px);min-width:0}
+.mcard .ftile{width:30px;height:30px;border-radius:7px;font-size:9px}
+.mcard .n{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12.5px}
+.mcard .s{color:var(--muted);font-size:11.5px}
+.mcard>div{min-width:0}
+/* large cards (as now) */
+.lcard{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--elev);width:100%}
+.lcard .ftile{width:46px;height:46px;border-radius:10px;font-size:13px}
+.lcard .n{font-weight:500}.lcard .s{color:var(--muted);font-size:12px}
+.lcard .btn{margin-left:auto;border:1px solid var(--line);border-radius:7px;padding:4px 9px;font-size:12px;font-weight:600}
+.below{margin-top:10px}
+.total{color:var(--muted);font-size:11.5px;margin:0 0 6px}
+.actions{display:flex;gap:8px;margin-top:10px}
+.actions span{border:1px solid var(--line);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600}
+.actions span:first-child{background:var(--accent);border-color:var(--accent)}
+/* settings */
+.card{background:#232326;border:1px solid var(--line);border-radius:12px;padding:16px;width:520px;max-width:100%}
+.card h3{font-size:14px;margin:0 0 12px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;font-size:12.5px;flex:none}
+.seg span{padding:4px 10px;color:var(--muted)}.seg span.on{background:var(--sel);color:var(--text)}
+.hint{font-size:12px;color:var(--faint);margin:8px 0 0}
+.note{margin-top:30px;background:#1b1b1e;border:1px solid var(--line);border-radius:12px;padding:14px 16px;max-width:760px}
+.note h2{margin:0 0 6px}
+.note p,.note li{color:var(--muted);margin:4px 0}
+.note b{color:var(--text)}
+@media (max-width:520px){.opt{width:100%}.mcard{width:100%}}
+</style></head><body><div class="w">
+
+<h1>Attachments: above or below, and how big</h1>
+<p class="intro">The real reading pane with a Zoom invoice and two files. A new card in Settings › Appearance (Reading) chooses where attachments sit and how big they are. Right-click works the same on every size.</p>
+
+<h2>Settings</h2>
+<div class="card">
+  <h3>Attachments</h3>
+  <div class="row"><span>Show them</span><span class="seg"><span class="on">Above the email</span><span>Below the email</span></span></div>
+  <div class="row"><span>Size</span><span class="seg"><span>Small</span><span class="on">Medium</span><span>Large</span></span></div>
+  <p class="hint">Small: one line of chips. Medium: two cards to a row. Large: full-width cards with Preview, as now. Pictures still show as thumbnails at every size.</p>
+</div>
+
+<h2>How it looks</h2>
+<div class="grid">
+
+  <div class="opt">
+    <p class="lbl">Above · Small</p>
+    <div class="pane">
+      <p class="subj">Your Zoom invoice</p>
+      <div class="msg">
+        <div class="head"><span class="av">Z</span><div class="who"><b>Zoom</b><span>billing@zoom.us</span></div><span class="date">31 Jul, 09:12</span></div>
+        <div class="att top">
+          <span class="chip"><span class="ftile">PDF</span>INV359484056.pdf<span class="s">96 KB</span></span>
+          <span class="chip"><span class="ftile">PDF</span>Receipt-July.pdf<span class="s">41 KB</span></span>
+        </div>
+        <div class="body"><p>Hi Todd,</p><p>Thanks for your payment of £13.10 for Zoom Pro. Your invoice is attached.</p><p>The Zoom Team</p></div>
+      </div>
+      <div class="actions"><span>Reply</span><span>Reply All</span><span>Forward</span></div>
+    </div>
+    <p class="why"><b>The files are the first thing you see</b>, in one slim line, and the email reads straight on below. Good for invoices.</p>
+  </div>
+
+  <div class="opt">
+    <p class="lbl">Above · Medium</p>
+    <div class="pane">
+      <p class="subj">Your Zoom invoice</p>
+      <div class="msg">
+        <div class="head"><span class="av">Z</span><div class="who"><b>Zoom</b><span>billing@zoom.us</span></div><span class="date">31 Jul, 09:12</span></div>
+        <div class="att top">
+          <div class="mcard"><span class="ftile">PDF</span><div><div class="n">INV359484056.pdf</div><div class="s">96 KB</div></div></div>
+          <div class="mcard"><span class="ftile">PDF</span><div><div class="n">Receipt-July.pdf</div><div class="s">41 KB</div></div></div>
+        </div>
+        <div class="body"><p>Hi Todd,</p><p>Thanks for your payment of £13.10 for Zoom Pro. Your invoice is attached.</p><p>The Zoom Team</p></div>
+      </div>
+      <div class="actions"><span>Reply</span><span>Reply All</span><span>Forward</span></div>
+    </div>
+    <p class="why">Like eM Client. <b>Easier to click and right-click</b>, two to a row, still above the text.</p>
+  </div>
+
+  <div class="opt">
+    <p class="lbl">Below · Large (as now)</p>
+    <div class="pane">
+      <p class="subj">Your Zoom invoice</p>
+      <div class="msg">
+        <div class="head"><span class="av">Z</span><div class="who"><b>Zoom</b><span>billing@zoom.us</span></div><span class="date">31 Jul, 09:12</span></div>
+        <div class="body"><p>Hi Todd,</p><p>Thanks for your payment of £13.10 for Zoom Pro. Your invoice is attached.</p><p>The Zoom Team</p></div>
+        <div class="below">
+          <p class="total">2 files · 137 KB</p>
+          <div class="att">
+            <div class="lcard"><span class="ftile">PDF</span><div><div class="n">INV359484056.pdf</div><div class="s">96 KB</div></div><span class="btn">Preview</span></div>
+            <div class="lcard"><span class="ftile">PDF</span><div><div class="n">Receipt-July.pdf</div><div class="s">41 KB</div></div><span class="btn">Preview</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="actions"><span>Reply</span><span>Reply All</span><span>Forward</span></div>
+    </div>
+    <p class="why">Today's layout, kept as an option. With a long email you scroll to reach the files.</p>
+  </div>
+</div>
+
+<div class="note">
+  <h2>My suggestion</h2>
+  <ul>
+    <li><b>Default: Above · Medium.</b> Files are in reach without scrolling, and big enough to right-click comfortably. Anyone who prefers today's look picks Below · Large.</li>
+    <li>Any mix works (Below · Small, Above · Large...). Pictures keep their thumbnails at every size, and Save all appears beside them when there are several.</li>
+    <li>Writing an email isn't affected: this is only for reading.</li>
+  </ul>
+</div>
+</div></body></html>

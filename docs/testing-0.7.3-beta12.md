@@ -188,7 +188,7 @@ Beta 12 is beta 11 plus your beta 11 feedback. If something goes badly wrong, be
 
 ## Found in beta 12
 
-(Your feedback goes here.)
+- **Attachments above or below, in three sizes** (Todd agreed the mock-up, and asked for a preview in Settings so people can see what each choice looks like). Done for the next build: Settings › Appearance › Attachments, with a small sample email under the choices that greets you by name. Default: above the email, medium.
 
 ## If something goes wrong
 

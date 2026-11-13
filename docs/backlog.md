@@ -4,9 +4,13 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## For the next beta (after beta 12)
+
+- Settings › Appearance › Attachments: Show them above or below the email, Size small, medium or large (settings attachmentPlace, attachmentSize; default above, medium). A small preview email under the choices, greeting the person by their first name. MessageView renders the files block above or below.
+
 ## 0.7.3 beta 12 (built 13 Nov 2026)
 
-Beta 11 plus Todd's beta 11 feedback. Test list: docs/testing-0.7.3-beta12.md. Next: a mock-up of attachments above or below the email, in three sizes, as a setting.
+Beta 11 plus Todd's beta 11 feedback. Test list: docs/testing-0.7.3-beta12.md. Next: a mock-up of attachments above or below the email, in three sizes, as a setting (done: docs/mockups/attachments-placement.html, Todd agreed).
 - Attachment right-click: Save as... beside Save to downloads folder.
 
 - Send To renaming: SendPlace.rename.how custom | start | end | ask (old 'smart' read as custom), pattern with {sender} {amount} {description} {name} and YYYY/YY/MM/DD (fillName, renamedFile, nameFacts, invoiceAmount in sendTo.ts, tested); placeholder buttons in the place editor.
@@ -182,6 +186,14 @@ Mock-ups: docs/mockups/tasks-and-places.html, then docs/mockups/tasks-view.html 
 ## Future idea: a Well Good tasks and calendar app (Todd, 13 Nov 2026)
 
 Once Tasks here feels right: a separate tasks and calendar app that combines every account (Google Tasks on the phone makes you switch accounts, with no combined view). Could start as a web app; a native iOS app once the Apple developer account is sorted for the teleprompter app.
+
+Later the same day (beta 12): Todd would like it as a web app saved to the phone's home screen, Calendar & Reminders and Tasks with this app's look, kept in step through Google Tasks and Calendar (so the desktop app and Google's own apps see the same things), and maybe for Claude on the phone to add tasks there. What it would take:
+- The React views already run in a browser (the demo). A phone layout for Calendar, Tasks and Coming up; no mail.
+- Hosting (Cloudflare Pages, per Todd's setup) and a Google sign-in for the web: a separate "Web application" OAuth client and redirect address; tokens kept in that browser only. Google Tasks and Calendar APIs can be called straight from the browser.
+- Microsoft and iCloud accounts would need more work (iCloud CalDAV can't be called from a browser without a server in between).
+- Alerts are the hard part: a home-screen web app can't wake itself at 10:00; reliable task alerts need a small push server. Google Calendar's own notifications keep working meanwhile.
+- Claude on the phone can't reach the desktop app's AI Connection. It would need a hosted connector (a remote MCP server, e.g. a Cloudflare Worker) that writes to Google Tasks, which then shows everywhere.
+Not a tonight job: several sessions. Best started as its own project with a spec and a phone mock-up first.
 
 ## Future idea: tasks (12 Nov 2026)
 
