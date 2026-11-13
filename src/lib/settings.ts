@@ -77,7 +77,7 @@ export interface Settings {
   meetingBannerMins: number;
   /** The Coming up column beside your mail. */
   comingUpOpen: boolean;
-  remindersView: 'list' | 'calendar';
+  remindersView: 'list' | 'calendar' | 'tasks';
   /** Calendars switched off in the calendar and Coming up, as "accountId|calendar name". Alerts still use them. */
   hiddenCalendars: string[];
   /** What hidden calendars may still alert you about: everything, video meetings only, or nothing. */
@@ -182,6 +182,12 @@ export interface Settings {
   groupAlertsOnly: boolean;
   /** The calendar the last new event went in ("accountId|calendar name"), used first next time. */
   lastEventCalendar: string;
+  /** Where new tasks go for each Calendar Group (group id, or '' for All): a task list id. */
+  taskDefaults: Record<string, string>;
+  /** Where tasks from AI apps go: 'group:<id>' (that group's default list), a task list id, or 'ask'. */
+  aiTaskTarget: string;
+  /** The list picked in the Tasks view: 'today', 'scheduled', 'all' or a task list id. */
+  tasksPlace: string;
 
   shortcuts: 'gmail' | 'none';
   /** Custom key combos by action id; missing = default. */
@@ -332,6 +338,9 @@ export const defaultSettings: Settings = {
   calendarGroup: '',
   groupAlertsOnly: false,
   lastEventCalendar: '',
+  taskDefaults: {},
+  aiTaskTarget: 'group:',
+  tasksPlace: 'today',
 
   shortcuts: 'gmail',
   keybindings: {},
@@ -352,7 +361,7 @@ export const defaultSettings: Settings = {
 };
 
 /** Changes that happen by themselves, or are too small to be worth a step in Undo (dragging a divider, folding a section). */
-const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'calendarMode', 'calendarZoom', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden']);
+const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'calendarMode', 'calendarZoom', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden', 'tasksPlace']);
 /** Friendly names for the Undo menu. Anything else is just "settings". */
 const SETTING_NAMES: Record<string, string> = {
   theme: 'appearance', accent: 'accent colour', density: 'density', textScale: 'text size', palette: 'account colours', darkSkin: 'dark look', lightSkin: 'light look',
@@ -361,7 +370,7 @@ const SETTING_NAMES: Record<string, string> = {
   hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
-  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', oooTemplates: 'Out of Office templates', calendarGroups: 'Calendar Groups', calendarGroup: 'calendar group', groupAlertsOnly: 'calendar group alerts', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', spellWords: 'dictionary', spellLang: 'spelling', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', oooTemplates: 'Out of Office templates', calendarGroups: 'Calendar Groups', taskDefaults: 'task lists', aiTaskTarget: 'AI Connection', calendarGroup: 'calendar group', groupAlertsOnly: 'calendar group alerts', downloadFolder: 'downloads folder', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', spellWords: 'dictionary', spellLang: 'spelling', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
 };
 let lastStep: { id: string; keys: string; at: number } | null = null;
 

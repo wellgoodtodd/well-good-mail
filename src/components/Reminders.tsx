@@ -12,6 +12,8 @@ import { EventPreview } from './EventPopup';
 import { InvitationsButton } from './Invitations';
 import { JoinButton } from './calendarBits';
 import { MonthView, TimeGridView, CalendarModes } from './CalendarViews';
+import { TasksView, newTask } from './Tasks';
+import { refreshTasks } from '../lib/tasks';
 import { SelectionBar, clearSelected, toggleSelected, useEventSelection } from './EventSelection';
 import { refreshCalendarCopy, startCalendarCopy } from '../lib/calendarCache';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
@@ -50,7 +52,8 @@ export function Reminders() {
     void refreshCalendarCopy();
     setRefreshing(true);
     try {
-      const failed = await refreshEvents();
+      void refreshTasks();
+      const failed = await refreshEvents({ everyone: true });
       toast(failed.length ? calendarFailureToast(failed, useMail.getState().accounts, () => void refresh(), (id) => void reconnectAccount(id)) : { text: 'Calendars updated', ttl: 2500 });
     } finally { setRefreshing(false); }
   };
@@ -77,20 +80,23 @@ export function Reminders() {
             <div className="seg" role="group" aria-label="View">
               <button className={s.remindersView === 'list' ? 'on' : ''} aria-pressed={s.remindersView === 'list'} onClick={() => s.set({ remindersView: 'list' })}><Icon name="list" size={14} /> List</button>
               <button className={s.remindersView === 'calendar' ? 'on' : ''} aria-pressed={s.remindersView === 'calendar'} onClick={() => s.set({ remindersView: 'calendar' })}><Icon name="calendar" size={14} /> Calendar</button>
+              <button className={s.remindersView === 'tasks' ? 'on' : ''} aria-pressed={s.remindersView === 'tasks'} onClick={() => s.set({ remindersView: 'tasks' })}><Icon name="check" size={14} /> Tasks</button>
             </div>
             <span className="grow" />
             {/* Kept together, so on a narrow window they move to the next line as one row. */}
             <div className="rem-actions">
-              <InvitationsButton />
+              {s.remindersView !== 'tasks' && <InvitationsButton />}
               <CalendarPicker />
               <button className="icon-btn rem-refresh" disabled={refreshing} title={refreshing ? 'Refreshing the calendars' : 'Refresh the calendars'} aria-label={refreshing ? 'Refreshing the calendars' : 'Refresh the calendars'} onClick={refresh}><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span></button>
               {s.remindersView === 'list' && <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>}
-              <button className="btn primary" title="New event (Ctrl+Alt+N)" onClick={() => startNewEvent()}><Icon name="plus" size={14} /> New event</button>
+              {s.remindersView === 'tasks'
+                ? <button className="btn primary" onClick={() => newTask()}><Icon name="plus" size={14} /> New task</button>
+                : <button className="btn primary" title="New event (Ctrl+Alt+N)" onClick={() => startNewEvent()}><Icon name="plus" size={14} /> New event</button>}
             </div>
           </div>
           <p className="lead">Everything from your calendars and follow ups collects here quietly until you clear it. Nothing pops up unless you ask it to.</p>
           <div className="rem-scroll">
-            {s.remindersView === 'calendar' ? (s.calendarMode === 'month' ? <MonthView onPick={setPreview} modes={<CalendarModes />} /> : <TimeGridView key={s.calendarMode} mode={s.calendarMode} onPick={setPreview} modes={<CalendarModes />} />) : items.length === 0 ? (
+            {s.remindersView === 'tasks' ? <TasksView /> : s.remindersView === 'calendar' ? (s.calendarMode === 'month' ? <MonthView onPick={setPreview} modes={<CalendarModes />} /> : <TimeGridView key={s.calendarMode} mode={s.calendarMode} onPick={setPreview} modes={<CalendarModes />} />) : items.length === 0 ? (
               <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Icon name="check" size={26} />
                 <div style={{ marginTop: 8, fontSize: '1.1em', color: 'var(--text)' }}>All clear</div>

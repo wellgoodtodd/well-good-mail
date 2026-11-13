@@ -1,5 +1,5 @@
 // The contract every mail service (Gmail, Microsoft 365, IMAP, demo) fulfils.
-import type { Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, ChangeOptions, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Task, TaskList, TaskPatch, Alias, CalendarEvent, EventCopy, EventPatch, ChangeOptions, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Invite, Rsvp } from '../invites';
 import type { AutoReply } from '../ooo';
 
@@ -85,6 +85,14 @@ export interface MailProvider {
   removeAwayEvent?(id: string): Promise<void>;
   /** Upload a large file and return a share link (Google Drive). */
   uploadLargeFile?(name: string, mimeType: string, data: Uint8Array): Promise<string>;
+  /** Task lists (Google Tasks, Microsoft To Do). */
+  listTaskLists?(): Promise<TaskList[]>;
+  /** Open tasks in a list, and ones finished since `doneSince`. */
+  listTasks?(list: TaskList, doneSince: number): Promise<Task[]>;
+  createTask?(list: TaskList, p: TaskPatch): Promise<Task>;
+  updateTask?(task: Task, p: TaskPatch): Promise<Task>;
+  deleteTask?(task: Task): Promise<void>;
+  createTaskList?(name: string): Promise<TaskList>;
 }
 
 /** The account hasn't allowed the app to change its calendar yet; signing in again does that. */
@@ -99,5 +107,13 @@ export class NeedsPermissionError extends Error {
   needsPermission = true;
   constructor(what = 'this') {
     super(`This account needs to sign in once more to allow ${what}`);
+  }
+}
+
+/** Google: the Tasks API isn't turned on in the person's own Google Cloud project yet. */
+export class TasksApiOffError extends Error {
+  apiOff = true;
+  constructor() {
+    super('The Google Tasks API is not turned on in your Google Cloud project yet');
   }
 }

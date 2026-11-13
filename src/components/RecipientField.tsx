@@ -1,5 +1,5 @@
 // To / Cc / Bcc box with contact suggestions.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { parseAddressList } from '../lib/mime';
 import { isMachineAddress } from '../lib/machineAddress';
@@ -24,15 +24,28 @@ export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFo
   const [card, setCard] = useState<{ a: Address; at: DOMRect } | null>(null);
   const id = `rcpt-${label.toLowerCase()}`;
 
-  const suggestions = useMemo(() => {
-    const q = text.trim().toLowerCase();
+  // The contacts worth offering, worked out once (not on every key press): lower-case names and no machine addresses.
+  const people = useMemo(() => contacts.filter((c) => !isMachineAddress(c.email)).map((c) => ({ c, name: (c.name || '').toLowerCase() })), [contacts]);
+  const suggestFor = (typed: string) => {
+    const q = typed.trim().toLowerCase();
     if (q.length < 1) return [];
     const taken = new Set(value.map((v) => v.email.toLowerCase()));
-    return contacts
-      .filter((c) => !taken.has(c.email) && !isMachineAddress(c.email) && (c.email.includes(q) || (c.name || '').toLowerCase().includes(q)))
-      .sort((a, b) => Number(b.email.startsWith(q) || (b.name || '').toLowerCase().startsWith(q)) - Number(a.email.startsWith(q) || (a.name || '').toLowerCase().startsWith(q)))
-      .slice(0, 8);
-  }, [text, contacts, value]);
+    return people
+      .filter((p) => !taken.has(p.c.email) && (p.c.email.includes(q) || p.name.includes(q)))
+      .sort((a, b) => Number(b.c.email.startsWith(q) || b.name.startsWith(q)) - Number(a.c.email.startsWith(q) || a.name.startsWith(q)))
+      .slice(0, 8)
+      .map((p) => p.c);
+  };
+  // The lookup waits for a short pause in typing, so each letter shows at once even with a long contact list.
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    if (!text.trim()) { setQuery(text); return; }
+    const t = window.setTimeout(() => setQuery(text), 120);
+    return () => window.clearTimeout(t);
+  }, [text]);
+  const shown = useMemo(() => suggestFor(query), [query, people, value]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Keys act on what's typed now, even if the list hasn't caught up yet.
+  const current = () => (query === text ? shown : suggestFor(text));
 
   const commit = (raw = text) => {
     const list = parseAddressList(raw.replace(/;/g, ','));
@@ -72,6 +85,7 @@ export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFo
             if (/[,;\n]/.test(t)) { e.preventDefault(); commit(t.replace(/\n/g, ',')); }
           }}
           onKeyDown={(e) => {
+            const suggestions = e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Tab' ? current() : [];
             if (suggestions.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
               e.preventDefault();
               setActive((a) => (a + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length);
@@ -88,9 +102,9 @@ export function RecipientField({ label, value, contacts, onAdd, onRemove, autoFo
           }}
           onBlur={() => text.trim() && commit()}
         />
-        {suggestions.length > 0 && text && (
+        {shown.length > 0 && text && (
           <div className="suggest" role="listbox">
-            {suggestions.map((s, i) => (
+            {shown.map((s, i) => (
               <button key={s.email} className={i === active ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); onAdd([s]); setText(''); }}>
                 <div>{s.name || s.email}</div>
                 {s.name && <div className="sub">{s.email}</div>}

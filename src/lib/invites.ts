@@ -86,6 +86,16 @@ export function parseInvite(ics: string): Invite | undefined {
   };
 }
 
+/**
+ * Whether a newly arrived email looks like a calendar invitation (or a change to or cancellation of one), going by
+ * what's known before its body is read: a calendar file among its attachments, or the subject line Google Calendar,
+ * Apple and others use ("Invitation: ...", "Updated invitation: ...", "Cancelled event: ...").
+ */
+export function looksLikeInvitation(m: { subject?: string; attachments?: { filename: string; mimeType: string }[] }): boolean {
+  if ((m.attachments || []).some((a) => /text\/calendar|application\/ics/i.test(a.mimeType) || /\.ics$/i.test(a.filename))) return true;
+  return /^\s*(?:(?:updated |new )?invitation(?: with note)?|invitation from google calendar|cancell?ed event(?: with note)?|event cancell?ed)\s*:/i.test(m.subject || '');
+}
+
 /** Which of the invited people is you, going by the addresses this account answers to. */
 export function whichIsMe(invite: Invite, mine: string[]): InvitePerson | undefined {
   const set = new Set(mine.map((m) => m.toLowerCase()));

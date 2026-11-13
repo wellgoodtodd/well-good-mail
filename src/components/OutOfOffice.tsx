@@ -221,16 +221,19 @@ export function OutOfOfficeTab() {
             <input type="checkbox" role="switch" className="switch" checked={perAccount} disabled={!ticked.length} title={ticked.length ? '' : 'Switch on an account first'} onChange={(e) => setPlan((p) => setPerAccount(p, e.target.checked))} />
           </label>
         </div>
-        <TemplateBar editing={editAcc?.id} onBuiltIn={(t) => setMsg({ subject: t.subject, html: t.html })} />
-        {editAcc && (
-          <div className="ooo-tabs" role="tablist" aria-label="Which account's message">
-            {ticked.map((a) => (
-              <button key={a.id} role="tab" aria-selected={a.id === editAcc.id} className={a.id === editAcc.id ? 'on' : ''} onClick={() => setTab(a.id)}>
-                <span className="dot" style={{ background: a.colour }} />{nameOf(a)}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* The account tabs on the left (when each account has its own message), the Template picker on the right. */}
+        <div className="ooo-tabrow">
+          {editAcc && (
+            <div className="ooo-tabs" role="tablist" aria-label="Which account's message">
+              {ticked.map((a) => (
+                <button key={a.id} role="tab" aria-selected={a.id === editAcc.id} className={a.id === editAcc.id ? 'on' : ''} onClick={() => setTab(a.id)}>
+                  <span className="dot" style={{ background: a.colour }} />{nameOf(a)}
+                </button>
+              ))}
+            </div>
+          )}
+          <TemplateBar editing={editAcc?.id} onBuiltIn={(t) => setMsg({ subject: t.subject, html: t.html })} />
+        </div>
         {supSubject && (
           <div className="set-row ooo-subject-row">
             <label htmlFor="ooo-subj">Subject{!editAcc && ticked.some((a) => !oooSupport(a).subject) ? ' (Gmail)' : ''}</label>

@@ -64,3 +64,10 @@
 .rem-tick-space { width: 13px; flex: none; }
 .rem-row:hover .rem-tick, .rem-row:focus-within .rem-tick, .rem-picking .rem-tick { opacity: 1; }
 .rem-row.picked { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+
+/* A change on its way to Google or Outlook: a thin moving line under the calendar's header. */
+.cal-head { position: relative; }
+.cal-saving { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; overflow: hidden; background: color-mix(in srgb, var(--accent) 18%, transparent); border-radius: 2px; }
+.cal-saving::after { content: ''; position: absolute; top: 0; bottom: 0; width: 30%; background: var(--accent); border-radius: 2px; animation: cal-saving 1.1s ease-in-out infinite; }
+@keyframes cal-saving { from { left: -30%; } to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .cal-saving::after { animation-duration: 3s; } }

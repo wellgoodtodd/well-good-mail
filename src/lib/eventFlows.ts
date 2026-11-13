@@ -105,13 +105,15 @@ export function organiserCopy(ev: CalendarEvent, all: CalendarEvent[] = useMail.
 }
 
 /** Deletes an event after asking what's needed. Returns false if cancelled or it failed. */
-export async function removeEvent(ev: CalendarEvent, opts: { quietToast?: boolean; asked?: boolean } = {}): Promise<boolean> {
+export async function removeEvent(ev: CalendarEvent, opts: { quietToast?: boolean; asked?: boolean; answered?: () => void } = {}): Promise<boolean> {
   let scope: SeriesScope | null = 'one';
   if (ev.recurring) scope = await askScope(ev, 'delete');
   else if (!guestsToTell(ev) && !opts.asked && !(await askConfirm(`Delete "${ev.title}"?`, "It's deleted from the calendar itself.", 'Delete event'))) return false;
   if (!scope) return false;
   const notify = await askNotify(ev, 'delete');
   if (notify === null) return false;
+  // The questions are answered: the window can close now, while the calendar does its part (a bar shows meanwhile).
+  opts.answered?.();
   try {
     await deleteEvent(notify && guestsToTell(ev) ? organiserCopy(ev) : ev, { scope, notify });
   } catch (e) {

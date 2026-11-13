@@ -10,6 +10,7 @@ import { calendarFailureToast } from '../lib/plainErrors';
 import { upcoming, alertMute } from '../lib/reminders';
 import { meetingsSoon, dedupeEvents, visibleEvents, inGroupView, meetingPhase, meetingPhaseText, type CalendarGroup } from '../lib/meetings';
 import type { CalendarEvent } from '../lib/types';
+import { TasksToday } from './Tasks';
 import { AccountDots, JoinButton, Switch, dayText, timeText, useMinute, useCalendarFilter } from './calendarBits';
 import { CalendarGroupsDialog, pickGroup } from './CalendarGroups';
 import { startNewEvent } from './NewEvent';
@@ -69,7 +70,7 @@ export function CalendarList({ variant = 'flat' }: { variant?: 'flat' | 'cards' 
   const lookAgain = async () => {
     setLooking(true);
     try {
-      const failed = await refreshEvents();
+      const failed = await refreshEvents({ everyone: true });
       toast(failed.length ? calendarFailureToast(failed, useMail.getState().accounts, () => void lookAgain(), (id) => void reconnectAccount(id)) : { text: 'Calendars updated', ttl: 2500 });
     } finally { setLooking(false); }
   };
@@ -227,26 +228,41 @@ export function CalendarPicker({ iconOnly }: { iconOnly?: boolean }) {
   );
 }
 
+/** Join shows in these lists only for a call that's on today (or going on now), not for one days away. */
+function joinToday(e: CalendarEvent, now = Date.now()): boolean {
+  const endOfToday = new Date(now).setHours(24, 0, 0, 0);
+  return Boolean(e.meetingUrl) && e.end > now && e.start < endOfToday;
+}
+
 /** The next week, as a list. Click one for its details. */
 export function ComingUpList({ limit = 8, onPick }: { limit?: number; onPick: (e: CalendarEvent) => void }) {
   const events = useMail((s) => s.events);
   const { hidden, only } = useCalendarFilter();
   const tick = useMinute();
   const next = useMemo(() => upcoming(visibleEvents(events, hidden, only)).slice(0, limit), [events, hidden, only, tick, limit]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!next.length) return <div style={{ color: 'var(--text-muted)' }}>Nothing in the next week</div>;
+  const endOfToday = new Date().setHours(24, 0, 0, 0);
+  const today = next.filter((e) => e.start < endOfToday);
+  const later = next.filter((e) => e.start >= endOfToday);
+  const row = (e: CalendarEvent) => (
+    <div key={e.id} className="coming-row" role="button" tabIndex={0} onClick={() => onPick(e)} onKeyDown={(k) => { if (k.key === 'Enter' || k.key === ' ') { k.preventDefault(); onPick(e); } }}>
+      <span className="acc-dots col" style={{ marginTop: 6 }}><AccountDots event={e} /></span>
+      <div className="grow">
+        <div style={{ fontWeight: 500 }}>{e.title}</div>
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>{dayText(e.start)}{!e.allDay && `, ${timeText(e.start)}`} · {e.calendarName}</div>
+      </div>
+      {e.myResponse === 'waiting' && !e.cancelled && isInvitation(e) && <NotAnsweredTag />}
+      {joinToday(e) && <JoinButton event={e} small />}
+    </div>
+  );
+  // Today first (its events, then today's tasks), then the rest of the week.
   return (
     <>
-      {next.map((e) => (
-        <div key={e.id} className="coming-row" role="button" tabIndex={0} onClick={() => onPick(e)} onKeyDown={(k) => { if (k.key === 'Enter' || k.key === ' ') { k.preventDefault(); onPick(e); } }}>
-          <span className="acc-dots col" style={{ marginTop: 6 }}><AccountDots event={e} /></span>
-          <div className="grow">
-            <div style={{ fontWeight: 500 }}>{e.title}</div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>{dayText(e.start)}{!e.allDay && `, ${timeText(e.start)}`} · {e.calendarName}</div>
-          </div>
-          {e.myResponse === 'waiting' && !e.cancelled && isInvitation(e) && <NotAnsweredTag />}
-          {e.meetingUrl && <JoinButton event={e} small />}
-        </div>
-      ))}
+      {today.length > 0 && <div className="cu-sec">Today</div>}
+      {today.map(row)}
+      <TasksToday />
+      {later.length > 0 && <div className="cu-sec">Later</div>}
+      {later.map(row)}
+      {!next.length && <div style={{ color: 'var(--text-muted)' }}>No events in the next week</div>}
     </>
   );
 }
@@ -283,7 +299,7 @@ export function PickedDay({ onPick }: { onPick: (e: CalendarEvent) => void }) {
               <div style={{ fontWeight: 500 }}>{e.title}</div>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.88em' }}>{e.allDay || e.end - e.start >= 86400000 ? 'All day' : `${timeText(e.start)} to ${timeText(e.end)}`} · {e.calendarName}</div>
             </div>
-            {e.meetingUrl && <JoinButton event={e} small />}
+            {joinToday(e) && <JoinButton event={e} small />}
           </div>
         ))}
       </div>

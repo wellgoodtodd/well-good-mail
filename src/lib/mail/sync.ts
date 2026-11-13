@@ -8,6 +8,8 @@ import { myAddresses } from '../compose';
 import type { Message } from '../types';
 import { archive, markRead, markSpam, processFollowups } from './actions';
 import { warmBodies } from './bodies';
+import { refreshEvents } from './calendar';
+import { looksLikeInvitation } from '../invites';
 import { patchMessages, putMessages, removeMessages } from './messages';
 import { providers, saveAccount, useMail } from './store';
 import { selectThread, setView } from './views';
@@ -100,6 +102,7 @@ export async function syncAccount(id: string, opts: { full?: boolean; quiet?: bo
       if (Math.random() < 0.05) provider.listFolders().then((folders) => { set({ folders: { ...get().folders, [id]: folders } }); store.putFolders(id, folders); }).catch(() => {});
     }
     applyRulesToNew(newOnes);
+    if (newOnes.some((m) => m && looksLikeInvitation(m))) refreshCalendarSoon();
     warmBodies(newOnes.filter(Boolean).map((m) => m.id));
     if (!opts.quiet) notifyNewMail(newOnes.filter((m) => m.date > startedAt - 10 * 60000));
   } catch (e) {
@@ -121,6 +124,14 @@ export async function refreshAll() {
   if (!get().online) return;
   await Promise.all(get().accounts.map((a) => syncAccount(a.id)));
   processFollowups();
+}
+
+// An invitation (or a change or cancellation) by email: the calendar usually has it by now, so the calendar refreshes
+// a few seconds later. A burst of invitations, across accounts too, makes one refresh.
+let calendarNudge: ReturnType<typeof setTimeout> | undefined;
+function refreshCalendarSoon() {
+  clearTimeout(calendarNudge);
+  calendarNudge = setTimeout(() => { calendarNudge = undefined; void refreshEvents(); }, 4000);
 }
 
 /** Mute and other automatic handling for newly arrived mail. */

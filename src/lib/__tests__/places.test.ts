@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isLinkPlace, placeMatch, placesFromEvents, suggestPlaces } from '../places';
+import { isLinkPlace, placeFromTitle, placeMatch, placesFromEvents, suggestPlaces } from '../places';
 
 const NOW = 1_000_000;
 const ev = (id: string, location: string | undefined, start: number, accountId = 'a') => ({ id, accountId, location, start });
@@ -78,5 +78,35 @@ describe('matching and ranking', () => {
 
   it('keeps to the limit', () => {
     expect(suggestPlaces('e', places, [], 2)).toHaveLength(2);
+  });
+});
+
+describe('the place in a title', () => {
+  it('takes the words after "at" or "@" to the end', () => {
+    expect(placeFromTitle('Lunch with Sam at Five Guys')).toBe('Five Guys');
+    expect(placeFromTitle('Coffee @ Costa')).toBe('Costa');
+    expect(placeFromTitle('Coffee @Costa')).toBe('Costa');
+    expect(placeFromTitle('At The Crown')).toBe('The Crown');
+  });
+
+  it('stops at day and time words, or a comma', () => {
+    expect(placeFromTitle('Coffee @ Costa tomorrow 10am')).toBe('Costa');
+    expect(placeFromTitle('Lunch at Five Guys at 1pm')).toBe('Five Guys');
+    expect(placeFromTitle('Drinks at The Crown on Friday')).toBe('The Crown');
+    expect(placeFromTitle('Dinner at Dishoom, bring the card')).toBe('Dishoom');
+  });
+
+  it('skips times after "at" and finds a later place', () => {
+    expect(placeFromTitle('Lunch at 1pm')).toBeUndefined();
+    expect(placeFromTitle('Call at 15:00')).toBeUndefined();
+    expect(placeFromTitle('Lunch at noon')).toBeUndefined();
+    expect(placeFromTitle('Lunch at 1pm at Five Guys')).toBe('Five Guys');
+  });
+
+  it('needs a place that starts with a letter, and a whole word "at"', () => {
+    expect(placeFromTitle('Meet at 10 Downing Street')).toBeUndefined();
+    expect(placeFromTitle('Chat about the plan')).toBeUndefined();
+    expect(placeFromTitle('Email sam@example.com')).toBeUndefined();
+    expect(placeFromTitle('Team meeting')).toBeUndefined();
   });
 });

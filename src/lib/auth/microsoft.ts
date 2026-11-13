@@ -7,7 +7,7 @@ import { NeedsPermissionError } from '../providers/provider';
 
 export const MS_SCOPES = ['offline_access', 'openid', 'email', 'profile', 'User.Read', 'Mail.ReadWrite', 'Mail.Send', 'Calendars.Read', 'Contacts.Read', 'MailboxSettings.Read'];
 /** Asked for when signing in (Out of Office, the Away event, Add to contacts). Accounts that signed in before these existed sign in once more the first time they need one. */
-const MS_EXTRA = ['MailboxSettings.ReadWrite', 'Calendars.ReadWrite', 'Contacts.ReadWrite'];
+const MS_EXTRA = ['MailboxSettings.ReadWrite', 'Calendars.ReadWrite', 'Contacts.ReadWrite', 'Tasks.ReadWrite'];
 const AUTHORITY = 'https://login.microsoftonline.com/common/oauth2/v2.0';
 /**
  * The shared "Well Good Mail" app registration. A client ID is public by design (it only says which app is asking),

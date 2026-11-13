@@ -5,6 +5,7 @@ import { useSettings } from '../../lib/settings';
 import { notify } from '../../lib/platform';
 import { Row, Radio, Check } from '../ui';
 import { CalendarGroupsCard } from '../CalendarGroups';
+import { TaskDefaults } from './TaskDefaults';
 
 export const MINUTE_CHOICES = [1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 180];
 export const timeLabel = (n: number) => (n >= 120 && n % 60 === 0 ? `${n / 60} hours` : `${n} ${n === 1 ? 'minute' : 'minutes'}`);
@@ -103,6 +104,10 @@ export function RemindersTab() {
       <section className="set-section">
         <h2>Calendar Groups</h2>
         <CalendarGroupsCard />
+      </section>
+      <section className="set-section">
+        <h2>Tasks</h2>
+        <TaskDefaults />
       </section>
       <section className="set-section">
         <h2>Alerts from hidden calendars</h2>

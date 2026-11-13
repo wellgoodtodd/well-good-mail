@@ -5,10 +5,12 @@
 import { getMicrosoftAccessToken } from '../auth/microsoft';
 import { bytesToBase64, buildRawMessage, base64ToBytes } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Task, TaskList, TaskPatch, Account, Address, Alias, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import { NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
+import { htmlToText } from '../ooo';
 import { findMeetingUrl } from '../meetings';
+import { readNotes, writeNotes } from '../taskNotes';
 import { cleanPreview } from '../cleanText';
 import { fromGraph, outlookTimeZone, toGraph, type GraphRecurrence } from '../recurrence';
 import type { Rsvp } from '../invites';
@@ -553,4 +555,105 @@ export class MicrosoftProvider implements MailProvider {
     delete (range as { numberOfOccurrences?: number }).numberOfOccurrences;
     await this.call(masterUrl, { method: 'PATCH', body: JSON.stringify({ recurrence: { pattern: r.pattern, range } }) }, ['Calendars.ReadWrite']);
   }
+
+  // ---- Microsoft To Do ----
+  // To Do keeps a due date; a due time is kept as the task's reminder at that time.
+
+  private todo<T>(path: string, init: RequestInit = {}): Promise<T> {
+    return this.call<T>(`/todo${path}`, { ...init, headers: { Prefer: 'outlook.timezone="UTC"', ...(init.headers || {}) } }, ['Tasks.ReadWrite']);
+  }
+
+  async listTaskLists(): Promise<TaskList[]> {
+    const r = await this.todo<{ value: { id: string; displayName: string }[] }>('/lists');
+    return r.value.map((l) => ({ id: `${this.account.id}|${l.id}`, accountId: this.account.id, providerId: l.id, name: l.displayName }));
+  }
+
+  private toTask(list: TaskList, t: MsTask): Task {
+    const utc = (w?: { dateTime?: string }) => (w?.dateTime ? Date.parse(w.dateTime.replace(/(\.\d{3})\d*$/, '$1') + 'Z') : undefined);
+    let due: number | undefined;
+    let hasTime = false;
+    if (t.dueDateTime?.dateTime) {
+      const [y, m, d] = t.dueDateTime.dateTime.slice(0, 10).split('-').map(Number);
+      due = new Date(y, m - 1, d).getTime();
+      const rem = t.isReminderOn ? utc(t.reminderDateTime) : undefined;
+      if (rem !== undefined && new Date(rem).toDateString() === new Date(due).toDateString()) { due = rem; hasTime = true; }
+    }
+    const read = readNotes(t.body?.contentType === 'html' ? htmlToText(t.body.content || '') : t.body?.content);
+    return {
+      id: `${list.id}|${t.id}`, accountId: this.account.id, listId: list.id, providerId: t.id,
+      title: t.title || '', notes: read.notes || undefined, due, hasTime,
+      done: t.status === 'completed', completedAt: utc(t.completedDateTime),
+      updatedAt: t.lastModifiedDateTime ? Date.parse(t.lastModifiedDateTime) : undefined,
+      ...(read.mailSubject ? { mail: { messageId: '', threadId: '', accountId: '', subject: read.mailSubject } } : {}),
+    };
+  }
+
+  async listTasks(list: TaskList, doneSince: number): Promise<Task[]> {
+    const out: Task[] = [];
+    const base = `/lists/${encodeURIComponent(list.providerId)}/tasks`;
+    for (const filter of ["status ne 'completed'", "status eq 'completed'"]) {
+      let url: string | undefined = `${base}?$top=100&$filter=${encodeURIComponent(filter)}`;
+      for (let i = 0; url && i < 10; i++) {
+        const r: { value: MsTask[]; '@odata.nextLink'?: string } = await this.todo(url.startsWith('http') ? url.replace(/^https:\/\/graph\.microsoft\.com\/v1\.0\/me\/todo/, '') : url);
+        for (const t of r.value) {
+          const task = this.toTask(list, t);
+          if (!task.done || (task.completedAt ?? 0) >= doneSince) out.push(task);
+        }
+        url = r['@odata.nextLink'];
+      }
+    }
+    return out;
+  }
+
+  private taskBody(p: TaskPatch, was?: Task): Record<string, unknown> {
+    const body: Record<string, unknown> = {};
+    if (p.title !== undefined) body.title = p.title;
+    if (p.done !== undefined) body.status = p.done ? 'completed' : 'notStarted';
+    if (p.due !== undefined || p.hasTime !== undefined) {
+      const due = p.due === undefined ? was?.due : p.due;
+      if (due === null || due === undefined) {
+        body.dueDateTime = null;
+        body.isReminderOn = false;
+      } else {
+        const d = new Date(due);
+        body.dueDateTime = { dateTime: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00.0000000`, timeZone: 'UTC' };
+        if (p.hasTime ?? was?.hasTime) {
+          body.reminderDateTime = { dateTime: d.toISOString().replace('Z', ''), timeZone: 'UTC' };
+          body.isReminderOn = true;
+        } else body.isReminderOn = false;
+      }
+    }
+    if (p.notes !== undefined || p.mail !== undefined) {
+      const mail = p.mail || was?.mail;
+      body.body = { contentType: 'text', content: writeNotes({ notes: p.notes !== undefined ? p.notes : was?.notes, mailSubject: mail?.subject }) };
+    }
+    return body;
+  }
+
+  async createTask(list: TaskList, p: TaskPatch): Promise<Task> {
+    const t = await this.todo<MsTask>(`/lists/${encodeURIComponent(list.providerId)}/tasks`, { method: 'POST', body: JSON.stringify({ title: p.title || '', ...this.taskBody(p) }) });
+    return { ...this.toTask(list, t), mail: p.mail };
+  }
+
+  async updateTask(task: Task, p: TaskPatch): Promise<Task> {
+    const list: TaskList = { id: task.listId, accountId: task.accountId, providerId: task.listId.slice(task.accountId.length + 1), name: '' };
+    const t = await this.todo<MsTask>(`/lists/${encodeURIComponent(list.providerId)}/tasks/${encodeURIComponent(task.providerId)}`, { method: 'PATCH', body: JSON.stringify(this.taskBody(p, task)) });
+    return { ...this.toTask(list, t), mail: p.mail || task.mail };
+  }
+
+  async deleteTask(task: Task): Promise<void> {
+    const listId = task.listId.slice(task.accountId.length + 1);
+    try {
+      await this.todo(`/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(task.providerId)}`, { method: 'DELETE' });
+    } catch (e) {
+      if ((e as { status?: number }).status !== 404) throw e;
+    }
+  }
+
+  async createTaskList(name: string): Promise<TaskList> {
+    const l = await this.todo<{ id: string; displayName: string }>('/lists', { method: 'POST', body: JSON.stringify({ displayName: name }) });
+    return { id: `${this.account.id}|${l.id}`, accountId: this.account.id, providerId: l.id, name: l.displayName };
+  }
 }
+
+interface MsTask { id: string; title?: string; status?: string; body?: { content?: string; contentType?: string }; dueDateTime?: { dateTime?: string; timeZone?: string }; reminderDateTime?: { dateTime?: string; timeZone?: string }; isReminderOn?: boolean; completedDateTime?: { dateTime?: string; timeZone?: string }; lastModifiedDateTime?: string }

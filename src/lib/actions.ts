@@ -61,6 +61,7 @@ export function messageMenu(keys: string[]): MenuItem[] {
       ? { label: 'Mark as read', icon: 'mailOpen', kbd: kbd('markRead'), onClick: () => markRead(ids, true) }
       : { label: 'Mark as unread', icon: 'mail', kbd: kbd('markUnread'), onClick: () => markRead(ids, false) },
     { label: anyFlagged ? 'Remove flag' : 'Flag', icon: 'flag', kbd: kbd('flag'), onClick: () => toggleFlag(ids) },
+    ...(single && !latest.isDraft ? [{ label: 'Make a task', icon: 'check' as const, kbd: kbd('makeTask'), onClick: () => void import('../components/Tasks').then((t) => t.makeTaskFromEmail(latest)) }] : []),
     { divider: true },
   );
   if (inBin || inJunk) {

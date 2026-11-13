@@ -9,6 +9,7 @@ import { useSettings } from '../lib/settings';
 import { visibleText } from '../lib/cleanText';
 import { suggestEvent, whenWords, type Suggestion } from '../lib/suggestEvents';
 import type { Invite } from '../lib/invites';
+import { placeFromTitle } from '../lib/places';
 import type { Message } from '../lib/types';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -43,7 +44,8 @@ export function SuggestedEvent({ message }: { message: Message }) {
     const invite: Invite = {
       method: 'PUBLISH', uid: `wgm-${message.id.replace(/[^A-Za-z0-9]/g, '')}-${s.start}@wellgood.mail`, sequence: 0,
       title: s.title, start: s.start, end: s.end, allDay: false,
-      location: s.meetingUrl, description: s.meetingUrl ? `Join: ${s.meetingUrl}` : undefined, meetingUrl: s.meetingUrl,
+      // No meeting link: "Lunch at Five Guys" in the title gives the place.
+      location: s.meetingUrl || placeFromTitle(s.title), description: s.meetingUrl ? `Join: ${s.meetingUrl}` : undefined, meetingUrl: s.meetingUrl,
       attendees: [], startLine: '',
     };
     try {

@@ -14,6 +14,9 @@ import { startNewEvent, useNewEvent } from './NewEvent';
 import { SelectionBar, clearSelected, selectionMenuItems, setSelected, toggleSelected, useEventSelection } from './EventSelection';
 import { changeEvent } from '../lib/eventFlows';
 import '../styles/calendar.css';
+import { CalendarTask, MonthTasksPanel, useCalendarTasks } from './Tasks';
+import { isOverdue } from '../lib/tasks';
+import { useCalendarBusy } from '../lib/mail/calendar';
 
 const DAY_MS = 86400000;
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -173,8 +176,15 @@ function CalHead({ title, onStep, onToday, prevLabel, nextLabel, modes, zoom }: 
       <span className="grow" />
       {zoom && <ZoomControl />}
       {modes}
+      <SavingBar />
     </div>
   );
+}
+
+/** A thin moving line under the header while a change is on its way to Google or Outlook. */
+function SavingBar() {
+  const saving = useCalendarBusy((s) => s.saving);
+  return saving ? <div className="cal-saving" role="progressbar" aria-label="Saving the change" /> : null;
 }
 
 type Drag = { id: string; kind: 'move' | 'resize'; x0: number; y0: number; day0: number; start: number; end: number; moved: boolean };
@@ -206,6 +216,15 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
   }, [mode, anchor, sunday, hideWeekends]);
   const from = days[0].getTime();
   const to = days[days.length - 1].getTime() + DAY_MS;
+  // Tasks: ones with no time in a strip under the all-day row (overdue ones on today), ones with a time as markers.
+  const calTasks = useCalendarTasks();
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const stripFor = (day: number) => calTasks.filter((t) => !t.hasTime || isOverdue(t)).filter((t) => {
+    const d = new Date(t.due!).setHours(0, 0, 0, 0);
+    return isOverdue(t) ? day === todayMs : d === day;
+  });
+  const marksFor = (day: number) => calTasks.filter((t) => t.hasTime && !isOverdue(t) && t.due! >= day && t.due! < day + DAY_MS);
+  const anyStrip = days.some((d) => stripFor(d.getTime()).length > 0);
 
   // The calendar copy on this computer shows these days at once; anything it lacks is fetched and kept.
   const copy = useCalCache((c) => c.events);
@@ -460,6 +479,20 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
           );
         })}
       </div>
+      {anyStrip && (
+        <div className="tg-allday tg-tasks" style={{ gridTemplateColumns: cols }}>
+          <div className="tg-corner small">tasks</div>
+          {days.map((d) => {
+            const list = stripFor(d.getTime());
+            return (
+              <div key={d.toISOString()} className="tg-allday-cell">
+                {list.slice(0, 2).map((t) => <CalendarTask key={t.id} task={t} className="cal-task-chip" />)}
+                {list.length > 2 && <button className="cal-task-more" onClick={() => useSettings.getState().set({ remindersView: 'tasks', tasksPlace: 'today' })}>+{list.length - 2} more</button>}
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="tg-scroll" ref={scroller}>
         <div className="tg-body" ref={body} style={{ gridTemplateColumns: cols, height: 24 * HOUR_PX }}
           onPointerDown={onBodyDown} onPointerMove={onBodyMove} onPointerUp={onBodyUp} onPointerCancel={() => { dragRef.current = null; setDrag(null); setLasso(null); }}>
@@ -508,6 +541,7 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
                     </div>
                   );
                 })}
+                {marksFor(start).map((t) => <CalendarTask key={t.id} task={t} className="cal-task-mark" style={{ top: ((t.due! - start) / 3600000) * HOUR_PX - 10 }} />)}
                 {isToday && nowTop >= 0 && nowTop <= 24 * HOUR_PX && <div className="tg-now" style={{ top: nowTop }} aria-label={`Now, ${timeText(Date.now())}`} />}
                 {drafting && !drafting.allDay && drafting.start < start + DAY_MS && drafting.end > start && (() => {
                   const s = Math.max(drafting.start, start);
@@ -585,6 +619,8 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
   }, [events, dragging, moveTo]); // eslint-disable-line react-hooks/exhaustive-deps
   const shift = (n: number) => { const d = new Date(month); d.setMonth(d.getMonth() + n); setMonth(d); };
   const today = new Date().toDateString();
+  const monthTasks = useCalendarTasks();
+  const tasksOn = (day: number) => monthTasks.filter((t) => new Date(t.due!).setHours(0, 0, 0, 0) === day && !t.done).length;
 
   const chipDown = (e: CalendarEvent, ev: React.PointerEvent, day0: number) => {
     if (ev.button !== 0) return;
@@ -636,6 +672,7 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
   };
 
   return (
+    <div className="month-wrap">
     <div className={`card month ${drag?.moved ? 'dragging' : ''}`}>
       <CalHead title={<JumpTitle at={month} onPick={(d) => setMonth(new Date(d.getFullYear(), d.getMonth(), 1))} label={month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} />}
         onStep={shift} onToday={() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); setMonthNow(d); selectDay(Date.now()); }}
@@ -679,12 +716,15 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
                 </button>
               ))}
               {list.length > 3 && <button className="more" onClick={(ev) => { ev.stopPropagation(); openDay(d.getTime()); }} title="Show the whole day">+{list.length - 3} more</button>}
+              {tasksOn(d.getTime()) > 0 && <span className="cal-task-count">✓ {tasksOn(d.getTime())} {tasksOn(d.getTime()) === 1 ? 'task' : 'tasks'}</span>}
             </div>,
           );
           return out;
         })}
       </div>
       {menu.node}
+    </div>
+    <MonthTasksPanel from={gridStart.getTime()} to={gridEnd} picked={picked} />
     </div>
   );
 }

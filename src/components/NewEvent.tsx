@@ -17,7 +17,7 @@ import { openExternal } from '../lib/platform';
 import type { Address, CalendarEvent, EventCopy, EventPatch, Repeat } from '../lib/types';
 import { useCalDay } from './CalendarViews';
 import { useCalCache } from '../lib/calendarCache';
-import { placesFromEvents, suggestPlaces } from '../lib/places';
+import { placeFromTitle, placesFromEvents, suggestPlaces } from '../lib/places';
 
 const DAY = 86400000;
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -232,6 +232,9 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
   // Once the time has been changed by hand, words in the title no longer move it. Editing never reads the title.
   const timeTouched = useRef(editing);
   const titleRead = useRef<{ rest: string } | undefined>(undefined);
+  // Location filled from the title, and whether it has been changed by hand since (then the title leaves it alone).
+  const placeFromTitleShown = useRef(false);
+  const placeTouched = useRef(false);
   const first = useMemo<Form>(() => (event ? formFromEvent(event) : {
     title: '', day: ymdOf(draft!.start), endDay: ymdOf(draft!.allDay ? draft!.end - 1 : draft!.end), from: draft!.allDay ? '09:00' : hmOf(draft!.start), to: draft!.allDay ? '10:00' : hmOf(draft!.end), allDay: draft!.allDay,
     // No days picked yet means the start's own day, so it follows the date.
@@ -286,6 +289,12 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
         // The words have gone: back to where the event started.
         Object.assign(patch, { day: first.day, endDay: first.endDay, from: first.from, to: first.to, allDay: first.allDay });
       }
+    }
+    // "at Five Guys" or "@ Costa" fills an empty Location (the title keeps it), until Location is changed by hand.
+    if (!editing && !placeTouched.current) {
+      const place = placeFromTitle(v);
+      if (place) { patch.location = place; placeFromTitleShown.current = true; }
+      else if (placeFromTitleShown.current) { patch.location = ''; placeFromTitleShown.current = false; }
     }
     set(patch);
   };
@@ -386,6 +395,7 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
             <input className="ev-title-in" aria-label="Title" placeholder="New event" value={f.title} autoFocus={!editing} onChange={(e) => onTitle(e.target.value)} />
           </div>
           {titleRead.current && <p className="hint new-ev-read">Saved as "{titleRead.current.rest || 'New event'}", {f.allDay ? 'all day' : `at ${f.from}`} on {new Date(start).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}.</p>}
+          {!expanded && placeFromTitleShown.current && f.location && <p className="hint new-ev-read">Location: {f.location}</p>}
           <div className="ev-form">
             {expanded && <><span>All day</span><div><input type="checkbox" role="switch" className="switch" aria-label="All day" checked={f.allDay} onChange={(e) => touch({ allDay: e.target.checked })} /></div></>}
             <label htmlFor="ne-day">{expanded ? 'Starts' : 'When'}</label>
@@ -478,7 +488,7 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
               <span>Invitees</span>
               <div className="ne-guests"><RecipientField label="Invitees" value={f.guests} contacts={contacts} onAdd={(list) => set({ guests: [...f.guests, ...list.filter((a) => !f.guests.some((g) => g.email.toLowerCase() === a.email.toLowerCase()))] })} onRemove={(email) => set({ guests: f.guests.filter((g) => g.email !== email) })} /></div>
               <label htmlFor="ne-where">Location</label>
-              <LocationField value={f.location} onChange={(location) => set({ location })} />
+              <LocationField value={f.location} onChange={(location) => { placeTouched.current = true; set({ location }); }} />
               {(videoName || (event?.meetingUrl && !f.video)) && <><span>Video call</span>
                 <div className="ev-when">
                   {f.video
@@ -497,7 +507,7 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
           {bad && <p className="hint ev-note bad">{bad}</p>}
           <div className="ev-actions">
             {!expanded && <button type="button" className="btn ghost" onClick={() => setExpanded(true)}>More options…</button>}
-            {editing && <button type="button" className="btn ghost danger" onClick={async () => { if (await removeEvent(event!)) onClose(true); }}>Delete event</button>}
+            {editing && <button type="button" className="btn ghost danger" onClick={() => { let closed = false; void removeEvent(event!, { answered: () => { closed = true; onClose(true); } }).then((ok) => { if (ok && !closed) onClose(true); }); }}>Delete event</button>}
             <span className="grow" />
             <button type="button" className="btn" onClick={() => onClose(false)}>Cancel</button>
             <button type="submit" className="btn primary" disabled={Boolean(bad) || !title || busy || !changed}>{busy ? (editing ? 'Saving…' : 'Adding…') : editing ? (across ? `Move to ${accountName(to!.accountId)}` : 'Save') : f.guests.length ? 'Add and send invitations' : 'Add'}</button>
@@ -509,8 +519,8 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
 }
 
 /**
- * The Location box, with places used before in the person's own events offered as they type (and a few recent ones
- * when it's empty). Arrow keys move, Enter picks, Escape closes the list but not the form, Tab moves on.
+ * The Location box, with places used before in the person's own events offered once they start typing. Arrow keys
+ * move, Enter picks, Escape closes the list but not the form, Tab moves on.
  */
 function LocationField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -519,9 +529,9 @@ function LocationField({ value, onChange }: { value: string; onChange: (v: strin
   const copyEvents = useCalCache((s) => s.events);
   const contacts = useMail((s) => s.contacts);
   const places = useMemo(() => placesFromEvents([...storeEvents, ...copyEvents]), [storeEvents, copyEvents]);
-  // Contacts' addresses only once something is typed, so the empty list stays your own recent places.
   const contactPlaces = useMemo(() => contacts.filter((c) => c.address).map((c) => ({ place: c.address!, name: c.name || c.email })), [contacts]);
-  const list = useMemo(() => (open ? suggestPlaces(value, places, value.trim() ? contactPlaces : []) : []), [open, value, places, contactPlaces]);
+  // Nothing is offered until something is typed: clicking into an empty box doesn't open a list.
+  const list = useMemo(() => (open && value.trim() ? suggestPlaces(value, places, contactPlaces) : []), [open, value, places, contactPlaces]);
   const showing = open && list.length > 0;
   const pick = (place: string) => { onChange(place); setOpen(false); setActive(-1); };
 

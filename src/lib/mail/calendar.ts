@@ -1,4 +1,5 @@
 // Calendar: events, refreshing, editing, moving and making events, and answering invitations.
+import { create } from 'zustand';
 import { store } from '../db';
 import { buildReply, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from '../invites';
 import type { Account, CalendarEvent, ChangeOptions, EventCopy, EventPatch, EventGuest, Message } from '../types';
@@ -68,6 +69,9 @@ export function applyPatch(copy: EventCopy, pt: EventPatch): EventCopy {
 
 /** Changes still on their way to a calendar. While any are, a refresh that comes back is not used (it may predate them). */
 let changing = 0;
+/** How many changes are on their way, for the thin moving bar under the calendar's header. */
+export const useCalendarBusy = create<{ saving: number }>(() => ({ saving: 0 }));
+const busyNow = (d: number) => useCalendarBusy.setState((s) => ({ saving: Math.max(0, s.saving + d) }));
 
 /** Same series: by the calendar's series id where it gives one, else same account, calendar, name and time of day. */
 export function sameSeries(a: CalendarEvent, b: CalendarEvent): boolean {
@@ -116,6 +120,7 @@ async function showNow(fn: (list: CalendarEvent[]) => CalendarEvent[]): Promise<
 /** Runs the calendar's side of a change, holding back refreshes meanwhile, and puts the screen back if it fails. */
 async function sendChange<T>(undo: () => void, work: () => Promise<T>): Promise<T> {
   changing++;
+  busyNow(1);
   try {
     return await work();
   } catch (e) {
@@ -123,6 +128,7 @@ async function sendChange<T>(undo: () => void, work: () => Promise<T>): Promise<
     throw e;
   } finally {
     changing--;
+    busyNow(-1);
   }
 }
 
@@ -250,6 +256,7 @@ export async function moveEventAcross(ev: CalendarEvent, to: { accountId: string
   cal.useCalCache.setState((s) => ({ events: swap(s.events) }));
   if (opts.removeOriginal) {
     changing++;
+    busyNow(1);
     try {
       if (ev.recurring) await from.endSeries!(ev); else await from.deleteEvent!(ev);
       forgetEvent(ev.id);
@@ -259,6 +266,7 @@ export async function moveEventAcross(ev: CalendarEvent, to: { accountId: string
       throw new Error(`It's now in ${accountName(to.accountId)}, but the original couldn't be removed (${e instanceof Error ? e.message : e}). Delete it there by hand.`);
     } finally {
       changing--;
+      busyNow(-1);
     }
   }
   void refreshEvents();
@@ -352,38 +360,48 @@ function keepUnchanged(prev: CalendarEvent[], next: CalendarEvent[]): CalendarEv
 /** When the calendars were last fetched, in milliseconds. */
 export const lastEventsRefresh = () => eventsFetchedAt;
 
-/** Fetches every account's calendar again. Returns the accounts it couldn't reach. */
+/**
+ * Fetches every account's calendar again. Each account's events show as soon as that account answers, so one slow
+ * account (Outlook having a bad day) doesn't hold up the others. An account that keeps failing is tried less often
+ * (its last events stay on screen), unless `everyone` is set, as it is for the Refresh button. Returns the accounts
+ * it couldn't reach.
+ */
 /** Counts refreshes, so only the newest one's answer is used: an older one finishing late can't bring back an event just changed or deleted. */
 let eventsRun = 0;
-export async function refreshEvents(): Promise<string[]> {
+/** Accounts whose calendar keeps failing: how many times in a row, and not to be tried again before when. */
+const resting = new Map<string, { fails: number; until: number }>();
+export async function refreshEvents(opts: { everyone?: boolean } = {}): Promise<string[]> {
   const run = ++eventsRun;
   eventsFetchedAt = Date.now();
   const from = Date.now() - 3 * 86400000;
   const to = Date.now() + 8 * 86400000;
-  const all: CalendarEvent[] = [];
   const failed: string[] = [];
-  const errors: Record<string, string> = {};
-  const names: Record<string, string[]> = { ...get().calendarNames };
-  const fresh: Record<string, CalendarEvent[]> = {};
+  const now = Date.now();
   await Promise.all(get().accounts.map(async (a) => {
+    const rest = resting.get(a.id);
+    if (!opts.everyone && rest && rest.until > now) return;
     try {
-      const events = await providers.get(a.id)!.listEvents(from, to);
-      all.push(...events);
-      fresh[a.id] = events;
-      names[a.id] = providers.get(a.id)!.knownCalendars?.() || [];
+      const events = (await providers.get(a.id)!.listEvents(from, to)).filter((e) => !recentlyDeletedEvent(e.id));
+      resting.delete(a.id);
+      // An older refresh, or one that set off while a change was still on its way, could show things as they were.
+      if (run !== eventsRun || changing) return;
+      store.replaceEvents(a.id, events);
+      const s = get();
+      const errors = { ...s.calendarErrors };
+      delete errors[a.id];
+      const next = keepUnchanged(s.events, [...s.events.filter((e) => e.accountId !== a.id), ...events]);
+      set({ ...(next ? { events: next } : {}), calendarErrors: errors, calendarNames: { ...s.calendarNames, [a.id]: providers.get(a.id)!.knownCalendars?.() || [] } });
     } catch (e) {
-      errors[a.id] = e instanceof Error ? e.message.replace(/\s+/g, ' ').slice(0, 140) : 'The calendar could not be reached.';
-      all.push(...get().events.filter((x) => x.accountId === a.id));
+      // Tried again after 2, 4, 8 then 15 minutes while it keeps failing.
+      const fails = (rest?.fails || 0) + 1;
+      if (fails >= 2) resting.set(a.id, { fails, until: Date.now() + Math.min(15, 2 ** (fails - 1)) * 60000 });
+      else resting.set(a.id, { fails, until: 0 });
       console.warn('Events failed', a.email, e);
       failed.push(`${a.label || a.email}${e instanceof Error ? ` (${e.message.replace(/\s+/g, ' ').slice(0, 90)})` : ''}`);
+      if (run !== eventsRun) return;
+      set({ calendarErrors: { ...get().calendarErrors, [a.id]: e instanceof Error ? e.message.replace(/\s+/g, ' ').slice(0, 140) : 'The calendar could not be reached.' } });
     }
   }));
-  // An older refresh, or one that set off while a change was still on its way, could show things as they were.
-  if (run !== eventsRun || changing) return failed;
-  const kept = all.filter((e) => !recentlyDeletedEvent(e.id));
-  for (const [id, events] of Object.entries(fresh)) store.replaceEvents(id, events.filter((e) => !recentlyDeletedEvent(e.id)));
-  const events = keepUnchanged(get().events, kept);
-  set({ ...(events ? { events } : {}), calendarErrors: errors, calendarNames: names });
   return failed;
 }
 

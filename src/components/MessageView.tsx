@@ -159,7 +159,8 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
       return;
     }
     const items = messageMenu([threadKey(message)]);
-    menu.open({ x: at.x, y: at.y }, at.selection ? [{ label: 'Copy', icon: 'file', onClick: () => { navigator.clipboard?.writeText(at.selection).catch(() => {}); } }, { divider: true }, ...items] : items);
+    // With text highlighted: Copy, and Make a task from just those words.
+    menu.open({ x: at.x, y: at.y }, at.selection ? [{ label: 'Copy', icon: 'file', onClick: () => { navigator.clipboard?.writeText(at.selection).catch(() => {}); } }, { label: 'Make a task from this', icon: 'check', onClick: () => void import('./Tasks').then((t) => t.makeTaskFromEmail(message, at.selection)) }, { divider: true }, ...items.filter((x) => !('label' in x) || x.label !== 'Make a task')] : items);
   }, [message]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const name = message.from.name || message.from.email;

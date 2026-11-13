@@ -65,6 +65,13 @@ export interface McpWorld {
   };
   /** Calendar Groups: the groups, the calendars each account has, and saving the list. */
   calendarGroups?: { list: CalendarGroup[]; current: string; calendars: Record<string, string[]>; save: (list: CalendarGroup[]) => void };
+  /** Tasks: the lists, open tasks, where an AI's task goes by default (undefined: the AI must name a list), and adding one. */
+  tasks?: {
+    lists: { id: string; name: string; accountId: string }[];
+    open: { title: string; listId: string; due?: number; hasTime?: boolean; notes?: string }[];
+    target?: { id: string; name: string; accountId: string };
+    add: (listId: string, t: { title: string; notes?: string; due?: number; hasTime: boolean }) => Promise<boolean>;
+  };
   /** Opens a draft in Well Good Mail for the person to edit. */
   openDraft: (id: string) => void;
   /** Drafts this AI made earlier, by id, so it can replace one instead of piling up new ones. */
@@ -120,6 +127,17 @@ const SCHEMAS: Record<string, object> = {
       template: { type: 'string', description: 'Optional name of one of the person\'s saved templates (from get_out_of_office), like "Holiday". It fills in what it keeps; from, back, message, subject and who given here still win.' },
     },
     required: ['accounts'],
+  },
+  list_tasks: { type: 'object', properties: {} },
+  add_task: {
+    type: 'object',
+    properties: {
+      title: { type: 'string', description: 'What needs doing, short, like "Ring the dentist".' },
+      due: { type: 'string', description: 'Optional due date like 2026-11-20, or date and time like 2026-11-20T15:00.' },
+      notes: { type: 'string', description: 'Optional notes.' },
+      list: { type: 'string', description: 'Optional list name from list_tasks. Leave out to use the list the person chose for AI apps.' },
+    },
+    required: ['title'],
   },
   get_calendar_groups: { type: 'object', properties: {} },
   set_calendar_group: {
@@ -493,6 +511,46 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       const group: CalendarGroup = { id: old?.id || `g${w.now.toString(36)}`, name: newName, calendars };
       cg.save(old ? cg.list.map((g) => (g.id === old.id ? group : g)) : [...cg.list, group]);
       return { data: { group: newName, calendars: calendars.map(label), notFound: unknown.length ? unknown : undefined }, logText: logLine(tool, { name: newName }) };
+    }
+    case 'list_tasks': {
+      if (!w.tasks) throw new Error('Tasks are not available here.');
+      await permitPlain(w, tool, 'see your tasks');
+      const t = w.tasks;
+      const listOf = (id: string) => t.lists.find((l) => l.id === id);
+      const mine = t.open.filter((x) => shared.includes(listOf(x.listId)?.accountId || ''));
+      return {
+        data: {
+          lists: t.lists.filter((l) => shared.includes(l.accountId)).map((l) => ({ name: l.name, account: accName(byId(l.accountId)) })),
+          aiList: t.target && shared.includes(t.target.accountId) ? t.target.name : undefined,
+          tasks: mine.slice(0, 200).map((x) => ({ title: x.title, list: listOf(x.listId)?.name, due: x.due !== undefined ? (x.hasTime ? new Date(x.due).toISOString() : iso(x.due).slice(0, 10)) : undefined, notes: x.notes ? x.notes.slice(0, 300) : undefined })),
+        },
+        logText: 'Looked at tasks',
+      };
+    }
+    case 'add_task': {
+      if (!w.tasks) throw new Error('Tasks are not available here.');
+      const t = w.tasks;
+      const title = typeof args.title === 'string' ? args.title.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+      if (!title) throw new Error('Give the task a title.');
+      const wantList = typeof args.list === 'string' ? args.list.trim().toLowerCase() : '';
+      const usable = t.lists.filter((l) => shared.includes(l.accountId) && w.settings.accounts[l.accountId] === 'write');
+      const list = wantList ? usable.find((l) => l.name.toLowerCase() === wantList) : t.target && usable.some((l) => l.id === t.target!.id) ? t.target : undefined;
+      if (!list) throw new Refused(wantList ? `There is no list called "${args.list}" in an account set to Read and write. Lists: ${usable.map((l) => l.name).join(', ') || 'none'}.` : `Say which list it goes into (the person chose to pick each time). Lists: ${usable.map((l) => l.name).join(', ') || 'none'}.`);
+      let due: number | undefined;
+      let hasTime = false;
+      if (typeof args.due === 'string' && args.due.trim()) {
+        const m = args.due.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+        if (!m) throw new Error('Give due as a date like 2026-11-20, or 2026-11-20T15:00.');
+        hasTime = Boolean(m[4]);
+        due = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4] || 0), Number(m[5] || 0)).getTime();
+      }
+      const notes = typeof args.notes === 'string' ? args.notes.trim().slice(0, 2000) : undefined;
+      const when = due !== undefined ? `, due ${new Date(due).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${hasTime ? ` at ${new Date(due).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}` : '';
+      await permitAccounts(w, tool, [list.accountId], () => `add the task "${title}" to ${list.name} (${accName(byId(list.accountId))})${when}`);
+      const ok = await t.add(list.id, { title, notes, due, hasTime });
+      if (!ok) throw new Error('The task could not be saved. The account may need to sign in once more in Well Good Mail.');
+      args.title = title;
+      return { data: { added: title, list: list.name, due: args.due || undefined }, logText: logLine(tool, { title }) };
     }
     case 'list_reminders': {
       await permitPlain(w, tool, 'see your reminders');

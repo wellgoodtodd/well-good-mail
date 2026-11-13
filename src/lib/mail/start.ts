@@ -92,6 +92,8 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   minuteTick();
   refreshAll();
   setTimeout(refreshEvents, 3000);
+  // Tasks load a little after the calendar, so tasks with a time can alert even before Tasks is opened.
+  setTimeout(() => { if (get().accounts.length) void import('../tasks').then((t) => t.startTasks()); }, 6000);
   setTimeout(refreshAccountPhotos, 4000);
   // Every few minutes, so a meeting added at the last minute still gets its notification and banner. Every minute
   // while Calendar & Reminders is open, and on coming back to the window, so changes made on a phone show soon.

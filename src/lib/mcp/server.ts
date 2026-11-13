@@ -207,6 +207,18 @@ async function answer(rid: number, conn: number, body: string) {
       calendars: calendarsByAccount(mail.events, mail.calendarNames),
       save: (list) => useSettings.getState().set({ calendarGroups: list, ...(list.some((g) => g.id === settings().calendarGroup) ? {} : { calendarGroup: '' }) }),
     },
+    tasks: await (async () => {
+      const t = await import('../tasks');
+      t.startTasks();
+      const st = t.useTasks.getState();
+      const target = t.listForAi();
+      return {
+        lists: st.lists.map((l) => ({ id: l.id, name: l.name, accountId: l.accountId })),
+        open: st.tasks.filter((x) => !x.done).map((x) => ({ title: x.title, listId: x.listId, due: x.due, hasTime: x.hasTime, notes: x.notes })),
+        target: target ? { id: target.id, name: target.name, accountId: target.accountId } : undefined,
+        add: async (listId: string, x: { title: string; notes?: string; due?: number; hasTime: boolean }) => Boolean(await t.addTask(listId, { title: x.title, notes: x.notes, due: x.due ?? null, hasTime: x.hasTime })),
+      };
+    })(),
     aiDraft: (id) => { const d = aiDraftsNow().find((x) => x.id === id); return d && d.fromAccountId ? { accountId: d.fromAccountId } : undefined; },
     log: (text, outcome) => logActivity(text, outcome, app),
     version: useUpdates.getState().currentVersion || '',

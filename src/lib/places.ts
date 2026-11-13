@@ -1,6 +1,8 @@
 // Place suggestions for an event's Location box. Everything comes from what's already on this computer: places used
 // in the person's own events (and, when contacts carry them, contacts' addresses). No maps service, no network.
 
+import { en } from 'chrono-node';
+
 export interface Place {
   /** The place as it will go in the Location box. */
   place: string;
@@ -48,6 +50,37 @@ export function placesFromEvents(events: PlaceSource[], now = Date.now()): Place
     uses: p.uses,
     last: p.last,
   }));
+}
+
+/** Where the first day or time words are in this text (the ones a new event's title is read for), or -1. */
+function dateWordsAt(text: string): number {
+  const found = en.GB.parse(text, new Date(), { forwardDate: true })
+    .filter((r) => r.start.isCertain('hour') || r.start.isCertain('day') || r.start.isCertain('weekday'));
+  return found.length ? Math.min(...found.map((r) => r.index)) : -1;
+}
+
+// Little words left hanging once the day or time words are cut off ("Costa on Friday", "Five Guys at 1pm").
+const TRAILING = /(?:\s+(?:at|on|from|for|this|next|by|until|till|@|[-–]))+\s*$/i;
+
+/**
+ * The place in an event title such as "Lunch with Sam at Five Guys" or "Coffee @ Costa tomorrow 10am": the words after
+ * "at" or "@", up to any day or time words, a comma or the end. "At 3pm", "at 15:00" and "at noon" are times, not
+ * places, and a place starts with a letter. Undefined when there isn't one.
+ */
+export function placeFromTitle(title: string): string | undefined {
+  const at = /(?:^|\s)(?:at\s+|@\s*)/gi;
+  for (let m = at.exec(title); m; m = at.exec(title)) {
+    let rest = title.slice(m.index + m[0].length);
+    if (!/^\p{L}/u.test(rest)) continue;
+    // A time straight after "at" ("at noon", "at midday") isn't a place.
+    const when = dateWordsAt(rest);
+    if (when === 0) continue;
+    if (when > 0) rest = rest.slice(0, when);
+    rest = rest.split(/[,;]/)[0];
+    const place = tidy(rest.replace(TRAILING, ''));
+    if (place && /^\p{L}/u.test(place)) return place;
+  }
+  return undefined;
 }
 
 /** How well a place matches what's typed: 3 starts with it, 2 a word starts with it, 1 has it somewhere, 0 not at all. */

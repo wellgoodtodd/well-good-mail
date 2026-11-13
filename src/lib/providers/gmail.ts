@@ -3,14 +3,15 @@
 import { forgetGoogleAccessToken, getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, AttachmentMeta, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, AttachmentMeta, Task, TaskList, TaskPatch, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { AutoReply } from '../ooo';
 import { htmlToText, isWorkAccount, ymd } from '../ooo';
-import { CalendarPermissionError, NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
+import { CalendarPermissionError, NeedsPermissionError, TasksApiOffError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { Invite, Rsvp } from '../invites';
 import { findMeetingUrl } from '../meetings';
 import { cleanPreview } from '../cleanText';
 import { fromRrule, localTimeZone, toRrule } from '../recurrence';
+import { readNotes, writeNotes } from '../taskNotes';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 /** Mail newer than this many days is downloaded with full bodies for offline search. */
@@ -976,4 +977,107 @@ export class GmailProvider implements MailProvider {
     const meta = await this.call<{ webViewLink: string }>(`https://www.googleapis.com/drive/v3/files/${file.id}?fields=webViewLink`);
     return meta.webViewLink;
   }
+
+  // ---- Google Tasks ----
+  // Google Tasks keeps a due date but not a time, so a time goes on the first line of the notes ("Due 14:00").
+
+  private async tasksCall<T>(path: string, init: RequestInit = {}): Promise<T> {
+    try {
+      return await this.call<T>(`https://tasks.googleapis.com/tasks/v1${path}`, init, 0, true);
+    } catch (e) {
+      const err = e as Error & { status?: number };
+      if (err.status === 403 && /accessNotConfigured|SERVICE_DISABLED|has not been used|is disabled/i.test(err.message)) throw new TasksApiOffError();
+      this.scopeOr(e, 'tasks');
+    }
+  }
+
+  async listTaskLists(): Promise<TaskList[]> {
+    const r = await this.tasksCall<{ items?: { id: string; title: string }[] }>('/users/@me/lists?maxResults=100');
+    return (r.items || []).map((l) => ({ id: `${this.account.id}|${l.id}`, accountId: this.account.id, providerId: l.id, name: l.title }));
+  }
+
+  private toTask(list: TaskList, g: GTask): Task {
+    const read = readNotes(g.notes);
+    let due: number | undefined;
+    if (g.due) {
+      const [y, m, d] = g.due.slice(0, 10).split('-').map(Number);
+      due = new Date(y, m - 1, d).getTime() + (read.minutes ?? 0) * 60000;
+    }
+    return {
+      id: `${list.id}|${g.id}`, accountId: this.account.id, listId: list.id, providerId: g.id,
+      title: g.title || '', notes: read.notes || undefined,
+      due, hasTime: due !== undefined && read.minutes !== undefined,
+      done: g.status === 'completed', completedAt: g.completed ? Date.parse(g.completed) : undefined,
+      updatedAt: g.updated ? Date.parse(g.updated) : undefined,
+      ...(read.mailSubject ? { mail: { messageId: '', threadId: '', accountId: '', subject: read.mailSubject } } : {}),
+    };
+  }
+
+  async listTasks(list: TaskList, doneSince: number): Promise<Task[]> {
+    const out: Task[] = [];
+    const base = `/lists/${encodeURIComponent(list.providerId)}/tasks?maxResults=100`;
+    for (const q of ['&showCompleted=false', `&showCompleted=true&showHidden=true&completedMin=${encodeURIComponent(new Date(doneSince).toISOString())}`]) {
+      let page: string | undefined;
+      for (let i = 0; i < 10; i++) {
+        const r = await this.tasksCall<{ items?: GTask[]; nextPageToken?: string }>(`${base}${q}${page ? `&pageToken=${encodeURIComponent(page)}` : ''}`);
+        for (const g of r.items || []) if (!g.deleted && (q.includes('false') ? g.status !== 'completed' : g.status === 'completed')) out.push(this.toTask(list, g));
+        page = r.nextPageToken;
+        if (!page) break;
+      }
+    }
+    return out;
+  }
+
+  private taskBody(p: TaskPatch, was?: Task): Record<string, unknown> {
+    const body: Record<string, unknown> = {};
+    if (p.title !== undefined) body.title = p.title;
+    if (p.done !== undefined) {
+      body.status = p.done ? 'completed' : 'needsAction';
+      if (!p.done) body.completed = null;
+    }
+    const due = p.due === undefined ? was?.due : p.due ?? undefined;
+    const hasTime = p.due === undefined && p.hasTime === undefined ? was?.hasTime : Boolean(p.hasTime);
+    if (p.due !== undefined) {
+      if (p.due === null) body.due = null;
+      else { const d = new Date(p.due); body.due = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00.000Z`; }
+    }
+    if (p.notes !== undefined || p.due !== undefined || p.hasTime !== undefined || p.mail !== undefined) {
+      const mail = p.mail || was?.mail;
+      const d = due !== undefined ? new Date(due) : undefined;
+      body.notes = writeNotes({
+        notes: p.notes !== undefined ? p.notes : was?.notes,
+        minutes: d && hasTime ? d.getHours() * 60 + d.getMinutes() : undefined,
+        mailSubject: mail?.subject,
+        mailLink: mail?.threadId && mail.accountId === this.account.id ? `https://mail.google.com/mail/u/${encodeURIComponent(this.account.email)}/#all/${mail.threadId}` : undefined,
+      });
+    }
+    return body;
+  }
+
+  async createTask(list: TaskList, p: TaskPatch): Promise<Task> {
+    const g = await this.tasksCall<GTask>(`/lists/${encodeURIComponent(list.providerId)}/tasks`, { method: 'POST', body: JSON.stringify({ title: p.title || '', ...this.taskBody(p) }) });
+    return { ...this.toTask(list, g), mail: p.mail };
+  }
+
+  async updateTask(task: Task, p: TaskPatch): Promise<Task> {
+    const list: TaskList = { id: task.listId, accountId: task.accountId, providerId: task.listId.slice(task.accountId.length + 1), name: '' };
+    const g = await this.tasksCall<GTask>(`/lists/${encodeURIComponent(list.providerId)}/tasks/${encodeURIComponent(task.providerId)}`, { method: 'PATCH', body: JSON.stringify(this.taskBody(p, task)) });
+    return { ...this.toTask(list, g), mail: p.mail || task.mail };
+  }
+
+  async deleteTask(task: Task): Promise<void> {
+    const listId = task.listId.slice(task.accountId.length + 1);
+    try {
+      await this.tasksCall(`/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(task.providerId)}`, { method: 'DELETE' });
+    } catch (e) {
+      if ((e as { status?: number }).status !== 404) throw e;
+    }
+  }
+
+  async createTaskList(name: string): Promise<TaskList> {
+    const l = await this.tasksCall<{ id: string; title: string }>('/users/@me/lists', { method: 'POST', body: JSON.stringify({ title: name }) });
+    return { id: `${this.account.id}|${l.id}`, accountId: this.account.id, providerId: l.id, name: l.title };
+  }
 }
+
+interface GTask { id: string; title?: string; notes?: string; status?: string; due?: string; completed?: string; updated?: string; deleted?: boolean }

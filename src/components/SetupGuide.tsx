@@ -17,6 +17,7 @@ const SERVICES: [string, string][] = [
   ['Gmail API', `${CONSOLE}/apis/library/gmail.googleapis.com`],
   ['Google Calendar API', `${CONSOLE}/apis/library/calendar-json.googleapis.com`],
   ['People API', `${CONSOLE}/apis/library/people.googleapis.com`],
+  ['Google Tasks API', `${CONSOLE}/apis/library/tasks.googleapis.com`],
   ['Google Drive API', `${CONSOLE}/apis/library/drive.googleapis.com`],
 ];
 

@@ -73,18 +73,17 @@ export function TemplateBar({ editing, onBuiltIn }: { editing?: string; onBuiltI
   };
   return (
     <div className="ooo-tplbar">
-      <span className="ooo-tplbar-label">Template</span>
-      <button className="ooo-dd" aria-haspopup="menu" aria-label="Templates" onClick={open}>
-        <span>{current?.name || builtIn?.name || 'Choose a template'}</span><Icon name="chevronDown" size={13} />
-      </button>
-      {change && <span className="ooo-changed" title={`Changed since you picked it: ${changedWords(change.parts)}`}>Changed</span>}
-      <span className="grow" />
       {change && (
         <span className="ooo-tplbar-actions">
           <button className="btn ghost" onClick={() => updateTemplate(change.t, change.editing)}>Update template</button>
           <button className="btn ghost" onClick={() => setDialog('saveFrom')}>Save as new…</button>
         </span>
       )}
+      {change && <span className="ooo-changed" title={`Changed since you picked it: ${changedWords(change.parts)}`}>Changed</span>}
+      <span className="ooo-tplbar-label">Template</span>
+      <button className="ooo-dd" aria-haspopup="menu" aria-label="Templates" onClick={open}>
+        <span>{current?.name || builtIn?.name || 'Choose a template'}</span><Icon name="chevronDown" size={13} />
+      </button>
       {menu.node}
       {dialog === 'save' && <SaveTemplateDialog editing={editing} onClose={() => setDialog(null)} onSaved={(t) => setLast({ id: t.id, editing })} />}
       {dialog === 'saveFrom' && change && <SaveTemplateDialog editing={change.editing} parts={change.t.parts} onClose={() => setDialog(null)} onSaved={(t) => setLast({ id: t.id, editing: change.editing })} />}

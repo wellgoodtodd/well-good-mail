@@ -1,5 +1,7 @@
 # 0.7.3 beta 5: what to test
 
+Everything here not yet ticked has moved into [testing-0.7.3-beta6.md](testing-0.7.3-beta6.md). This list is kept as a record of beta 5.
+
 Beta 5 is beta 4 plus the fixes from your beta 4 calendar and Out of Office feedback, and place suggestions in Location. The first section is what's new; after that comes everything from the beta 4 list not ticked yet. Everything here was checked in the browser demo only, not on your real Google and Outlook accounts, so the real accounts are the real test. If something goes badly wrong, beta 4 is on the GitHub releases page to go back to.
 
 ## New in beta 5

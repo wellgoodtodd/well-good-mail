@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildReply, parseInvite, whichIsMe, statusOf } from '../invites';
+import { buildReply, looksLikeInvitation, parseInvite, whichIsMe, statusOf } from '../invites';
 
 const ICS = [
   'BEGIN:VCALENDAR',
@@ -58,5 +58,22 @@ describe('answering an invitation by email', () => {
     expect(out).toContain('ORGANIZER:mailto:todd@wellgood.media');
     expect(out).toContain('ATTENDEE;PARTSTAT=TENTATIVE;CN=Todd:mailto:tbweller@gmail.com');
     expect(out.endsWith('END:VCALENDAR\r\n')).toBe(true);
+  });
+});
+
+describe('spotting an invitation before its body is read', () => {
+  const att = (filename: string, mimeType: string) => ({ filename, mimeType });
+  it('knows a calendar file among the attachments', () => {
+    expect(looksLikeInvitation({ subject: 'Team lunch', attachments: [att('invite.ics', 'application/octet-stream')] })).toBe(true);
+    expect(looksLikeInvitation({ subject: 'Team lunch', attachments: [att('x', 'text/calendar; method=REQUEST')] })).toBe(true);
+    expect(looksLikeInvitation({ subject: 'Team lunch', attachments: [att('menu.pdf', 'application/pdf')] })).toBe(false);
+  });
+  it('knows the usual invitation subjects', () => {
+    expect(looksLikeInvitation({ subject: 'Invitation: Planning @ Fri 14 Nov 2026 10am (GMT)' })).toBe(true);
+    expect(looksLikeInvitation({ subject: 'Updated invitation: Planning' })).toBe(true);
+    expect(looksLikeInvitation({ subject: 'Canceled event: Planning' })).toBe(true);
+    expect(looksLikeInvitation({ subject: 'Cancelled event with note: Planning' })).toBe(true);
+    expect(looksLikeInvitation({ subject: 'Re: Invitation: Planning' })).toBe(false);
+    expect(looksLikeInvitation({ subject: 'Your invitation to our sale' })).toBe(false);
   });
 });

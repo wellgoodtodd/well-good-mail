@@ -18,6 +18,8 @@ export const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/gmail.settings.basic',
   // Add to contacts from the person card.
   'https://www.googleapis.com/auth/contacts',
+  // Tasks (Google Tasks), kept in step with the phone.
+  'https://www.googleapis.com/auth/tasks',
 ];
 
 /**

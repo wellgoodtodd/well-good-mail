@@ -1,6 +1,6 @@
 // Demo mode: pretend accounts and emails so the whole app can be tried and
 // tested without signing in to anything. Nothing leaves the computer.
-import type { Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, Folder, GuestAnswer, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Task, TaskList, TaskPatch, Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, Folder, GuestAnswer, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Rsvp } from '../invites';
 import type { MailProvider, MessageBody, SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
@@ -227,6 +227,38 @@ export function resetDemo() {
   state = null;
 }
 
+
+/** Demo task lists and tasks, kept until the page reloads. */
+const demoTasks = new Map<string, { lists: TaskList[]; tasks: Task[] }>();
+function demoTaskData(accountId: string) {
+  let d = demoTasks.get(accountId);
+  if (d) return d;
+  const day = (n: number, h?: number, m = 0) => { const x = new Date(); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() + n); if (h !== undefined) x.setHours(h, m); return x.getTime(); };
+  const seeds: Record<string, { lists: string[]; tasks: [number, string, number | undefined, number | undefined, boolean?][] }> = {
+    'demo-wgm': { lists: ['My Tasks', 'Studio', 'Podcast'], tasks: [
+      [1, 'Back up the SD cards from Thursday', 0, undefined], [0, 'Send the venue deposit for the March shoot', 0, 14],
+      [2, 'Approve the episode 42 thumbnail', 0, undefined], [1, 'Send the call sheet to the crew', 0, undefined, true],
+      [1, 'Book the van for the January shoot', 6, undefined], [0, 'Ring the dentist', 7, 15], [2, 'Look into a second microphone', undefined, undefined],
+      [0, 'Chase the October invoice', -2, undefined], [1, 'Pick up the lights from hire', 1, 10],
+    ] },
+    'demo-personal': { lists: ['Home', 'Shopping'], tasks: [
+      [0, 'Renew the car insurance', -2, undefined], [1, 'Oat milk, coffee beans, bin bags', undefined, undefined], [0, 'Water the plants', 2, undefined],
+    ] },
+  };
+  const seed = seeds[accountId] || { lists: ['Tasks'], tasks: [] };
+  const lists = seed.lists.map((name, n) => ({ id: `${accountId}|list${n}`, accountId, providerId: `list${n}`, name }));
+  let k = 0;
+  const tasks = seed.tasks.map(([li, title, dueDay, hour, done]) => {
+    const due = dueDay === undefined ? undefined : day(dueDay, hour, hour === 14 ? 0 : 30 * (hour ? 0 : 0));
+    const list = lists[li] || lists[0];
+    k += 1;
+    return { id: `${list.id}|t${k}`, accountId, listId: list.id, providerId: `t${k}`, title, due, hasTime: hour !== undefined, done: Boolean(done), completedAt: done ? Date.now() - 3600000 * 2 : undefined } as Task;
+  });
+  d = { lists, tasks };
+  demoTasks.set(accountId, d);
+  return d;
+}
+
 const demoReplies = new Map<string, AutoReply>();
 
 export class DemoProvider implements MailProvider {
@@ -240,6 +272,41 @@ export class DemoProvider implements MailProvider {
   async setAutoReply(r: AutoReply): Promise<void> {
     await new Promise((res) => setTimeout(res, 400));
     demoReplies.set(this.account.id, { ...r });
+  }
+
+
+  async listTaskLists(): Promise<TaskList[]> { return [...demoTaskData(this.account.id).lists]; }
+  async listTasks(list: TaskList, doneSince: number): Promise<Task[]> {
+    await new Promise((r) => setTimeout(r, 150));
+    return demoTaskData(this.account.id).tasks.filter((t) => t.listId === list.id && (!t.done || (t.completedAt ?? 0) >= doneSince)).map((t) => ({ ...t }));
+  }
+  async createTask(list: TaskList, p: TaskPatch): Promise<Task> {
+    await new Promise((r) => setTimeout(r, 200));
+    const id = `n${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+    const t: Task = { id: `${list.id}|${id}`, accountId: this.account.id, listId: list.id, providerId: id, title: p.title || '', notes: p.notes, due: p.due ?? undefined, hasTime: Boolean(p.hasTime && p.due), done: Boolean(p.done), mail: p.mail };
+    demoTaskData(this.account.id).tasks.push(t);
+    return { ...t };
+  }
+  async updateTask(task: Task, p: TaskPatch): Promise<Task> {
+    await new Promise((r) => setTimeout(r, 200));
+    const d = demoTaskData(this.account.id);
+    const at = d.tasks.findIndex((x) => x.id === task.id);
+    const was = at >= 0 ? d.tasks[at] : task;
+    const next: Task = { ...was, ...(p.title !== undefined ? { title: p.title } : {}), ...(p.notes !== undefined ? { notes: p.notes } : {}), ...(p.mail ? { mail: p.mail } : {}),
+      ...(p.due !== undefined ? { due: p.due ?? undefined, hasTime: Boolean(p.due !== null && p.hasTime) } : p.hasTime !== undefined ? { hasTime: p.hasTime } : {}),
+      ...(p.done !== undefined ? { done: p.done, completedAt: p.done ? Date.now() : undefined } : {}) };
+    if (at >= 0) d.tasks[at] = next; else d.tasks.push(next);
+    return { ...next };
+  }
+  async deleteTask(task: Task): Promise<void> {
+    const d = demoTaskData(this.account.id);
+    d.tasks = d.tasks.filter((x) => x.id !== task.id);
+  }
+  async createTaskList(name: string): Promise<TaskList> {
+    const d = demoTaskData(this.account.id);
+    const l = { id: `${this.account.id}|list${d.lists.length}`, accountId: this.account.id, providerId: `list${d.lists.length}`, name };
+    d.lists.push(l);
+    return l;
   }
 
   async addAwayEvent(): Promise<string> { return `away-${Date.now()}`; }

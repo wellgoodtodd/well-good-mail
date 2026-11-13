@@ -363,3 +363,50 @@ export interface Snooze {
   until: number;
   subject: string;
 }
+
+/** A task list in an account (Google Tasks or Microsoft To Do). */
+export interface TaskList {
+  /** Unique across accounts: `${accountId}|${providerId}`. */
+  id: string;
+  accountId: string;
+  providerId: string;
+  name: string;
+}
+
+/** The email a task was made from, so it can be opened again. */
+export interface TaskMail {
+  messageId: string;
+  threadId: string;
+  accountId: string;
+  subject: string;
+  from?: string;
+  date?: number;
+}
+
+export interface Task {
+  /** Unique across accounts: `${listId}|${providerId}` (the list id already holds the account). */
+  id: string;
+  accountId: string;
+  /** The app's list id (`${accountId}|${providerListId}`). */
+  listId: string;
+  providerId: string;
+  title: string;
+  notes?: string;
+  /** When it's due: midnight of the day, or the exact time when `hasTime`. */
+  due?: number;
+  hasTime?: boolean;
+  done: boolean;
+  completedAt?: number;
+  updatedAt?: number;
+  mail?: TaskMail;
+}
+
+/** What a new task or a change to one says. `due: null` clears the date. */
+export interface TaskPatch {
+  title?: string;
+  notes?: string;
+  due?: number | null;
+  hasTime?: boolean;
+  done?: boolean;
+  mail?: TaskMail;
+}

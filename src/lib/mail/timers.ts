@@ -30,6 +30,7 @@ export function stopTimers() {
 export function minuteTick() {
   flushOutbox();
   void import('../oooStore').then((m) => m.oooTick()).catch(() => { /* not ready yet */ });
+  void import('../tasks').then((m) => m.taskTick()).catch(() => { /* not ready yet */ });
   const now = Date.now();
   const due = get().snoozes.filter((s) => s.until <= now);
   if (due.length) {

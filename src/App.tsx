@@ -13,6 +13,7 @@ import { Composer } from './components/Composer';
 import { Reminders } from './components/Reminders';
 import { ComingUpPanel, MeetingBanner } from './components/ComingUp';
 import { NewEventHost, startNewEvent } from './components/NewEvent';
+import { TaskEditorHost } from './components/Tasks';
 import { PrintPreview } from './components/PrintPreview';
 import { WhatsNew } from './components/WhatsNew';
 import { Help } from './components/Help';
@@ -422,6 +423,7 @@ function useShortcuts() {
         markAllRead: () => markViewRead(st.view),
         reminders: () => openScreen('reminders'),
         newEvent: () => startNewEvent(),
+        makeTask: () => { if (latest) void import('./components/Tasks').then((t) => t.makeTaskFromEmail(latest)); },
         print: () => { if (sel) printThread(sel); },
         undo: () => { undoSteps(1); },
         redo: () => { redoSteps(1); },
@@ -638,6 +640,7 @@ function MainWindow() {
       </header>
       {accounts.length > 0 && !guide && <MeetingBanner />}
       {accounts.length > 0 && <NewEventHost />}
+      {accounts.length > 0 && <TaskEditorHost />}
       {accounts.length > 0 && !guide && <OooBanner />}
       {!online && <div className="offline">You're offline. Mail you've already downloaded is still here, and anything you send will go when you're back online.</div>}
       {update.status === 'ready' && <div className="update-bar">Version {update.version} is ready. <button className="btn" onClick={restartToUpdate}>Restart to update</button></div>}

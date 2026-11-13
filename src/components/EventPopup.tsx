@@ -34,7 +34,7 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
     if (event.recurring || event.meetingUrl || (event.guests || []).some((g) => !g.self)) { setEditing(true); return; }
     try { const newId = await moveEventAcross(event, to, { removeOriginal: true }); movedToast(event, newId, to); onClose(); } catch (e) { toast({ text: `Couldn't move it: ${e instanceof Error ? e.message : e}`, ttl: 9000 }); }
   };
-  const refresh = async () => { setRefreshing(true); try { await refreshEvents(); } finally { setRefreshing(false); } };
+  const refresh = async () => { setRefreshing(true); try { await refreshEvents({ everyone: true }); } finally { setRefreshing(false); } };
   // Opening an event with guests pulls the latest answers, unless they were fetched in the last minute.
   useEffect(() => { if (picked.guests?.length && Date.now() - lastEventsRefresh() > 60000) void refresh(); }, [picked.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // The quick edit: name, day and times change right here; Save shows once something has changed.
@@ -121,7 +121,7 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
                 {guestList.length > 0 && <button role="menuitem" className="btn ghost" disabled={refreshing} onClick={() => { setMore(false); void refresh(); }}>{refreshing ? 'Checking...' : 'Refresh answers'}</button>}
                 {event.htmlLink && event.meetingUrl && editable && <button type="button" role="menuitem" className="btn ghost" onClick={() => { setMore(false); void openMeetingSettings(event.id, event.htmlLink); }}>Meeting settings</button>}
                 {event.htmlLink && <button type="button" role="menuitem" className="btn ghost" onClick={() => { setMore(false); openExternal(event.htmlLink!); }}>Open in calendar</button>}
-                {editable && providerFor(event.accountId)?.deleteEvent && <button type="button" role="menuitem" className="btn ghost danger" onClick={() => { setMore(false); void removeEvent(event).then((ok) => { if (ok) onClose(); }); }}>Delete event</button>}
+                {editable && providerFor(event.accountId)?.deleteEvent && <button type="button" role="menuitem" className="btn ghost danger" onClick={() => { setMore(false); let closed = false; void removeEvent(event, { answered: () => { closed = true; onClose(); } }).then((ok) => { if (ok && !closed) onClose(); }); }}>Delete event</button>}
               </div>
             )}
           </span>
