@@ -18,8 +18,9 @@ import {
 } from '../lib/tasks';
 import { readTaskWords } from '../lib/taskWords';
 import { titleFromSubject } from '../lib/taskNotes';
+import { TASK_ALERTS, choicesWith } from '../lib/alertChoices';
 import { openTaskDefaults } from '../lib/settingsNav';
-import type { Account, Message, Task, TaskList, TaskMail } from '../lib/types';
+import type { Account, Message, Task, TaskList, TaskMail, TaskPatch } from '../lib/types';
 import '../styles/tasks.css';
 
 const DAY = 86400000;
@@ -572,6 +573,13 @@ function dayWords(ymd: string, now = Date.now()): string {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', ...(d.getFullYear() !== new Date(now).getFullYear() ? { year: 'numeric' } : {}) });
 }
 
+/** The task editor's Alert and Second alert as a task's alerts: undefined is the usual (one at the time). */
+export function alertsOf(first: 'usual' | 'none' | number, second: number | null): number[] | undefined {
+  if (first === 'usual') return undefined;
+  if (first === 'none') return [];
+  return [...new Set([first, ...(second !== null ? [second] : [])])].sort((a, b) => a - b);
+}
+
 function TaskEditor({ task, draft }: { task?: Task; draft?: EditorState['draft'] }) {
   const lists = useTasks((s) => s.lists);
   const loaded = useTasks((s) => s.loaded);
@@ -583,6 +591,10 @@ function TaskEditor({ task, draft }: { task?: Task; draft?: EditorState['draft']
   // The day can be typed ("18 Nov", "Wednesday", "next Friday"): while typing, `typed` holds the words.
   const [typed, setTyped] = useState<string | null>(null);
   const [notes, setNotes] = useState(start.notes || '');
+  // Alert: 'usual' is one at the time (no Alert line in the notes), 'none' is no alert, a number is minutes before.
+  const startAlerts = task?.alerts;
+  const [alert1, setAlert1] = useState<'usual' | 'none' | number>(startAlerts === undefined ? 'usual' : startAlerts.length ? startAlerts[0] : 'none');
+  const [alert2, setAlert2] = useState<number | null>(startAlerts && startAlerts.length > 1 ? startAlerts[1] : null);
   const [listId, setListId] = useState(task?.listId || draft?.listId || defaultList()?.id || '');
   const titleRef = useRef<HTMLInputElement>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -590,6 +602,9 @@ function TaskEditor({ task, draft }: { task?: Task; draft?: EditorState['draft']
   // Lists can arrive after the pop-up opens (the first time Tasks is used).
   useEffect(() => { if (!listId && lists.length) setListId((draft?.mail && listForAccount(draft.mail.accountId)?.id) || defaultList()?.id || lists[0].id); }, [lists, listId, draft]);
   const mail = task?.mail || draft?.mail;
+  const listAccount = accounts.find((a) => a.id === lists.find((l) => l.id === listId)?.accountId);
+  const alertsHere = listAccount?.kind !== 'microsoft';
+  const alertOptions = choicesWith(TASK_ALERTS, typeof alert1 === 'number' ? alert1 : null, alert2);
   const reading = typed !== null && typed.trim() ? readDay(typed) : undefined;
   /** The day and time as they stand, taking in any typed words not yet confirmed. */
   const current = (): { day: string; time: string } => {
@@ -610,13 +625,17 @@ function TaskEditor({ task, draft }: { task?: Task; draft?: EditorState['draft']
     if (!title.trim()) return;
     const c = current();
     const due = c.day ? msAt(c.day, c.time || undefined) : null;
-    const patch = { title: title.trim(), notes, due, hasTime: Boolean(c.day && c.time) };
+    const base = { title: title.trim(), notes, due, hasTime: Boolean(c.day && c.time) };
+    // Alerts only mean something with a time, and Microsoft To Do keeps none.
+    const chosen = base.hasTime && alertsHere ? alertsOf(alert1, alert2) : undefined;
     if (task) {
-      const changed = patch.title !== task.title || notes !== (task.notes || '') || (due ?? undefined) !== task.due || patch.hasTime !== Boolean(task.hasTime);
+      const alertsChanged = base.hasTime && alertsHere && JSON.stringify(chosen) !== JSON.stringify(task.alerts);
+      const patch: TaskPatch = { ...base, ...(alertsChanged ? { alerts: chosen ?? null } : {}) };
+      const changed = alertsChanged || base.title !== task.title || notes !== (task.notes || '') || (due ?? undefined) !== task.due || base.hasTime !== Boolean(task.hasTime);
       if (changed) void changeTask(task, patch);
-      if (listId && listId !== task.listId) void moveTask({ ...task, ...patch, due: due ?? undefined }, listId);
+      if (listId && listId !== task.listId) void moveTask({ ...task, ...base, due: due ?? undefined, alerts: base.hasTime ? chosen : undefined }, listId);
     } else if (listId) {
-      void addTask(listId, { ...patch, mail });
+      void addTask(listId, { ...base, mail, ...(chosen ? { alerts: chosen } : {}) });
     }
     closeEditor();
   };
@@ -665,6 +684,22 @@ function TaskEditor({ task, draft }: { task?: Task; draft?: EditorState['draft']
           {day && time && <button type="button" className="link-btn" onClick={() => setTime('')}>Clear time</button>}
           {day && <button type="button" className="link-btn" onClick={() => { setDay(''); setTime(''); setTyped(null); }}>Clear date and time</button>}
         </div>
+        {(time || (reading && reading.minutes !== undefined)) && alertsHere && <>
+          <div className="row"><label className="k" htmlFor="task-alert">Alert</label>
+            <select id="task-alert" className="input" value={String(alert1)} onChange={(e) => { const v = e.target.value; setAlert1(v === 'usual' || v === 'none' ? v : Number(v)); if (v === 'usual' || v === 'none') setAlert2(null); }}>
+              <option value="usual">At the time (usual)</option>
+              <option value="none">None</option>
+              {alertOptions.map((a) => <option key={a.mins} value={a.mins}>{a.label}</option>)}
+            </select>
+            {typeof alert1 === 'number' && alert2 === null && <button type="button" className="btn ghost small" onClick={() => setAlert2(alertOptions.find((a) => a.mins !== alert1)?.mins ?? 0)}>+ Add alert</button>}
+          </div>
+          {typeof alert1 === 'number' && alert2 !== null && <div className="row"><label className="k" htmlFor="task-alert2">Second alert</label>
+            <select id="task-alert2" className="input" value={alert2} onChange={(e) => setAlert2(Number(e.target.value))}>
+              {alertOptions.map((a) => <option key={a.mins} value={a.mins}>{a.label}</option>)}
+            </select>
+            <button type="button" className="btn ghost small" aria-label="Remove the second alert" onClick={() => setAlert2(null)}><Icon name="close" size={12} /></button>
+          </div>}
+        </>}
         <div className="row"><span className="k">List</span>
           {lists.length ? <ListPicker value={listId} lists={lists} onChange={setListId} />
             : <span className="hint">{loaded ? 'No task lists yet. Accounts may need to sign in once more for tasks.' : 'Loading lists…'}</span>}

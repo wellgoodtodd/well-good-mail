@@ -24,7 +24,7 @@ function CalendarAlerts() {
       {(s.reminderMode === 'daily' || s.reminderMode === 'important') && (
         <Row label="Summary time" htmlFor="sumtime"><input id="sumtime" type="time" value={s.summaryTime} onChange={(e) => s.set({ summaryTime: e.target.value })} /></Row>
       )}
-      <p className="hint">Tasks with a time alert you at that time, like reminders, unless reminders are set to Never pop up.</p>
+      <p className="hint">Tasks with a time alert you at that time, or when their Alert and Second alert say, unless reminders are set to Never pop up.</p>
     </section>
     <section className="set-section" id="settings-meeting-alerts">
       <h2>Video meetings</h2>

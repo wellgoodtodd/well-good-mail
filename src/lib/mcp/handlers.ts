@@ -7,6 +7,7 @@ import type { Account, CalendarEvent, Folder, FollowUp, Message } from '../types
 import { BACK_TOKEN, oooSupport, stateWords, textToHtml, whenSentence, htmlToText, fillBackDate, windowOf, type AutoReply, type OooPlan } from '../ooo';
 import { applyTemplate, findTemplate, templateSummary, type OooTemplate } from '../oooTemplates';
 import type { CalendarGroup } from '../meetings';
+import { alertText, timeInTitle } from '../taskNotes';
 
 /** One question for the person: what the AI app wants, and for which accounts. */
 export interface AskRequest {
@@ -70,7 +71,7 @@ export interface McpWorld {
     lists: { id: string; name: string; accountId: string }[];
     open: { title: string; listId: string; due?: number; hasTime?: boolean; notes?: string }[];
     target?: { id: string; name: string; accountId: string };
-    add: (listId: string, t: { title: string; notes?: string; due?: number; hasTime: boolean }) => Promise<boolean>;
+    add: (listId: string, t: { title: string; notes?: string; due?: number; hasTime: boolean; alerts?: number[] }) => Promise<boolean>;
   };
   /** Opens a draft in Well Good Mail for the person to edit. */
   openDraft: (id: string) => void;
@@ -132,8 +133,9 @@ const SCHEMAS: Record<string, object> = {
   add_task: {
     type: 'object',
     properties: {
-      title: { type: 'string', description: 'What needs doing, short, like "Ring the dentist".' },
-      due: { type: 'string', description: 'Optional due date like 2026-11-20, or date and time like 2026-11-20T15:00.' },
+      title: { type: 'string', description: 'What needs doing, short, like "Ring the dentist". Never put a time in the title: it goes in due.' },
+      due: { type: 'string', description: 'Optional due date like 2026-11-20, or date and time like 2026-11-20T15:00. A time always goes here, never in the title.' },
+      alerts: { type: 'array', items: { type: 'number' }, maxItems: 2, description: 'Optional, for a task with a time: alerts in minutes before it, up to two, like [0] for at the time or [60, 10]. An empty list is no alert. Leave out for the usual (one at the time).' },
       notes: { type: 'string', description: 'Optional notes.' },
       list: { type: 'string', description: 'Optional list name from list_tasks. Leave out to use the list the person chose for AI apps.' },
     },
@@ -530,7 +532,7 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
     case 'add_task': {
       if (!w.tasks) throw new Error('Tasks are not available here.');
       const t = w.tasks;
-      const title = typeof args.title === 'string' ? args.title.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+      let title = typeof args.title === 'string' ? args.title.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
       if (!title) throw new Error('Give the task a title.');
       const wantList = typeof args.list === 'string' ? args.list.trim().toLowerCase() : '';
       const usable = t.lists.filter((l) => shared.includes(l.accountId) && w.settings.accounts[l.accountId] === 'write');
@@ -544,10 +546,26 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
         hasTime = Boolean(m[4]);
         due = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4] || 0), Number(m[5] || 0)).getTime();
       }
+      // A time written into the title, "Call Stevie (3pm)", becomes the task's time when due has none.
+      const inTitle = due !== undefined && !hasTime ? timeInTitle(title) : undefined;
+      if (inTitle && due !== undefined) {
+        title = inTitle.title;
+        due += inTitle.minutes * 60_000;
+        hasTime = true;
+      }
+      let alerts: number[] | undefined;
+      if (args.alerts !== undefined) {
+        if (!Array.isArray(args.alerts) || args.alerts.some((a) => typeof a !== 'number' || !Number.isFinite(a) || a < 0 || a > 40320)) {
+          throw new Error('Give alerts as minutes before the time, up to two, like [0] or [60, 10].');
+        }
+        alerts = [...new Set((args.alerts as number[]).map(Math.round))].sort((a, b) => a - b).slice(0, 2);
+        if (!hasTime) alerts = undefined;
+      }
       const notes = typeof args.notes === 'string' ? args.notes.trim().slice(0, 2000) : undefined;
       const when = due !== undefined ? `, due ${new Date(due).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${hasTime ? ` at ${new Date(due).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}` : '';
-      await permitAccounts(w, tool, [list.accountId], () => `add the task "${title}" to ${list.name} (${accName(byId(list.accountId))})${when}`);
-      const ok = await t.add(list.id, { title, notes, due, hasTime });
+      const alertWords = alerts ? `, alert ${alertText(alerts)}` : '';
+      await permitAccounts(w, tool, [list.accountId], () => `add the task "${title}" to ${list.name} (${accName(byId(list.accountId))})${when}${alertWords}`);
+      const ok = await t.add(list.id, { title, notes, due, hasTime, ...(alerts ? { alerts } : {}) });
       if (!ok) throw new Error('The task could not be saved. The account may need to sign in once more in Well Good Mail.');
       args.title = title;
       return { data: { added: title, list: list.name, due: args.due || undefined }, logText: logLine(tool, { title }) };

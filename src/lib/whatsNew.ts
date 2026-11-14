@@ -16,8 +16,13 @@ export const RELEASES: Release[] = [
     date: 'November 2026',
     highlights: [
       'Open calendar files (.ics) in Well Good Mail: Open with › Well Good Mail shows the event, ready to add to the calendar you pick',
+      'Alerts for tasks: a task with a time can have an Alert and a Second alert, and they show on your phone too',
     ],
-    more: [],
+    more: [
+      'Quick add understands "tonight", "Friday morning", "half 9", "quarter to 6", and "at 2" as the afternoon',
+      'Tasks from AI apps get their time set properly, not written into the title',
+      'Settings are shared with Well Good Calendar on your phone more often, with your account nicknames and colours',
+    ],
   },
   {
     version: '0.7.3',

@@ -216,7 +216,7 @@ async function answer(rid: number, conn: number, body: string) {
         lists: st.lists.map((l) => ({ id: l.id, name: l.name, accountId: l.accountId })),
         open: st.tasks.filter((x) => !x.done).map((x) => ({ title: x.title, listId: x.listId, due: x.due, hasTime: x.hasTime, notes: x.notes })),
         target: target ? { id: target.id, name: target.name, accountId: target.accountId } : undefined,
-        add: async (listId: string, x: { title: string; notes?: string; due?: number; hasTime: boolean }) => Boolean(await t.addTask(listId, { title: x.title, notes: x.notes, due: x.due ?? null, hasTime: x.hasTime })),
+        add: async (listId: string, x: { title: string; notes?: string; due?: number; hasTime: boolean; alerts?: number[] }) => Boolean(await t.addTask(listId, { title: x.title, notes: x.notes, due: x.due ?? null, hasTime: x.hasTime, ...(x.alerts ? { alerts: x.alerts } : {}) })),
       };
     })(),
     aiDraft: (id) => { const d = aiDraftsNow().find((x) => x.id === id); return d && d.fromAccountId ? { accountId: d.fromAccountId } : undefined; },

@@ -243,3 +243,41 @@ describe('sign-off for drafts', () => {
     expect(withSignOff('Hi Sam,\n\nSee you Friday.', '')).toBe('Hi Sam,\n\nSee you Friday.');
   });
 });
+
+describe('adding tasks', () => {
+  let clock = 5_000_000_000;
+  function withTasks() {
+    const r = world({ accounts: { a: 'write' }, modes: { ...defaultMcp().modes, 'organise.task': 'allow' } });
+    const add = vi.fn(async (_listId: string, _t: Record<string, unknown>) => true);
+    const list = { id: 'a|l1', name: 'My Tasks', accountId: 'a' };
+    r.w.tasks = { lists: [list], open: [], target: list, add };
+    // Its own minute, so the rate limit shared with the tests above never gets in the way.
+    clock += 120_000;
+    r.w.now = clock;
+    return { ...r, add };
+  }
+  it('takes a bracketed time off the title and uses it as the time', async () => {
+    const { w, add } = withTasks();
+    await handleRpc(w, call('add_task', { title: 'Call Stevie (3pm)', due: '2026-11-20' }));
+    expect(add).toHaveBeenCalledWith('a|l1', expect.objectContaining({ title: 'Call Stevie', hasTime: true, due: new Date(2026, 10, 20, 15, 0).getTime() }));
+  });
+  it('leaves the title alone when due already has a time', async () => {
+    const { w, add } = withTasks();
+    await handleRpc(w, call('add_task', { title: 'Call Stevie (3pm)', due: '2026-11-20T09:00' }));
+    expect(add).toHaveBeenCalledWith('a|l1', expect.objectContaining({ title: 'Call Stevie (3pm)', due: new Date(2026, 10, 20, 9, 0).getTime() }));
+  });
+  it('passes alerts through for a task with a time, up to two', async () => {
+    const { w, add } = withTasks();
+    await handleRpc(w, call('add_task', { title: 'Dentist', due: '2026-11-20T15:00', alerts: [10, 60, 0] }));
+    expect(add).toHaveBeenCalledWith('a|l1', expect.objectContaining({ alerts: [0, 10] }));
+    await handleRpc(w, call('add_task', { title: 'Dentist', due: '2026-11-20T15:00', alerts: [] }));
+    expect(add).toHaveBeenLastCalledWith('a|l1', expect.objectContaining({ alerts: [] }));
+  });
+  it('drops alerts on a task with no time, and refuses odd ones', async () => {
+    const { w, add } = withTasks();
+    await handleRpc(w, call('add_task', { title: 'Bins', due: '2026-11-20', alerts: [0] }));
+    expect(add.mock.calls[0][1]).not.toHaveProperty('alerts');
+    const r = JSON.stringify(await handleRpc(w, call('add_task', { title: 'Bins', due: '2026-11-20T08:00', alerts: ['soon'] })));
+    expect(r).toContain('isError');
+  });
+});

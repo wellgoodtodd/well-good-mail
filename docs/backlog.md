@@ -4,6 +4,13 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## For 0.7.4 beta 2 (on batch1, not built yet)
+
+- Brought in from the web app branch (desktop files only): settings shared with the phone every 5 minutes and when the window comes to the front, with an `accounts` list (nicknames, colours); smarter quick add; task alerts kept in an "Alert:" line in Google Tasks notes; a bracketed time at the end of a dated task's title read as its time.
+- Task editor (New task and opening a task): Alert and Second alert for a task with a time (`TASK_ALERTS`), not for Microsoft To Do lists. NewEvent uses the shared lists in `alertChoices.ts`.
+- Notifications at each of a task's alerts (`taskAlertsDue` in tasks.ts), under the same Calendar and tasks setting as events.
+- AI `add_task`: a time goes in `due`, never the title; optional `alerts`; a "(3pm)" left in the title becomes the time.
+
 ## 0.7.4 beta 1 (built 13 Nov 2026)
 
 0.7.3 plus opening calendar files (.ics) from Windows. Test list: `testing-0.7.4-beta1.md`. First build to compile the Rust side of it (`src-tauri/src/icsfile.rs`).

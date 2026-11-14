@@ -4,7 +4,7 @@
 import { create } from 'zustand';
 import { providers, toast, useMail } from './mail/store';
 import { useSettings, settings, isQuietNow } from './settings';
-import { notify } from './platform';
+import { notify, flashTaskbar } from './platform';
 import type { Task, TaskList, TaskMail, TaskPatch } from './types';
 
 export type TaskTrouble = { kind: 'permission' | 'apiOff' | 'other'; text: string };
@@ -235,7 +235,7 @@ export async function addTask(listId: string, p: TaskPatch, opts: { quiet?: bool
   const list = get().lists.find((l) => l.id === listId);
   const prov = list && providers.get(list.accountId);
   if (!list || !prov?.createTask) { toast({ text: 'That list can\'t take new tasks', ttl: 4000 }); return undefined; }
-  const temp: Task = { id: `${list.id}|new-${Date.now()}`, accountId: list.accountId, listId: list.id, providerId: '', title: p.title || 'Task', notes: p.notes, due: p.due ?? undefined, hasTime: Boolean(p.due && p.hasTime), done: false, mail: p.mail };
+  const temp: Task = { id: `${list.id}|new-${Date.now()}`, accountId: list.accountId, listId: list.id, providerId: '', title: p.title || 'Task', notes: p.notes, due: p.due ?? undefined, hasTime: Boolean(p.due && p.hasTime), done: false, mail: p.mail, ...(p.alerts ? { alerts: p.alerts } : {}) };
   set({ tasks: [...get().tasks, temp] });
   try {
     const made = await busy(() => prov.createTask!(list, p));
@@ -262,6 +262,7 @@ export async function changeTask(task: Task, p: TaskPatch, opts: { quiet?: boole
     ...(p.due !== undefined ? { due: p.due ?? undefined, hasTime: Boolean(p.due !== null && p.hasTime) } : p.hasTime !== undefined ? { hasTime: p.hasTime } : {}),
     ...(p.done !== undefined ? { done: p.done, completedAt: p.done ? Date.now() : undefined } : {}),
     ...(p.mail ? { mail: p.mail } : {}),
+    ...(p.alerts !== undefined ? { alerts: p.alerts ?? undefined } : {}),
   };
   set({ tasks: get().tasks.map((x) => (x.id === task.id ? shown : x)) });
   try {
@@ -287,7 +288,7 @@ export async function deleteTask(task: Task, opts: { quiet?: boolean } = {}): Pr
   try {
     await busy(() => prov.deleteTask!(task));
     if (!opts.quiet) {
-      toast({ text: `Deleted: ${task.title}`, ttl: 5000, undo: () => void addTask(task.listId, { title: task.title, notes: task.notes, due: task.due ?? null, hasTime: task.hasTime, done: task.done, mail: task.mail }, { quiet: true }) });
+      toast({ text: `Deleted: ${task.title}`, ttl: 5000, undo: () => void addTask(task.listId, { title: task.title, notes: task.notes, due: task.due ?? null, hasTime: task.hasTime, alerts: task.alerts, done: task.done, mail: task.mail }, { quiet: true }) });
     }
   } catch (e) {
     set({ tasks: [...get().tasks, task] });
@@ -298,7 +299,7 @@ export async function deleteTask(task: Task, opts: { quiet?: boolean } = {}): Pr
 /** Moves a task to another list (in another account too): made in the new list, then taken out of the old one. */
 export async function moveTask(task: Task, listId: string): Promise<void> {
   if (task.listId === listId) return;
-  const made = await addTask(listId, { title: task.title, notes: task.notes, due: task.due ?? null, hasTime: task.hasTime, done: task.done, mail: task.mail }, { quiet: true });
+  const made = await addTask(listId, { title: task.title, notes: task.notes, due: task.due ?? null, hasTime: task.hasTime, alerts: task.alerts, done: task.done, mail: task.mail }, { quiet: true });
   if (made) await deleteTask(task, { quiet: true });
 }
 
@@ -437,14 +438,37 @@ export function threadTaskMark(tasks: Task[], key: string): 'open' | 'done' | un
 
 // ---- Alerts: tasks with a time alert like reminders ----
 
+/** The alerts that have come round: each of a task's alerts (`task.alerts`, or one at the time when it has none
+ *  set) in the last 10 minutes, for open tasks with a time, not already given. */
+export function taskAlertsDue(tasks: Task[], now: number, given: Set<string>): { key: string; task: Task; mins: number }[] {
+  const out: { key: string; task: Task; mins: number }[] = [];
+  for (const t of tasks) {
+    if (t.done || !t.hasTime || t.due === undefined) continue;
+    for (const mins of t.alerts ?? [0]) {
+      const at = t.due - mins * 60000;
+      const key = `${t.id}@${t.due}@${mins}`;
+      if (at <= now && at > now - 10 * 60000 && !given.has(key)) out.push({ key, task: t, mins });
+    }
+  }
+  return out;
+}
+
 const alerted = new Set<string>(readJson<string[]>('wgm.taskAlerted', []));
 export function taskTick(now = Date.now()) {
   if (!get().loaded) return;
-  const due = get().tasks.filter((t) => !t.done && t.hasTime && t.due !== undefined && t.due <= now && t.due > now - 10 * 60000 && !alerted.has(`${t.id}@${t.due}`));
+  const due = taskAlertsDue(get().tasks, now, alerted);
   if (!due.length) return;
-  for (const t of due) alerted.add(`${t.id}@${t.due}`);
-  writeJson('wgm.taskAlerted', [...alerted].slice(-200));
+  for (const d of due) alerted.add(d.key);
+  writeJson('wgm.taskAlerted', [...alerted].slice(-300));
   const s = useSettings.getState();
   if (s.reminderMode === 'never' || isQuietNow(s)) return;
-  void notify(due.length === 1 ? 'Task due' : `${due.length} tasks due`, due.map((t) => t.title).join(', '));
+  if (s.flashTaskbar) flashTaskbar();
+  const hm = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  if (due.length === 1) {
+    const { task, mins } = due[0];
+    const list = get().lists.find((l) => l.id === task.listId)?.name;
+    void notify(task.title || 'Task', [mins ? `Task due at ${hm(task.due!)}` : 'Task due now', list].filter(Boolean).join(' · '));
+  } else {
+    void notify(`${due.length} tasks`, due.map((d) => (d.mins ? `${d.task.title} (${hm(d.task.due!)})` : d.task.title)).join(', '));
+  }
 }

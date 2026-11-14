@@ -18,6 +18,7 @@ import type { Address, CalendarEvent, EventCopy, EventPatch, Repeat } from '../l
 import { useCalDay } from './CalendarViews';
 import { useCalCache } from '../lib/calendarCache';
 import { placeFromTitle, placesFromEvents, suggestPlaces } from '../lib/places';
+import { ALLDAY_ALERTS, TIMED_ALERTS, choicesWith } from '../lib/alertChoices';
 
 const DAY = 86400000;
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -114,17 +115,6 @@ const REPEATS: { id: RepeatChoice; label: string }[] = [
   { id: 'never', label: 'Never' }, { id: 'daily', label: 'Every day' }, { id: 'weekdays', label: 'Every weekday' }, { id: 'weekly', label: 'Every week' },
   { id: 'fortnightly', label: 'Every 2 weeks' }, { id: 'monthly', label: 'Every month' }, { id: 'yearly', label: 'Every year' }, { id: 'custom', label: 'Custom…' },
 ];
-const TIMED_ALERTS: { mins: number; label: string }[] = [
-  { mins: 0, label: 'At the time of the event' }, { mins: 5, label: '5 minutes before' }, { mins: 10, label: '10 minutes before' }, { mins: 15, label: '15 minutes before' },
-  { mins: 30, label: '30 minutes before' }, { mins: 60, label: '1 hour before' }, { mins: 120, label: '2 hours before' }, { mins: 1440, label: '1 day before' },
-  { mins: 2880, label: '2 days before' }, { mins: 10080, label: '1 week before' },
-];
-// All-day events start at midnight, so "the day before at 09:00" is 15 hours before.
-const ALLDAY_ALERTS: { mins: number; label: string }[] = [
-  { mins: 900, label: 'The day before at 09:00' }, { mins: 2340, label: '2 days before at 09:00' }, { mins: 9540, label: 'A week before at 09:00' },
-];
-/** Words for any number of minutes before, for alerts set elsewhere that aren't in the lists. */
-const minsWords = (m: number) => (m % 1440 === 0 ? `${m / 1440} ${m === 1440 ? 'day' : 'days'} before` : m % 60 === 0 ? `${m / 60} ${m === 60 ? 'hour' : 'hours'} before` : `${m} minutes before`);
 
 /** "The 2nd Tuesday" of its month, or the last one when it's in the final week. */
 const nthOf = (ms: number) => { const d = new Date(ms); const n = Math.ceil(d.getDate() / 7); const last = d.getDate() + 7 > new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); return last && n >= 4 ? -1 : n; };
@@ -389,7 +379,7 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
 
   const alertList = f.allDay ? ALLDAY_ALERTS : TIMED_ALERTS;
   // Alerts set elsewhere that aren't in the list still show.
-  const alertOptions = [...alertList, ...[f.alert1, f.alert2].filter((m): m is number => typeof m === 'number' && !alertList.some((a) => a.mins === m)).map((mins) => ({ mins, label: minsWords(mins) }))];
+  const alertOptions = [...alertList, ...choicesWith([], ...[f.alert1, f.alert2].filter((m): m is number => typeof m === 'number' && !alertList.some((a) => a.mins === m)))];
   const custom = f.custom;
   const setCustom = (patch: Partial<Custom>) => setRepeat({ custom: { ...custom, ...patch } });
   const wd = new Date(start).getDay();

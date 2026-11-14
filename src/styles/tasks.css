@@ -62,7 +62,7 @@
 .task-form .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .task-form .row.top { align-items: flex-start; }
 .task-form .grow { flex: 1; min-width: 0; }
-.task-form .k { width: 54px; color: var(--text-muted); font-size: 0.9em; flex: none; }
+.task-form .k { width: 84px; color: var(--text-muted); font-size: 0.9em; flex: none; }
 .task-form .title { font-weight: 600; }
 .task-form textarea { resize: vertical; font: inherit; }
 .task-from { display: flex; gap: 9px; align-items: center; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 8px; padding: 7px 10px; }
