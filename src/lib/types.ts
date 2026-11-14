@@ -381,6 +381,8 @@ export interface TaskMail {
   subject: string;
   from?: string;
   date?: number;
+  /** The email's address in Gmail, read back from the task's notes (so another app's task keeps its link). */
+  link?: string;
 }
 
 export interface Task {

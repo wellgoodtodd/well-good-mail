@@ -10,6 +10,8 @@ export interface ReadNotes {
   minutes?: number;
   /** The subject from a "From email:" line. */
   mailSubject?: string;
+  /** The link to the email in Gmail, from the line after "From email:". */
+  mailLink?: string;
 }
 
 export function readNotes(raw: string | undefined): ReadNotes {
@@ -21,14 +23,16 @@ export function readNotes(raw: string | undefined): ReadNotes {
     if (h < 24 && mi < 60) { minutes = h * 60 + mi; lines.shift(); }
   }
   let mailSubject: string | undefined;
+  let mailLink: string | undefined;
   const at = lines.findIndex((l) => MAIL_LINE.test(l));
   if (at >= 0) {
     mailSubject = lines[at].match(MAIL_LINE)![1].trim();
     // The line after it is the link to the email, when there is one.
     const cut = lines[at + 1] && /^https?:\/\//.test(lines[at + 1].trim()) ? 2 : 1;
+    if (cut === 2) mailLink = lines[at + 1].trim();
     lines.splice(at, cut);
   }
-  return { notes: lines.join('\n').trim(), minutes, mailSubject };
+  return { notes: lines.join('\n').trim(), minutes, mailSubject, ...(mailLink ? { mailLink } : {}) };
 }
 
 export function writeNotes(p: { notes?: string; minutes?: number; mailSubject?: string; mailLink?: string }): string {

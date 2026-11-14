@@ -41,7 +41,7 @@ describe('task notes', () => {
   it('writes and reads back a time and an email', () => {
     const raw = writeNotes({ notes: 'Invoice attached', minutes: 14 * 60, mailSubject: 'Venue deposit', mailLink: 'https://mail.google.com/x' });
     expect(raw).toBe('Due 14:00\nInvoice attached\n\nFrom email: Venue deposit\nhttps://mail.google.com/x');
-    expect(readNotes(raw)).toEqual({ notes: 'Invoice attached', minutes: 840, mailSubject: 'Venue deposit' });
+    expect(readNotes(raw)).toEqual({ notes: 'Invoice attached', minutes: 840, mailSubject: 'Venue deposit', mailLink: 'https://mail.google.com/x' });
   });
   it('reads notes with nothing added', () => {
     expect(readNotes('Just a note')).toEqual({ notes: 'Just a note', minutes: undefined, mailSubject: undefined });

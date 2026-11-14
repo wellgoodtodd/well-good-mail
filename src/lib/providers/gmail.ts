@@ -8,10 +8,10 @@ import type { AutoReply } from '../ooo';
 import { htmlToText, isWorkAccount, ymd } from '../ooo';
 import { CalendarPermissionError, NeedsPermissionError, TasksApiOffError, type MailProvider, type MessageBody, type SyncResult } from './provider';
 import type { Invite, Rsvp } from '../invites';
-import { findMeetingUrl } from '../meetings';
 import { cleanPreview } from '../cleanText';
-import { fromRrule, localTimeZone, toRrule } from '../recurrence';
-import { readNotes, writeNotes } from '../taskNotes';
+import * as gcal from '../google/calendarApi';
+import { answered, guestsOf } from '../google/calendarApi';
+import * as gtasks from '../google/tasksApi';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 /** Mail newer than this many days is downloaded with full bodies for offline search. */
@@ -202,20 +202,8 @@ function decodeEntities(s: string): string {
 
 const METADATA_HEADERS = ['From', 'To', 'Cc', 'Bcc', 'Reply-To', 'Subject', 'Date', 'Message-ID', 'References', 'In-Reply-To', 'List-Unsubscribe', 'List-Unsubscribe-Post', 'Delivered-To', 'Content-Type'];
 
-/** The guest list and your own answer, from Google's attendee list. */
-export function guestsOf(attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[]): Pick<CalendarEvent, 'guests' | 'myResponse'> {
-  const people = (attendees || []).filter((a) => a.email && !a.resource);
-  if (!people.length) return {};
-  const answerOf = (s?: string): EventGuest['answer'] => (s === 'accepted' ? 'yes' : s === 'declined' ? 'no' : s === 'tentative' ? 'maybe' : 'waiting');
-  const guests: EventGuest[] = people.slice(0, 60).map((a) => ({ email: a.email!.toLowerCase(), name: a.displayName, answer: answerOf(a.responseStatus), organiser: a.organizer || undefined, self: a.self || undefined }));
-  const me = people.find((a) => a.self);
-  return { guests, myResponse: me ? answerOf(me.responseStatus) : undefined };
-}
-
-/** The guest list with your own answer (and note) changed. A blank note clears an old one. */
-function answered<T extends { self?: boolean; comment?: string }>(list: T[], status: Rsvp, note?: string): T[] {
-  return list.map((a) => (a.self ? { ...a, responseStatus: status, ...(note !== undefined ? { comment: note.trim() } : {}) } : a));
-}
+// The guest list helpers moved to google/calendarApi.ts; kept here for anything that imported them from the provider.
+export { guestsOf };
 
 export class GmailProvider implements MailProvider {
   constructor(public readonly account: Account) {}
@@ -550,59 +538,14 @@ export class GmailProvider implements MailProvider {
   knownCalendars(): string[] { return this.calNames; }
 
   async listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]> {
-    const CAL = 'https://www.googleapis.com/calendar/v3';
-    const { items: calendars } = await this.call<{ items: { id: string; summary: string; selected?: boolean; primary?: boolean; accessRole?: string; defaultReminders?: { method: string; minutes: number }[] }[] }>(`${CAL}/users/me/calendarList`);
+    const calendars = await gcal.listCalendars(this.gcall);
     const events: CalendarEvent[] = [];
     this.calNames = calendars.filter((c) => c.selected || c.primary).map((c) => c.summary);
     this.calIds = Object.fromEntries(calendars.map((c) => [c.summary, c.id]));
-    this.writable = calendars.filter((c) => (c.selected || c.primary) && (c.accessRole === 'owner' || c.accessRole === 'writer')).map((c) => c.summary);
+    this.writable = calendars.filter((c) => (c.selected || c.primary) && gcal.canWrite(c)).map((c) => c.summary);
     for (const cal of calendars.filter((c) => c.selected || c.primary)) {
-      const params = new URLSearchParams({
-        timeMin: new Date(fromMs).toISOString(),
-        timeMax: new Date(toMs).toISOString(),
-        singleEvents: 'true',
-        orderBy: 'startTime',
-        maxResults: '250',
-      });
       try {
-        // Every page, not just the first 250: a busy calendar with weekly events passes that within weeks,
-        // and everything after it went missing.
-        let pageToken: string | undefined;
-        do {
-        if (pageToken) params.set('pageToken', pageToken);
-        const { items, nextPageToken } = await this.call<{ nextPageToken?: string; items: { id: string; summary?: string; status?: string; recurringEventId?: string; organizer?: { self?: boolean; email?: string; displayName?: string }; location?: string; description?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }; htmlLink?: string; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; reminders?: { useDefault: boolean; overrides?: { minutes: number }[] }; attendees?: { email?: string; displayName?: string; responseStatus?: string; self?: boolean; organizer?: boolean; resource?: boolean }[] }[] }>(
-          `${CAL}/calendars/${encodeURIComponent(cal.id)}/events?${params}`,
-        );
-        for (const e of items) {
-          if (e.status === 'cancelled') continue;
-          const allDay = !e.start.dateTime;
-          const start = new Date(e.start.dateTime || `${e.start.date}T00:00:00`).getTime();
-          const end = new Date(e.end.dateTime || `${e.end.date}T00:00:00`).getTime();
-          const reminderMinutes = e.reminders?.useDefault
-            ? (cal.defaultReminders || []).map((r) => r.minutes)
-            : (e.reminders?.overrides || []).map((r) => r.minutes);
-          events.push({
-            id: `${this.account.id}|${cal.id}|${e.id}`,
-            accountId: this.account.id,
-            calendarName: cal.summary,
-            title: e.summary || '(No title)',
-            start,
-            end,
-            allDay,
-            location: e.location,
-            description: e.description ? e.description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600) : undefined,
-            meetingUrl: e.hangoutLink || e.conferenceData?.entryPoints?.find((p) => p.entryPointType === 'video')?.uri || findMeetingUrl(e.location, e.description),
-            reminderMinutes,
-            htmlLink: e.htmlLink,
-            ...guestsOf(e.attendees),
-            canEdit: (cal.accessRole === 'owner' || cal.accessRole === 'writer') && (e.organizer?.self ?? true),
-            recurring: Boolean(e.recurringEventId),
-            seriesId: e.recurringEventId ? `${this.account.id}|${cal.id}|${e.recurringEventId}` : undefined,
-            organiser: e.organizer?.email ? { email: e.organizer.email.toLowerCase(), name: e.organizer.displayName, self: e.organizer.self || undefined } : undefined,
-          });
-        }
-        pageToken = nextPageToken;
-        } while (pageToken);
+        events.push(...(await gcal.listCalendarEvents(this.gcall, this.account.id, cal, fromMs, toMs)));
       } catch (err) {
         console.warn('Calendar unavailable', cal.summary, err);
       }
@@ -610,201 +553,36 @@ export class GmailProvider implements MailProvider {
     return events;
   }
 
+  /** The shared Google calls (google/*.ts) go through this, so they get this account's token and pacing. */
+  private gcall: gtasks.GoogleCall = <T,>(url: string, init: RequestInit = {}) => this.call<T>(url, init);
+
   private calIds: Record<string, string> = {};
   private writable: string[] = [];
   writableCalendars(): string[] { return this.writable; }
-
-  /** The calendar and event ids inside an app event id (account|calendar|event). */
-  private eventParts(ev: CalendarEvent) {
-    const rest = ev.id.slice(this.account.id.length + 1);
-    const cut = rest.lastIndexOf('|');
-    return { calId: rest.slice(0, cut), eventId: rest.slice(cut + 1) };
-  }
 
   /**
    * Changes one event, or with scope 'all' its whole series (the series' own times move by the same amount).
    * Guests are emailed unless notify is false. "This and following" is done by the app (end the series, make a new one).
    */
   async editEvent(ev: CalendarEvent, patch: EventPatch, opts: ChangeOptions = {}): Promise<void> {
-    const CAL = 'https://www.googleapis.com/calendar/v3';
-    const { calId } = this.eventParts(ev);
-    let { eventId } = this.eventParts(ev);
-    const send = opts.notify === false ? 'none' : 'all';
-    const base = `${CAL}/calendars/${encodeURIComponent(calId)}/events`;
-    type GAtt = { email?: string; displayName?: string; self?: boolean; organizer?: boolean; resource?: boolean; responseStatus?: string };
-    type GEv = { id: string; recurringEventId?: string; recurrence?: string[]; attendees?: GAtt[]; start: { dateTime?: string; date?: string; timeZone?: string }; end: { dateTime?: string; date?: string } };
-    try {
-      // A change to the repeat itself, or to "all events", is made on the series.
-      let shift = 0;
-      let master: GEv | undefined;
-      const wholeSeries = ev.recurring && (opts.scope === 'all' || patch.repeat !== undefined);
-      if (wholeSeries) {
-        const one = await this.call<GEv>(`${base}/${encodeURIComponent(eventId)}`);
-        if (one.recurringEventId) {
-          master = await this.call<GEv>(`${base}/${encodeURIComponent(one.recurringEventId)}`);
-          eventId = master.id;
-          if (patch.start !== undefined) shift = patch.start - ev.start;
-        }
-      }
-      const allDay = patch.allDay ?? ev.allDay;
-      const body: Record<string, unknown> = {};
-      if (patch.title !== undefined) body.summary = patch.title;
-      if (patch.location !== undefined) body.location = patch.location;
-      if (patch.description !== undefined) body.description = patch.description;
-      const tz = localTimeZone();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const local = (ms: number) => { const d = new Date(ms); return `${ymd(ms)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`; };
-      const when = (ms: number) => (allDay ? { date: ymd(ms), dateTime: null } : { dateTime: local(ms), timeZone: tz, date: null });
-      if (patch.start !== undefined || patch.end !== undefined || patch.allDay !== undefined || patch.repeat !== undefined) {
-        let start = patch.start ?? ev.start;
-        let end = patch.end ?? ev.end;
-        if (master) {
-          // The series keeps its own first date; only the time of day and length change.
-          const mStart = new Date(master.start.dateTime || `${master.start.date}T00:00:00`).getTime();
-          start = mStart + shift;
-          end = start + ((patch.end ?? ev.end) - (patch.start ?? ev.start));
-        }
-        // Google's all-day end is the day after the last day.
-        body.start = when(start);
-        body.end = when(allDay ? Math.max(end, start + 86400000) : end);
-      }
-      if (patch.repeat !== undefined) {
-        const keep = (master?.recurrence || []).filter((l) => !/^RRULE:/i.test(l));
-        body.recurrence = patch.repeat ? [...keep, toRrule(patch.repeat, allDay)] : [];
-      }
-      if (patch.alerts !== undefined) body.reminders = { useDefault: false, overrides: patch.alerts.slice(0, 5).map((minutes) => ({ method: 'popup', minutes })) };
-      if (patch.guests !== undefined) {
-        // Keep everyone's answers, and you; only add and take away.
-        const now = master || (await this.call<GEv>(`${base}/${encodeURIComponent(eventId)}`));
-        const old = now.attendees || [];
-        const wanted = new Map(patch.guests.map((g) => [g.email.toLowerCase(), g]));
-        const kept = old.filter((a) => a.self || a.resource || (a.email && wanted.has(a.email.toLowerCase())));
-        const have = new Set(kept.map((a) => (a.email || '').toLowerCase()));
-        const added = [...wanted.values()].filter((g) => !have.has(g.email.toLowerCase())).map((g) => ({ email: g.email, displayName: g.name }));
-        const list = [...kept, ...added];
-        body.attendees = list.length > 1 || added.length ? list : [];
-      }
-      if (patch.video === true) body.conferenceData = { createRequest: { requestId: `wgm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } };
-      if (patch.video === false) body.conferenceData = null;
-      if (Object.keys(body).length) {
-        await this.call(`${base}/${encodeURIComponent(eventId)}?sendUpdates=${send}&conferenceDataVersion=1`, { method: 'PATCH', body: JSON.stringify(body) });
-      }
-      const dest = patch.calendarName && this.calIds[patch.calendarName];
-      if (dest && dest !== calId) {
-        await this.call(`${base}/${encodeURIComponent(eventId)}/move?destination=${encodeURIComponent(dest)}&sendUpdates=${send}`, { method: 'POST' });
-      }
-    } catch (e) { this.permissionOr(e); }
+    try { await gcal.editEvent(this.gcall, this.account.id, this.calIds, ev, patch, opts); } catch (e) { this.permissionOr(e); }
   }
 
   /** Deletes one event, or with scope 'all' its whole series. Already gone counts as done. */
   async deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<void> {
-    const CAL = 'https://www.googleapis.com/calendar/v3';
-    const { calId } = this.eventParts(ev);
-    let { eventId } = this.eventParts(ev);
-    const send = opts.notify === false ? 'none' : 'all';
-    const base = `${CAL}/calendars/${encodeURIComponent(calId)}/events`;
-    try {
-      if (ev.recurring && opts.scope === 'all') {
-        const one = await this.call<{ recurringEventId?: string }>(`${base}/${encodeURIComponent(eventId)}`);
-        if (one.recurringEventId) eventId = one.recurringEventId;
-      }
-      await this.call(`${base}/${encodeURIComponent(eventId)}?sendUpdates=${send}`, { method: 'DELETE' });
-    } catch (e) {
-      const status = (e as { status?: number }).status;
-      if (status === 404 || status === 410) return;
-      this.permissionOr(e);
-    }
+    try { await gcal.deleteEvent(this.gcall, this.account.id, ev, opts); } catch (e) { this.permissionOr(e); }
   }
 
   async copyOfEvent(ev: CalendarEvent, opts: { series: boolean }): Promise<EventCopy> {
-    const CAL = 'https://www.googleapis.com/calendar/v3';
-    const { calId, eventId } = this.eventParts(ev);
-    type GEvent = { id: string; summary?: string; location?: string; description?: string; hangoutLink?: string; conferenceData?: unknown; recurringEventId?: string; recurrence?: string[]; start: { dateTime?: string; date?: string }; end: { dateTime?: string; date?: string }; attendees?: { email?: string; displayName?: string; self?: boolean; resource?: boolean }[] };
-    const base = `${CAL}/calendars/${encodeURIComponent(calId)}/events`;
-    const e = await this.call<GEvent>(`${base}/${encodeURIComponent(eventId)}`).catch((err) => this.permissionOr(err));
-    const desc = e.description ? (/<[a-z][sS]*>/i.test(e.description) ? htmlToText(e.description) : e.description) : undefined;
-    const copy: EventCopy = {
-      title: e.summary || ev.title,
-      start: ev.start,
-      end: ev.end,
-      allDay: ev.allDay,
-      location: e.location,
-      description: desc,
-      guests: (e.attendees || []).filter((a) => !a.self && !a.resource && a.email).map((a) => ({ email: a.email!, name: a.displayName })),
-      video: Boolean(e.hangoutLink || e.conferenceData),
-    };
-    if (opts.series && e.recurringEventId) {
-      const master = await this.call<GEvent>(`${base}/${encodeURIComponent(e.recurringEventId)}`);
-      const line = (master.recurrence || []).find((l) => /^RRULE:/i.test(l));
-      const rep = line ? fromRrule(line, ev.start) : undefined;
-      if (!rep) copy.repeatUnsupported = true;
-      else {
-        if (rep.count) {
-          // A set number of times: from this one on, that ends on the day of the last one.
-          let last = 0;
-          let pageToken: string | undefined;
-          do {
-            const params = new URLSearchParams({ maxResults: '2500', timeMin: new Date(ev.start).toISOString() });
-            if (pageToken) params.set('pageToken', pageToken);
-            const r = await this.call<{ items: GEvent[]; nextPageToken?: string }>(`${base}/${encodeURIComponent(e.recurringEventId)}/instances?${params}`);
-            for (const i of r.items) last = Math.max(last, new Date(i.start.dateTime || `${i.start.date}T00:00:00`).getTime());
-            pageToken = r.nextPageToken;
-          } while (pageToken);
-          delete rep.count;
-          const d = new Date(last || ev.start); d.setHours(0, 0, 0, 0); rep.until = d.getTime();
-        }
-        copy.repeat = rep;
-      }
-    }
-    return copy;
+    try { return await gcal.copyOfEvent(this.gcall, this.account.id, ev, opts); } catch (e) { this.permissionOr(e); }
   }
 
   async createEvent(calendarName: string, copy: EventCopy): Promise<string> {
-    const CAL = 'https://www.googleapis.com/calendar/v3';
-    const calId = this.calIds[calendarName] || 'primary';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const local = (ms: number) => { const d = new Date(ms); return `${ymd(ms)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`; };
-    const tz = localTimeZone();
-    // A repeating event needs its time zone, so it stays at the same time of day through the clock changes.
-    const when = (ms: number) => (copy.allDay ? { date: ymd(ms) } : { dateTime: local(ms), timeZone: tz });
-    const body: Record<string, unknown> = {
-      summary: copy.title,
-      location: copy.location || undefined,
-      description: copy.description || undefined,
-      start: when(copy.start),
-      end: when(copy.allDay ? Math.max(copy.end, copy.start + 86400000) : copy.end),
-      attendees: copy.guests.length ? copy.guests.map((g) => ({ email: g.email, displayName: g.name })) : undefined,
-      recurrence: copy.repeat ? [toRrule(copy.repeat, copy.allDay)] : undefined,
-      reminders: copy.alerts ? { useDefault: false, overrides: copy.alerts.slice(0, 5).map((minutes) => ({ method: 'popup', minutes })) } : undefined,
-      conferenceData: copy.video ? { createRequest: { requestId: `wgm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, conferenceSolutionKey: { type: 'hangoutsMeet' } } } : undefined,
-    };
-    try {
-      const made = await this.call<{ id: string }>(`${CAL}/calendars/${encodeURIComponent(calId)}/events?sendUpdates=all&conferenceDataVersion=1`, { method: 'POST', body: JSON.stringify(body) });
-      return `${this.account.id}|${calId}|${made.id}`;
-    } catch (e) { this.permissionOr(e); }
+    try { return await gcal.createEvent(this.gcall, this.account.id, this.calIds[calendarName] || 'primary', copy); } catch (e) { this.permissionOr(e); }
   }
 
   async endSeries(ev: CalendarEvent): Promise<void> {
-    const CAL = 'https://www.googleapis.com/calendar/v3';
-    const { calId, eventId } = this.eventParts(ev);
-    const base = `${CAL}/calendars/${encodeURIComponent(calId)}/events`;
-    try {
-      const one = await this.call<{ recurringEventId?: string }>(`${base}/${encodeURIComponent(eventId)}`);
-      if (!one.recurringEventId) { await this.deleteEvent(ev); return; }
-      const masterUrl = `${base}/${encodeURIComponent(one.recurringEventId)}`;
-      const master = await this.call<{ recurrence?: string[]; start: { dateTime?: string; date?: string } }>(masterUrl);
-      const first = new Date(master.start.dateTime || `${master.start.date}T00:00:00`).getTime();
-      if (ev.start <= first) { await this.call(`${masterUrl}?sendUpdates=all`, { method: 'DELETE' }); return; }
-      // Ends the day before this one: past ones stay, this one and later ones go.
-      const cut = new Date(ev.start); cut.setHours(0, 0, 0, 0);
-      const lastDay = new Date(cut.getTime() - 1000);
-      const p2 = (n: number) => String(n).padStart(2, '0');
-      const until = master.start.date
-        ? `${lastDay.getFullYear()}${p2(lastDay.getMonth() + 1)}${p2(lastDay.getDate())}`
-        : `${lastDay.getUTCFullYear()}${p2(lastDay.getUTCMonth() + 1)}${p2(lastDay.getUTCDate())}T${p2(lastDay.getUTCHours())}${p2(lastDay.getUTCMinutes())}${p2(lastDay.getUTCSeconds())}Z`;
-      const recurrence = (master.recurrence || []).map((l) => (/^RRULE:/i.test(l) ? `${l.replace(/;(COUNT|UNTIL)=[^;]*/gi, '')};UNTIL=${until}` : l));
-      await this.call(`${masterUrl}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify({ recurrence }) });
-    } catch (e) { this.permissionOr(e); }
+    try { await gcal.endSeries(this.gcall, this.account.id, ev); } catch (e) { this.permissionOr(e); }
   }
 
   /** The invitation as it sits in the primary calendar, found by its calendar id. */
@@ -844,15 +622,7 @@ export class GmailProvider implements MailProvider {
 
   /** Answers an invitation from the calendar itself: your own line in the guest list gets the answer (and the note, as Google's comment). */
   async respondToEvent(event: CalendarEvent, status: Rsvp, note?: string): Promise<void> {
-    const { calId, eventId } = this.eventParts(event);
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}`;
-    type Att = { email?: string; self?: boolean; responseStatus?: string; comment?: string };
-    try {
-      const ev = await this.call<{ attendees?: Att[] }>(url);
-      const list = ev.attendees || [];
-      if (!list.some((a) => a.self)) throw new Error("You aren't on the guest list for this one");
-      await this.call(`${url}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify({ attendees: answered(list, status, note) }) });
-    } catch (e) { this.permissionOr(e); }
+    try { await gcal.respondToEvent(this.gcall, this.account.id, event, status, note); } catch (e) { this.permissionOr(e); }
   }
 
   async addInviteToCalendar(invite: Invite): Promise<void> {
@@ -981,9 +751,9 @@ export class GmailProvider implements MailProvider {
   // ---- Google Tasks ----
   // Google Tasks keeps a due date but not a time, so a time goes on the first line of the notes ("Due 14:00").
 
-  private async tasksCall<T>(path: string, init: RequestInit = {}): Promise<T> {
+  private async tasksCall<T>(url: string, init: RequestInit = {}): Promise<T> {
     try {
-      return await this.call<T>(`https://tasks.googleapis.com/tasks/v1${path}`, init, 0, true);
+      return await this.call<T>(url.startsWith('http') ? url : `https://tasks.googleapis.com/tasks/v1${url}`, init, 0, true);
     } catch (e) {
       const err = e as Error & { status?: number };
       if (err.status === 403 && /accessNotConfigured|SERVICE_DISABLED|has not been used|is disabled/i.test(err.message)) throw new TasksApiOffError();
@@ -992,105 +762,37 @@ export class GmailProvider implements MailProvider {
   }
 
   async listTaskLists(): Promise<TaskList[]> {
-    const r = await this.tasksCall<{ items?: { id: string; title: string }[] }>('/users/@me/lists?maxResults=100');
-    return (r.items || []).map((l) => ({ id: `${this.account.id}|${l.id}`, accountId: this.account.id, providerId: l.id, name: l.title }));
+    return gtasks.listTaskLists(this.tcall, this.account);
   }
 
-  private toTask(list: TaskList, g: GTask): Task {
-    const read = readNotes(g.notes);
-    let due: number | undefined;
-    if (g.due) {
-      const [y, m, d] = g.due.slice(0, 10).split('-').map(Number);
-      due = new Date(y, m - 1, d).getTime() + (read.minutes ?? 0) * 60000;
-    }
-    return {
-      id: `${list.id}|${g.id}`, accountId: this.account.id, listId: list.id, providerId: g.id,
-      title: g.title || '', notes: read.notes || undefined,
-      due, hasTime: due !== undefined && read.minutes !== undefined,
-      done: g.status === 'completed', completedAt: g.completed ? Date.parse(g.completed) : undefined,
-      updatedAt: g.updated ? Date.parse(g.updated) : undefined,
-      ...(read.mailSubject ? { mail: { messageId: '', threadId: '', accountId: '', subject: read.mailSubject } } : {}),
-    };
-  }
+  /** Tasks calls: urgent (something the person just did) and with the Tasks wording for errors. */
+  private tcall: gtasks.GoogleCall = <T,>(url: string, init: RequestInit = {}) => this.tasksCall<T>(url, init);
 
   async listTasks(list: TaskList, doneSince: number): Promise<Task[]> {
-    const out: Task[] = [];
-    const base = `/lists/${encodeURIComponent(list.providerId)}/tasks?maxResults=100`;
-    for (const q of ['&showCompleted=false', `&showCompleted=true&showHidden=true&completedMin=${encodeURIComponent(new Date(doneSince).toISOString())}`]) {
-      let page: string | undefined;
-      for (let i = 0; i < 10; i++) {
-        const r = await this.tasksCall<{ items?: GTask[]; nextPageToken?: string }>(`${base}${q}${page ? `&pageToken=${encodeURIComponent(page)}` : ''}`);
-        for (const g of r.items || []) if (!g.deleted && (q.includes('false') ? g.status !== 'completed' : g.status === 'completed')) out.push(this.toTask(list, g));
-        page = r.nextPageToken;
-        if (!page) break;
-      }
-    }
-    return out;
-  }
-
-  private taskBody(p: TaskPatch, was?: Task): Record<string, unknown> {
-    const body: Record<string, unknown> = {};
-    if (p.title !== undefined) body.title = p.title;
-    if (p.done !== undefined) {
-      body.status = p.done ? 'completed' : 'needsAction';
-      if (!p.done) body.completed = null;
-    }
-    const due = p.due === undefined ? was?.due : p.due ?? undefined;
-    const hasTime = p.due === undefined && p.hasTime === undefined ? was?.hasTime : Boolean(p.hasTime);
-    if (p.due !== undefined) {
-      if (p.due === null) body.due = null;
-      else { const d = new Date(p.due); body.due = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00.000Z`; }
-    }
-    if (p.notes !== undefined || p.due !== undefined || p.hasTime !== undefined || p.mail !== undefined) {
-      const mail = p.mail || was?.mail;
-      const d = due !== undefined ? new Date(due) : undefined;
-      body.notes = writeNotes({
-        notes: p.notes !== undefined ? p.notes : was?.notes,
-        minutes: d && hasTime ? d.getHours() * 60 + d.getMinutes() : undefined,
-        mailSubject: mail?.subject,
-        mailLink: mail?.threadId && mail.accountId === this.account.id ? `https://mail.google.com/mail/u/${encodeURIComponent(this.account.email)}/#all/${mail.threadId}` : undefined,
-      });
-    }
-    return body;
+    return gtasks.listTasks(this.tcall, this.account, list, doneSince);
   }
 
   async createTask(list: TaskList, p: TaskPatch): Promise<Task> {
-    const g = await this.tasksCall<GTask>(`/lists/${encodeURIComponent(list.providerId)}/tasks`, { method: 'POST', body: JSON.stringify({ title: p.title || '', ...this.taskBody(p) }) });
-    return { ...this.toTask(list, g), mail: p.mail };
+    return gtasks.createTask(this.tcall, this.account, list, p);
   }
 
   async updateTask(task: Task, p: TaskPatch): Promise<Task> {
-    const list: TaskList = { id: task.listId, accountId: task.accountId, providerId: task.listId.slice(task.accountId.length + 1), name: '' };
-    const g = await this.tasksCall<GTask>(`/lists/${encodeURIComponent(list.providerId)}/tasks/${encodeURIComponent(task.providerId)}`, { method: 'PATCH', body: JSON.stringify(this.taskBody(p, task)) });
-    return { ...this.toTask(list, g), mail: p.mail || task.mail };
+    return gtasks.updateTask(this.tcall, this.account, task, p);
   }
 
   async deleteTask(task: Task): Promise<void> {
-    const listId = task.listId.slice(task.accountId.length + 1);
-    try {
-      await this.tasksCall(`/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(task.providerId)}`, { method: 'DELETE' });
-    } catch (e) {
-      if ((e as { status?: number }).status !== 404) throw e;
-    }
+    return gtasks.deleteTask(this.tcall, task);
   }
 
   async createTaskList(name: string): Promise<TaskList> {
-    const l = await this.tasksCall<{ id: string; title: string }>('/users/@me/lists', { method: 'POST', body: JSON.stringify({ title: name }) });
-    return { id: `${this.account.id}|${l.id}`, accountId: this.account.id, providerId: l.id, name: l.title };
+    return gtasks.createTaskList(this.tcall, this.account, name);
   }
 
   async renameTaskList(list: TaskList, name: string): Promise<TaskList> {
-    const l = await this.tasksCall<{ id: string; title: string }>(`/users/@me/lists/${encodeURIComponent(list.providerId)}`, { method: 'PATCH', body: JSON.stringify({ title: name }) });
-    return { ...list, name: l.title ?? name };
+    return gtasks.renameTaskList(this.tcall, list, name);
   }
 
   async deleteTaskList(list: TaskList): Promise<void> {
-    try {
-      await this.tasksCall(`/users/@me/lists/${encodeURIComponent(list.providerId)}`, { method: 'DELETE' });
-    } catch (e) {
-      if ((e as { status?: number }).status !== 404) throw e;
-    }
+    return gtasks.deleteTaskList(this.tcall, list);
   }
 }
-
-interface GTask { id: string; title?: string; notes?: string; status?: string; due?: string; completed?: string; updated?: string; deleted?: boolean }
