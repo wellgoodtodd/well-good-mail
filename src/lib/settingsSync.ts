@@ -11,9 +11,13 @@ const STAMP_KEY = 'wgm.settingsSync.stamp';
 /** Things that belong to one computer, not to you. */
 const PER_DEVICE = new Set(['whatsNewSeen', 'keysBackedUpAt', 'syncSettings', 'startWithWindows', 'closeQuits', 'autoUpdate', 'testVersionNotices', 'mcp', 'collapsed']);
 
+/** Each account's nickname and colour, for Well Good Calendar on the phone. Only written here, never read back. */
+const accountLooks = () => useMail.getState().accounts.map((a) => ({ email: a.email, kind: a.kind, label: a.label, colour: a.colour }));
+
 const read = (): Record<string, unknown> => {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(useSettings.getState())) if (typeof v !== 'function' && !PER_DEVICE.has(k)) out[k] = v;
+  out.accounts = accountLooks();
   return out;
 };
 
@@ -90,14 +94,18 @@ export function startSettingsSync() {
   let lastFocus = 0;
   window.addEventListener('focus', () => { if (Date.now() - lastFocus > 60000) { lastFocus = Date.now(); void pullSettings(); } });
   let last = JSON.stringify(read());
-  useSettings.subscribe(() => {
+  const changed = () => {
     if (applying || !settings().syncSettings) return;
     const now = JSON.stringify(read());
     if (now === last) return;
     last = now;
     clearTimeout(pushTimer);
     pushTimer = setTimeout(pushSettings, 5000);
-  });
+  };
+  useSettings.subscribe(changed);
+  // A nickname or colour changed in Settings › Accounts.
+  let looks = JSON.stringify(accountLooks());
+  useMail.subscribe(() => { const now = JSON.stringify(accountLooks()); if (now !== looks) { looks = now; changed(); } });
 }
 
 /** Called when the switch is turned on: take the shared settings if there are any, otherwise create them from this computer. */
