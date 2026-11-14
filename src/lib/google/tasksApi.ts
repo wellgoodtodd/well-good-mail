@@ -29,6 +29,7 @@ export function toTask(account: GoogleAccountRef, list: TaskList, g: GTask): Tas
     id: `${list.id}|${g.id}`, accountId: account.id, listId: list.id, providerId: g.id,
     title: g.title || '', notes: read.notes || undefined,
     due, hasTime: due !== undefined && read.minutes !== undefined,
+    ...(read.alerts && read.minutes !== undefined ? { alerts: read.alerts } : {}),
     done: g.status === 'completed', completedAt: g.completed ? Date.parse(g.completed) : undefined,
     updatedAt: g.updated ? Date.parse(g.updated) : undefined,
     ...(read.mailSubject ? { mail: { messageId: '', threadId: '', accountId: '', subject: read.mailSubject, ...(read.mailLink ? { link: read.mailLink } : {}) } } : {}),
@@ -64,12 +65,13 @@ export function taskBody(account: GoogleAccountRef, p: TaskPatch, was?: Task): R
     if (p.due === null) body.due = null;
     else { const d = new Date(p.due); body.due = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00:00.000Z`; }
   }
-  if (p.notes !== undefined || p.due !== undefined || p.hasTime !== undefined || p.mail !== undefined) {
+  if (p.notes !== undefined || p.due !== undefined || p.hasTime !== undefined || p.mail !== undefined || p.alerts !== undefined) {
     const mail = p.mail || was?.mail;
     const d = due !== undefined ? new Date(due) : undefined;
     body.notes = writeNotes({
       notes: p.notes !== undefined ? p.notes : was?.notes,
       minutes: d && hasTime ? d.getHours() * 60 + d.getMinutes() : undefined,
+      alerts: p.alerts === null ? undefined : p.alerts ?? was?.alerts,
       mailSubject: mail?.subject,
       mailLink: mail?.threadId && mail.accountId === account.id
         ? `https://mail.google.com/mail/u/${encodeURIComponent(account.email)}/#all/${mail.threadId}`

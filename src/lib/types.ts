@@ -397,6 +397,8 @@ export interface Task {
   /** When it's due: midnight of the day, or the exact time when `hasTime`. */
   due?: number;
   hasTime?: boolean;
+  /** Alerts for a task with a time, in minutes before it (0 at the time). Left out: one at the time. */
+  alerts?: number[];
   done: boolean;
   completedAt?: number;
   updatedAt?: number;
@@ -409,6 +411,8 @@ export interface TaskPatch {
   notes?: string;
   due?: number | null;
   hasTime?: boolean;
+  /** Alerts in minutes before the time; an empty list is none, null goes back to the usual (at the time). */
+  alerts?: number[] | null;
   done?: boolean;
   mail?: TaskMail;
 }
