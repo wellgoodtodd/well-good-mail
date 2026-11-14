@@ -82,10 +82,13 @@ export async function pushSettings(): Promise<void> {
   }
 }
 
-/** Starts watching: pull at start and every so often, push a few seconds after any change. */
+/** Starts watching: pull at start, every five minutes and on coming to the front; push a few seconds after any change. */
 export function startSettingsSync() {
   setTimeout(pullSettings, 6000);
-  setInterval(pullSettings, 30 * 60 * 1000);
+  // Often enough that a group made on the phone (Well Good Calendar shares this file) turns up here soon.
+  setInterval(pullSettings, 5 * 60 * 1000);
+  let lastFocus = 0;
+  window.addEventListener('focus', () => { if (Date.now() - lastFocus > 60000) { lastFocus = Date.now(); void pullSettings(); } });
   let last = JSON.stringify(read());
   useSettings.subscribe(() => {
     if (applying || !settings().syncSettings) return;
