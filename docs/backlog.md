@@ -4,7 +4,10 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## For 0.7.4 beta 2 (on batch1, not built yet)
+## 0.7.4 beta 2 (built 14 Nov 2026)
+
+Test list: `testing-0.7.4-beta2.md`.
+
 
 - Brought in from the web app branch (desktop files only): settings shared with the phone every 5 minutes and when the window comes to the front, with an `accounts` list (nicknames, colours); smarter quick add; task alerts kept in an "Alert:" line in Google Tasks notes; a bracketed time at the end of a dated task's title read as its time.
 - Task editor (New task and opening a task): Alert and Second alert for a task with a time (`TASK_ALERTS`), not for Microsoft To Do lists. NewEvent uses the shared lists in `alertChoices.ts`.
