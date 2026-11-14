@@ -94,3 +94,19 @@ export function titleFromSubject(subject: string): string {
   }
   return s.trim() || subject.trim() || 'Task';
 }
+
+/** A time written at the end of a title, as AI apps sometimes do: "Call Stevie (3:00pm)", "Pick up the girls (18:40)",
+ *  "Check this (2pm)". Gives the title without it and the minutes after midnight. Needs a colon or am/pm, so
+ *  "(2)" or "(2026)" stay as they are. */
+export function timeInTitle(title: string): { title: string; minutes: number } | undefined {
+  const m = title.match(/\s*\((?:at\s+)?(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?\)\s*$/i);
+  if (!m || (!m[2] && !m[3])) return undefined;
+  let h = Number(m[1]);
+  const mi = Number(m[2] || 0);
+  const ap = m[3]?.toLowerCase().replace(/\./g, '');
+  if (mi > 59 || (ap ? h < 1 || h > 12 : h > 23)) return undefined;
+  if (ap === 'pm' && h < 12) h += 12;
+  if (ap === 'am' && h === 12) h = 0;
+  const rest = title.slice(0, m.index).trim();
+  return rest ? { title: rest, minutes: h * 60 + mi } : undefined;
+}

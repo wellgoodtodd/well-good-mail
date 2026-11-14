@@ -26,3 +26,22 @@ describe('task alerts in the notes', () => {
     expect(alertText([2880, 15])).toBe('15 minutes before, 2 days before');
   });
 });
+
+describe('a time at the end of a title (from AI apps)', () => {
+  it('reads 12 and 24 hour times in brackets', async () => {
+    const { timeInTitle } = await import('../taskNotes');
+    expect(timeInTitle('Call Stevie (3:00pm)')).toEqual({ title: 'Call Stevie', minutes: 900 });
+    expect(timeInTitle('Check this notification (2pm)')).toEqual({ title: 'Check this notification', minutes: 840 });
+    expect(timeInTitle('Finish that project (09:25)')).toEqual({ title: 'Finish that project', minutes: 565 });
+    expect(timeInTitle('Pick up the girls (18:40)')).toEqual({ title: 'Pick up the girls', minutes: 1120 });
+    expect(timeInTitle('Lunch (12am)')).toEqual({ title: 'Lunch', minutes: 0 });
+  });
+
+  it('leaves brackets that are not times', async () => {
+    const { timeInTitle } = await import('../taskNotes');
+    expect(timeInTitle('Order labels (2)')).toBeUndefined();
+    expect(timeInTitle('Budget (2026)')).toBeUndefined();
+    expect(timeInTitle('Fix it (25:00)')).toBeUndefined();
+    expect(timeInTitle('(3pm)')).toBeUndefined();
+  });
+});

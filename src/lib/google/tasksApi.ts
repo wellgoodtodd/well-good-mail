@@ -1,7 +1,7 @@
 // Google Tasks, shared by the desktop app and the web app. Each call goes through the `call` it is given, which
 // adds the account's access token (and, on the desktop, the pacing and retries). Google Tasks keeps a due date but
 // not a time, so a time goes on the first line of the notes ("Due 14:00"), through taskNotes.ts.
-import { readNotes, writeNotes } from '../taskNotes';
+import { readNotes, timeInTitle, writeNotes } from '../taskNotes';
 import type { Task, TaskList, TaskPatch } from '../types';
 
 /** Fetches a Google API URL as the account and returns the JSON. Errors carry `status`. */
@@ -20,6 +20,12 @@ export async function listTaskLists(call: GoogleCall, account: GoogleAccountRef)
 
 export function toTask(account: GoogleAccountRef, list: TaskList, g: GTask): Task {
   const read = readNotes(g.notes);
+  let title = g.title || '';
+  // A dated task with its time only in the title ("Call Stevie (3pm)", from an AI app): read it as the time.
+  if (g.due && read.minutes === undefined) {
+    const t = timeInTitle(title);
+    if (t) { title = t.title; read.minutes = t.minutes; }
+  }
   let due: number | undefined;
   if (g.due) {
     const [y, m, d] = g.due.slice(0, 10).split('-').map(Number);
@@ -27,7 +33,7 @@ export function toTask(account: GoogleAccountRef, list: TaskList, g: GTask): Tas
   }
   return {
     id: `${list.id}|${g.id}`, accountId: account.id, listId: list.id, providerId: g.id,
-    title: g.title || '', notes: read.notes || undefined,
+    title, notes: read.notes || undefined,
     due, hasTime: due !== undefined && read.minutes !== undefined,
     ...(read.alerts && read.minutes !== undefined ? { alerts: read.alerts } : {}),
     done: g.status === 'completed', completedAt: g.completed ? Date.parse(g.completed) : undefined,
