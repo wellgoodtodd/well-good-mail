@@ -24,6 +24,9 @@ Beta 5 is the fixes from testing beta 4: an "Already in your calendar" card that
 - [ ] **Undo after any delete:** one of a series, this one and all after it, the whole series, an event with guests, one on several of your calendars, and several at once in List view. The note has Undo, and it's in Recent (and Ctrl+Z). On Google the same event comes back, in its series.
 - [ ] **With guests:** the note says guests were told it's cancelled and that Undo invites them again.
 
+### Tasks
+- [ ] **Tick off a task by mistake:** the "Done" note has Undo, and it's in Recent and Ctrl+Z too (in Tasks, on the calendar and in Coming Up).
+
 ### Events from emails
 - [ ] **Add to calendar** on an email with files (an agenda, minutes): the card says "With Agenda.pdf". The event's notes say "From email: (subject)" with a link that opens the email in Gmail (on your phone too), and the files are attached to the event in Google Calendar.
 - [ ] **Already in your calendar** (like Gordon's board meeting): the card says "The email has Agenda.pdf". Update event adds the files and the link. With nothing else to change, ⋯ › Link the event to this email adds the link.

@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { providers, toast, useMail } from './mail/store';
 import { useSettings, settings, isQuietNow } from './settings';
 import { notify, flashTaskbar } from './platform';
+import { record, undoEntry } from './history';
 import type { Task, TaskList, TaskMail, TaskPatch } from './types';
 
 export type TaskTrouble = { kind: 'permission' | 'apiOff' | 'other'; text: string };
@@ -276,9 +277,15 @@ export async function changeTask(task: Task, p: TaskPatch, opts: { quiet?: boole
   }
 }
 
+/**
+ * Ticks a task off (or back on). Ticking off has Undo in its note, and both ways go in Recent and Ctrl+Z, in case
+ * it was a slip.
+ */
 export function setDone(task: Task, done: boolean) {
   void changeTask(task, { done });
-  if (done) toast({ text: `Done: ${task.title}`, ttl: 4000, undo: () => void changeTask({ ...task, done: true }, { done: false }) });
+  const now = () => get().tasks.find((x) => x.id === task.id) || { ...task, done: !done };
+  const step = record(`${done ? 'Tick off' : 'Untick'} task: ${task.title}`, () => changeTask(now(), { done: !done }), () => changeTask(now(), { done }));
+  if (done) toast({ text: `Done: ${task.title}`, ttl: 6000, undo: () => { void undoEntry(step); } });
 }
 
 export async function deleteTask(task: Task, opts: { quiet?: boolean } = {}): Promise<void> {

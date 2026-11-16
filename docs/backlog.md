@@ -8,6 +8,7 @@ Finished work is in docs/history.md (newest first). This file keeps what is stil
 
 - Undo for every event delete (`deleteEventUndoable` in `mail/calendar.ts`, `deleteUndoStep` in `eventFlows.ts`): one of a series, this one on, the whole series, guests, several calendars, List view. Google's delete and `endSeries` give back a way to put the same event back (status confirmed, or the old repeat rule); Microsoft's `endSeries` too. Otherwise a copy taken first is made again.
 - Events from emails keep the email (`attachEmailToEvent`): a "From email" line with the Gmail link in the notes, and the email's files attached (Google: uploaded to Drive, kept private, then on the event). Suggested events, Update event, move and copy, and Link the event to this email. Microsoft and iCloud get the line only.
+- Ticking a task off goes in Recent and Ctrl+Z as well as the note's Undo (`setDone` in `tasks.ts`).
 - For the phone chat: show an event's attachments (Google gives `attachments` with Drive links) and make the "From email" link tappable.
 
 ## 0.7.4 beta 5 (built 16 Nov 2026)
