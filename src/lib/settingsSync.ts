@@ -1,20 +1,75 @@
 // Keeps settings the same on every computer, using one small file the app keeps in Google Drive.
 // Drive access is limited to files this app created, so nothing else in Drive is visible to it.
+import { create } from 'zustand';
 import { useSettings, settings } from './settings';
-import { useMail, toast } from './mail';
+import { useMail, toast, updateAccount } from './mail';
+import type { Account } from './types';
 import { httpFetch } from './platform';
 import { getGoogleAccessToken } from './auth/google';
 
 const FILE_NAME = 'well-good-mail-settings.json';
 const STAMP_KEY = 'wgm.settingsSync.stamp';
-/** The nicknames and colours last written to the file, so a computer that has never sent them sends them once. */
+/** The nicknames and colours last written to the file, so a computer that has never sent them sends them once, and
+ * a nickname or colour in the file that differs from it is known to be a change made on the phone. */
 const LOOKS_KEY = 'wgm.settingsSync.looks';
+/** When the file was last saved from this computer (ms), for Settings › General. */
+const SAVED_KEY = 'wgm.settingsSync.saved';
+
+const readSaved = () => { try { return Number(localStorage.getItem(SAVED_KEY) || 0) || undefined; } catch { return undefined; } };
+/** For Settings › General: when this computer last saved the file to Google Drive. */
+export const useSettingsSyncStatus = create<{ lastSaved?: number }>(() => ({ lastSaved: readSaved() }));
+let failToldThisSession = false;
 
 /** Things that belong to one computer, not to you. */
 const PER_DEVICE = new Set(['whatsNewSeen', 'keysBackedUpAt', 'syncSettings', 'startWithWindows', 'closeQuits', 'autoUpdate', 'testVersionNotices', 'mcp', 'collapsed']);
 
-/** Each account's nickname and colour, for Well Good Calendar on the phone. Only written here, never read back. */
-const accountLooks = () => useMail.getState().accounts.map((a) => ({ email: a.email, kind: a.kind, label: a.label, colour: a.colour }));
+export interface Look { email: string; kind?: string; label?: string; colour?: string }
+
+/** Each account's nickname and colour, shared with Well Good Calendar on the phone. The phone can change them too,
+ * and changes it made are read back in pullSettings (see looksFromPhone). */
+const accountLooks = (): Look[] => useMail.getState().accounts.map((a) => ({ email: a.email, kind: a.kind, label: a.label, colour: a.colour }));
+
+const readSent = (): Look[] => { try { return JSON.parse(localStorage.getItem(LOOKS_KEY) || '[]') as Look[]; } catch { return []; } };
+
+/**
+ * The nickname and colour changes the phone made, as account patches. A value in the file that matches what this
+ * computer last sent is not a change. Only Google accounts on this computer, matched by email (any case).
+ */
+export function looksFromPhone(remote: unknown, accounts: Pick<Account, 'id' | 'email' | 'kind' | 'label' | 'colour'>[], sent: Look[]): { id: string; email: string; patch: Partial<Pick<Account, 'label' | 'colour'>> }[] {
+  if (!Array.isArray(remote)) return [];
+  const out: { id: string; email: string; patch: Partial<Pick<Account, 'label' | 'colour'>> }[] = [];
+  const low = (x: string) => x.trim().toLowerCase();
+  for (const e of remote as Look[]) {
+    if (!e || typeof e.email !== 'string' || (e.kind && e.kind !== 'gmail')) continue;
+    const acc = accounts.find((a) => a.kind === 'gmail' && low(a.email) === low(e.email));
+    if (!acc) continue;
+    const was = sent.find((x) => low(x.email) === low(e.email));
+    const patch: Partial<Pick<Account, 'label' | 'colour'>> = {};
+    const label = typeof e.label === 'string' ? e.label.trim() : '';
+    if (label !== (was?.label ?? '').trim() && label !== (acc.label || '')) patch.label = label;
+    const colour = typeof e.colour === 'string' && /^#[0-9a-f]{3,8}$/i.test(e.colour) ? e.colour : undefined;
+    if (colour && colour !== was?.colour && colour !== acc.colour) patch.colour = colour;
+    if (Object.keys(patch).length) out.push({ id: acc.id, email: acc.email, patch });
+  }
+  return out;
+}
+
+/** Nicknames and colours changed on the phone, put on the accounts here quietly (no Undo step, not pushed back). */
+function takeLooksFromPhone(remote: Record<string, unknown>) {
+  const changes = looksFromPhone(remote.accounts, useMail.getState().accounts, readSent());
+  if (!changes.length) return;
+  for (const c of changes) updateAccount(c.id, c.patch);
+  // What the phone set now counts as sent, so it isn't read as a change again. Other accounts keep what was there,
+  // so ones this computer has never sent still go on the next push.
+  const sent = readSent();
+  for (const c of changes) {
+    const now = accountLooks().find((x) => x.email === c.email);
+    if (!now) continue;
+    const i = sent.findIndex((x) => x.email.toLowerCase() === c.email.toLowerCase());
+    if (i >= 0) sent[i] = now; else sent.push(now);
+  }
+  try { localStorage.setItem(LOOKS_KEY, JSON.stringify(sent)); } catch { /* storage unavailable */ }
+}
 
 const read = (): Record<string, unknown> => {
   const out: Record<string, unknown> = {};
@@ -65,6 +120,7 @@ export async function pullSettings(): Promise<boolean> {
     const patch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(remote)) if (!PER_DEVICE.has(k) && k in useSettings.getState()) patch[k] = v;
     useSettings.getState().set(patch, { quiet: true });
+    takeLooksFromPhone(remote);
     setStamp(f.modifiedTime);
     return true;
   } catch (e) {
@@ -85,9 +141,15 @@ export async function pushSettings(): Promise<void> {
     }
     const saved = await drive<{ modifiedTime: string }>(`/files/${fileId}?uploadType=media&fields=modifiedTime`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(read()) }, true);
     setStamp(saved.modifiedTime);
-    try { localStorage.setItem(LOOKS_KEY, JSON.stringify(accountLooks())); } catch { /* storage unavailable */ }
+    const at = Date.parse(saved.modifiedTime) || Date.now();
+    try { localStorage.setItem(LOOKS_KEY, JSON.stringify(accountLooks())); localStorage.setItem(SAVED_KEY, String(at)); } catch { /* storage unavailable */ }
+    useSettingsSyncStatus.setState({ lastSaved: at });
   } catch (e) {
     console.warn('Settings sync (push) failed', e);
+    if (!failToldThisSession) {
+      failToldThisSession = true;
+      toast({ text: `Couldn't save your settings to Google Drive, so your phone and other computers won't see the latest. ${e instanceof Error ? e.message : ''}`.trim(), ttl: 9000 });
+    }
   }
 }
 

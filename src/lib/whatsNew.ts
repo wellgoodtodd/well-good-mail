@@ -25,6 +25,8 @@ export const RELEASES: Release[] = [
       'Unread emails inside a conversation show their own dot, and a right-click on a folded email gives its own menu',
       'Replies and forwards open in their own window unless you change it in Settings › Writing',
       'Settings are shared with Well Good Calendar on your phone more often, with your account nicknames and colours',
+      'Account nicknames and colours changed in Well Good Calendar on your phone come across too',
+      'Settings › General says when your settings were last saved to Google Drive, and tells you if saving fails',
     ],
   },
   {

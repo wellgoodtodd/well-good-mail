@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../Icon';
 import { restartPolling, toast, refreshTaskbarCount } from '../../lib/mail';
 import { useSettings } from '../../lib/settings';
-import { enableSettingsSync } from '../../lib/settingsSync';
+import { enableSettingsSync, useSettingsSyncStatus } from '../../lib/settingsSync';
 import { invoke, isTauri, setAutostart, setCloseQuits, openExternal } from '../../lib/platform';
 import { Row, Check } from '../ui';
 
@@ -65,7 +65,15 @@ export function GeneralTab() {
       <section className="set-section">
         <h2>Every computer</h2>
         <Check checked={s.syncSettings} onChange={(v) => { s.set({ syncSettings: v }); if (v) enableSettingsSync(); }}>Keep my settings the same on every computer<span className="check-sub">Uses a small file in your Google Drive. Your keys and mail are never in it.</span></Check>
+        <SyncStatus />
       </section>
     </>
   );
+}
+
+/** Under the switch: when the settings file was last saved from this computer. */
+function SyncStatus() {
+  const lastSaved = useSettingsSyncStatus((st) => st.lastSaved);
+  const when = lastSaved ? new Date(lastSaved).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  return <p className="hint" style={{ margin: '2px 0 0 28px' }}>{lastSaved ? `Last saved to Google Drive: ${when}` : 'Not saved yet'}</p>;
 }
