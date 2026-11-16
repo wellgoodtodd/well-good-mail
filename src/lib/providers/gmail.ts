@@ -3,6 +3,7 @@
 import { forgetGoogleAccessToken, getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
+import { EVENT_FILES, folderId } from '../driveFolder';
 import type { Account, Address, Alias, AttachmentMeta, EmailForEvent, Task, TaskList, TaskPatch, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { AutoReply } from '../ooo';
 import { htmlToText, isWorkAccount, ymd } from '../ooo';
@@ -758,7 +759,8 @@ export class GmailProvider implements MailProvider {
         'X-Upload-Content-Type': mimeType,
         'X-Upload-Content-Length': String(data.length),
       },
-      body: JSON.stringify({ name, mimeType }),
+      // Into Well Good Mail › Event files, not loose in My Drive. If the folder can't be made, My Drive still works.
+      body: JSON.stringify({ name, mimeType, ...await folderId(this.account.email, [EVENT_FILES]).then((id) => ({ parents: [id] })).catch(() => ({})) }),
     });
     const location = init.headers.get('location');
     if (!init.ok || !location) throw new Error(`Drive upload couldn't start (${init.status})`);

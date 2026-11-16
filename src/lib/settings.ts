@@ -254,6 +254,14 @@ export interface Settings {
   closeQuits: boolean;
   /** Keep settings the same on every computer through a small file in Google Drive. */
   syncSettings: boolean;
+  /** Automatic backups of settings and rules to Google Drive (Well Good Mail › Backups › this computer). */
+  backupEvery: 'off' | 'day' | 'week' | 'month';
+  /** How many backups to keep for each computer; older ones go. */
+  backupKeep: number;
+  /** When this computer last made a backup (ms). */
+  backupLastAt: number;
+  /** This computer's name, for its backup folder. Empty: picked the first time. */
+  deviceName: string;
   /** Show each Google account's profile picture instead of its coloured dot. */
   accountIcons: boolean;
   /** Show a small photo (or initials) beside each message in the list. */
@@ -405,6 +413,10 @@ export const defaultSettings: Settings = {
   startWithWindows: true,
   closeQuits: false,
   syncSettings: false,
+  backupEvery: 'off',
+  backupKeep: 10,
+  backupLastAt: 0,
+  deviceName: '',
   accountIcons: false,
   senderPhotos: false,
   defaultRetentionDays: 365,
@@ -412,7 +424,7 @@ export const defaultSettings: Settings = {
 };
 
 /** Changes that happen by themselves, or are too small to be worth a step in Undo (dragging a divider, folding a section). */
-const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'calendarMode', 'calendarZoom', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden', 'tasksPlace', 'alertsPausedUntil']);
+const NOT_UNDOABLE = new Set<string>(['sidebarWidth', 'listWidth', 'listHeight', 'collapsed', 'keysBackedUpAt', 'backupLastAt', 'whatsNewSeen', 'outsideDraftsSince', 'comingUpOpen', 'remindersView', 'calendarMode', 'calendarZoom', 'demoMode', 'googlePublished', 'sidebarVisible', 'oooActive', 'oooDismissed', 'suggestHidden', 'tasksPlace', 'alertsPausedUntil']);
 /** Friendly names for the Undo menu. Anything else is just "settings". */
 const SETTING_NAMES: Record<string, string> = {
   theme: 'appearance', accent: 'accent colour', density: 'density', textScale: 'text size', palette: 'account colours', darkSkin: 'dark look', lightSkin: 'light look',

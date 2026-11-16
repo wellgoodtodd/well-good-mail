@@ -6,6 +6,7 @@ import { useMail, toast, updateAccount } from './mail';
 import type { Account } from './types';
 import { httpFetch } from './platform';
 import { getGoogleAccessToken } from './auth/google';
+import { folderId, moveInto } from './driveFolder';
 
 const FILE_NAME = 'well-good-mail-settings.json';
 const STAMP_KEY = 'wgm.settingsSync.stamp';
@@ -21,7 +22,7 @@ export const useSettingsSyncStatus = create<{ lastSaved?: number }>(() => ({ las
 let failToldThisSession = false;
 
 /** Things that belong to one computer, not to you. */
-const PER_DEVICE = new Set(['whatsNewSeen', 'keysBackedUpAt', 'syncSettings', 'startWithWindows', 'closeQuits', 'autoUpdate', 'testVersionNotices', 'mcp', 'collapsed']);
+const PER_DEVICE = new Set(['whatsNewSeen', 'keysBackedUpAt', 'syncSettings', 'backupLastAt', 'deviceName', 'startWithWindows', 'closeQuits', 'autoUpdate', 'testVersionNotices', 'mcp', 'collapsed']);
 
 export interface Look { email: string; kind?: string; label?: string; colour?: string }
 
@@ -83,7 +84,7 @@ let fileId: string | undefined;
 let pushTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** The Google account whose Drive holds the file: the default sender if it is a Google account. */
-function driveAccount(): string | undefined {
+export function driveAccount(): string | undefined {
   const google = useMail.getState().accounts.filter((a) => a.kind === 'gmail');
   return (google.find((a) => a.email === settings().defaultFromEmail) || google[0])?.email;
 }
@@ -104,7 +105,17 @@ async function findFile(account?: string): Promise<{ id: string; modifiedTime: s
   return r.files[0];
 }
 
-const stamp = () => Number(localStorage.getItem(STAMP_KEY) || 0);
+/** A settings file from before 0.7.5 sits loose in My Drive: move it into the Well Good Mail folder, once per run.
+ * It keeps its id and name, so the phone (which finds it by name) still does. */
+let tidied = false;
+async function tidyIntoFolder(id: string) {
+  const email = driveAccount();
+  if (tidied || !email) return;
+  tidied = true;
+  try { await moveInto(email, id, await folderId(email)); } catch (e) { console.warn('Settings file not moved into the folder', e); }
+}
+
+const stamp = () =>Number(localStorage.getItem(STAMP_KEY) || 0);
 const setStamp = (iso: string) => { try { localStorage.setItem(STAMP_KEY, String(Date.parse(iso))); } catch { /* storage unavailable */ } };
 
 /** Fetches the shared settings if they're newer than what this computer last saw. True when this computer is up to date with the file. */
@@ -142,9 +153,10 @@ export async function pushSettings(): Promise<void> {
       if (Date.parse(f.modifiedTime) > stamp()) await pullSettings();
     }
     if (!fileId) {
-      const made = await drive<{ id: string }>('/files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: FILE_NAME }) });
+      const folder = await folderId(driveAccount()!).catch(() => undefined);
+      const made = await drive<{ id: string }>('/files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: FILE_NAME, ...(folder ? { parents: [folder] } : {}) }) });
       fileId = made.id;
-    }
+    } else void tidyIntoFolder(fileId);
     const saved = await drive<{ modifiedTime: string }>(`/files/${fileId}?uploadType=media&fields=modifiedTime`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(read()) }, true);
     setStamp(saved.modifiedTime);
     const at = Date.parse(saved.modifiedTime) || Date.now();
