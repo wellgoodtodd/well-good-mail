@@ -24,39 +24,24 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 
 ## Keep an eye on (kept until seen)
 
-- [x] **The update itself:** beta 1 moves to beta 2 from Settings › Updates, and What's New shows once.
-- [x] **AI drafts from your EA** end at the sign-off with your signature once.
 - [ ] **A Send To rule on its own:** the next SocialPilot invoice saves and forwards by itself, once, and shows in What's been sent.
 - [ ] **Find my invoices** reads properly, with Stripe and PayPal receipts listed by the company you paid.
-- [x] **Show in folder** opens the file's own folder with the file selected.
 
-## Carried forward (not ticked yet)
+## Still to try (carried forward)
 
 ### From 0.7.4 beta 1
 
-- [x] **Open with › Well Good Mail:** right-click a downloaded .ics file, Open with, pick Well Good Mail. New event opens with the title, time, place and notes filled in.
-- [x] **Add it:** pick a calendar and Add. Check it on your phone.
 - [ ] **Always:** tick "Always use this app" once; after that a double-click on any .ics opens it here.
 - [ ] **A file with no event in it** gives a short message, nothing else.
 - [ ] **App closed or in the tray:** opening an .ics starts or brings up the app and shows the event.
 
-### From 0.7.3 beta 12
-
-- [x] **Save as...** on an attachment's right-click opens the Windows box to choose a folder and name.
-
 ### From 0.7.3 beta 11
 
 - [ ] **New place** fits its dialog; nothing runs past the edge.
-- [x] **Forward to** suggests your contacts after a short pause as you type (Hubdoc's address too, once you've emailed it); the chosen one shows as a chip and fills in the Name if it's blank.
-- [x] **Rename the files** (under Save the files in a folder): Add to the start with YYMMDD_ saves Invoice.pdf as 261113_Invoice.pdf (the email's date). Try Add to the end, and Ask each time (it suggests a name; Cancel skips that file). Rules never ask.
-- [x] **☰ menu:** small grey numbers beside Calendar, Tasks and Invitations (and Scheduled when something's waiting).
 
 ### From 0.7.3 beta 10
 
-- [x] **Usual width:** each card has its icon and name, no numbers. A red dot in the corner of Tasks when one is late, a blue one on Invitations when new ones are waiting.
 - [ ] **Hover a card** for the numbers ("Tasks: 5 due today, 2 late").
-- [x] **Drag the sidebar wider:** the numbers appear at the end of the cards (late tasks in red, new invitations in blue) in place of the dots.
-- [x] **Drag it very narrow:** a row of icons, with the dot on the icon; Settings is just the cog, Help on the right.
 - [ ] Settings (cog and name) with its coral dot, and the ? for Help, underneath.
 
 ### From 0.7.3 beta 9
@@ -65,7 +50,6 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] **Make a place:** Settings › Send To › New place. Bookkeeping: forward to your Hubdoc address, and save the files in your invoices folder by Year › Month.
 - [ ] **Right-click an attachment:** Forward... opens the writing window with just that file. Send to › Bookkeeping forwards it (with Undo) and saves the file; check it arrives in Hubdoc and lands in the right month folder.
 - [ ] **"Always send ... there?"** after sending: Make a rule. The rule shows in Settings › Send To.
-- [x] **New rule** in Settings › Send To, made by hand.
 - [ ] **A rule at work:** the next invoice from that sender goes by itself (the app needs to be open, or opened later), once only. What's been sent lists it.
 - [ ] **Several at once:** search "invoice", select a few, right-click › Send to: it asks first, then each goes on its own.
 - [ ] **Find my invoices:** lists your subscription senders; tick one, Make 1 rule, and try "Also send the ones already here" on a short range.
@@ -78,68 +62,29 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] The welcome page has Help and "Lost your accounts after reinstalling?" links.
 - [ ] The Gmail setup guide no longer opens by itself when your Google key is still saved.
 
-#### Sidebar and menus
-- [x] Drag the footer cards to reorder; the order stays after a restart.
-- [x] **☰ menu:** Scheduled, Calendar, Tasks, Invitations in the same order, then Out of Office, Settings (now with Send To) and Help & Feedback.
-- [x] **Favourites show once:** Important and Flagged only in Favourites. Remove from Favourites puts one back in its place.
-- [x] **Right-click an account** in the sidebar: Leave out of All Inboxes / Show in All Inboxes.
-
-#### Fixes
-- [x] **AI drafts:** no squashed second signature; "On ... wrote:" sits with the earlier emails. Send one and check the signature is there once.
-- [x] **Drop a file on an AI draft:** it opens in the full editor with the file attached.
-- [x] **AI Connection › All switches** shows Allow when everything is as high as it goes (Out of Office stays at Ask on purpose).
-
-### From 0.7.3 beta 8
-
-- [x] **Video call line** in the event pop-up, under Location: "+ Add Google Meet" in grey when there's no call; "Google Meet · Join · Settings ↗" when there is. The big Join button only shows on the day of the event.
-- [x] **Location** has a map pin instead of the folder (pop-up and invitation cards).
-- [x] **Make a task from an email** with no date in it starts on today at the next hour, like New task.
-- [x] **Alerts & Notifications** in cards: New mail, How alerts appear, New mail per account, Calendar and tasks, Video meetings, Alerts from hidden calendars, Quiet hours. Change alerts (from the Alerts button) still lands on Calendar and tasks.
-
 ### From 0.7.3 beta 7
 
 - [ ] **Pause for 1 hour** really quietens alerts (new mail, events, tasks) for the hour.
-- [x] **Month view** has no Tasks panel, and days still say "✓ 2 tasks".
-- [x] **Move from the quick edit card** to a calendar in another account. With guests, a call or a repeat it says what happens first.
 - [ ] **Right-click a list:** Rename (check it's renamed on your phone), Set as default, Change defaults…, Hide completed, Delete list… A slow second click renames; ☆ sets the default.
-- [x] **Right-click an account** in Tasks: New list, Show lists / Hide lists, Account settings….
-- [x] **List picker** reads "My Tasks · WGM" with account dots.
 - [ ] **Phone changes come through by themselves:** tick one off on your phone; within about a minute it's done here.
 - [ ] **Connected AI apps** show their logos; Test and ⋯ still work. **Add tasks** says "Into: ..." and can be changed there.
-- [x] **Font and size** boxes with arrows; bold, italic and lists show a soft blue box when on.
-- [x] **Attachments as cards**, two to a row, with thumbnails and a total. Forwarded attachments show too.
-- [x] **Send later** beside the Send in the pop-out writing window.
 
 ### From 0.7.3 beta 6
 
-- [x] **A time on a Google task** shows as "Due 14:00" at the top of its notes on your phone, and at 14:00 in the app.
 - [ ] **Make a task from an email** with "by Friday" in its opening words gets that due date.
-- [x] **A slow account doesn't hold up the rest** (once Outlook is back): Google calendars show as soon as they answer.
 - [ ] **Location:** clicking an empty Location shows nothing until you type; then places you've used and contacts' addresses.
-- [x] **Location from the title:** "Lunch with Sam at Five Guys tomorrow 1pm" fills Location with "Five Guys".
 
 ### From 0.7.3 beta 5
 
 - [ ] **Microsoft retry:** once Outlook is working again, a refresh with a passing Outlook hiccup shows no error.
-- [x] **Out of Office for WGM Microsoft** can be checked and switched on once Outlook is working again.
 - [ ] **Contacts' addresses** show in Location suggestions with the contact's name in grey.
-- [x] **Different message for each account:** pick a template on one tab, switch tabs: the picker shows that tab's own template.
 
 ### From 0.7.3 beta 4 and earlier
 
 #### Under the hood (beta 4)
 
-- [ ] **Opening emails:** old and new emails open with their full text, in every account. An email not opened lately may take a blink longer.
-- [ ] **After a restart:** close the app fully, open it again, and open a few emails. Their text is all there.
-- [ ] **Reply and Forward** include the quoted email, also after a restart, also in a pop-out window, and when switching between Reply and Forward.
 - [ ] **Print** an email: the full text prints.
-- [ ] **Writing (new editor version):** bold, italic, underline, lists, links (Ctrl+K), font and size, Undo and Redo, spelling suggestions on right-click, Paste without formatting, Paste as quote, pasting a picture, changing the signature. Drafts reopen with the same text.
-- [ ] **Out of Office and AI Drafts** editors work the same.
-- [ ] **Search:** words from inside emails, `from:`, `after:` and `before:`. A word only found very far down a long email (after about the first 4,000 characters) is no longer found.
-- [ ] **Smart Mailboxes** with "Any text" match whole words or the start of words in the email's text ("pay" finds "payment" but not "repayment").
 - [ ] **iCloud calendars** keep updating, and a calendar added on your phone appears.
-- [ ] **Memory:** after a day of use, Task Manager shows Well Good Mail using less memory than beta 2 did.
-- [ ] **Everything else as normal:** sidebar counts, archive and Undo, sending, Send later, Calendar.
 
 #### Calendar
 
@@ -151,16 +96,7 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] Check every change above in Google Calendar on your phone.
 - [ ] Move one with guests to another account: the warning about new invitations comes first.
 - [ ] **List view:** tick several rows, then Move to calendar and Delete.
-- [ ] **Changes made on your phone** show in the app within about a minute while Calendar & Reminders is open, and soon after you come back to the window.
 - [ ] An **open event** updates by itself when a guest's answer changes.
-- [ ] Delete an event with guests: it offers to cancel the meeting and tell them.
-
-#### Invitations
-
-- [ ] A **clash** with something already in your calendar is noted.
-- [ ] A **cancelled** meeting shows crossed out with Remove from my calendar.
-- [ ] An unanswered meeting in **Coming up** says Not answered and opens the pop-up.
-- [ ] The card on an invitation email says Accept / Maybe / Decline too.
 
 #### Out of Office page
 
@@ -182,48 +118,30 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 #### From beta 2
 
 - [ ] **Outlook:** one event in the Outlook calendar. Outlook keeps only one alert, and Teams links work on work accounts only.
-- [ ] **Calendar list:** calendars you've hidden aren't offered, and the last calendar you used comes first next time.
-- [ ] **Calendar Groups:** rename a group and delete one.
-- [ ] The **sidebar count** for Calendar & Reminders follows the group.
-- [ ] **Only alert me from the group I'm looking at:** switch it on, pick Personal, and alerts from work calendars stay quiet.
-- [ ] New event while Work is picked goes into a Work calendar.
 - [ ] **AI apps:** switch on "Set up Calendar Groups" in AI Connection, then ask Claude to make a Personal group. It asks first.
-- [ ] Moving an event to another account still works.
 
 #### From beta 1: the clean-up
 
-- [ ] **Send a normal email.** It arrives once, and shows once in Sent.
 - [ ] **Send with a follow-up reminder.** It arrives once, and the follow-up shows up when it's due.
-- [ ] **Send later.** Schedule one a few minutes ahead and leave the app open. It goes once, at the right time.
 - [ ] **Undo send.** Press Undo straight away. Nothing goes out, and the draft comes back.
-- [ ] **Archive, then sync.** Archive a few emails and press Refresh straight away. They stay archived and don't pop back.
-- [ ] **Read and flag, then sync.** Same again with mark as read and flag. They stay as you left them.
-- [ ] **Outlook draft.** Write a draft, leave it a minute, edit it, and close it. Only one copy is in Drafts, with the latest text.
-- [ ] **Leave it running for a day.** No account asks you to sign in again, unless you really changed a password.
 - [ ] **Wi-Fi off and on** for a minute while the app is open. Every account catches up on its own within a few minutes, with no restart.
 - [ ] **iCloud or other IMAP accounts** keep syncing after the laptop wakes from sleep.
-- [ ] **Open a Word or Excel attachment.** It opens in Protected View with the yellow bar. That's expected.
 - [ ] **Save an attachment** and open it from the folder. Windows treats it as downloaded.
 - [ ] **A newsletter with pictures held back.** No pictures load until you click Load images, and then they all load.
 - [ ] **An email from someone you've allowed pictures for** still shows them straight away.
 - [ ] **Removing an account** (a test one) doesn't freeze the window.
-- [ ] `after:` and `before:` in search pick up mail from that whole local day, including late evening.
-- [ ] **Every Settings tab** opens and saves.
-- [ ] **Light and dark mode** both look right. The coral, amber and green accents are unchanged.
-- [ ] Open any pop-up (a dialog, an event, What's New): focus goes into it, and Tab stays inside it. Escape takes focus back to where you were.
-- [ ] **AI Connection:** approving goes through, refusing does nothing, a request left for about 3 minutes disappears and the AI app is told no, and a new AI app still shows the pause prompt.
-
 
 ## Found in beta 2
 
 - [ ] **Add to calendar on an email's .ics card** failed with a Google error (participantIsNeitherOrganizerNorAttendee) on a ticket where you aren't listed as a guest. Fixed for beta 3: it's added as an ordinary event instead, and the error words are plain now.
 - [ ] **Date words in the New task title** ("tomorrow at 2 pm") weren't read. Fixed for beta 3: When fills in as you type, and the words come out of the title.
 - [ ] **Forward opened inline.** Replies and forwards follow one setting, now called "Open replies and forwards in their own window" (Settings › Writing). It's on for new installs; tick it on yours.
-- [ ] AI drafts with no signature: that account had none set. Not a bug.
 - [ ] **+ Add Google Meet** in the quick edit card still said "+ Add Google Meet" until a refresh. For beta 3: it says "Google Meet · Setting it up…" and checks every few seconds until the Join link is there.
 - [ ] **Week view:** clicking the picked day again didn't put it away, as it does in Month. Fixed for beta 3.
 - [ ] **Moved an event with a guest to another account, then renamed it:** it showed as two events on two calendars, and Invitations said one clashed with the other. To look into: was one of your own addresses a guest on it?
 - [ ] **Nicknames and colours on the phone:** still not coming through on beta 2. The fix (sent once at start) is in beta 3.
+- [ ] **Unread in a conversation:** the dot stayed on the whole conversation. For beta 3: opened out in the list, the dots sit on the emails that are unread; in the reading pane, a folded email that's unread has a dot; right-click a folded email for its own menu (Reply, Forward, Mark as unread for just that one, then the conversation's Archive, Move and so on). Mark as unread from an email's ⋯ menu now marks that email, not the newest.
+- [ ] **Phone app:** an event on two of your calendars shows only once there. For the Well Good Calendar chat.
 - [ ] Later: tidy up Alerts & Notifications. The card titles help for now.
 
 ## If something goes wrong

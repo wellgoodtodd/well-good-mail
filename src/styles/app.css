@@ -496,6 +496,7 @@ input[type=color] { width: 48px; height: 28px; }
 .row .twisty:hover { background: var(--bg-hover, rgba(128,128,128,.18)); color: var(--text); }
 .row.subrow { padding-left: 34px; background: var(--bg-subtle); cursor: pointer; }
 .row.subrow .row-top { font-size: 0.92em; }
+.row.subrow .unread-dot { left: 20px; top: 12px; }
 .side-item .name.with-chip { display: flex; flex-direction: column; gap: 1px; line-height: 1.2; }
 .side-item .name.with-chip.beside { flex-direction: row; align-items: center; gap: 8px; }
 .side-item .name.with-chip.beside .side-email { flex: 0 1 auto; min-width: 0; }
@@ -2009,3 +2010,6 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .attach-preview-body p { margin: 0 0 6px; }
 .attach-preview-body p:last-child { margin: 0; }
 .attach-preview .attachments:not(.above) { padding-top: 0; }
+/* An unread email inside a conversation: a small dot in the corner of its heading. */
+.msg-head { position: relative; }
+.msg-unread-dot { position: absolute; left: 4px; top: 50%; margin-top: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--unread, var(--accent)); }

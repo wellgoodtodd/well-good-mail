@@ -7,7 +7,7 @@ import { Person } from './Person';
 import { EmailFrame } from './EmailFrame';
 import { InviteCard } from './InviteCard';
 import { AttachmentPeek, AttachmentPreview, FileCard, previewKind } from './AttachmentPreview';
-import { avatarColour, fileSize, fullDate, initials, useMenu } from './ui';
+import { avatarColour, fileSize, fullDate, initials, useMenu, type MenuItem } from './ui';
 import { renderEmail, plainTextOf } from '../lib/render';
 import { loadBody, refetchBody, looksGarbled, getAttachmentData, markRead, messagesInThread, useMail, unsubscribe, toggleVip, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
@@ -239,10 +239,38 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
         </div>
   ) : null;
 
+  /** What can be done to this one email: from its ⋯ button, or a right-click on its heading. */
+  const oneEmailItems = (): MenuItem[] => [
+    { label: 'Reply', icon: 'reply', onClick: () => startCompose('reply', message) },
+    { label: 'Reply All', icon: 'replyAll', onClick: () => startCompose('replyAll', message) },
+    { label: 'Forward', icon: 'forward', onClick: () => startCompose('forward', message) },
+    { divider: true },
+    message.unread
+      ? { label: 'Mark as read', icon: 'mailOpen', onClick: () => markRead([message.id], true, { exact: true }) }
+      : { label: 'Mark as unread', icon: 'mail', onClick: () => markRead([message.id], false, { exact: true }) },
+    { label: 'Mark as unread from here', icon: 'mail', onClick: () => markRead(messagesInThread(threadKey(message)).filter((m) => m.date >= message.date).map((m) => m.id), false, { exact: true }) },
+    ...(!message.isDraft ? [{ label: 'Make a task', icon: 'check' as const, onClick: () => void import('./Tasks').then((t) => t.makeTaskFromEmail(message)) }] : []),
+    { divider: true },
+    { label: vips.includes(sender) ? 'Remove from important senders' : 'Mark sender as important', icon: 'star', onClick: () => toggleVip(sender) },
+    { label: trusted.includes(sender) ? 'Stop loading images from this sender' : 'Always load images from this sender', icon: 'imageOff', onClick: () => toggleIn('trustedSenders', sender) },
+    ...(expanded ? [{ label: dark ? 'Show original colours' : 'Show in dark mode', icon: (dark ? 'sun' : 'moon') as 'sun' | 'moon', onClick: () => setDarkOverride(!dark) }] : []),
+  ];
+  // A right-click on an email's heading: this email first, then what the conversation menu has (archive, move, snooze...).
+  const ONE_EMAIL = new Set(['Reply', 'Reply All', 'Forward', 'Mark as read', 'Mark as unread', 'Make a task']);
+  const headMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rest = messageMenu([threadKey(message)]).filter((x) => !('label' in x) || !ONE_EMAIL.has(x.label as string));
+    while (rest.length && rest[0].divider) rest.shift();
+    const tidy = rest.filter((x, i) => !(x.divider && rest[i - 1]?.divider));
+    menu.open({ x: e.clientX, y: e.clientY }, [...oneEmailItems(), { divider: true }, ...tidy]);
+  };
+
   if (!expanded) {
     return (
-      <div className="msg collapsed" onClick={onToggle} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onToggle()}>
+      <div className={`msg collapsed ${message.unread ? 'unread' : ''}`} onClick={onToggle} onContextMenu={headMenu} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onToggle()}>
         <div className="msg-head">
+          {message.unread && <span className="msg-unread-dot" role="img" aria-label="Unread" />}
           <span className="avatar" style={{ background: avatarColour(sender) }}>{initials(name)}</span>
           <div className="msg-who">
             <div className="name">{message.isDraft && <span className="draft-tag">Draft</span>}{name}</div>
@@ -250,13 +278,16 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
           </div>
           <div className="msg-date">{fullDate(message.date)}</div>
         </div>
+        {/* Clicks in the menu mustn't open the email out. */}
+        <span onClick={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()}>{menu.node}</span>
       </div>
     );
   }
 
   return (
     <article className="msg" aria-label={`Email from ${name}`}>
-      <div className="msg-head">
+      <div className="msg-head" onContextMenu={headMenu}>
+        {message.unread && <span className="msg-unread-dot" role="img" aria-label="Unread" />}
         <span className="avatar" style={{ background: avatarColour(sender) }}>{initials(name)}</span>
         <div className="msg-who" onClick={onToggle} title="Click to fold this message away">
           <div className="name">
@@ -276,18 +307,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
         <button
           className="icon-btn"
           aria-label="More actions"
-          onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
-            { label: 'Reply', icon: 'reply', onClick: () => startCompose('reply', message) },
-            { label: 'Reply All', icon: 'replyAll', onClick: () => startCompose('replyAll', message) },
-            { label: 'Forward', icon: 'forward', onClick: () => startCompose('forward', message) },
-            { divider: true },
-            { label: 'Mark as unread', icon: 'mail', onClick: () => markRead([message.id], false) },
-            { label: 'Mark as unread from here', icon: 'mail', onClick: () => markRead(messagesInThread(threadKey(message)).filter((m) => m.date >= message.date).map((m) => m.id), false, { exact: true }) },
-            { divider: true },
-            { label: vips.includes(sender) ? 'Remove from important senders' : 'Mark sender as important', icon: 'star', onClick: () => toggleVip(sender) },
-            { label: trusted.includes(sender) ? 'Stop loading images from this sender' : 'Always load images from this sender', icon: 'imageOff', onClick: () => toggleIn('trustedSenders', sender) },
-            { label: dark ? 'Show original colours' : 'Show in dark mode', icon: dark ? 'sun' : 'moon', onClick: () => setDarkOverride(!dark) },
-          ], 'right')}
+          onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), oneEmailItems(), 'right')}
         >
           <Icon name="more" />
         </button>

@@ -167,6 +167,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
     const fromMe = mine.has(m.from.email.toLowerCase());
     return (
       <div key={`sub:${m.id}`} className={`row subrow ${m.unread ? 'unread' : ''}`} onClick={() => selectThread(key)} role="listitem">
+        {m.unread && <span className="unread-dot" role="img" aria-label="Unread" />}
         <div className="row-body">
           <div className="row-top">
             <span className="from">{isDraftMsg(m) && <span className="draft-tag">Draft</span>}{fromMe ? 'Me' : m.from.name || m.from.email}</span>
@@ -362,7 +363,8 @@ const Row = memo(function Row({ item, isRemote, selected, open, stripe, previewL
       aria-current={selected ? 'true' : undefined}
     >
       {stripe !== undefined && <span className="acct" style={{ background: stripe }} />}
-      {item.unread ? <span className="unread-dot" role="img" aria-label="Unread" /> : markWords ? (
+      {/* Opened out, the dots move onto the emails below that are unread. */}
+      {item.unread ? (open ? null : <span className="unread-dot" role="img" aria-label="Unread" />) : markWords ? (
         <span className="reply-mark" role="img" aria-label={markWords} title={markWords}>
           {replied && <Icon name="reply" size={13} />}
           {forwarded && <Icon name="forward" size={13} />}
