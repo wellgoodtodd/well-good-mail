@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ownWords, suggestEvent } from '../suggestEvents';
+import { eventDifferences, ownWords, suggestEvent } from '../suggestEvents';
 
 const NOW = new Date(2026, 10, 10, 12, 0).getTime(); // Tue 10 Nov 2026
 const from = (email: string, name = 'Sam') => ({ from: { email, name }, subject: 'Re: Quiz night', date: NOW - 3600000 });
@@ -41,6 +41,16 @@ describe('suggested events', () => {
     expect(a?.existing?.id).toBe('e');
     expect(a?.meetingUrl).toBe('https://meet.google.com/abc-defg-hij');
     expect(suggestEvent(from('sam@example.com'), agenda, NOW)?.existing).toBeUndefined();
+    // What the email has that the event doesn't: the Meet link. Same time, so no time change.
+    const diff = eventDifferences(a!, cal[0]);
+    expect(diff.patch).toEqual({ location: 'https://meet.google.com/abc-defg-hij' });
+    expect(diff.lines).toEqual(['The email has a Google Meet link']);
+    // A time that moved (19:15 to 21:15 in the email, 19:30 in the calendar) still finds it, and says so.
+    const moved = suggestEvent(from('sam@example.com'), 'Now Monday 16 November, 7:15pm to 9:15pm', NOW, cal);
+    expect(moved?.existing?.id).toBe('e');
+    const d2 = eventDifferences(moved!, cal[0]);
+    expect(new Date(d2.patch.start!).getMinutes()).toBe(15);
+    expect(d2.lines).toEqual(['The email says 19:15 to 21:15']);
     // Something else at that time isn't the same event: it's still suggested.
     const other = [{ ...cal[0], title: 'Bins out' }];
     const o = suggestEvent(from('sam@example.com'), 'Monday 16th November at 7.30pm', NOW, other);

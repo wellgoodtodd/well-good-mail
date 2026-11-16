@@ -5,10 +5,10 @@ import { plainError } from '../lib/plainErrors';
 import { Icon } from './Icon';
 import { Dialog, useMenu } from './ui';
 import { create } from 'zustand';
-import { addInviteToCalendar, updateAddedEvent, canAddToCalendar, editEvent, toast, useMail } from '../lib/mail';
+import { addInviteToCalendar, updateAddedEvent, canAddToCalendar, canMoveAcross, editEvent, moveEventAcross, writableCalendars, toast, useMail } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { visibleText } from '../lib/cleanText';
-import { suggestEvent, whenWords, type Suggestion } from '../lib/suggestEvents';
+import { eventDifferences, suggestEvent, whenWords, type Suggestion } from '../lib/suggestEvents';
 import type { Invite } from '../lib/invites';
 import { placeFromTitle } from '../lib/places';
 import type { CalendarEvent, Message } from '../lib/types';
@@ -32,12 +32,12 @@ export function SuggestedEvent({ message }: { message: Message }) {
   const found = useMemo(() => {
     if (!on || !message.bodyLoaded || message.isDraft) return undefined;
     return suggestEvent(message, visibleText(message.bodyHtml, message.bodyText, 8000), Date.now(), events);
-  }, [on, message.id, message.bodyLoaded, events.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [on, message.id, message.bodyLoaded, events]); // eslint-disable-line react-hooks/exhaustive-deps
   if (added) {
     return <section className="invite-card suggest-card" aria-label="Suggested event"><span className="inv-ok"><Icon name="check" size={14} /> Added to your calendar</span>{lastAdded.current && <button className="btn small" onClick={() => useEventEdit.setState({ editing: lastAdded.current })}>Edit</button>}</section>;
   }
   if (!found || hidden.includes(message.id) || muted.includes(sender)) return null;
-  if (found.existing) return <AlreadyInCalendar event={found.existing} meetingUrl={found.meetingUrl} onHide={() => useSettings.getState().set({ suggestHidden: [...hidden, message.id].slice(-300) }, { quiet: true })} />;
+  if (found.existing) return <AlreadyInCalendar event={found.existing} found={found} emailAccountId={message.accountId} onHide={() => useSettings.getState().set({ suggestHidden: [...hidden, message.id].slice(-300) }, { quiet: true })} />;
   if (!canAddToCalendar(message.id)) return null;
 
   const hide = () => useSettings.getState().set({ suggestHidden: [...hidden, message.id].slice(-300) }, { quiet: true });
@@ -116,42 +116,58 @@ export function SuggestedEvent({ message }: { message: Message }) {
   );
 }
 
-/** The email's date and time are already in your calendar. If the email has a video link the event lacks, offer to add it. */
-function AlreadyInCalendar({ event, meetingUrl, onHide }: { event: CalendarEvent; meetingUrl?: string; onHide: () => void }) {
+/**
+ * The email's event is already in your calendar. The card says which calendar, and what the email has that the event
+ * doesn't (its meeting link, a different time). Nothing changes until you pick: update it, move it to this email's
+ * account (with the changes), or add a separate copy there.
+ */
+function AlreadyInCalendar({ event, found, emailAccountId, onHide }: { event: CalendarEvent; found: Suggestion; emailAccountId: string; onHide: () => void }) {
   const [busy, setBusy] = useState(false);
-  const [linked, setLinked] = useState(false);
-  const acc = useMail((s) => s.accounts.find((a) => a.id === event.accountId));
-  const canLink = Boolean(meetingUrl && !event.meetingUrl && event.canEdit && !linked);
-  const addLink = async () => {
-    if (!meetingUrl) return;
+  const [done, setDone] = useState<string | undefined>(undefined);
+  const menu = useMenu();
+  const accounts = useMail((s) => s.accounts);
+  const acc = accounts.find((a) => a.id === event.accountId);
+  const here = accounts.find((a) => a.id === emailAccountId);
+  const { patch, lines } = eventDifferences(found, event);
+  const changes = lines.length > 0 && Boolean(event.canEdit);
+  // This email's account, when the event is in another one: it can go there (moved, or copied).
+  const hereCals = here && here.id !== event.accountId ? writableCalendars(here.id) : [];
+  const hereCal = here && (hereCals.includes(here.email) ? here.email : hereCals[0]);
+  const canMove = Boolean(hereCal && canMoveAcross(event));
+  const accName = (a?: { label?: string; email: string }) => (a ? a.label || a.email : '');
+  const calShown = acc && event.calendarName && ![acc.email, acc.label || ''].some((x) => x.toLowerCase() === event.calendarName.toLowerCase());
+  const where = `${accName(acc)}${calShown ? `, ${event.calendarName}` : ''}`;
+  const title = event.title.trim() || 'Event';
+  const run = async (what: () => Promise<unknown>, note: string) => {
     setBusy(true);
-    try {
-      // The link goes in the place, where Google and Outlook show it as a link and the app shows Join.
-      await editEvent(event, { location: event.location ? `${event.location} · ${meetingUrl}` : meetingUrl });
-      setLinked(true);
-      toast({ text: `Meeting link added to "${event.title.trim()}"` });
-    } catch (e) {
-      toast({ text: `Couldn't add the link. ${plainError(e).text}`, ttl: 9000 });
-    }
+    try { await what(); setDone(note); toast({ text: note }); } catch (e) { toast({ text: `Couldn't do that. ${plainError(e).text}`, ttl: 9000 }); }
     setBusy(false);
   };
+  const update = () => run(() => editEvent(event, patch), `"${title}" updated`);
+  const move = () => run(() => moveEventAcross(event, { accountId: here!.id, calendarName: hereCal! }, { patch, removeOriginal: true }), `"${title}" moved to ${accName(here)}${lines.length ? ', with the changes' : ''}`);
+  const copy = () => run(() => moveEventAcross(event, { accountId: here!.id, calendarName: hereCal! }, { patch, removeOriginal: false }), `"${title}" added to ${accName(here)} too`);
+  if (done) return <section className="invite-card suggest-card" aria-label="Already in your calendar"><span className="inv-ok"><Icon name="check" size={14} /> {done}</span></section>;
   return (
     <section className="invite-card suggest-card" aria-label="Already in your calendar">
       <div className="inv-top">
         <div className="inv-main">
-          <div className="inv-small suggest-kicker"><Icon name="check" size={13} /> Already in your calendar{acc ? ` (${acc.label || acc.email})` : ''}</div>
-          <div className="inv-title">{event.title.trim() || 'Event'}</div>
+          <div className="inv-small suggest-kicker"><Icon name="check" size={13} /> Already in your calendar{where ? ` (${where})` : ''}</div>
+          <div className="inv-title">{title}</div>
           <div className="inv-line"><Icon name="clock" size={14} /> {whenWords(event)}</div>
-          {canLink && <div className="inv-line"><Icon name="link" size={14} /> The email has a meeting link your event doesn't</div>}
-          {linked && <div className="inv-line"><Icon name="check" size={14} /> Meeting link added</div>}
+          {lines.map((l) => <div key={l} className="inv-line suggest-found"><Icon name="info" size={14} /> {l}</div>)}
         </div>
       </div>
-      {canLink && (
+      {(changes || canMove) && (
         <div className="inv-actions">
-          <button className="btn primary" disabled={busy} onClick={() => void addLink()}>Add the meeting link</button>
+          {changes && <button className="btn primary" disabled={busy} onClick={() => void update()}>Update event</button>}
+          {canMove && <button className={`btn ${changes ? '' : 'primary'}`} disabled={busy} onClick={() => void move()}>{changes ? `Update and move to ${accName(here)}` : `Move to ${accName(here)}`}</button>}
           <button className="btn" onClick={onHide}>Not now</button>
+          {canMove && <button className="btn ghost icon-only" aria-label="More choices" title="More choices" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
+            { label: `Add a copy to ${accName(here)}`, icon: 'calendar', onClick: () => void copy() },
+          ])}><Icon name="more" /></button>}
         </div>
       )}
+      {menu.node}
     </section>
   );
 }

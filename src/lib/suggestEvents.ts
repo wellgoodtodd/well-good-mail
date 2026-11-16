@@ -11,7 +11,9 @@ export interface Suggestion {
   /** The words it found, as written. */
   phrase: string;
   meetingUrl?: string;
-  /** Already in your calendar at that time: the card says so (and can add the meeting link) instead of offering it again. */
+  /** True when the email gave an end time too ("7:15 – 9:15pm"); otherwise the end is an hour after the start. */
+  endGiven?: boolean;
+  /** Already in your calendar: the card says so, and what the email has that the event doesn't, instead of offering it again. */
   existing?: CalendarEvent;
 }
 
@@ -76,15 +78,20 @@ function findIn(m: Pick<Message, 'subject' | 'date'>, text: string, now: number,
     } else continue;
     if (phrase.length < 6) continue;
     if (start <= now || start <= (m.date || 0) || start > now + 270 * 86400000) continue;
-    end = end && end > start ? end : start + 60 * 60000;
+    const endGiven = Boolean(end && end > start);
+    end = endGiven ? end! : start + 60 * 60000;
     const title = cleanSubject(m.subject).replace(/[?!.]+$/, '') || 'Event';
     const meetingUrl = findMeetingUrl(text);
-    // Already in the calendar: at that time and plainly the same thing (a word of its title in the subject, or the
-    // same link). Then the card says so rather than offer it twice. Something else at that time doesn't count.
+    // Already in the calendar: plainly the same thing (a word of its title in the subject, or the same link) on the
+    // same day within two hours, so a time that moved still finds it. The nearest wins. Something else at that time
+    // doesn't count.
     const words = new Set(wordsOf(m.subject));
-    const existing = calendar.find((e) => !e.allDay && !e.cancelled && Math.abs(e.start - start) < 5 * 60000
-      && ((meetingUrl && e.meetingUrl === meetingUrl) || wordsOf(e.title).some((w) => words.has(w))));
-    return { title, start, end, phrase, meetingUrl, ...(existing ? { existing } : {}) };
+    const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
+    const existing = calendar
+      .filter((e) => !e.allDay && !e.cancelled && sameDay(e.start, start) && Math.abs(e.start - start) <= 2 * 3600000
+        && ((meetingUrl && e.meetingUrl === meetingUrl) || wordsOf(e.title).some((w) => words.has(w))))
+      .sort((a, b) => Math.abs(a.start - start) - Math.abs(b.start - start))[0];
+    return { title, start, end, phrase, meetingUrl, ...(endGiven ? { endGiven } : {}), ...(existing ? { existing } : {}) };
   }
   return undefined;
 }
@@ -95,3 +102,23 @@ export const whenWords = (s: { start: number; end: number }) => {
   const t = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   return `${day}, ${t(s.start)} to ${t(s.end)}`;
 };
+
+/** What an email has that the event already in your calendar doesn't: its meeting link, or a different time. */
+export function eventDifferences(found: Pick<Suggestion, 'start' | 'end' | 'endGiven' | 'meetingUrl'>, ev: Pick<CalendarEvent, 'start' | 'end' | 'meetingUrl' | 'location'>): { patch: { start?: number; end?: number; location?: string }; lines: string[] } {
+  const patch: { start?: number; end?: number; location?: string } = {};
+  const lines: string[] = [];
+  if (found.meetingUrl && !ev.meetingUrl) {
+    patch.location = ev.location ? `${ev.location} · ${found.meetingUrl}` : found.meetingUrl;
+    lines.push(`The email has a ${meetingKind(found.meetingUrl)} link`);
+  }
+  const end = found.endGiven ? found.end : found.start + (ev.end - ev.start);
+  if (Math.abs(found.start - ev.start) >= 60000 || Math.abs(end - ev.end) >= 60000) {
+    patch.start = found.start;
+    patch.end = end;
+    const t = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    lines.push(`The email says ${t(found.start)} to ${t(end)}`);
+  }
+  return { patch, lines };
+}
+
+const meetingKind = (url: string) => (/meet\.google/i.test(url) ? 'Google Meet' : /zoom\./i.test(url) ? 'Zoom' : /teams\./i.test(url) ? 'Teams' : 'meeting');
