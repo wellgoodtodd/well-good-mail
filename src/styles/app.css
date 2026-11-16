@@ -497,6 +497,7 @@ input[type=color] { width: 48px; height: 28px; }
 .row.subrow { padding-left: 34px; background: var(--bg-subtle); cursor: pointer; }
 .row.subrow .row-top { font-size: 0.92em; }
 .row.subrow .unread-dot { left: 20px; top: 12px; }
+.row.subrow.focused { background: var(--bg-hover, var(--bg-subtle)); box-shadow: inset 3px 0 0 var(--accent); }
 .side-item .name.with-chip { display: flex; flex-direction: column; gap: 1px; line-height: 1.2; }
 .side-item .name.with-chip.beside { flex-direction: row; align-items: center; gap: 8px; }
 .side-item .name.with-chip.beside .side-email { flex: 0 1 auto; min-width: 0; }

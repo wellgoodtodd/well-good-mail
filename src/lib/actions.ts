@@ -1,7 +1,9 @@
 // Right click menu for one or more conversations in the list.
 import type { MenuItem } from '../components/ui';
 import { snoozeOptions } from '../components/ui';
-import { applyLabel, blockSender, unblockSender, archive, idsForKeys, markRead, markSpam, moveToInbox, moveToLabel, providerFor, restoreFromBin, runSearch, snooze, toast, toggleFlag, toggleMute, toggleVip, trash, useMail } from './mail';
+import { applyLabel, blockSender, unblockSender, archive, idsForKeys, markRead, markSpam, messagesInThread, moveToInbox, moveToLabel, providerFor, restoreFromBin, runSearch, snooze, toast, toggleFlag, toggleMute, toggleVip, trash, useMail } from './mail';
+import { threadKey } from './mailbox';
+import type { Message } from './types';
 import { startCompose, popoutMessage } from './composeActions';
 import { settings } from './settings';
 import { inSystemFolder } from './mailbox';
@@ -108,4 +110,34 @@ export function messageMenu(keys: string[]): MenuItem[] {
     items.push({ divider: true }, { label: 'More', icon: 'more', submenu: more });
   }
   return items;
+}
+
+/**
+ * The menu for one email inside a conversation (opened out in the list): what it does acts on just that email, and
+ * Whole conversation has the usual menu for all of it.
+ */
+export function oneEmailMenu(m: Message): MenuItem[] {
+  const ids = [m.id];
+  const p = providerFor(m.accountId);
+  const inBin = inSystemFolder(m, 'bin', p);
+  const inJunk = inSystemFolder(m, 'junk', p);
+  const key = threadKey(m);
+  return [
+    { label: 'Reply', icon: 'reply', onClick: () => startCompose('reply', m) },
+    { label: 'Reply All', icon: 'replyAll', onClick: () => startCompose('replyAll', m) },
+    { label: 'Forward', icon: 'forward', onClick: () => startCompose('forward', m) },
+    { divider: true },
+    m.unread
+      ? { label: 'Mark as read', icon: 'mailOpen', onClick: () => markRead(ids, true, { exact: true }) }
+      : { label: 'Mark as unread', icon: 'mail', onClick: () => markRead(ids, false, { exact: true }) },
+    { label: 'Mark as unread from here', icon: 'mail', onClick: () => markRead(messagesInThread(key).filter((x) => x.date >= m.date).map((x) => x.id), false, { exact: true }) },
+    { label: m.flagged ? 'Remove flag' : 'Flag', icon: 'flag', onClick: () => toggleFlag(ids) },
+    ...(!m.isDraft ? [{ label: 'Make a task', icon: 'check' as const, onClick: () => void import('../components/Tasks').then((t) => t.makeTaskFromEmail(m)) }] : []),
+    { divider: true },
+    { label: 'Archive', icon: 'archive', onClick: () => archive(ids) },
+    ...(!inBin ? [{ label: 'Move to Bin', icon: 'trash' as const, onClick: () => trash(ids) }] : []),
+    inJunk ? { label: 'Not junk', icon: 'inbox', onClick: () => markSpam(ids, false) } : { label: 'Mark as junk', icon: 'junk', onClick: () => markSpam(ids) },
+    { divider: true },
+    { label: 'Whole conversation', icon: 'more', submenu: messageMenu([key]) },
+  ];
 }

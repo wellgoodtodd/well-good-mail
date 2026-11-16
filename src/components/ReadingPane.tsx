@@ -9,6 +9,7 @@ import { useMail, messagesInThread, markRead, archive, trash, toggleFlag, snooze
 import { useSettings } from '../lib/settings';
 import { startCompose, popoutMessage } from '../lib/composeActions';
 import { messageMenu, kbd } from '../lib/actions';
+import { useMessageFocus } from '../lib/messageFocus';
 import { inSystemFolder } from '../lib/mailbox';
 import { printThread, savePdfThread } from '../lib/print';
 
@@ -51,6 +52,16 @@ export function ReadingPane({ threadKeyOverride, standalone = false, onBack }: {
     const unread = thread.filter((m) => m.unread).map((m) => m.id);
     if (unread.length) markRead(unread, true);
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // One email clicked in the list (with the conversation opened out): open it and bring it into view.
+  const focus = useMessageFocus();
+  useEffect(() => {
+    if (!focus.id || !thread.some((m) => m.id === focus.id)) return;
+    const id = focus.id;
+    setExpanded((s) => new Set([...s, id]));
+    const t = setTimeout(() => { (document.querySelector(`[data-msg-id="${CSS.escape(id)}"]`) as HTMLElement | null)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 60);
+    return () => clearTimeout(t);
+  }, [focus.seq, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A reply that opens inline is at the bottom of the conversation, so bring it into view.
   useEffect(() => {

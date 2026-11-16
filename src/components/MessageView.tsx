@@ -269,7 +269,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
 
   if (!expanded) {
     return (
-      <div className={`msg collapsed ${message.unread ? 'unread' : ''}`} onClick={onToggle} onContextMenu={headMenu} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onToggle()}>
+      <div data-msg-id={message.id} className={`msg collapsed ${message.unread ? 'unread' : ''}`} onClick={onToggle} onContextMenu={headMenu} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onToggle()}>
         <div className="msg-head">
           {message.unread && <span className="msg-unread-dot" role="img" aria-label="Unread" />}
           <span className="avatar" style={{ background: avatarColour(sender) }}>{initials(name)}</span>
@@ -286,7 +286,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
   }
 
   return (
-    <article className="msg" aria-label={`Email from ${name}`}>
+    <article className="msg" data-msg-id={message.id} aria-label={`Email from ${name}`}>
       <div className="msg-head" onContextMenu={headMenu}>
         {message.unread && <span className="msg-unread-dot" role="img" aria-label="Unread" />}
         <span className="avatar" style={{ background: avatarColour(sender) }}>{initials(name)}</span>

@@ -134,7 +134,13 @@ export async function pullSettings(): Promise<boolean> {
 export async function pushSettings(): Promise<void> {
   if (!settings().syncSettings || !driveAccount()) return;
   try {
-    if (!fileId) fileId = (await findFile())?.id;
+    // Read first: if the phone (or another computer) saved since this computer last read the file, take those changes
+    // in before writing, or saving here would write over them (a nickname changed on the phone was lost this way).
+    const f = await findFile();
+    if (f) {
+      fileId = f.id;
+      if (Date.parse(f.modifiedTime) > stamp()) await pullSettings();
+    }
     if (!fileId) {
       const made = await drive<{ id: string }>('/files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: FILE_NAME }) });
       fileId = made.id;

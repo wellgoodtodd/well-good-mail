@@ -9,7 +9,8 @@ import { useMail, messagesInThread, runSearch, selectThread, archive, trash, tog
 import { useSettings } from '../lib/settings';
 import { useViewList } from '../lib/useList';
 import { threadKey, viewTitle, inSystemFolder, type ListItem } from '../lib/mailbox';
-import { messageMenu } from '../lib/actions';
+import { messageMenu, oneEmailMenu } from '../lib/actions';
+import { focusMessage, useMessageFocus } from '../lib/messageFocus';
 import { popoutMessage, editServerDraft } from '../lib/composeActions';
 import { myAddresses } from '../lib/compose';
 import { replyMark, replyMarkWords, sentByThread } from '../lib/replyMarks';
@@ -42,6 +43,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
   const contacts = useMail((s) => s.contacts);
   const photoOf = useMemo(() => (senderPhotos ? new Map(contacts.filter((c) => c.photo).map((c) => [c.email, c.photo as string])) : new Map<string, string>()), [senderPhotos, contacts]);
   const menu = useMenu();
+  const focusedId = useMessageFocus((st) => st.id);
   const filters = useMail((s) => s.filters);
   const filterMenu = (): MenuItem[] => {
     const tick = (on: boolean) => (on ? 'check' : undefined);
@@ -166,7 +168,8 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
   const subRows = (key: string) => [...messagesInThread(key)].reverse().map((m) => {
     const fromMe = mine.has(m.from.email.toLowerCase());
     return (
-      <div key={`sub:${m.id}`} className={`row subrow ${m.unread ? 'unread' : ''}`} onClick={() => selectThread(key)} role="listitem">
+      <div key={`sub:${m.id}`} className={`row subrow ${m.unread ? 'unread' : ''} ${focusedId === m.id && selectedKey === key ? 'focused' : ''}`} onClick={() => { selectThread(key); focusMessage(m.id); }}
+        onContextMenu={(e) => { e.preventDefault(); selectThread(key); focusMessage(m.id); menu.open({ x: e.clientX, y: e.clientY }, oneEmailMenu(m)); }} role="listitem">
         {m.unread && <span className="unread-dot" role="img" aria-label="Unread" />}
         <div className="row-body">
           <div className="row-top">

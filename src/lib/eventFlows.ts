@@ -2,7 +2,7 @@
 // a repeating event asks which ones, an event with guests asks whether to tell them, and the change has Undo.
 import { askChoice, askConfirm, askPick } from './dialogs';
 import { record, undoEntry } from './history';
-import { deleteEvent, editEvent, toast, useMail } from './mail';
+import { canMoveAcross, createNewEvent, deleteEvent, editEvent, eventCopy, toast, useMail } from './mail';
 import { useCalCache } from './calendarCache';
 import { logLine } from './activityLog';
 import type { CalendarEvent, EventPatch, SeriesScope } from './types';
@@ -189,12 +189,21 @@ export async function removeEvent(ev: CalendarEvent, opts: { quietToast?: boolea
   if (notify === null) return false;
   // The questions are answered: the window can close now, while the calendar does its part (a bar shows meanwhile).
   opts.answered?.();
+  // Undo can put back a one-off event with no guests (guests were already told it's cancelled), so keep a copy first.
+  const copy = scope === 'one' && !ev.recurring && !guestsToTell(ev) && canMoveAcross(ev) ? await eventCopy(ev, false).catch(() => undefined) : undefined;
   try {
     await deleteEvent(notify && guestsToTell(ev) ? organiserCopy(ev) : ev, { scope, notify });
   } catch (e) {
     toast({ text: `Couldn't delete "${ev.title}", so it's back: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
     return false;
   }
-  if (!opts.quietToast) toast({ text: scope === 'one' ? `"${ev.title}" deleted.` : scope === 'all' ? `"${ev.title}" series deleted.` : `"${ev.title}" deleted from this one on.` });
+  let made: CalendarEvent | undefined;
+  const fail = (e: unknown) => { toast({ text: `Couldn't undo it: ${e instanceof Error ? e.message : e}`, ttl: 8000 }); };
+  const step = copy
+    ? record(`Delete event: ${ev.title}`,
+      async () => { try { made = await createNewEvent({ accountId: ev.accountId, calendarName: ev.calendarName }, copy); } catch (e) { fail(e); } },
+      async () => { if (made) { try { await deleteEvent(made, { scope: 'one', notify: false }); } catch (e) { fail(e); } } })
+    : undefined;
+  if (!opts.quietToast) toast({ text: scope === 'one' ? `"${ev.title}" deleted.` : scope === 'all' ? `"${ev.title}" series deleted.` : `"${ev.title}" deleted from this one on.`, ttl: step ? 8000 : 4000, undo: step ? () => { void undoEntry(step); } : undefined });
   return true;
 }
