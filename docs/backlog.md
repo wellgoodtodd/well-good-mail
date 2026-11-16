@@ -4,6 +4,16 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.4 beta 4 (built 16 Nov 2026)
+
+Test list: `testing-0.7.4-beta4.md`. Todd's beta 3 finds, which he tried on beta 3 before they were built:
+
+- Suggested tasks (`suggestTasks.ts`, `SuggestedTask.tsx`, setting `suggestTasks`).
+- Settings sync reads the Drive file before each save, so phone changes aren't written over.
+- Undo after deleting one event (`removeEvent` in `eventFlows.ts`).
+- Single emails in an opened-out conversation: click opens that one, right-click acts on it alone (`messageFocus.ts`, `oneEmailMenu`).
+- Still open: demo one-email conversation sometimes opens folded; moved then renamed event with a guest shows twice.
+
 ## 0.7.4 beta 3 (built 16 Nov 2026)
 
 Test list: `testing-0.7.4-beta3.md`. The fixes from testing beta 2, plus:
