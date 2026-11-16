@@ -5,7 +5,8 @@ Beta 4 is suggested tasks, settings sync that no longer writes over the phone's 
 ## New in beta 4
 
 ### Mail
-- [ ] **Suggested task:** from another of your accounts, send one of your accounts "Could you send me the venue list by Friday?". Opening it shows Add task, due Friday. (Emails from the account's own address are skipped.)
+- [x] **Suggested task:** works on emails that arrive after the update (older emails aren't checked, by design).
+- [ ] **That task on your phone:** it shows there, with "From email:" and the subject in its notes.
 - [ ] **Single emails in an opened-out conversation:** click one and just that email opens in the reading pane. Right-click it: the menu acts on that email only, with Whole conversation as a submenu.
 
 ### Calendar
