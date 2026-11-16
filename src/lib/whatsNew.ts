@@ -18,6 +18,7 @@ export const RELEASES: Release[] = [
       'Open calendar files (.ics) in Well Good Mail: Open with › Well Good Mail shows the event, ready to add to the calendar you pick',
       'Alerts for tasks: a task with a time can have an Alert and a Second alert, and they show on your phone too',
       'Email any file from Windows: right-click it, Show more options, Send to › Well Good Mail',
+      'Suggested tasks: when someone asks for something by a day ("Could you send the list by Friday?"), a card offers to make it a task',
     ],
     more: [
       'Quick add understands "tonight", "Friday morning", "half 9", "quarter to 6", and "at 2" as the afternoon',

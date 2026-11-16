@@ -198,6 +198,8 @@ export interface Settings {
   strongBorders: boolean;
   /** A card at the top of an email that mentions a future date and time, offering to add it to the calendar. */
   suggestEvents: boolean;
+  /** Offer to make a task from an email that asks for something by a day. */
+  suggestTasks: boolean;
   /** Emails whose suggestion was answered with Not now. */
   suggestHidden: string[];
   /** Senders to never suggest events from. */
@@ -363,6 +365,7 @@ export const defaultSettings: Settings = {
   attachmentPlace: 'above',
   attachmentSize: 'medium',
   suggestEvents: true,
+  suggestTasks: true,
   motion: 'system',
   focusRing: 'standard',
   underlineLinks: false,
@@ -418,7 +421,7 @@ const SETTING_NAMES: Record<string, string> = {
   hiddenItems: 'hidden items', customFolders: 'sidebar folders', sidebarNames: 'sidebar names', groups: 'Inbox Groups', vips: 'VIPs', blockedSenders: 'blocked senders', sendPlaces: 'Send To places', sendRules: 'Send To rules',
   mutedThreads: 'muted conversations', trustedSenders: 'trusted senders', templates: 'templates', keybindings: 'shortcuts', shortcuts: 'shortcuts', newMailAlerts: 'alerts',
   quietHours: 'quiet hours', imagePolicy: 'pictures', undoSendSeconds: 'undo send', hiddenCalendars: 'calendars', badges: 'unread counts', badgeHidden: 'unread counts',
-  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', oooTemplates: 'Out of Office templates', calendarGroups: 'Calendar Groups', taskDefaults: 'task lists', aiTaskTarget: 'AI Connection', calendarGroup: 'calendar group', groupAlertsOnly: 'calendar group alerts', downloadFolder: 'downloads folder', attachmentPlace: 'attachment position', attachmentSize: 'attachment size', suggestEvents: 'suggested events', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', spellWords: 'dictionary', spellLang: 'spelling', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
+  toolbarOrder: 'toolbar', settingsOrder: 'settings order', hiddenFolders: 'folders', ooo: 'Out of Office', oooSuggest: 'Out of Office', oooTemplates: 'Out of Office templates', calendarGroups: 'Calendar Groups', taskDefaults: 'task lists', aiTaskTarget: 'AI Connection', calendarGroup: 'calendar group', groupAlertsOnly: 'calendar group alerts', downloadFolder: 'downloads folder', attachmentPlace: 'attachment position', attachmentSize: 'attachment size', suggestEvents: 'suggested events', suggestTasks: 'suggested tasks', suggestMuted: 'suggested events', motion: 'motion', focusRing: 'focus ring', underlineLinks: 'underline links', strongBorders: 'stronger borders', weekStart: 'week start', calendarMode: 'calendar view', taskbarCount: 'taskbar count', spellWords: 'dictionary', spellLang: 'spelling', weekNumbers: 'week numbers', hideWeekends: 'weekends', workHours: 'working hours', signatureModes: 'signatures on replies and forwards',
 };
 let lastStep: { id: string; keys: string; at: number } | null = null;
 

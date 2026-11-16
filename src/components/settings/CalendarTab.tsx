@@ -98,6 +98,7 @@ export function RemindersTab() {
           </Row>
         )}
         <Check checked={s.suggestEvents} onChange={(v) => s.set({ suggestEvents: v })}>Offer to add dates and times from emails to my calendar</Check>
+        <Check checked={s.suggestTasks} onChange={(v) => s.set({ suggestTasks: v })}>Offer to make a task when an email asks for something by a day</Check>
         <p className="hint" style={{ margin: '4px 0 0' }}>Only for emails from people, with a clear day and time. Read on this computer, with no AI.{s.suggestMuted.length > 0 && <> {s.suggestMuted.length} sender{s.suggestMuted.length === 1 ? '' : 's'} never suggested: <button className="link-btn" onClick={() => s.set({ suggestMuted: [] })}>Allow again</button></>}</p>
         <Check checked={s.oooSuggest} onChange={(v) => s.set({ oooSuggest: v })}>Suggest Out of Office from Holiday and Annual leave in my calendar</Check>
       </section>

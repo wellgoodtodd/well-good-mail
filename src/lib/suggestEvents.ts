@@ -14,7 +14,7 @@ export interface Suggestion {
 }
 
 /** Senders that are machines, not people: newsletters, receipts, notifications. */
-const MACHINE = /(no-?reply|do-?not-?reply|newsletter|notifications?|mailer|bounce|receipts?|billing|invoice|orders?|info|news|marketing|support|updates?|alerts?|hello|team)@/i;
+export const MACHINE = /(no-?reply|do-?not-?reply|newsletter|notifications?|mailer|bounce|receipts?|billing|invoice|orders?|info|news|marketing|support|updates?|alerts?|hello|team)@/i;
 
 /** The writer's own words: quoted earlier emails and signatures cut off. */
 export function ownWords(text: string): string {

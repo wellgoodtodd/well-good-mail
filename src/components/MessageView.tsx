@@ -12,6 +12,7 @@ import { renderEmail, plainTextOf } from '../lib/render';
 import { loadBody, refetchBody, looksGarbled, getAttachmentData, markRead, messagesInThread, useMail, unsubscribe, toggleVip, toast } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { SuggestedEvent } from './SuggestedEvent';
+import { SuggestedTask } from './SuggestedTask';
 import { EmailTasksTag } from './Tasks';
 import { saveFile, saveFilesToFolder, openExternal, openWithApp, isTauri } from '../lib/platform';
 import { noteSaved } from '../lib/saves';
@@ -339,7 +340,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
         </div>
       )}
       {attachPlace === 'above' && filesBlock}
-      {message.attachments.some((a) => /calendar|ics/i.test(a.mimeType) || /.ics$/i.test(a.filename)) ? <InviteCard message={message} /> : <SuggestedEvent message={message} />}
+      {message.attachments.some((a) => /calendar|ics/i.test(a.mimeType) || /.ics$/i.test(a.filename)) ? <InviteCard message={message} /> : <><SuggestedEvent message={message} /><SuggestedTask message={message} /></>}
       <div className="frame-wrap">
         {rendered ? <EmailFrame html={rendered.html} onLinkHover={onLinkHover} onContext={onFrameContext} /> : <div className="empty">Loading...</div>}
       </div>
