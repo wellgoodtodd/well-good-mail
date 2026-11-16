@@ -275,7 +275,7 @@ export function emailNotes(m: Pick<Message, 'accountId' | 'threadId' | 'subject'
  * "From email" line linking back to it in the notes, so both are there from the event, on a phone too.
  * Returns how many files went on.
  */
-export async function attachEmailToEvent(ev: Pick<CalendarEvent, 'id' | 'accountId'>, messageId: string): Promise<number> {
+export async function attachEmailToEvent(ev: Pick<CalendarEvent, 'id' | 'accountId'>, messageId: string, only?: string[]): Promise<number> {
   const m = get().messages[messageId];
   if (!m) throw new Error('Email not found');
   const p = providers.get(ev.accountId);
@@ -285,7 +285,9 @@ export async function attachEmailToEvent(ev: Pick<CalendarEvent, 'id' | 'account
   let n = 0;
   if (p.attachEmailToEvent) {
     const files: EmailForEvent['files'] = [];
-    if (from) for (const a of emailFiles(m)) files.push({ name: a.filename, mimeType: a.mimeType, data: await from.getAttachment(m, a.id) });
+    // `only`: just these attachments (Add to event… on one file), even ones emailFiles would leave out.
+    const chosen = only ? (m.attachments || []).filter((a) => only.includes(a.id)) : emailFiles(m);
+    if (from) for (const a of chosen) files.push({ name: a.filename, mimeType: a.mimeType, data: await from.getAttachment(m, a.id) });
     n = await p.attachEmailToEvent(ev.id, { ...head, files });
   } else {
     // Just the line: the full notes are read first, as the list only keeps the start of them.

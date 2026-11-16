@@ -117,3 +117,15 @@
 .ev-call-line .link-btn.quiet { color: var(--text-muted); }
 .ev-call-line .link-btn:disabled { opacity: 0.6; cursor: default; }
 .ev-call-line .ev-dot { color: var(--text-muted); opacity: 0.7; }
+
+/* Add to event… on an attachment: a search box and a list of events to pick. */
+.ate-search { width: 100%; box-sizing: border-box; height: 30px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text); font: inherit; padding: 0 10px; margin-bottom: 8px; }
+.ate-list { max-height: 340px; overflow-y: auto; display: grid; gap: 2px; min-width: 360px; }
+.ate-head { font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 8px 0 2px; }
+.ate-row { display: flex; align-items: center; gap: 10px; text-align: left; border: 0; background: transparent; color: var(--text); font: inherit; padding: 6px 8px; border-radius: 7px; cursor: pointer; }
+.ate-row:hover, .ate-row:focus-visible { background: var(--bg-hover); }
+.ate-row:disabled { opacity: 0.6; cursor: default; }
+.ate-row .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.ate-text { display: grid; min-width: 0; }
+.ate-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ate-sub { font-size: 0.86em; color: var(--text-muted); }

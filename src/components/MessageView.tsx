@@ -1,5 +1,6 @@
 // One email inside the reading pane: sender, image banner, body, attachments.
 import { sendToItems } from './SendTo';
+import { AddToEvent } from './AddToEvent';
 import { forwardAttachment } from '../lib/sendTo';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
@@ -103,6 +104,7 @@ export function MessageView({ message: listed, expanded, onToggle }: { message: 
   const [inline, setInline] = useState<Record<string, string>>({});
   const [hover, setHover] = useState<{ href: string; mismatch?: string } | null>(null);
   const menu = useMenu();
+  const [addTo, setAddTo] = useState<string[] | null>(null);
 
   // Inline (cid:) images are part of the email itself, so they always load.
   useEffect(() => {
@@ -217,6 +219,8 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
                 ...(attachments.length > 1 ? [{ label: `Save all ${attachments.length} to a folder...`, icon: 'folder' as const, onClick: saveAll }] : []),
                 { divider: true },
                 { label: 'Forward...', icon: 'forward' as const, onClick: () => void forwardAttachment(message, a.id) },
+                { label: 'Add to event...', icon: 'calendar' as const, onClick: () => setAddTo([a.id]) },
+                ...(attachments.length > 1 ? [{ label: `Add all ${attachments.length} to event...`, icon: 'calendar' as const, onClick: () => setAddTo(attachments.map((x) => x.id)) }] : []),
                 sendToItems(() => [message], a.id),
               ]); }} onMouseEnter={(e) => { const rect = e.currentTarget.getBoundingClientRect(); clearTimeout(peekTimer.current); if (!canPreview || !big) peekTimer.current = setTimeout(() => setPeek({ i, rect }), 400); }} onMouseLeave={() => { clearTimeout(peekTimer.current); setPeek(null); }}>
                 <button className="open" onClick={() => (canPreview ? (setPeek(null), setPreviewAt(i)) : isTauri() ? openApp(a.id, a.filename, a.mimeType) : download(a.id, a.filename, a.mimeType))} title={canPreview ? (big ? `Large file: click to preview ${a.filename}` : `Preview ${a.filename}`) : isTauri() ? `Open ${a.filename} in its own app` : `Save ${a.filename}`}>
@@ -348,6 +352,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
       {attachPlace === 'below' && filesBlock}
 
       {peek && previewAt === null && attachments[peek.i] && previewKind(attachments[peek.i]) && <AttachmentPeek messageId={message.id} item={attachments[peek.i]} at={peek.rect} />}
+      {addTo && <AddToEvent message={message} attachmentIds={addTo} onClose={() => setAddTo(null)} />}
       {previewAt !== null && <AttachmentPreview messageId={message.id} items={attachments} start={previewAt} onClose={() => setPreviewAt(null)} onOpenApp={isTauri() ? (a) => void openApp(a.id, a.filename, a.mimeType) : undefined} />}
 
       {hover && (
