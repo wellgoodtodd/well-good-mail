@@ -502,7 +502,7 @@ function useShortcuts() {
         reply: () => latest && startCompose(s.defaultReply, latest),
         replyAll: () => latest && startCompose('replyAll', latest),
         forward: () => latest && startCompose('forward', latest),
-        refresh: () => refreshAll(),
+        refresh: () => refreshAll({ manual: true }),
         search: () => document.getElementById('search-box')?.focus(),
         markUnread: () => ids.length && markRead(ids, false),
         markRead: () => ids.length && markRead(ids, true),
@@ -595,7 +595,7 @@ function MainWindow() {
 
   useEffect(() => {
     const offs: Promise<() => void>[] = [
-      onTauriEvent('tray-refresh', () => refreshAll()),
+      onTauriEvent('tray-refresh', () => refreshAll({ manual: true })),
       onTauriEvent('tray-compose', () => startCompose('new')),
       onTauriEvent('tray-ooo', () => openScreen('settings', 'ooo')),
     ];
@@ -633,7 +633,7 @@ function MainWindow() {
     const tab = (label: string, id: string): MenuItem => ({ label, onClick: () => openScreen('settings', id) });
     return [
       { label: 'New email', icon: 'compose', kbd: 'Ctrl+N', disabled: !hasAccounts, onClick: () => startCompose('new') },
-      { label: 'Check for new mail', icon: 'refresh', kbd: 'F5', disabled: !hasAccounts, onClick: () => refreshAll() },
+      { label: 'Check for new mail', icon: 'refresh', kbd: 'F5', disabled: !hasAccounts, onClick: () => refreshAll({ manual: true }) },
       { divider: true },
       { label: history.past.length ? `Undo ${history.past[history.past.length - 1].label}` : 'Undo', icon: 'undo', kbd: 'Ctrl+Z', disabled: !history.past.length, onClick: () => { undoSteps(1); } },
       { label: history.future.length ? `Redo ${history.future[history.future.length - 1].label}` : 'Redo', icon: 'redo', kbd: 'Ctrl+Y', disabled: !history.future.length, onClick: () => { redoSteps(1); } },
@@ -727,7 +727,7 @@ function MainWindow() {
         <button className="icon-btn" title="Menu" aria-label="Menu" onClick={(e) => appMenu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), appMenuItems())}><Icon name="menu" /></button>
         <button className={`icon-btn ${s.sidebarVisible ? '' : 'active'}`} title="Show or hide sidebar (Ctrl+Shift+S)" aria-label="Toggle sidebar" disabled={!accounts.length} onClick={() => (narrow ? setMobileNav(!mobileNav) : s.set({ sidebarVisible: !s.sidebarVisible }))}><Icon name="sidebar" /></button>
         <BackButton />
-        <button className="icon-btn" title="Check for new mail (F5)" aria-label="Check for new mail" onClick={() => refreshAll()} disabled={!accounts.length}>
+        <button className="icon-btn" title="Check for new mail (F5)" aria-label="Check for new mail" onClick={() => refreshAll({ manual: true })} disabled={!accounts.length}>
           <span style={{ display: 'inline-flex', animation: syncing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span>
         </button>
         <button className="btn primary" onClick={() => startCompose('new')} disabled={!accounts.length} title="New email (Ctrl+N)" aria-label="New email"><Icon name="compose" /><span className="hide-narrow">New email</span></button>

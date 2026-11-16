@@ -120,8 +120,17 @@ export async function syncAccount(id: string, opts: { full?: boolean; quiet?: bo
   }
 }
 
-export async function refreshAll() {
+let lastSettingsPull = 0;
+/** Checks every account for new mail. `manual` (the refresh button, F5, the tray) also checks calendars straight away.
+ * Each check also reads the settings file the phone shares, at most once a minute, so a nickname or colour changed
+ * there turns up within a minute or so. Loaded when needed: settingsSync imports the mail code. */
+export async function refreshAll(opts: { manual?: boolean } = {}) {
   if (!get().online) return;
+  if (opts.manual || Date.now() - lastSettingsPull > 55000) {
+    lastSettingsPull = Date.now();
+    void import('../settingsSync').then((s) => s.pullSettings());
+  }
+  if (opts.manual) void refreshEvents();
   await Promise.all(get().accounts.map((a) => syncAccount(a.id)));
   processFollowups();
 }

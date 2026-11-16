@@ -7,14 +7,14 @@ Beta 4 is suggested tasks, settings sync that no longer writes over the phone's 
 ### Mail
 - [x] **Suggested task:** works on emails that arrive after the update (older emails aren't checked, by design).
 - [ ] **That task on your phone:** it shows there, with "From email:" and the subject in its notes.
-- [ ] **Single emails in an opened-out conversation:** click one and just that email opens in the reading pane. Right-click it: the menu acts on that email only, with Whole conversation as a submenu.
+- [x] **Single emails in an opened-out conversation:** click one and just that email opens in the reading pane. Right-click it: the menu acts on that email only, with Whole conversation as a submenu.
 
 ### Calendar
-- [ ] **Delete one event** (no guests, not a repeat) from its pop-up: the note has Undo, and so does Recent. Undo brings it back.
+- [x] **Delete one event** (no guests, not a repeat) from its pop-up: the note has Undo, and so does Recent. Undo brings it back.
 
 ### Phone and settings
-- [ ] **Nickname changed on your phone** shows here within about 5 minutes, and stays after you change something on the desktop.
-- [ ] **Nickname or colour changed here** shows on your phone.
+- [ ] **Nickname changed on your phone** (beta 5): shows here within about a minute, or straight away when you press refresh (F5). It stays after you change something on the desktop.
+- [x] **Nickname or colour changed here** shows on your phone.
 
 ## Keep an eye on (kept until seen)
 - [ ] **A Send To rule on its own:** the next SocialPilot invoice saves and forwards by itself, once, and shows in What's been sent.

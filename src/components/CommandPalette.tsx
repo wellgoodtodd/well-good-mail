@@ -42,7 +42,7 @@ export function CommandPalette() {
   const commands = useMemo<Command[]>(() => {
     const list: Command[] = [
       { id: 'new', label: 'New email', icon: 'compose', run: () => startCompose('new') },
-      { id: 'refresh', label: 'Check for new mail', icon: 'refresh', run: () => refreshAll() },
+      { id: 'refresh', label: 'Check for new mail', icon: 'refresh', run: () => refreshAll({ manual: true }) },
       { id: 'reminders', label: 'Open Reminders', icon: 'bell', run: () => openScreen('reminders') },
       { id: 'update', label: 'Check for updates', icon: 'download', run: () => { openScreen('settings', 'updates'); checkForUpdates({ userInitiated: true }); } },
     ];
