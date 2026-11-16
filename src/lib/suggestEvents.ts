@@ -77,7 +77,8 @@ function findIn(m: Pick<Message, 'subject' | 'date'>, text: string, now: number,
       phrase = gap.length <= 6 ? `${r.text}${gap}${t.text}`.replace(/\s+/g, ' ') : `${r.text.trim()} … ${t.text.trim()}`;
     } else continue;
     if (phrase.length < 6) continue;
-    if (start <= now || start <= (m.date || 0) || start > now + 270 * 86400000) continue;
+    // Still shown for a quarter of an hour after it starts, for the link when you're running late.
+    if (start <= now - 15 * 60000 || start <= (m.date || 0) || start > now + 270 * 86400000) continue;
     const endGiven = Boolean(end && end > start);
     end = endGiven ? end! : start + 60 * 60000;
     const title = cleanSubject(m.subject).replace(/[?!.]+$/, '') || 'Event';

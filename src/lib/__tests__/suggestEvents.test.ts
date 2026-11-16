@@ -24,6 +24,10 @@ describe('suggested events', () => {
     expect(suggestEvent(from('noreply@shop.com'), 'Sale ends Friday 13 November at 9pm', NOW)).toBeUndefined();
     expect(suggestEvent({ ...from('sam@example.com'), listUnsubscribe: '<mailto:x>' }, 'Webinar Friday 13 November at 9pm', NOW)).toBeUndefined();
     expect(suggestEvent(from('sam@example.com'), 'It was great on Monday 2 November at 7pm', NOW)).toBeUndefined();
+    // Started ten minutes ago: still shown (for the link). Half an hour ago: not.
+    const mail = { ...from('sam@example.com'), date: new Date(2026, 10, 16, 9, 0).getTime() };
+    expect(suggestEvent(mail, 'See you Monday 16 November at 7.30pm', new Date(2026, 10, 16, 19, 40).getTime())).toBeDefined();
+    expect(suggestEvent(mail, 'See you Monday 16 November at 7.30pm', new Date(2026, 10, 16, 20, 0).getTime())).toBeUndefined();
   });
   it('leaves out quoted earlier emails', () => {
     expect(ownWords('Sounds good.\n\nOn Mon, 9 Nov 2026 at 10:00, Sam wrote:\n> Friday 13 November at 7pm?')).toBe('Sounds good.\n');
