@@ -11,6 +11,7 @@ import { suggestEvent } from '../lib/suggestEvents';
 import { suggestTask, dueWords } from '../lib/suggestTasks';
 import { addTask, defaultList, listForAccount, startTasks, threadTaskMark, useTasks } from '../lib/tasks';
 import type { Message, TaskMail } from '../lib/types';
+import { rfcIdOf } from '../lib/taskNotes';
 
 export function SuggestedTask({ message }: { message: Message }) {
   const on = useSettings((s) => s.suggestTasks);
@@ -40,7 +41,7 @@ export function SuggestedTask({ message }: { message: Message }) {
   if (acc && [acc.email, ...acc.aliases.map((x) => x.email)].some((e) => e.toLowerCase() === sender)) return null;
 
   const hide = () => useSettings.getState().set({ suggestHidden: [...hidden, hideKey].slice(-300) }, { quiet: true });
-  const mail: TaskMail = { messageId: message.id, threadId: message.threadId, accountId: message.accountId, subject: message.subject || '(no subject)', from: message.from.name || message.from.email, date: message.date };
+  const mail: TaskMail = { messageId: message.id, threadId: message.threadId, accountId: message.accountId, subject: message.subject || '(no subject)', from: message.from.name || message.from.email, date: message.date, rfcId: rfcIdOf(message.messageIdHeader) };
   const add = async () => {
     setBusy(true);
     startTasks();

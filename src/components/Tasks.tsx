@@ -17,7 +17,7 @@ import {
   type SmartPlace, SMART_PLACES,
 } from '../lib/tasks';
 import { readTaskWords } from '../lib/taskWords';
-import { titleFromSubject } from '../lib/taskNotes';
+import { rfcIdOf, titleFromSubject } from '../lib/taskNotes';
 import { TASK_ALERTS, choicesWith } from '../lib/alertChoices';
 import { openTaskDefaults } from '../lib/settingsNav';
 import type { Account, Message, Task, TaskList, TaskMail, TaskPatch } from '../lib/types';
@@ -541,7 +541,7 @@ const closeEditor = () => useEditor.setState({ task: undefined, draft: undefined
 export function makeTaskFromEmail(m: Message, chosenText?: string) {
   startTasks();
   const picked = chosenText?.replace(/\s+/g, ' ').trim();
-  const mail: TaskMail = { messageId: m.id, threadId: m.threadId, accountId: m.accountId, subject: m.subject || '(no subject)', from: m.from.name || m.from.email, date: m.date };
+  const mail: TaskMail = { messageId: m.id, threadId: m.threadId, accountId: m.accountId, subject: m.subject || '(no subject)', from: m.from.name || m.from.email, date: m.date, rfcId: rfcIdOf(m.messageIdHeader) };
   const source = picked || titleFromSubject(m.subject || '');
   const words = readTaskWords(source);
   // A date in the highlighted text, or in the email's opening words ("by end of day today").

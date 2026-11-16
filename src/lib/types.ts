@@ -396,6 +396,8 @@ export interface TaskMail {
   date?: number;
   /** The email's address in Gmail, read back from the task's notes (so another app's task keeps its link). */
   link?: string;
+  /** The email's Message-ID header (without the < >), read back from the task's notes: opens it in Apple Mail. */
+  rfcId?: string;
 }
 
 export interface Task {

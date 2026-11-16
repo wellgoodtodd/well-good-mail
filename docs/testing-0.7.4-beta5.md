@@ -26,6 +26,7 @@ Beta 5 is the fixes from testing beta 4: an "Already in your calendar" card that
 
 ### Tasks
 - [ ] **Tick off a task by mistake:** the "Done" note has Undo, and it's in Recent and Ctrl+Z too (in Tasks, on the calendar and in Coming Up).
+- [ ] **Make a task from an email**, then look at it in Google Tasks: the notes end with "From email: …", the Gmail link and "Message-ID: <…>". On the phone, tap From email on that task and pick Open in Mail. In Well Good Mail the Message-ID line stays hidden. Same for a Microsoft To Do task.
 
 ### Events from emails
 - [ ] **Add to calendar** on an email with files (an agenda, minutes): the card says "With Agenda.pdf". The event's notes say "From email: (subject)" with a link that opens the email in Gmail (on your phone too), and the files are attached to the event in Google Calendar.

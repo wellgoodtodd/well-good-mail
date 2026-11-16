@@ -38,7 +38,7 @@ export function toTask(account: GoogleAccountRef, list: TaskList, g: GTask): Tas
     ...(read.alerts && read.minutes !== undefined ? { alerts: read.alerts } : {}),
     done: g.status === 'completed', completedAt: g.completed ? Date.parse(g.completed) : undefined,
     updatedAt: g.updated ? Date.parse(g.updated) : undefined,
-    ...(read.mailSubject ? { mail: { messageId: '', threadId: '', accountId: '', subject: read.mailSubject, ...(read.mailLink ? { link: read.mailLink } : {}) } } : {}),
+    ...(read.mailSubject ? { mail: { messageId: '', threadId: '', accountId: '', subject: read.mailSubject, ...(read.mailLink ? { link: read.mailLink } : {}), ...(read.messageRef ? { rfcId: read.messageRef } : {}) } } : {}),
   };
 }
 
@@ -82,6 +82,7 @@ export function taskBody(account: GoogleAccountRef, p: TaskPatch, was?: Task): R
       mailLink: mail?.threadId && mail.accountId === account.id
         ? `https://mail.google.com/mail/u/${encodeURIComponent(account.email)}/#all/${mail.threadId}`
         : mail?.link,
+      messageRef: mail?.rfcId,
     });
   }
   return body;

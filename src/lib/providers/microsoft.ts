@@ -586,7 +586,7 @@ export class MicrosoftProvider implements MailProvider {
       title: t.title || '', notes: read.notes || undefined, due, hasTime,
       done: t.status === 'completed', completedAt: utc(t.completedDateTime),
       updatedAt: t.lastModifiedDateTime ? Date.parse(t.lastModifiedDateTime) : undefined,
-      ...(read.mailSubject ? { mail: { messageId: '', threadId: '', accountId: '', subject: read.mailSubject } } : {}),
+      ...(read.mailSubject ? { mail: { messageId: '', threadId: '', accountId: '', subject: read.mailSubject, ...(read.mailLink ? { link: read.mailLink } : {}), ...(read.messageRef ? { rfcId: read.messageRef } : {}) } } : {}),
     };
   }
 
@@ -627,7 +627,7 @@ export class MicrosoftProvider implements MailProvider {
     }
     if (p.notes !== undefined || p.mail !== undefined) {
       const mail = p.mail || was?.mail;
-      body.body = { contentType: 'text', content: writeNotes({ notes: p.notes !== undefined ? p.notes : was?.notes, mailSubject: mail?.subject }) };
+      body.body = { contentType: 'text', content: writeNotes({ notes: p.notes !== undefined ? p.notes : was?.notes, mailSubject: mail?.subject, mailLink: mail?.link, messageRef: mail?.rfcId }) };
     }
     return body;
   }

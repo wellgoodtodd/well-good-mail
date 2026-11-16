@@ -5,6 +5,7 @@
 const TIME_LINE = /^Due (\d{1,2}):(\d{2})\s*$/;
 const ALERT_LINE = /^Alerts?: (.*)$/i;
 const MAIL_LINE = /^From email: (.*)$/;
+const ID_LINE = /^Message-ID:\s*(<[^<>\s]+>|[^<>\s]+@[^<>\s]+)\s*$/i;
 
 export interface ReadNotes {
   notes: string;
@@ -17,6 +18,9 @@ export interface ReadNotes {
   mailSubject?: string;
   /** The link to the email in Gmail, from the line after "From email:". */
   mailLink?: string;
+  /** The email's own Message-ID header (without < >), from a "Message-ID: <...>" line under it. It's the same in
+   *  every mail app, so the phone can open the email in Apple Mail with a message:// link. */
+  messageRef?: string;
 }
 
 export function readNotes(raw: string | undefined): ReadNotes {
@@ -33,15 +37,23 @@ export function readNotes(raw: string | undefined): ReadNotes {
   if (read) { alerts = read; lines.shift(); }
   let mailSubject: string | undefined;
   let mailLink: string | undefined;
+  let messageRef: string | undefined;
   const at = lines.findIndex((l) => MAIL_LINE.test(l));
   if (at >= 0) {
     mailSubject = lines[at].match(MAIL_LINE)![1].trim();
-    // The line after it is the link to the email, when there is one.
-    const cut = lines[at + 1] && /^https?:\/\//.test(lines[at + 1].trim()) ? 2 : 1;
-    if (cut === 2) mailLink = lines[at + 1].trim();
+    // The lines after it are the link to the email and its Message-ID, when there are any.
+    let cut = 1;
+    for (let i = at + 1; i < lines.length && i <= at + 2; i++) {
+      const l = lines[i].trim();
+      const id = l.match(ID_LINE);
+      if (!mailLink && /^https?:\/\/\S+$/.test(l)) mailLink = l;
+      else if (!messageRef && id) messageRef = id[1].replace(/^<|>$/g, '');
+      else break;
+      cut++;
+    }
     lines.splice(at, cut);
   }
-  return { notes: lines.join('\n').trim(), minutes, mailSubject, ...(mailLink ? { mailLink } : {}), ...(alerts ? { alerts } : {}) };
+  return { notes: lines.join('\n').trim(), minutes, mailSubject, ...(mailLink ? { mailLink } : {}), ...(messageRef ? { messageRef } : {}), ...(alerts ? { alerts } : {}) };
 }
 
 const UNIT: Record<string, number> = { minute: 1, min: 1, hour: 60, hr: 60, day: 1440, week: 10080 };
@@ -71,7 +83,13 @@ export function alertText(alerts: number[]): string {
   }).join(', ');
 }
 
-export function writeNotes(p: { notes?: string; minutes?: number; alerts?: number[]; mailSubject?: string; mailLink?: string }): string {
+/** An email's Message-ID header without the < >, for a task's notes (the phone opens it in Apple Mail by it). */
+export function rfcIdOf(header?: string): string | undefined {
+  const id = header?.trim().replace(/^<|>$/g, '');
+  return id && /^[^<>\s]+@[^<>\s]+$/.test(id) ? id : undefined;
+}
+
+export function writeNotes(p: { notes?: string; minutes?: number; alerts?: number[]; mailSubject?: string; mailLink?: string; messageRef?: string }): string {
   const out: string[] = [];
   if (p.minutes !== undefined) out.push(`Due ${String(Math.floor(p.minutes / 60)).padStart(2, '0')}:${String(p.minutes % 60).padStart(2, '0')}`);
   if (p.minutes !== undefined && p.alerts) out.push(`Alert: ${alertText(p.alerts)}`);
@@ -80,6 +98,7 @@ export function writeNotes(p: { notes?: string; minutes?: number; alerts?: numbe
     if (out.length) out.push('');
     out.push(`From email: ${p.mailSubject}`);
     if (p.mailLink) out.push(p.mailLink);
+    if (p.messageRef) out.push(`Message-ID: <${p.messageRef.replace(/^<|>$/g, '')}>`);
   }
   return out.join('\n');
 }
