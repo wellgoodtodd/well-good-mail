@@ -4,9 +4,9 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## 0.7.4 beta 5 (in progress)
+## 0.7.4 beta 5 (built 16 Nov 2026)
 
-From Todd's beta 4 testing:
+Test list: `testing-0.7.4-beta5.md`. From Todd's beta 4 testing:
 
 - Refresh (F5, the button, the tray) also checks calendars and the settings file shared with the phone; mail checks read that file at most once a minute (`refreshAll` in `mail/sync.ts`), so a nickname changed on the phone shows within about a minute.
 - AI Drafts card: a file dropped or pasted on it is attached there and listed, with × to remove it and Undo (`setDraftFiles`). It no longer opens the full editor.
