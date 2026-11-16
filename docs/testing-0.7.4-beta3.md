@@ -5,12 +5,8 @@ Beta 3 is the fixes from testing beta 2, Send to › Well Good Mail, and nicknam
 ## New in beta 3
 
 ### Phone and settings
-- [ ] **Settings › General:** under Keep my settings the same on every computer, "Last saved to Google Drive" shows a time.
 - [ ] **Nickname changed on your phone** shows here within about 5 minutes (or when you come back to the window).
 - [ ] **Nickname or colour changed here** shows on your phone.
-
-### Send to
-- [ ] Right-click a file in File Explorer, Show more options › Send to › **Well Good Mail**: a new email opens with it attached. Try several files at once, and with the app closed.
 
 ### Calendar
 - [ ] **Add to calendar** on the ticket email's .ics card adds it (as your own event).
@@ -142,7 +138,9 @@ Beta 3 is the fixes from testing beta 2, Send to › Well Good Mail, and nicknam
 
 ## Found in beta 3
 
-(Your feedback goes here.)
+- [ ] **Nickname changed on the phone didn't reach the desktop.** The settings file in Drive only had the desktop's nicknames: the desktop saved its whole file on any change without reading it first, writing over the phone's. For beta 4 it reads first.
+- [ ] **No Undo after deleting one event** (from its pop-up). For beta 4: Undo in the note and in Recent, for events without guests or repeats.
+- [ ] **Single emails in an opened-out conversation:** for beta 4, click one to open it in the reading pane, and right-click for a menu that acts on just that email (Whole conversation has the rest).
 
 ## If something goes wrong
 
