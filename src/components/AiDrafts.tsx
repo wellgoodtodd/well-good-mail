@@ -22,8 +22,8 @@ import { cssToStyle, readFileB64 } from './Composer';
 import { DraftFilesPreview, draftFile, openDraftFile } from './AttachmentPreview';
 import { allAliases, draftSignature, stripOwnSignature } from '../lib/compose';
 import { askConfirm, askText } from '../lib/dialogs';
-import { undoSteps, record } from '../lib/history';
-import { useAiDrafts, saveDraftEverywhere, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, quickSave, quickSend, splitQuote, OUTSIDE_WRITER } from '../lib/mcp/aiDrafts';
+import { undoSteps, record, undoEntry } from '../lib/history';
+import { useAiDrafts, saveDraftEverywhere, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, quickSave, quickSend, setDraftFiles, splitQuote, OUTSIDE_WRITER } from '../lib/mcp/aiDrafts';
 import type { Account, Address, Draft, Message } from '../lib/types';
 
 /** One line of plain text for the preview, without a closing sign-off like "All the best," (it says nothing about the email). */
@@ -410,17 +410,22 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
     onUpdate: ({ editor: ed }) => change({ html: ed.getHTML() }),
     onBlur: () => void flush(),
   });
-  // Files can't be added in this quick view, so dropping or pasting one opens the full editor with it attached.
+  // Files dropped or pasted here are added to the draft and listed under it; the card stays open.
   const filesOf = (dt: DataTransfer | null) => [...(dt?.files || [])];
   const withFiles = async (files: File[]) => {
     await flush();
     const cur = await store.getDraft(d.id);
     if (!cur) return;
     const added = await Promise.all(files.map(async (f) => ({ id: Math.random().toString(36).slice(2), filename: f.name, mimeType: f.type || 'application/octet-stream', size: f.size, dataB64: await readFileB64(f) })));
-    await store.putDraft({ ...cur, attachments: [...cur.attachments, ...added], updatedAt: Date.now() });
-    onClose();
-    void openDraft(d.id);
-    toast({ text: `Opened in the editor with ${files.length === 1 ? files[0].name : `${files.length} files`} attached` });
+    await setDraftFiles(d.id, [...cur.attachments, ...added], files.length === 1 ? 'Attach file' : 'Attach files');
+    toast({ text: `${files.length === 1 ? files[0].name : `${files.length} files`} attached` });
+  };
+  const removeFile = async (fileId: string) => {
+    const cur = await store.getDraft(d.id);
+    if (!cur) return;
+    const gone = cur.attachments.find((a) => a.id === fileId);
+    const step = await setDraftFiles(d.id, cur.attachments.filter((a) => a.id !== fileId), 'Remove attachment');
+    if (gone && step) toast({ text: `${gone.filename} removed`, undo: () => undoEntry(step) });
   };
   useEffect(() => {
     if (!editor) return;
@@ -518,12 +523,17 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
       )}
       {d.attachments.length > 0 && (
         <div className="ai-files" aria-label="Attachments">
-          {d.attachments.map((a, i) => <button key={a.id} className="ai-file" title={`Open ${a.filename}`} onClick={() => void openDraftFile(d.attachments.map(draftFile), i).then((n) => n !== null && setFilePreview(n))}><Icon name="paperclip" size={13} /> {a.filename}</button>)}
+          {d.attachments.map((a, i) => (
+            <span key={a.id} className="ai-file-chip">
+              <button className="ai-file" title={`Open ${a.filename}`} onClick={() => void openDraftFile(d.attachments.map(draftFile), i).then((n) => n !== null && setFilePreview(n))}><Icon name="paperclip" size={13} /> {a.filename}</button>
+              <button className="ai-file-x" title={`Remove ${a.filename}`} aria-label={`Remove ${a.filename}`} onClick={() => void removeFile(a.id)}><Icon name="close" size={11} /></button>
+            </span>
+          ))}
           {filePreview !== null && <DraftFilesPreview files={d.attachments.map(draftFile)} start={filePreview} onClose={() => setFilePreview(null)} />}
         </div>
       )}
       <div className="ai-quick-note ai-note-row">
-        <span>{writerText(d)}. To change fonts or attachments, use Open in editor. Dropping a file here opens it there with the file attached.</span>
+        <span>{writerText(d)}. Drop or paste a file here to attach it. For fonts and more, use Open in editor.</span>
         <span className={`ai-saved ${saving}`} aria-live="polite">{saving === 'saving' ? 'Saving...' : saving === 'saved' ? 'Saved' : ''}</span>
       </div>
       <div className="ai-quick-actions">

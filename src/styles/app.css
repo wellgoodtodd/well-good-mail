@@ -1524,6 +1524,9 @@ details.ai-code[open] > summary { margin-bottom: 8px; }
 .comp-attachments .att-open:hover .fname { text-decoration: underline; }
 button.ai-file { background: transparent; font: inherit; cursor: pointer; }
 button.ai-file:hover { color: var(--text); border-color: var(--border-strong, var(--border)); }
+.ai-file-chip { display: inline-flex; align-items: center; gap: 2px; }
+.ai-file-x { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 3px; border-radius: 4px; display: inline-flex; }
+.ai-file-x:hover { color: var(--text); background: var(--hover, rgba(127,127,127,0.12)); }
 .attview-head .grow { flex: 1; }
 
 /* Day and Week calendar views, week numbers (0.7.2 beta 4) */

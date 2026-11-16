@@ -247,6 +247,17 @@ export async function quickSave(id: string, patch: Partial<Pick<Draft, 'fromAcco
   await refreshAiDrafts();
 }
 
+/** Files added to (or taken off) a draft from its AI Drafts card. Saved to the draft and its Gmail copy, with Undo. */
+export async function setDraftFiles(id: string, attachments: Draft['attachments'], label: string, opts: { silent?: boolean } = {}): Promise<string | undefined> {
+  const d = await store.getDraft(id);
+  if (!d) return undefined;
+  const was = d.attachments;
+  const step = opts.silent ? undefined : record(label, async () => { await setDraftFiles(id, was, label, { silent: true }); }, async () => { await setDraftFiles(id, attachments, label, { silent: true }); });
+  await saveDraftEverywhere({ ...d, attachments, updatedAt: Date.now() });
+  await refreshAiDrafts();
+  return step;
+}
+
 /** Sends a draft straight from the AI Drafts screen: now (through the usual undo-send delay) or at a later time. */
 export async function quickSend(id: string, subject?: string, text?: string, at?: number) {
   const d = await store.getDraft(id);
