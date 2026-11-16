@@ -58,9 +58,6 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] **Pause for 1 hour** really quietens alerts (new mail, events, tasks) for the hour.
 - [ ] **Right-click a list:** Rename (check it's renamed on your phone), Set as default, Change defaults…, Hide completed, Delete list… A slow second click renames; ☆ sets the default.
 
-### From 0.7.3 beta 6
-
-
 ### From 0.7.3 beta 5
 
 - [ ] **Microsoft retry:** once Outlook is working again, a refresh with a passing Outlook hiccup shows no error.
