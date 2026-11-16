@@ -4,6 +4,13 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.5 beta 1 (planned, after 0.7.4 is live; Todd, 16 Nov 2026)
+
+- **Automatic backups to Google Drive:** settings and rules, daily, weekly or monthly (the user picks), keeping older ones. Builds on `src/lib/backup.ts` and `settingsSync.ts`.
+- **A Well Good Mail folder in Drive:** today event files go loose into My Drive (`toDrive` in `gmail.ts`) and `well-good-mail-settings.json` sits in the root too. Put everything in one folder, e.g. "Well Good Mail" with Backups and Event files inside. Move the settings file across (still find the old one). The user can pick a different folder.
+- **Backup & Sync card in Settings › General:** the existing "sync settings across devices" switch, automatic backups (how often, how many to keep, Back up now, Restore…), and the Drive folder. Turning sync on for the first time offers backups and shows the folder, so it's set up in one go.
+- **Add to event… on an attachment's right-click menu** (after Forward): a picker like Move to folder. Suggested events first (same people, similar subject, a date the email mentions), then the next two weeks, and a search box. Puts the file on the event (Drive, as beta 6 does) with the From email link, and a note with Undo. Add all to event… when there are several. Google only for files; Microsoft and iCloud get the link. Handy, not used loads, so keep it small.
+
 ## 0.7.4 beta 6 (built 16 Nov 2026)
 
 Test list: `testing-0.7.4-beta6.md`. From Todd's beta 5 testing:
