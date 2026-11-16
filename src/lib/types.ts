@@ -168,6 +168,10 @@ export interface CalendarEvent {
   organiser?: { email: string; name?: string; self?: boolean };
   /** The organiser cancelled it, but it is still in your calendar (Outlook keeps these until you remove them). */
   cancelled?: boolean;
+  /** Names of the files attached to it, when the calendar says. */
+  files?: string[];
+  /** Emails it was linked to from here: the subjects in its "From email" lines, and their links. */
+  fromEmails?: string[];
   /** How it repeats, in a few words ("every year"), when the calendar says. */
   repeatText?: string;
 }
@@ -186,6 +190,15 @@ export interface Repeat {
   /** Local midnight of the last day it can happen on. */
   until?: number;
   count?: number;
+}
+
+/** An email put onto a calendar event: a line linking back to it, and its files (where the calendar can hold them). */
+export interface EmailForEvent {
+  subject: string;
+  from?: string;
+  /** Where the email opens on the web (Gmail), so the event's notes link back to it, on a phone too. */
+  link?: string;
+  files: { name: string; mimeType: string; data: Uint8Array }[];
 }
 
 /** Everything needed to make the same event in another account. */

@@ -3,7 +3,7 @@
 import { forgetGoogleAccessToken, getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
-import type { Account, Address, Alias, AttachmentMeta, Task, TaskList, TaskPatch, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, Alias, AttachmentMeta, EmailForEvent, Task, TaskList, TaskPatch, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { AutoReply } from '../ooo';
 import { htmlToText, isWorkAccount, ymd } from '../ooo';
 import { CalendarPermissionError, NeedsPermissionError, TasksApiOffError, type MailProvider, type MessageBody, type PutBack, type SyncResult } from './provider';
@@ -625,7 +625,7 @@ export class GmailProvider implements MailProvider {
     try { await gcal.respondToEvent(this.gcall, this.account.id, event, status, note); } catch (e) { this.permissionOr(e); }
   }
 
-  async addInviteToCalendar(invite: Invite): Promise<void> {
+  async addInviteToCalendar(invite: Invite): Promise<string> {
     const when = (ms: number) => (invite.allDay ? { date: ymd(ms) } : { dateTime: new Date(ms).toISOString() });
     const plain = {
       iCalUID: invite.uid,
@@ -635,8 +635,9 @@ export class GmailProvider implements MailProvider {
       start: when(invite.start),
       end: when(invite.allDay ? Math.max(invite.end, invite.start + 86400000) : invite.end),
     };
+    const ref = (id: string) => `${this.account.id}|primary|${id}`;
     try {
-      await this.call('https://www.googleapis.com/calendar/v3/calendars/primary/events/import', {
+      const made = await this.call<{ id: string }>('https://www.googleapis.com/calendar/v3/calendars/primary/events/import', {
         method: 'POST',
         body: JSON.stringify({
           ...plain,
@@ -644,14 +645,27 @@ export class GmailProvider implements MailProvider {
           attendees: invite.attendees.map((a) => ({ email: a.email, displayName: a.name, responseStatus: a.email === this.account.email.toLowerCase() ? 'needsAction' : undefined })),
         }),
       });
+      return ref(made.id);
     } catch (e) {
       // Tickets and bookings often come as an invitation that doesn't list this account as organiser or guest, and
       // Google won't import those. Add it as an ordinary event of your own instead, like opening the .ics file does.
       if (!/participantIsNeitherOrganizerNorAttendee|NeitherOrganizerNorAttendee/i.test(String((e as Error)?.message || e))) this.permissionOr(e);
       try {
-        await this.call('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify(plain) });
+        const made = await this.call<{ id: string }>('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify(plain) });
+        return ref(made.id);
       } catch (e2) { this.permissionOr(e2); }
     }
+  }
+
+  /** The email's files go into Drive (private to you), then onto the event, with a line linking back to the email. */
+  async attachEmailToEvent(eventId: string, email: EmailForEvent): Promise<number> {
+    const files: { fileId: string; fileUrl: string; title: string; mimeType: string }[] = [];
+    for (const f of email.files) {
+      const up = await this.toDrive(f.name, f.mimeType || 'application/octet-stream', f.data);
+      files.push({ fileId: up.id, fileUrl: up.webViewLink, title: f.name, mimeType: f.mimeType });
+    }
+    try { await gcal.attachToEvent(this.gcall, this.account.id, { id: eventId }, email, files); } catch (e) { this.permissionOr(e); }
+    return files.length;
   }
 
   private scopeOr(e: unknown, what: string): never {
@@ -733,7 +747,8 @@ export class GmailProvider implements MailProvider {
     }
   }
 
-  async uploadLargeFile(name: string, mimeType: string, data: Uint8Array): Promise<string> {
+  /** Puts a file in Drive, kept private. */
+  private async toDrive(name: string, mimeType: string, data: Uint8Array): Promise<{ id: string; webViewLink: string }> {
     const token = await getGoogleAccessToken(this.account.email);
     const init = await httpFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
       method: 'POST',
@@ -750,12 +765,17 @@ export class GmailProvider implements MailProvider {
     const put = await httpFetch(location, { method: 'PUT', headers: { 'Content-Type': mimeType }, body: data as unknown as BodyInit });
     if (!put.ok) throw new Error(`Drive upload failed (${put.status})`);
     const file = await put.json();
+    const meta = await this.call<{ webViewLink: string }>(`https://www.googleapis.com/drive/v3/files/${file.id}?fields=webViewLink`);
+    return { id: file.id, webViewLink: meta.webViewLink };
+  }
+
+  async uploadLargeFile(name: string, mimeType: string, data: Uint8Array): Promise<string> {
+    const file = await this.toDrive(name, mimeType, data);
     await this.call(`https://www.googleapis.com/drive/v3/files/${file.id}/permissions`, {
       method: 'POST',
       body: JSON.stringify({ role: 'reader', type: 'anyone' }),
     });
-    const meta = await this.call<{ webViewLink: string }>(`https://www.googleapis.com/drive/v3/files/${file.id}?fields=webViewLink`);
-    return meta.webViewLink;
+    return file.webViewLink;
   }
 
   // ---- Google Tasks ----

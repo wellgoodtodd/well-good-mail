@@ -1,5 +1,5 @@
 // The contract every mail service (Gmail, Microsoft 365, IMAP, demo) fulfils.
-import type { Account, Address, Task, TaskList, TaskPatch, Alias, CalendarEvent, EventCopy, EventPatch, ChangeOptions, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, EmailForEvent, Task, TaskList, TaskPatch, Alias, CalendarEvent, EventCopy, EventPatch, ChangeOptions, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Invite, Rsvp } from '../invites';
 import type { AutoReply } from '../ooo';
 
@@ -82,6 +82,11 @@ export interface MailProvider {
   addInviteToCalendar?(invite: Invite): Promise<string | void>;
   /** Changes an event added from here (its time or title). Without this, adding again with the same uid updates it. */
   updateAddedEvent?(ref: string, invite: Invite): Promise<void>;
+  /**
+   * Puts an email onto an event (its app id): the files attached to it, and a "From email" line with the link in its
+   * notes. Returns how many files went on. Without this the app adds just the line, through editEvent.
+   */
+  attachEmailToEvent?(eventId: string, email: EmailForEvent): Promise<number>;
   /** Out of Office as the account itself holds it. */
   getAutoReply?(): Promise<AutoReply>;
   /** Sets Out of Office inside the account, so it works with this computer off. */

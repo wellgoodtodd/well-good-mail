@@ -1,6 +1,6 @@
 // Google Calendar, shared by the desktop app and the web app. Event ids are `account|calendar|event`. Each call goes
 // through the `call` it is given (see tasksApi.ts). Permission errors are left for the caller to word.
-import type { CalendarEvent, ChangeOptions, EventCopy, EventGuest, EventPatch } from '../types';
+import type { CalendarEvent, ChangeOptions, EmailForEvent, EventCopy, EventGuest, EventPatch } from '../types';
 import type { Rsvp } from '../invites';
 import { findMeetingUrl } from '../meetings';
 import { fromRrule, localTimeZone, toRrule } from '../recurrence';
@@ -39,6 +39,16 @@ export interface GEvent {
   end: { dateTime?: string; date?: string };
   reminders?: { useDefault: boolean; overrides?: { minutes: number }[] };
   attendees?: GAttendee[];
+  attachments?: { title?: string; fileUrl?: string }[];
+}
+
+/** The emails an event's notes link back to: "From email" subjects and Gmail links. */
+export function emailsInNotes(notes?: string): string[] | undefined {
+  if (!notes) return undefined;
+  const text = notes.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ');
+  const out = [...text.matchAll(/From email: ([^\n]+)/g)].map((x) => x[1].trim());
+  out.push(...(text.match(/https:\/\/mail\.google\.com\/mail\/u\/[^\s"<]+/g) || []));
+  return out.length ? out : undefined;
 }
 
 export async function listCalendars(call: GoogleCall): Promise<GCalendar[]> {
@@ -97,6 +107,8 @@ export function eventFromGoogle(accountId: string, cal: GCalendar, e: GEvent): C
     recurring: Boolean(e.recurringEventId),
     seriesId: e.recurringEventId ? `${accountId}|${cal.id}|${e.recurringEventId}` : undefined,
     organiser: e.organizer?.email ? { email: e.organizer.email.toLowerCase(), name: e.organizer.displayName, self: e.organizer.self || undefined } : undefined,
+    files: e.attachments?.length ? e.attachments.map((a) => a.title || 'File') : undefined,
+    fromEmails: emailsInNotes(e.description),
   };
 }
 
@@ -327,4 +339,35 @@ export async function respondToEvent(call: GoogleCall, accountId: string, event:
   const list = ev.attendees || [];
   if (!list.some((a) => a.self)) throw new Error("You aren't on the guest list for this one");
   await call(`${url}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify({ attendees: answered(list, status, note) }) });
+}
+
+/** The line an event's notes get for the email it came from (the link opens it in Gmail, on a phone too). */
+export function fromEmailLine(email: Pick<EmailForEvent, 'subject' | 'link'>): string {
+  return `From email: ${email.subject}${email.link ? `\n${email.link}` : ''}`;
+}
+
+/** Notes with the email's line added once, at the end. */
+export function notesWithEmail(notes: string | undefined, email: Pick<EmailForEvent, 'subject' | 'link'>): string {
+  const now = (notes || '').trim();
+  if (email.link ? now.includes(email.link) : now.includes(`From email: ${email.subject}`)) return now;
+  return `${now ? `${now}\n\n` : ''}${fromEmailLine(email)}`;
+}
+
+/**
+ * Puts an email onto an event: files already in Drive go on as the event's attachments (they open from the event in
+ * Google Calendar, on a phone too), and the notes get the "From email" line. Files already on it aren't added twice.
+ */
+export async function attachToEvent(call: GoogleCall, accountId: string, ev: { id: string }, email: Pick<EmailForEvent, 'subject' | 'link'>, files: { fileId: string; fileUrl: string; title: string; mimeType: string }[]): Promise<void> {
+  const { calId, eventId } = eventParts(accountId, ev);
+  const url = `${CAL}/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}`;
+  const now = await call<{ description?: string; attachments?: { fileId?: string; fileUrl: string; title?: string; mimeType?: string }[] }>(url);
+  const have = now.attachments || [];
+  const titles = new Set(have.map((a) => a.title));
+  const more = files.filter((f) => !titles.has(f.title));
+  const body: Record<string, unknown> = {};
+  const desc = notesWithEmail(now.description, email);
+  if (desc !== (now.description || '').trim()) body.description = desc;
+  if (more.length) body.attachments = [...have, ...more].slice(0, 25);
+  if (!Object.keys(body).length) return;
+  await call(`${url}?supportsAttachments=true&sendUpdates=none`, { method: 'PATCH', body: JSON.stringify(body) });
 }

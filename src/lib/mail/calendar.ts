@@ -2,7 +2,8 @@
 import { create } from 'zustand';
 import { store } from '../db';
 import { buildReply, RSVP_WORDS, whichIsMe, type Invite, type Rsvp } from '../invites';
-import type { Account, CalendarEvent, ChangeOptions, EventCopy, EventPatch, EventGuest, Message } from '../types';
+import type { Account, CalendarEvent, ChangeOptions, EmailForEvent, EventCopy, EventPatch, EventGuest, Message } from '../types';
+import { notesWithEmail } from '../google/calendarApi';
 import { providers, useMail } from './store';
 
 const get = useMail.getState;
@@ -251,6 +252,52 @@ export async function deleteEventUndoable(ev: CalendarEvent, opts: ChangeOptions
     else if (made) await deleteEvent(made, { scope: made.recurring ? 'all' : 'one', notify: opts.notify });
   };
   return { undo: { putBack, again } };
+}
+
+/** The email's own files (not pictures in the text, not the invitation itself), worth keeping with the event. */
+export function emailFiles(m: Pick<Message, 'attachments'>): Message['attachments'] {
+  return (m.attachments || []).filter((a) => !a.inline && !/^text\/calendar|application\/ics/i.test(a.mimeType) && !/\.ics$/i.test(a.filename) && a.size <= 25 * 1024 * 1024);
+}
+
+/** Where an email opens on the web, for the link back from an event (Gmail only for now). */
+export function emailLink(m: Pick<Message, 'accountId' | 'threadId'>): string | undefined {
+  const a = get().accounts.find((x) => x.id === m.accountId);
+  return a?.kind === 'gmail' && m.threadId ? `https://mail.google.com/mail/u/${encodeURIComponent(a.email)}/#all/${m.threadId}` : undefined;
+}
+
+/** The "From email" line for an event made from an email, before the files are added. */
+export function emailNotes(m: Pick<Message, 'accountId' | 'threadId' | 'subject'>, notes?: string): string {
+  return notesWithEmail(notes, { subject: m.subject || '(no subject)', link: emailLink(m) });
+}
+
+/**
+ * Puts an email onto a calendar event: its files where the calendar can hold them (Google, through Drive), and a
+ * "From email" line linking back to it in the notes, so both are there from the event, on a phone too.
+ * Returns how many files went on.
+ */
+export async function attachEmailToEvent(ev: Pick<CalendarEvent, 'id' | 'accountId'>, messageId: string): Promise<number> {
+  const m = get().messages[messageId];
+  if (!m) throw new Error('Email not found');
+  const p = providers.get(ev.accountId);
+  const from = providers.get(m.accountId);
+  if (!p) throw new Error("This calendar can't be changed from here yet");
+  const head = { subject: m.subject || '(no subject)', from: m.from.name || m.from.email, link: emailLink(m) };
+  let n = 0;
+  if (p.attachEmailToEvent) {
+    const files: EmailForEvent['files'] = [];
+    if (from) for (const a of emailFiles(m)) files.push({ name: a.filename, mimeType: a.mimeType, data: await from.getAttachment(m, a.id) });
+    n = await p.attachEmailToEvent(ev.id, { ...head, files });
+  } else {
+    // Just the line: the full notes are read first, as the list only keeps the start of them.
+    const shown = [...get().events].find((e) => e.id === ev.id);
+    if (!shown || !p.editEvent) return 0;
+    const notes = p.copyOfEvent ? (await p.copyOfEvent(shown, { series: false })).description : shown.description;
+    const next = notesWithEmail(notes, head);
+    if (next !== (notes || '').trim()) await p.editEvent(shown, { description: next }, { scope: 'one', notify: false });
+  }
+  void refreshEvents();
+  void import('../calendarCache').then((c) => c.refreshCalendarCopy());
+  return n;
 }
 
 /** Every calendar events can be put in, account by account, in the order the accounts are listed. */

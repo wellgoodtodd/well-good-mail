@@ -5,7 +5,7 @@ import { plainError } from '../lib/plainErrors';
 import { Icon } from './Icon';
 import { Dialog, useMenu } from './ui';
 import { create } from 'zustand';
-import { addInviteToCalendar, updateAddedEvent, canAddToCalendar, canMoveAcross, editEvent, moveEventAcross, writableCalendars, toast, useMail } from '../lib/mail';
+import { addInviteToCalendar, attachEmailToEvent, emailFiles, emailNotes, updateAddedEvent, canAddToCalendar, canMoveAcross, editEvent, moveEventAcross, providerFor, writableCalendars, toast, useMail } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { visibleText } from '../lib/cleanText';
 import { eventDifferences, suggestEvent, whenWords, type Suggestion } from '../lib/suggestEvents';
@@ -37,10 +37,16 @@ export function SuggestedEvent({ message }: { message: Message }) {
     return <section className="invite-card suggest-card" aria-label="Suggested event"><span className="inv-ok"><Icon name="check" size={14} /> Added to your calendar</span>{lastAdded.current && <button className="btn small" onClick={() => useEventEdit.setState({ editing: lastAdded.current })}>Edit</button>}</section>;
   }
   if (!found || hidden.includes(message.id) || muted.includes(sender)) return null;
-  if (found.existing) return <AlreadyInCalendar event={found.existing} found={found} emailAccountId={message.accountId} onHide={() => useSettings.getState().set({ suggestHidden: [...hidden, message.id].slice(-300) }, { quiet: true })} />;
+  if (found.existing) return <AlreadyInCalendar event={found.existing} found={found} message={message} onHide={() => useSettings.getState().set({ suggestHidden: [...hidden, message.id].slice(-300) }, { quiet: true })} />;
   if (!canAddToCalendar(message.id)) return null;
 
   const hide = () => useSettings.getState().set({ suggestHidden: [...hidden, message.id].slice(-300) }, { quiet: true });
+  // The email's files (agenda, minutes) go onto the event too, where the calendar can hold them.
+  const files = emailFiles(message);
+  const holdsFiles = Boolean(providerFor(message.accountId)?.attachEmailToEvent);
+  const addFiles = (ev: { id: string; accountId: string }) => attachEmailToEvent(ev, message.id)
+    .then((n) => { if (n) toast({ text: `${n === 1 ? files[0].filename : `${n} files`} added to the event.` }); })
+    .catch((e) => toast({ text: `The event is in, but the email's files couldn't go on it. ${plainError(e).text}`, ttl: 9000 }));
   const add = async (s: Suggestion) => {
     let added: AddedEvent | undefined;
     setBusy(true);
@@ -48,12 +54,14 @@ export function SuggestedEvent({ message }: { message: Message }) {
       method: 'PUBLISH', uid: `wgm-${message.id.replace(/[^A-Za-z0-9]/g, '')}-${s.start}@wellgood.mail`, sequence: 0,
       title: s.title, start: s.start, end: s.end, allDay: false,
       // No meeting link: "Lunch at Five Guys" in the title gives the place.
-      location: s.meetingUrl || placeFromTitle(s.title), description: s.meetingUrl ? `Join: ${s.meetingUrl}` : undefined, meetingUrl: s.meetingUrl,
+      // The notes link back to the email (on a phone too); its files go on once the event is made.
+      location: s.meetingUrl || placeFromTitle(s.title), description: emailNotes(message, s.meetingUrl ? `Join: ${s.meetingUrl}` : undefined), meetingUrl: s.meetingUrl,
       attendees: [], startLine: '',
     };
     try {
       const ref = await addInviteToCalendar(message.id, invite);
       added = { messageId: message.id, ref, invite };
+      if (ref && files.length && holdsFiles) void addFiles({ id: ref, accountId: message.accountId });
       lastAdded.current = added;
       setAdded(true);
       // Once added it isn't offered again, even for dates beyond what the app keeps of the calendar.
@@ -86,6 +94,7 @@ export function SuggestedEvent({ message }: { message: Message }) {
           <div className="inv-title">{found.title}</div>
           <div className="inv-line"><Icon name="clock" size={14} /> {whenWords(found)}</div>
           {found.meetingUrl && <div className="inv-line"><Icon name="link" size={14} /> Online</div>}
+          {files.length > 0 && holdsFiles && <div className="inv-line"><Icon name="paperclip" size={14} /> With {fileWords(files.map((f) => f.filename))}</div>}
           <div className="inv-line suggest-found">Found in the email: <mark>{found.phrase}</mark></div>
         </div>
       </div>
@@ -121,15 +130,21 @@ export function SuggestedEvent({ message }: { message: Message }) {
  * doesn't (its meeting link, a different time). Nothing changes until you pick: update it, move it to this email's
  * account (with the changes), or add a separate copy there.
  */
-function AlreadyInCalendar({ event, found, emailAccountId, onHide }: { event: CalendarEvent; found: Suggestion; emailAccountId: string; onHide: () => void }) {
+function AlreadyInCalendar({ event, found, message, onHide }: { event: CalendarEvent; found: Suggestion; message: Message; onHide: () => void }) {
+  const emailAccountId = message.accountId;
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | undefined>(undefined);
   const menu = useMenu();
   const accounts = useMail((s) => s.accounts);
   const acc = accounts.find((a) => a.id === event.accountId);
   const here = accounts.find((a) => a.id === emailAccountId);
-  const { patch, lines } = eventDifferences(found, event);
+  const { patch, lines: diffLines } = eventDifferences(found, event);
+  // The email's files the event doesn't have yet, and whether its notes link back to this email.
+  const linked = (event.fromEmails || []).some((x) => x === (message.subject || '(no subject)') || x.includes(`/#all/${message.threadId}`));
+  const newFiles = providerFor(event.accountId)?.attachEmailToEvent ? emailFiles(message).filter((f) => !(event.files || []).includes(f.filename)) : [];
+  const lines = newFiles.length ? [...diffLines, `The email has ${fileWords(newFiles.map((f) => f.filename))}`] : diffLines;
   const changes = lines.length > 0 && Boolean(event.canEdit);
+  const canLink = !linked && Boolean(event.canEdit);
   // This email's account, when the event is in another one: it can go there (moved, or copied).
   const hereCals = here && here.id !== event.accountId ? writableCalendars(here.id) : [];
   const hereCal = here && (hereCals.includes(here.email) ? here.email : hereCals[0]);
@@ -143,9 +158,12 @@ function AlreadyInCalendar({ event, found, emailAccountId, onHide }: { event: Ca
     try { await what(); setDone(note); toast({ text: note }); } catch (e) { toast({ text: `Couldn't do that. ${plainError(e).text}`, ttl: 9000 }); }
     setBusy(false);
   };
-  const update = () => run(() => editEvent(event, patch), `"${title}" updated`);
-  const move = () => run(() => moveEventAcross(event, { accountId: here!.id, calendarName: hereCal! }, { patch, removeOriginal: true }), `"${title}" moved to ${accName(here)}${lines.length ? ', with the changes' : ''}`);
-  const copy = () => run(() => moveEventAcross(event, { accountId: here!.id, calendarName: hereCal! }, { patch, removeOriginal: false }), `"${title}" added to ${accName(here)} too`);
+  // Each one also puts the email onto the event: its files, and a line in the notes linking back to it.
+  const withEmail = (ev: { id: string; accountId: string }) => attachEmailToEvent(ev, message.id);
+  const update = () => run(async () => { if (Object.keys(patch).length) await editEvent(event, patch); await withEmail(event); }, `"${title}" updated`);
+  const link = () => run(() => withEmail(event), `"${title}" now links to this email`);
+  const move = () => run(async () => { const id = await moveEventAcross(event, { accountId: here!.id, calendarName: hereCal! }, { patch, removeOriginal: true }); await withEmail({ id, accountId: here!.id }); }, `"${title}" moved to ${accName(here)}${lines.length ? ', with the changes' : ''}`);
+  const copy = () => run(async () => { const id = await moveEventAcross(event, { accountId: here!.id, calendarName: hereCal! }, { patch, removeOriginal: false }); await withEmail({ id, accountId: here!.id }); }, `"${title}" added to ${accName(here)} too`);
   if (done) return <section className="invite-card suggest-card" aria-label="Already in your calendar"><span className="inv-ok"><Icon name="check" size={14} /> {done}</span></section>;
   return (
     <section className="invite-card suggest-card" aria-label="Already in your calendar">
@@ -157,19 +175,27 @@ function AlreadyInCalendar({ event, found, emailAccountId, onHide }: { event: Ca
           {lines.map((l) => <div key={l} className="inv-line suggest-found"><Icon name="info" size={14} /> {l}</div>)}
         </div>
       </div>
-      {(changes || canMove) && (
+      {(changes || canMove || canLink) && (
         <div className="inv-actions">
           {changes && <button className="btn primary" disabled={busy} onClick={() => void update()}>Update event</button>}
           {canMove && <button className={`btn ${changes ? '' : 'primary'}`} disabled={busy} onClick={() => void move()}>{changes ? `Update and move to ${accName(here)}` : `Move to ${accName(here)}`}</button>}
           <button className="btn" onClick={onHide}>Not now</button>
-          {canMove && <button className="btn ghost icon-only" aria-label="More choices" title="More choices" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
-            { label: `Add a copy to ${accName(here)}`, icon: 'calendar', onClick: () => void copy() },
+          {(canMove || (canLink && !changes)) && <button className="btn ghost icon-only" aria-label="More choices" title="More choices" onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
+            ...(canLink && !changes ? [{ label: 'Link the event to this email', icon: 'link', onClick: () => void link() }] : []),
+            ...(canMove ? [{ label: `Add a copy to ${accName(here)}`, icon: 'calendar', onClick: () => void copy() }] : []),
           ])}><Icon name="more" /></button>}
         </div>
       )}
       {menu.node}
     </section>
   );
+}
+
+/** "Agenda.pdf", "Agenda.pdf and Minutes.docx", "3 files (Agenda.pdf, …)". */
+function fileWords(names: string[]): string {
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.length} files (${names.slice(0, 2).join(', ')}, …)`;
 }
 
 /** An event added from an email, kept so it can be edited afterwards (from the note, Recent, or the card). */

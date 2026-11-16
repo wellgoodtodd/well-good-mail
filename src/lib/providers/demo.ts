@@ -1,10 +1,11 @@
 // Demo mode: pretend accounts and emails so the whole app can be tried and
 // tested without signing in to anything. Nothing leaves the computer.
-import type { Task, TaskList, TaskPatch, Account, Address, Alias, CalendarEvent, ChangeOptions, EventCopy, EventPatch, Folder, GuestAnswer, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Task, TaskList, TaskPatch, Account, Address, Alias, CalendarEvent, ChangeOptions, EmailForEvent, EventCopy, EventPatch, Folder, GuestAnswer, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Rsvp } from '../invites';
 import type { MailProvider, MessageBody, PutBack, SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { htmlToText } from '../mime';
+import { emailsInNotes } from '../google/calendarApi';
 
 const SYSTEM: Record<SystemFolder, string | null> = {
   inbox: 'INBOX', sent: 'SENT', drafts: 'DRAFT', junk: 'SPAM', bin: 'TRASH', flagged: 'STARRED', archive: null,
@@ -323,7 +324,10 @@ export class DemoProvider implements MailProvider {
   }
 
   async addAwayEvent(): Promise<string> { return `away-${Date.now()}`; }
-  async addInviteToCalendar(): Promise<void> { await new Promise((r) => setTimeout(r, 300)); }
+  async addInviteToCalendar(invite: import('../invites').Invite): Promise<string> {
+    await new Promise((r) => setTimeout(r, 300));
+    return this.createEvent(this.writableCalendars()[0], { title: invite.title, start: invite.start, end: invite.end, allDay: invite.allDay, location: invite.location, description: invite.description, guests: [], video: false });
+  }
   async removeAwayEvent(): Promise<void> { /* nothing to remove in the demo */ }
 
   systemFolderId(f: SystemFolder) {
@@ -476,10 +480,19 @@ export class DemoProvider implements MailProvider {
   }
   async createEvent(calendarName: string, copy: EventCopy): Promise<string> {
     const id = `${this.account.id}|moved-${Date.now()}`;
-    this.made.push({ id, accountId: this.account.id, calendarName, title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay, location: copy.location, description: copy.description, reminderMinutes: copy.alerts || [], recurring: Boolean(copy.repeat), guests: copy.guests.length ? [{ email: this.account.email, self: true, organiser: true, answer: 'yes' as const }, ...copy.guests.map((g) => ({ ...g, answer: 'waiting' as const }))] : undefined, meetingUrl: copy.video ? 'https://meet.google.com/new-demo-link' : undefined });
+    this.made.push({ id, accountId: this.account.id, calendarName, canEdit: true, fromEmails: emailsInNotes(copy.description), title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay, location: copy.location, description: copy.description, reminderMinutes: copy.alerts || [], recurring: Boolean(copy.repeat), guests: copy.guests.length ? [{ email: this.account.email, self: true, organiser: true, answer: 'yes' as const }, ...copy.guests.map((g) => ({ ...g, answer: 'waiting' as const }))] : undefined, meetingUrl: copy.video ? 'https://meet.google.com/new-demo-link' : undefined });
     return id;
   }
   async endSeries(ev: CalendarEvent): Promise<PutBack> { return this.deleteEvent(ev); }
+  async attachEmailToEvent(eventId: string, email: EmailForEvent): Promise<number> {
+    const ev = (await this.listEvents()).find((e) => e.id === eventId);
+    const line = `From email: ${email.subject}${email.link ? `\n${email.link}` : ''}`;
+    if (!ev) return 0;
+    const had = (ev.description || '').includes(line);
+    const files = [...(ev.files || []), ...email.files.map((f) => f.name).filter((n) => !(ev.files || []).includes(n))];
+    this.evEdits[eventId] = { ...(this.evEdits[eventId] || {}), files, ...(had ? {} : { description: `${ev.description ? `${ev.description}\n\n` : ''}${line}`, fromEmails: [...(ev.fromEmails || []), email.subject] }) };
+    return email.files.length;
+  }
 
   async listEvents(): Promise<CalendarEvent[]> {
     return [...(await this.demoEvents()), ...this.invitations(), ...this.made].filter((e) => this.evEdits[e.id] !== null).map((e) => ({ ...e, ...(this.evEdits[e.id] || {}), canEdit: e.canEdit ?? true }));
