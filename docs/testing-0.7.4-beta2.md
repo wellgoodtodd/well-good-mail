@@ -60,7 +60,6 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 
 ### From 0.7.3 beta 6
 
-- [ ] **Make a task from an email** with "by Friday" (there's a draft "Test: send me the venue list" to send yourself) in its opening words gets that due date.
 
 ### From 0.7.3 beta 5
 
@@ -129,6 +128,7 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] **Out of Office set from elsewhere couldn't be checked.** For beta 3: an account that's on or scheduled has Show settings, which brings its dates and message into the page, ready to change and Update.
 - [ ] **iCloud calendars can't take new events yet:** the app only reads them. On the backlog.
 - [ ] **For the Well Good Calendar chat:** a quick way to change an event's calendar, and calendars from non-Google accounts (iCloud, Microsoft).
+- [ ] **No suggested task** for "Could you send me the venue list by Friday?". There's no such feature yet: suggestions are for events with a day and a time. Make a task from it does get Friday.
 - [ ] Later: tidy up Alerts & Notifications. The card titles help for now.
 
 ## If something goes wrong
