@@ -13,6 +13,10 @@ Finished work is in docs/history.md (newest first). This file keeps what is stil
 - **Several devices on one folder:** one shared settings file for what should match everywhere (as sync does now, newest change wins per setting), plus a folder per device ("Desk PC") for its own settings and backups where that makes sense (window layout, download folder, local things).
 - **Add to event… on an attachment's right-click menu** (after Forward): a picker like Move to folder. Suggested events first (same people, similar subject, a date the email mentions), then the next two weeks, and a search box. Puts the file on the event (Drive, as beta 6 does) with the From email link, and a note with Undo. Add all to event… when there are several. Google only for files; Microsoft and iCloud get the link. Handy, not used loads, so keep it small.
 
+## 0.7.4 (live, built 16 Nov 2026)
+
+Beta 6 released as it was. Noted in testing: on the iPhone, opening an email from a task's From email link (message://, found by Message-ID) can show the raw MIME in Apple Mail, although the email itself is valid. Passed to the Well Good Calendar chat.
+
 ## 0.7.4 beta 6 (built 16 Nov 2026)
 
 Test list: `testing-0.7.4-beta6.md`. From Todd's beta 5 testing:
@@ -288,6 +292,17 @@ Todd keeps reminders as tasks in Apple Reminders. Idea: a task list here instead
 - **Speed, still to look at** (from testing beta 14, 9 Nov): archive and delete are now instant; flag and read marks got the same treatment in 0.7.0 (check it). Clicks just after opening the app can still lag while older mail and the search index load and photos arrive; consider loading those even more gently. Check again with real use.
 
 ## Before 1.0
+
+Agreed with Todd, 16 Nov 2026:
+
+- **Google:** it's a free app on GitHub where people bring their own Google key, so full Google verification (CASA) is only needed if it ever becomes paid or uses our own keys. The Google app is published (no 7-day sign-in expiry), and the website, privacy policy and support address exist.
+- **Windows code signing:** Azure Trusted Signing (now Artifact Signing), about $10 a month; in the UK it needs an organisation, not an individual. Plus Microsoft publisher verification (free: a Partner Network ID and a verified domain).
+- **Big mailboxes:** speed with 100,000+ emails across accounts (Todd will set sync to Everything).
+- **IMAP on real accounts** (Todd has some, not Yahoo).
+- **Backups to Drive:** daily, weekly or monthly, keeping older ones, plus an export another device can import. Planned for 0.7.5 beta 1 (see the top of this file).
+- **Three update channels** (test builds, beta, live; a "Get beta updates" setting so testers aren't pushed onto a broken build): later, not before 0.7.5.
+- **Crash reports** already exist (`CrashPrompt` in `Feedback.tsx`). **Accessibility:** check rather than build (screen reader, keyboard only).
+- **Security audit** after each live release; the latest is noted below.
 
 - **Follow-up suggestions** (built; check it matches this): sent emails with no reply after a few days come back to the top of the Inbox with a slightly different look and a "Follow up?" label (Reply, Snooze, Dismiss), like Gmail's nudges. Off by default, days chosen in Settings. Builds on the follow-up reminders that already exist in the editor. Later, an AI app could draft the follow-up into AI Drafts.
 
