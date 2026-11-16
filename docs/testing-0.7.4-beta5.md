@@ -18,6 +18,16 @@ Beta 5 is the fixes from testing beta 4: an "Already in your calendar" card that
 - [ ] **Nickname changed on your phone** shows here within about a minute, or straight away when you press refresh (F5). It stays after you change something on the desktop.
 - [ ] **Refresh (F5)** also checks calendars straight away.
 
+## Fixed since beta 5 (for beta 6)
+
+### Calendar
+- [ ] **Undo after any delete:** one of a series, this one and all after it, the whole series, an event with guests, one on several of your calendars, and several at once in List view. The note has Undo, and it's in Recent (and Ctrl+Z). On Google the same event comes back, in its series.
+- [ ] **With guests:** the note says guests were told it's cancelled and that Undo invites them again.
+
+### Events from emails
+- [ ] **Add to calendar** on an email with files (an agenda, minutes): the card says "With Agenda.pdf". The event's notes say "From email: (subject)" with a link that opens the email in Gmail (on your phone too), and the files are attached to the event in Google Calendar.
+- [ ] **Already in your calendar** (like Gordon's board meeting): the card says "The email has Agenda.pdf". Update event adds the files and the link. With nothing else to change, ⋯ › Link the event to this email adds the link.
+
 ## Keep an eye on (kept until seen)
 - [ ] **A Send To rule on its own:** the next SocialPilot invoice saves and forwards by itself, once, and shows in What's been sent.
 - [ ] **Find my invoices** reads properly, with Stripe and PayPal receipts listed by the company you paid.
