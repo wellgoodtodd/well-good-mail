@@ -1,8 +1,8 @@
 // Demo mode: pretend accounts and emails so the whole app can be tried and
 // tested without signing in to anything. Nothing leaves the computer.
-import type { Task, TaskList, TaskPatch, Account, Address, Alias, CalendarEvent, EventCopy, EventPatch, Folder, GuestAnswer, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Task, TaskList, TaskPatch, Account, Address, Alias, CalendarEvent, ChangeOptions, EventCopy, EventPatch, Folder, GuestAnswer, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Rsvp } from '../invites';
-import type { MailProvider, MessageBody, SyncResult } from './provider';
+import type { MailProvider, MessageBody, PutBack, SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { htmlToText } from '../mime';
 
@@ -456,7 +456,14 @@ export class DemoProvider implements MailProvider {
     if (repeat !== undefined) extra.recurring = Boolean(repeat);
     this.evEdits[ev.id] = { ...(this.evEdits[ev.id] || {}), ...rest, ...extra, ...(calendarName ? { calendarName } : {}) };
   }
-  async deleteEvent(ev: CalendarEvent): Promise<void> { this.evEdits[ev.id] = null; this.made = this.made.filter((e) => e.id !== ev.id); }
+  async deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<PutBack> {
+    const ids = ev.recurring && opts.scope === 'all' ? (await this.listEvents()).filter((e) => e.recurring && e.title === ev.title).map((e) => e.id) : [ev.id];
+    const was = ids.map((id) => [id, this.evEdits[id]] as const);
+    const madeWas = this.made;
+    ids.forEach((id) => { this.evEdits[id] = null; });
+    this.made = this.made.filter((e) => !ids.includes(e.id));
+    return async () => { for (const [id, v] of was) { if (v === undefined) delete this.evEdits[id]; else this.evEdits[id] = v; } this.made = madeWas; };
+  }
   /** Demo: events moved in from another account. */
   private made: CalendarEvent[] = [];
   async copyOfEvent(ev: CalendarEvent, opts: { series: boolean }): Promise<EventCopy> {
@@ -472,7 +479,7 @@ export class DemoProvider implements MailProvider {
     this.made.push({ id, accountId: this.account.id, calendarName, title: copy.title, start: copy.start, end: copy.end, allDay: copy.allDay, location: copy.location, description: copy.description, reminderMinutes: copy.alerts || [], recurring: Boolean(copy.repeat), guests: copy.guests.length ? [{ email: this.account.email, self: true, organiser: true, answer: 'yes' as const }, ...copy.guests.map((g) => ({ ...g, answer: 'waiting' as const }))] : undefined, meetingUrl: copy.video ? 'https://meet.google.com/new-demo-link' : undefined });
     return id;
   }
-  async endSeries(ev: CalendarEvent): Promise<void> { this.evEdits[ev.id] = null; }
+  async endSeries(ev: CalendarEvent): Promise<PutBack> { return this.deleteEvent(ev); }
 
   async listEvents(): Promise<CalendarEvent[]> {
     return [...(await this.demoEvents()), ...this.invitations(), ...this.made].filter((e) => this.evEdits[e.id] !== null).map((e) => ({ ...e, ...(this.evEdits[e.id] || {}), canEdit: e.canEdit ?? true }));

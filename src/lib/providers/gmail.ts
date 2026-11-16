@@ -6,7 +6,7 @@ import { httpFetch } from '../platform';
 import type { Account, Address, Alias, AttachmentMeta, Task, TaskList, TaskPatch, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { AutoReply } from '../ooo';
 import { htmlToText, isWorkAccount, ymd } from '../ooo';
-import { CalendarPermissionError, NeedsPermissionError, TasksApiOffError, type MailProvider, type MessageBody, type SyncResult } from './provider';
+import { CalendarPermissionError, NeedsPermissionError, TasksApiOffError, type MailProvider, type MessageBody, type PutBack, type SyncResult } from './provider';
 import type { Invite, Rsvp } from '../invites';
 import { cleanPreview } from '../cleanText';
 import * as gcal from '../google/calendarApi';
@@ -569,8 +569,8 @@ export class GmailProvider implements MailProvider {
   }
 
   /** Deletes one event, or with scope 'all' its whole series. Already gone counts as done. */
-  async deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<void> {
-    try { await gcal.deleteEvent(this.gcall, this.account.id, ev, opts); } catch (e) { this.permissionOr(e); }
+  async deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<PutBack | void> {
+    try { return await gcal.deleteEvent(this.gcall, this.account.id, ev, opts); } catch (e) { this.permissionOr(e); }
   }
 
   async copyOfEvent(ev: CalendarEvent, opts: { series: boolean }): Promise<EventCopy> {
@@ -581,8 +581,8 @@ export class GmailProvider implements MailProvider {
     try { return await gcal.createEvent(this.gcall, this.account.id, this.calIds[calendarName] || 'primary', copy); } catch (e) { this.permissionOr(e); }
   }
 
-  async endSeries(ev: CalendarEvent): Promise<void> {
-    try { await gcal.endSeries(this.gcall, this.account.id, ev); } catch (e) { this.permissionOr(e); }
+  async endSeries(ev: CalendarEvent): Promise<PutBack | void> {
+    try { return await gcal.endSeries(this.gcall, this.account.id, ev); } catch (e) { this.permissionOr(e); }
   }
 
   /** The invitation as it sits in the primary calendar, found by its calendar id. */

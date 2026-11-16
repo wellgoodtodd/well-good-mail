@@ -369,7 +369,7 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
         // Undo (and Ctrl+Z) takes it out; Redo makes it again, as a new event.
         let current = made;
         const fail = (e: unknown) => { toast({ text: `Couldn't change it: ${e instanceof Error ? e.message : e}`, ttl: 8000 }); };
-        const step = record(`Add event: ${title}`, () => deleteEvent(current, { notify: false }).catch(fail), async () => { try { current = await createNewEvent(to, copy); } catch (e) { fail(e); } });
+        const step = record(`Add event: ${title}`, async () => { await deleteEvent(current, { notify: false }).catch(fail); }, async () => { try { current = await createNewEvent(to, copy); } catch (e) { fail(e); } });
         toast({ text: `"${title}" added to ${where}.`, ttl: 8000, undo: () => { void undoEntry(step); }, ...settings });
       }
     } catch (e) {

@@ -184,8 +184,11 @@ export function refreshSoon(): void {
   soonTimers = [4000, 15000].map((ms) => setTimeout(() => { void refreshEvents(); }, ms));
 }
 
-/** Deletes an event you made, from its own calendar and from here, at once. A series: just this one, this one on, or all. */
-export async function deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<void> {
+/**
+ * Deletes an event you made, from its own calendar and from here, at once. A series: just this one, this one on, or all.
+ * Gives back a way to put it back as it was where the calendar can (the same event, in its series), else nothing.
+ */
+export async function deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<(() => Promise<void>) | undefined> {
   const p = providers.get(ev.accountId);
   if (!p?.deleteEvent) throw new Error("This calendar can't be changed from here yet");
   const undo = await showNow((list) => {
@@ -193,14 +196,61 @@ export async function deleteEvent(ev: CalendarEvent, opts: ChangeOptions = {}): 
     ids.forEach(forgetEvent);
     return list.filter((e) => !ids.has(e.id));
   });
+  let back: (() => Promise<void>) | void = undefined;
   await sendChange(undo, async () => {
-    if (ev.recurring && opts.scope === 'following' && p.endSeries) await p.endSeries(ev);
-    else await p.deleteEvent!(ev, opts);
+    if (ev.recurring && opts.scope === 'following' && p.endSeries) back = await p.endSeries(ev);
+    else back = await p.deleteEvent!(ev, opts);
   });
   const cal = await import('../calendarCache');
   void refreshEvents();
   void cal.refreshCalendarCopy();
   if (opts.notify) refreshSoon();
+  const putBack = back as (() => Promise<void>) | void;
+  if (!putBack) return undefined;
+  return async () => {
+    await sendChange(() => {}, putBack);
+    // Back on screen at once (and no longer kept out of refreshes), then the calendar's own copy.
+    undo();
+    void refreshEvents();
+    void cal.refreshCalendarCopy();
+    refreshSoon();
+  };
+}
+
+/** A delete that can be undone: put back, and delete again (redo). */
+export interface DeleteUndo { putBack: () => Promise<void>; again: () => Promise<void> }
+
+/** Made by you in this account (not a guest's copy of someone else's meeting). */
+const organisedHere = (ev: CalendarEvent) => !ev.organiser || Boolean(ev.organiser.self);
+
+/**
+ * Deletes an event and keeps a way to undo it, for every kind: one event, one of a series, this one on, the whole series,
+ * with or without guests. The calendar puts back the same event where it can (Google, and a series ended from a day
+ * on); otherwise a copy taken first is made again (one of a series comes back on its own, a series from this one on).
+ * Undefined `undo` when neither is possible.
+ */
+export async function deleteEventUndoable(ev: CalendarEvent, opts: ChangeOptions = {}): Promise<{ undo?: DeleteUndo }> {
+  const scope = ev.recurring ? opts.scope || 'one' : 'one';
+  const series = Boolean(ev.recurring && scope !== 'one');
+  const copy = organisedHere(ev) && canMoveAcross(ev) ? await eventCopy(ev, series).catch(() => undefined) : undefined;
+  const usable = copy && !copy.repeatUnsupported ? copy : undefined;
+  const sameBack = await deleteEvent(ev, opts);
+  if (!sameBack && !usable) return {};
+  let made: CalendarEvent | undefined;
+  let usedSame = false;
+  const putBack = async () => {
+    made = undefined;
+    usedSame = false;
+    if (sameBack) {
+      try { await sameBack(); usedSame = true; return; } catch (e) { if (!usable) throw e; }
+    }
+    made = await createNewEvent({ accountId: ev.accountId, calendarName: ev.calendarName }, usable!);
+  };
+  const again = async () => {
+    if (usedSame) await deleteEvent(ev, opts);
+    else if (made) await deleteEvent(made, { scope: made.recurring ? 'all' : 'one', notify: opts.notify });
+  };
+  return { undo: { putBack, again } };
 }
 
 /** Every calendar events can be put in, account by account, in the order the accounts are listed. */

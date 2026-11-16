@@ -3,6 +3,9 @@ import type { Account, Address, Task, TaskList, TaskPatch, Alias, CalendarEvent,
 import type { Invite, Rsvp } from '../invites';
 import type { AutoReply } from '../ooo';
 
+/** Puts back what a delete took away (Undo). */
+export type PutBack = () => Promise<void>;
+
 export interface SyncResult {
   upserted: Message[];
   /** Label changes on messages we already have. */
@@ -55,14 +58,17 @@ export interface MailProvider {
   writableCalendars?(): string[];
   /** Changes an event you can edit. Guests, if any, are told. */
   editEvent?(event: CalendarEvent, patch: EventPatch, opts?: ChangeOptions): Promise<void>;
-  /** Deletes an event you made. Guests are told unless notify is false. Scope 'all' deletes the whole series. */
-  deleteEvent?(event: CalendarEvent, opts?: ChangeOptions): Promise<void>;
+  /**
+   * Deletes an event you made. Guests are told unless notify is false. Scope 'all' deletes the whole series.
+   * Where the calendar can, gives back a way to put it back as it was (Undo), same event and series.
+   */
+  deleteEvent?(event: CalendarEvent, opts?: ChangeOptions): Promise<PutBack | void>;
   /** Everything about an event (or, with series, its whole series from this one on), to make it in another account. */
   copyOfEvent?(event: CalendarEvent, opts: { series: boolean }): Promise<EventCopy>;
   /** Makes an event in one of this account's calendars, inviting any guests. Returns the app's id for it. */
   createEvent?(calendarName: string, copy: EventCopy): Promise<string>;
-  /** Stops a series from this one on (deletes it if this is the first). */
-  endSeries?(event: CalendarEvent): Promise<void>;
+  /** Stops a series from this one on (deletes it if this is the first). May give back a way to undo it. */
+  endSeries?(event: CalendarEvent): Promise<PutBack | void>;
   /** Is this invitation in the person's calendar, and what did they answer? */
   /** The calendars this account has, as last seen, even if none has an event. */
   knownCalendars?(): string[];

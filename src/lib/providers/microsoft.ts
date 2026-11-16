@@ -6,7 +6,7 @@ import { getMicrosoftAccessToken } from '../auth/microsoft';
 import { bytesToBase64, buildRawMessage, base64ToBytes } from '../mime';
 import { httpFetch } from '../platform';
 import type { Task, TaskList, TaskPatch, Account, Address, Alias, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, GuestAnswer, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
-import { NeedsPermissionError, type MailProvider, type MessageBody, type SyncResult } from './provider';
+import { NeedsPermissionError, type MailProvider, type MessageBody, type PutBack, type SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { htmlToText } from '../ooo';
 import { findMeetingUrl } from '../meetings';
@@ -540,7 +540,7 @@ export class MicrosoftProvider implements MailProvider {
     return `${this.account.id}|${made.id}`;
   }
 
-  async endSeries(ev: CalendarEvent): Promise<void> {
+  async endSeries(ev: CalendarEvent): Promise<PutBack | void> {
     const id = ev.id.slice(this.account.id.length + 1);
     const one = await this.call<{ seriesMasterId?: string | null }>(`/events/${encodeURIComponent(id)}?$select=seriesMasterId`);
     if (!one.seriesMasterId) { await this.deleteEvent(ev); return; }
@@ -554,6 +554,8 @@ export class MicrosoftProvider implements MailProvider {
     const range = { ...r.range, type: 'endDate', endDate };
     delete (range as { numberOfOccurrences?: number }).numberOfOccurrences;
     await this.call(masterUrl, { method: 'PATCH', body: JSON.stringify({ recurrence: { pattern: r.pattern, range } }) }, ['Calendars.ReadWrite']);
+    // Undo: the series runs on as it did before.
+    return async () => { await this.call(masterUrl, { method: 'PATCH', body: JSON.stringify({ recurrence: r }) }, ['Calendars.ReadWrite']); };
   }
 
   // ---- Microsoft To Do ----

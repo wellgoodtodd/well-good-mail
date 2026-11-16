@@ -2,7 +2,7 @@
 // a repeating event asks which ones, an event with guests asks whether to tell them, and the change has Undo.
 import { askChoice, askConfirm, askPick } from './dialogs';
 import { record, undoEntry } from './history';
-import { canMoveAcross, createNewEvent, deleteEvent, editEvent, eventCopy, toast, useMail } from './mail';
+import { deleteEventUndoable, editEvent, toast, useMail, type DeleteUndo } from './mail';
 import { useCalCache } from './calendarCache';
 import { logLine } from './activityLog';
 import type { CalendarEvent, EventPatch, SeriesScope } from './types';
@@ -136,6 +136,25 @@ export function deleteFromLabel(ticked: string[], total: number): string {
 }
 
 /**
+ * Undo for a delete (the note's Undo button, Ctrl+Z and Recent all use it). Puts back every event that can be, in turn.
+ * Guests were told it's cancelled, so putting it back tells them it's on again.
+ */
+export function deleteUndoStep(label: string, undos: DeleteUndo[]): (() => void) | undefined {
+  if (!undos.length) return undefined;
+  const fail = (e: unknown) => { toast({ text: `Couldn't undo it: ${e instanceof Error ? e.message : e}`, ttl: 8000 }); };
+  const step = record(label,
+    async () => { for (const u of undos) { try { await u.putBack(); } catch (e) { fail(e); } } },
+    async () => { for (const u of undos) { try { await u.again(); } catch (e) { fail(e); } } });
+  return () => { void undoEntry(step); };
+}
+
+/** The words after "deleted." about guests and Undo. */
+export function guestWords(told: boolean, undo: boolean): string {
+  if (!told) return '';
+  return undo ? " Guests were told it's cancelled. Undo invites them again." : " Guests were told it's cancelled.";
+}
+
+/**
  * An event on several of your calendars: ask which to delete it from (the one you clicked starts ticked), then a
  * last check if that includes the organiser's copy, since deleting that one cancels the meeting for its guests.
  */
@@ -167,11 +186,13 @@ async function removeFromSeveral(ev: CalendarEvent, copies: CalendarEvent[], opt
   }
   opts.answered?.();
   const failed: string[] = [];
+  const undos: DeleteUndo[] = [];
   for (const e of chosen) {
-    try { await deleteEvent(e, { scope, notify: e === org ? notify : false }); } catch { failed.push(nameOf(e)); }
+    try { const r = await deleteEventUndoable(e, { scope, notify: e === org ? notify : false }); if (r.undo) undos.push(r.undo); } catch { failed.push(nameOf(e)); }
   }
-  if (failed.length) { toast({ text: `Couldn't delete "${ev.title}" from ${namesList(failed)}, so it's back there.`, ttl: 9000 }); return failed.length < chosen.length; }
-  if (!opts.quietToast) toast({ text: `"${ev.title}" deleted from ${chosen.length === copies.length ? 'all your calendars' : namesList(chosen.map(nameOf))}.` });
+  if (failed.length) { toast({ text: `Couldn't delete "${ev.title}" from ${namesList(failed)}, so it's back there.`, ttl: 9000 }); if (failed.length === chosen.length) return false; }
+  const undo = deleteUndoStep(`Delete event: ${ev.title}`, undos);
+  if (!opts.quietToast && !failed.length) toast({ text: `"${ev.title}" deleted from ${chosen.length === copies.length ? 'all your calendars' : namesList(chosen.map(nameOf))}.${guestWords(Boolean(org && notify), Boolean(undo))}`, ttl: undo ? 9000 : 4000, undo });
   return true;
 }
 
@@ -189,21 +210,16 @@ export async function removeEvent(ev: CalendarEvent, opts: { quietToast?: boolea
   if (notify === null) return false;
   // The questions are answered: the window can close now, while the calendar does its part (a bar shows meanwhile).
   opts.answered?.();
-  // Undo can put back a one-off event with no guests (guests were already told it's cancelled), so keep a copy first.
-  const copy = scope === 'one' && !ev.recurring && !guestsToTell(ev) && canMoveAcross(ev) ? await eventCopy(ev, false).catch(() => undefined) : undefined;
+  const told = Boolean(notify && guestsToTell(ev));
+  let undo: (() => void) | undefined;
   try {
-    await deleteEvent(notify && guestsToTell(ev) ? organiserCopy(ev) : ev, { scope, notify });
+    const r = await deleteEventUndoable(told ? organiserCopy(ev) : ev, { scope, notify });
+    undo = r.undo ? deleteUndoStep(`Delete event: ${ev.title}`, [r.undo]) : undefined;
   } catch (e) {
     toast({ text: `Couldn't delete "${ev.title}", so it's back: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
     return false;
   }
-  let made: CalendarEvent | undefined;
-  const fail = (e: unknown) => { toast({ text: `Couldn't undo it: ${e instanceof Error ? e.message : e}`, ttl: 8000 }); };
-  const step = copy
-    ? record(`Delete event: ${ev.title}`,
-      async () => { try { made = await createNewEvent({ accountId: ev.accountId, calendarName: ev.calendarName }, copy); } catch (e) { fail(e); } },
-      async () => { if (made) { try { await deleteEvent(made, { scope: 'one', notify: false }); } catch (e) { fail(e); } } })
-    : undefined;
-  if (!opts.quietToast) toast({ text: scope === 'one' ? `"${ev.title}" deleted.` : scope === 'all' ? `"${ev.title}" series deleted.` : `"${ev.title}" deleted from this one on.`, ttl: step ? 8000 : 4000, undo: step ? () => { void undoEntry(step); } : undefined });
+  const what = scope === 'one' ? `"${ev.title}" deleted.` : scope === 'all' ? `"${ev.title}" series deleted.` : `"${ev.title}" deleted from this one on.`;
+  if (!opts.quietToast) toast({ text: `${what}${guestWords(told, Boolean(undo))}`, ttl: undo ? 9000 : 4000, undo });
   return true;
 }

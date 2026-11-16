@@ -5,12 +5,10 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { Icon } from './Icon';
 import { useMenu, type MenuItem } from './ui';
-import { useMail, calendarChoices, writableCalendars, canMoveAcross, moveEventAcross, editEvent, deleteEvent, eventCopy, createNewEvent, toast } from '../lib/mail';
-import { record, undoEntry } from '../lib/history';
-import type { EventCopy } from '../lib/types';
+import { useMail, calendarChoices, writableCalendars, canMoveAcross, moveEventAcross, editEvent, deleteEventUndoable, toast, type DeleteUndo } from '../lib/mail';
 import { useCalCache } from '../lib/calendarCache';
 import { askChoice, askConfirm } from '../lib/dialogs';
-import { guestsToTell } from '../lib/eventFlows';
+import { deleteUndoStep, guestsToTell } from '../lib/eventFlows';
 import type { CalendarEvent } from '../lib/types';
 
 export const useEventSelection = create<{ ids: string[] }>(() => ({ ids: [] }));
@@ -92,24 +90,20 @@ export async function deleteSelected(list: CalendarEvent[]) {
   if (!ok) return;
   let done = 0;
   clearSelected();
-  // Undo puts back the ones it can: not repeating, and with no guests (who were told it's cancelled).
-  const kept: { to: { accountId: string; calendarName: string }; copy: EventCopy }[] = [];
+  // Undo puts back every one it can (guests, who were told it's cancelled, are invited again).
+  const undos: DeleteUndo[] = [];
   await inTurn(mine, async (e) => {
-    const copy = !e.recurring && !guestsToTell(e) && canMoveAcross(e) ? await eventCopy(e, false).catch(() => undefined) : undefined;
     try {
-      await deleteEvent(e, { scope: 'one', notify: true });
+      const r = await deleteEventUndoable(e, { scope: 'one', notify: true });
       done++;
-      if (copy) kept.push({ to: { accountId: e.accountId, calendarName: e.calendarName }, copy });
+      if (r.undo) undos.push(r.undo);
     } catch { /* counted below */ }
   });
-  let made: CalendarEvent[] = [];
-  const putBack = async () => { made = []; await inTurn(kept, async (k) => { try { made.push(await createNewEvent(k.to, k.copy)); } catch { /* left out */ } }); };
-  const takeAgain = async () => { await inTurn(made, async (e) => { try { await deleteEvent(e, { scope: 'one', notify: false }); } catch { /* left */ } }); };
-  const step = kept.length ? record(`Delete ${done} ${done === 1 ? 'event' : 'events'}`, putBack, takeAgain) : undefined;
+  const undo = deleteUndoStep(`Delete ${done} ${done === 1 ? 'event' : 'events'}`, undos);
   toast({
-    text: `${done} ${done === 1 ? 'event' : 'events'} deleted.${done < mine.length ? ` ${mine.length - done} couldn't be deleted and ${mine.length - done === 1 ? 'is' : 'are'} back.` : ''}${step && kept.length < done ? ` Undo brings back ${kept.length} (not ones with guests or repeats).` : ''}`,
-    ttl: step ? 8000 : 4000,
-    undo: step ? () => { void undoEntry(step); } : undefined,
+    text: `${done} ${done === 1 ? 'event' : 'events'} deleted.${done < mine.length ? ` ${mine.length - done} couldn't be deleted and ${mine.length - done === 1 ? 'is' : 'are'} back.` : ''}${undo && undos.length < done ? ` Undo brings back ${undos.length}.` : ''}${guests && undo ? ' Undo invites guests again.' : ''}`,
+    ttl: undo ? 9000 : 4000,
+    undo,
   });
 }
 

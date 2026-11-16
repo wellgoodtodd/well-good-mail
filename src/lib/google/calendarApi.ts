@@ -203,8 +203,12 @@ export async function editEvent(call: GoogleCall, accountId: string, calIds: Rec
   }
 }
 
-/** Deletes one event, or with scope 'all' its whole series. Already gone counts as done. */
-export async function deleteEvent(call: GoogleCall, accountId: string, ev: CalendarEvent, opts: ChangeOptions = {}): Promise<void> {
+/**
+ * Deletes one event, or with scope 'all' its whole series. Already gone counts as done. Google keeps a deleted event
+ * (and a deleted one of a series) in its bin, so the function given back puts the same one back: same series, same
+ * guests and answers. Guests who were told it's cancelled are told it's on again.
+ */
+export async function deleteEvent(call: GoogleCall, accountId: string, ev: CalendarEvent, opts: ChangeOptions = {}): Promise<(() => Promise<void>) | void> {
   const { calId } = eventParts(accountId, ev);
   let { eventId } = eventParts(accountId, ev);
   const send = opts.notify === false ? 'none' : 'all';
@@ -220,6 +224,8 @@ export async function deleteEvent(call: GoogleCall, accountId: string, ev: Calen
     if (status === 404 || status === 410) return;
     throw e;
   }
+  const url = `${base}/${encodeURIComponent(eventId)}?sendUpdates=${send}`;
+  return async () => { await call(url, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) }); };
 }
 
 /** Everything needed to make the same event elsewhere; with `series`, how it repeats from this one on. */
@@ -289,15 +295,18 @@ export async function createEvent(call: GoogleCall, accountId: string, calId: st
 }
 
 /** Ends a series the day before this one: past ones stay, this one and later ones go. */
-export async function endSeries(call: GoogleCall, accountId: string, ev: CalendarEvent): Promise<void> {
+export async function endSeries(call: GoogleCall, accountId: string, ev: CalendarEvent): Promise<(() => Promise<void>) | void> {
   const { calId, eventId } = eventParts(accountId, ev);
   const base = `${CAL}/calendars/${encodeURIComponent(calId)}/events`;
   const one = await call<{ recurringEventId?: string }>(`${base}/${encodeURIComponent(eventId)}`);
-  if (!one.recurringEventId) { await deleteEvent(call, accountId, ev); return; }
+  if (!one.recurringEventId) return deleteEvent(call, accountId, ev);
   const masterUrl = `${base}/${encodeURIComponent(one.recurringEventId)}`;
   const master = await call<{ recurrence?: string[]; start: { dateTime?: string; date?: string } }>(masterUrl);
   const first = new Date(master.start.dateTime || `${master.start.date}T00:00:00`).getTime();
-  if (ev.start <= first) { await call(`${masterUrl}?sendUpdates=all`, { method: 'DELETE' }); return; }
+  if (ev.start <= first) {
+    await call(`${masterUrl}?sendUpdates=all`, { method: 'DELETE' });
+    return async () => { await call(`${masterUrl}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) }); };
+  }
   const cut = new Date(ev.start); cut.setHours(0, 0, 0, 0);
   const lastDay = new Date(cut.getTime() - 1000);
   const until = master.start.date
@@ -305,6 +314,9 @@ export async function endSeries(call: GoogleCall, accountId: string, ev: Calenda
     : `${lastDay.getUTCFullYear()}${pad(lastDay.getUTCMonth() + 1)}${pad(lastDay.getUTCDate())}T${pad(lastDay.getUTCHours())}${pad(lastDay.getUTCMinutes())}${pad(lastDay.getUTCSeconds())}Z`;
   const recurrence = (master.recurrence || []).map((l) => (/^RRULE:/i.test(l) ? `${l.replace(/;(COUNT|UNTIL)=[^;]*/gi, '')};UNTIL=${until}` : l));
   await call(`${masterUrl}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify({ recurrence }) });
+  // Undo: the series runs on as it did before.
+  const before = master.recurrence || [];
+  return async () => { await call(`${masterUrl}?sendUpdates=all`, { method: 'PATCH', body: JSON.stringify({ recurrence: before }) }); };
 }
 
 /** Answers an invitation from the calendar itself: your own line in the guest list gets the answer. */
