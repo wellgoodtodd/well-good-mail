@@ -90,9 +90,15 @@ describe('AI apps turning on a template by name', () => {
 
   it('says which templates there are when the name is wrong', async () => {
     const { w, turnOn } = world();
-    const r = JSON.stringify(await handleRpc(w, call({ accounts: ['a'], template: 'Conference' })));
+    const r = JSON.stringify(await handleRpc(w, call({ accounts: ['a'], template: 'Sabbatical' })));
     expect(r).toContain('Holiday');
     expect(turnOn).not.toHaveBeenCalled();
+  });
+
+  it('can use a built-in message (Conference) by name', async () => {
+    const { w } = world();
+    const r = JSON.stringify(await handleRpc(w, call({ accounts: ['a'], template: 'Conference' })));
+    expect(r).not.toContain('There is no template');
   });
 });
 

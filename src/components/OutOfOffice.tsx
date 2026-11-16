@@ -120,6 +120,35 @@ export function OutOfOfficeTab() {
   const extrasOn = extras.filter((x) => x.on && !x.off);
   const mainLabel = busy ? 'Working...' : `${ticked.some((a) => stateWords(by[a.id]?.reply).state !== 'off') ? 'Update' : scheduling ? 'Schedule' : 'Turn on'}${ticked.length ? ` for ${ticked.length > 2 ? `${ticked.length} accounts` : listNames(ticked.map(nameOf))}` : ''}`;
 
+  // An account that is already on or scheduled (perhaps from your phone or an AI app): bring what it is set to into
+  // the page, ticked, so it can be checked and changed, then saved with Update.
+  const showSettingsOf = (id: string) => {
+    const reply = by[id]?.reply;
+    if (!reply) return;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const day = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+    const hm = (ms: number) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+    setPlan((p0) => {
+      const p = setAccountOn(p0, id, true);
+      const dated = Boolean(reply.start || reply.end);
+      const timed = [reply.start, reply.end].some((ms) => ms !== undefined && hm(ms) !== '00:00');
+      const message = { ...messageFor(p, id), subject: reply.subject ?? messageFor(p, id).subject, html: reply.html };
+      return {
+        ...p,
+        mode: dated ? 'dates' : 'open',
+        firstDay: reply.start ? day(reply.start) : p.firstDay,
+        backOn: reply.end ? day(reply.end) : p.backOn,
+        useTimes: timed,
+        startTime: reply.start && timed ? hm(reply.start) : p.startTime,
+        backTime: reply.end && timed ? hm(reply.end) : p.backTime,
+        audience: reply.audience ?? p.audience,
+        ...(perAccountOn(p) ? { own: { ...p.own, [id]: message } } : { message }),
+      };
+    });
+    if (perAccountOn(useSettings.getState().ooo)) setTab(id);
+    document.querySelector('.ooo-tabrow')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const turnOn = async () => {
     const plan = useSettings.getState().ooo;
     const r = await turnOnOoo(plan);
@@ -199,6 +228,7 @@ export function OutOfOfficeTab() {
                   {x?.loading ? 'Checking...' : x?.needsPermission ? <span className="ooo-warnword">Needs one more sign in</span> : x?.error ? <span className="status-bad" title={x.errorDetail || x.error}>{shortReason(x.error).replace(/\.$/, '')}. {x.errorSignIn ? 'Sign in again to fix it.' : 'Try again in a moment.'}</span> : <span className={`ooo-state ${st.state}`}>{st.state !== 'off' && <Icon name="plane" size={12} />}{st.words}</span>}
                 </span>
               </span>
+              {!x?.loading && !x?.error && st.state !== 'off' && <button className="btn small" onClick={() => showSettingsOf(a.id)} title="Show what it's set to, to check or change it">Show settings</button>}
               {x?.error && !x.loading && !x.needsPermission && <button className="btn small" onClick={() => void refreshOoo([a.id])}>Try again</button>}
               {(x?.needsPermission || (x?.error && x.errorSignIn && !x.loading)) && <button className="btn small" onClick={async () => { await reconnectAccount(a.id); void refreshOoo([a.id]); }}>Sign in</button>}
               <input type="checkbox" role="switch" className="switch" aria-label={`Out of Office for ${nameOf(a)}`} checked={on} onChange={(e) => setPlan((p) => setAccountOn(p, a.id, e.target.checked))} />

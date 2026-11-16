@@ -4,6 +4,12 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## Noted in 0.7.4 beta 2 testing (Todd, 16 Nov 2026)
+
+- **iCloud calendars: make and change events.** They are read over CalDAV but the app can't write to them, so they aren't offered in New event. Needs CalDAV PUT and DELETE of .ics events (`src/lib/dav.ts`, `providers/imap.ts`).
+- **Tidy Alerts & Notifications** in Settings. The card titles help for now.
+- **Share panel:** Windows 11's Share lists Store (packaged) apps only. Send to › Well Good Mail covers it for now; a sparse MSIX package would be the way in.
+
 ## 0.7.4 beta 2 (built 14 Nov 2026)
 
 Test list: `testing-0.7.4-beta2.md`.

@@ -46,15 +46,6 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 
 ### From 0.7.3 beta 9
 
-#### Send To
-- [ ] **Make a place:** Settings › Send To › New place. Bookkeeping: forward to your Hubdoc address, and save the files in your invoices folder by Year › Month.
-- [ ] **Right-click an attachment:** Forward... opens the writing window with just that file. Send to › Bookkeeping forwards it (with Undo) and saves the file; check it arrives in Hubdoc and lands in the right month folder.
-- [ ] **"Always send ... there?"** after sending: Make a rule. The rule shows in Settings › Send To.
-- [ ] **A rule at work:** the next invoice from that sender goes by itself (the app needs to be open, or opened later), once only. What's been sent lists it.
-- [ ] **Several at once:** search "invoice", select a few, right-click › Send to: it asks first, then each goes on its own.
-- [ ] **Find my invoices:** lists your subscription senders; tick one, Make 1 rule, and try "Also send the ones already here" on a short range.
-- [ ] Right-click a place or rule to edit, rename or delete; drag to reorder; the switch pauses a rule.
-
 #### Reinstalling, safely
 - [ ] **Uninstall test** (when you're ready, with time to set up again): uninstall with the box ticked, which now reads "Move the app's data to the Recycle Bin". The two media.wellgood.mail folders should be in the Recycle Bin.
 - [ ] Install again: the welcome page says **Welcome back** and lists your accounts. **Add all back** adds them with no signing in, then offers your settings from Google Drive if settings sync was on.
@@ -66,13 +57,10 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 
 - [ ] **Pause for 1 hour** really quietens alerts (new mail, events, tasks) for the hour.
 - [ ] **Right-click a list:** Rename (check it's renamed on your phone), Set as default, Change defaults…, Hide completed, Delete list… A slow second click renames; ☆ sets the default.
-- [ ] **Phone changes come through by themselves:** tick one off on your phone; within about a minute it's done here.
-- [ ] **Connected AI apps** show their logos; Test and ⋯ still work. **Add tasks** says "Into: ..." and can be changed there.
 
 ### From 0.7.3 beta 6
 
-- [ ] **Make a task from an email** with "by Friday" in its opening words gets that due date.
-- [ ] **Location:** clicking an empty Location shows nothing until you type; then places you've used and contacts' addresses.
+- [ ] **Make a task from an email** with "by Friday" (there's a draft "Test: send me the venue list" to send yourself) in its opening words gets that due date.
 
 ### From 0.7.3 beta 5
 
@@ -83,29 +71,21 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 
 #### Under the hood (beta 4)
 
-- [ ] **Print** an email: the full text prints.
 - [ ] **iCloud calendars** keep updating, and a calendar added on your phone appears.
 
 #### Calendar
 
-- [ ] **Remove a video call** from an event, then check Google Calendar.
-- [ ] **Right-click an event:** the same quick edit card. Right-clicking empty space still gives New event, New all-day event, Open day, Go to today.
-- [ ] An event starting at 10:05 keeps its 5 minutes past as you drag it (10:20, 10:35).
-- [ ] **Month view:** drag a chip to another day. It lifts while held, the day under it is outlined, and only the day changes.
 - [ ] Events someone else organised show no handle and can't be dragged.
-- [ ] Check every change above in Google Calendar on your phone.
-- [ ] Move one with guests to another account: the warning about new invitations comes first.
 - [ ] **List view:** tick several rows, then Move to calendar and Delete.
 - [ ] An **open event** updates by itself when a guest's answer changes.
 
 #### Out of Office page
 
-- [ ] Pick a template, then change something: **Changed** appears with Update template and Save as new. Pressing Schedule asks once, with "Leave the template as it was".
-- [ ] The Templates drop-down shows names only. Manage templates says Duplicate, Save current settings to it, Choose parts….
+- [ ] Pick one of **your own** templates (save one first: Templates › Save as new template), then change something: **Changed** appears with Update template and Save as new. Pressing Schedule asks once, with "Leave the template as it was".
+- [ ] The Templates drop-down shows names only. Once you've saved a template, Manage templates appears and says Duplicate, Save current settings to it, Choose parts….
 - [ ] Set up a Friday afternoon away (Friday 13:00 to Monday 09:00), then Templates › **Save as new template**. Tick whole groups, then single parts inside them.
 - [ ] Change the page, then pick your template: only the ticked parts change, the dates move to the next Friday, and Undo puts everything back.
 - [ ] Duplicate Friday afternoons and rename the copy to Wednesday away. Delete a template, then Undo.
-- [ ] **AI apps:** ask Claude to "turn on my Holiday Out of Office template from 21 Dec to 4 Jan". The approval card shows the whole reply and the dates.
 - [ ] Just after opening the app, go straight to Out of Office and turn it off. The message you'd written is still there afterwards.
 
 #### Smaller fixes
@@ -143,6 +123,12 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] **Unread in a conversation:** the dot stayed on the whole conversation. For beta 3: opened out in the list, the dots sit on the emails that are unread; in the reading pane, a folded email that's unread has a dot; right-click a folded email for its own menu (Reply, Forward, Mark as unread for just that one, then the conversation's Archive, Move and so on). Mark as unread from an email's ⋯ menu now marks that email, not the newest.
 - [ ] **Phone app:** an event on two of your calendars shows only once there. For the Well Good Calendar chat.
 - [ ] **Share an invoice to Hubdoc:** the Windows Share panel only lists Store apps. For beta 3: right-click a file (or several), Show more options › Send to › Well Good Mail opens a new email with them attached. The shortcut is made when beta 3 installs.
+- [ ] **Delete in the calendar's List view** binned two emails: the Delete key acted on the email picked in Mail. For beta 3, away from Mail the email keys do nothing, and on the calendar Delete takes the picked events (it asks first).
+- [ ] **No Undo after deleting events.** For beta 3: Undo (and Ctrl+Z) puts them back, apart from ones with guests or repeats.
+- [ ] **AI apps couldn't see the built-in Out of Office templates** (Holiday and so on). For beta 3 they can.
+- [ ] **Out of Office set from elsewhere couldn't be checked.** For beta 3: an account that's on or scheduled has Show settings, which brings its dates and message into the page, ready to change and Update.
+- [ ] **iCloud calendars can't take new events yet:** the app only reads them. On the backlog.
+- [ ] **For the Well Good Calendar chat:** a quick way to change an event's calendar, and calendars from non-Google accounts (iCloud, Microsoft).
 - [ ] Later: tidy up Alerts & Notifications. The card titles help for now.
 
 ## If something goes wrong

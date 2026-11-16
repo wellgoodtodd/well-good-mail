@@ -523,6 +523,16 @@ function useShortcuts() {
         undo: () => { undoSteps(1); },
         redo: () => { redoSteps(1); },
       };
+      // Away from Mail, the keys that act on the picked email do nothing, so Delete on the calendar never bins an
+      // email you can't see. On the calendar, Delete takes the picked events instead (it asks first, with Undo).
+      const MAIL_ONLY: ShortcutAction[] = ['reply', 'replyAll', 'forward', 'markUnread', 'markRead', 'flag', 'archive', 'delete', 'junk', 'snooze', 'next', 'previous', 'openWindow', 'markAllRead', 'makeTask', 'print'];
+      if (st.screen !== 'mail' && MAIL_ONLY.includes(action)) {
+        if (action === 'delete' && st.screen === 'reminders') {
+          void import('./components/EventSelection').then((m) => { const list = m.selectedEvents(); if (list.length) void m.deleteSelected(list); });
+          e.preventDefault();
+        }
+        return;
+      }
       const fn = run[action];
       if (!fn) return;
       e.preventDefault();

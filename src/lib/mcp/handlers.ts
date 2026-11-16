@@ -4,8 +4,16 @@ import { decide, sharedAccounts, alwaysAsks, LEVEL_WORDS, RateLimit, type McpSet
 import { READY, TOOLS, logLine, toolByName, type ToolSpec } from './tools';
 import { cleanPreview, visibleText, stripFiller } from '../cleanText';
 import type { Account, CalendarEvent, Folder, FollowUp, Message } from '../types';
-import { BACK_TOKEN, oooSupport, stateWords, textToHtml, whenSentence, htmlToText, fillBackDate, windowOf, type AutoReply, type OooPlan } from '../ooo';
+import { BACK_TOKEN, TEMPLATES as BUILT_IN_OOO, oooSupport, stateWords, textToHtml, whenSentence, htmlToText, fillBackDate, windowOf, type AutoReply, type OooPlan } from '../ooo';
 import { applyTemplate, findTemplate, templateSummary, type OooTemplate } from '../oooTemplates';
+
+/** The person's own Out of Office templates, then the built-in messages (Away, Holiday...) that aren't named the same. */
+function oooTemplatesFor(own: OooTemplate[]): OooTemplate[] {
+  const taken = new Set(own.map((t) => t.name.trim().toLowerCase()));
+  const builtIn: OooTemplate[] = BUILT_IN_OOO.filter((t) => !taken.has(t.name.toLowerCase()))
+    .map((t) => ({ id: `builtin:${t.id}`, name: t.name, parts: ['subject', 'message'], message: { subject: t.subject, html: t.html }, values: {} }));
+  return [...own, ...builtIn];
+}
 import type { CalendarGroup } from '../meetings';
 import { alertText, timeInTitle } from '../taskNotes';
 
@@ -391,7 +399,7 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
             return { account: accName(a), id, state: stateWords(r, w.now).words, starts: r.start ? iso(r.start) : undefined, ends: r.end ? iso(r.end) : undefined, subject: r.subject || undefined, message: htmlToText(r.html).slice(0, 2000), who: r.audience };
           }),
           defaultMessage: htmlToText(w.ooo.plan.message.html).slice(0, 2000),
-          templates: (w.ooo.templates || []).map((t) => ({ name: t.name, sets: templateSummary(t, (id) => accName(byId(id))) })),
+          templates: oooTemplatesFor(w.ooo.templates || []).map((t) => ({ name: t.name, sets: t.id.startsWith('builtin:') ? 'Subject and message (built in)' : templateSummary(t, (id) => accName(byId(id))) })),
           note: note(leftOut),
         },
         logText: 'Looked at Out of Office',
@@ -413,8 +421,9 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       // A saved template, by name, fills in what it keeps first. Anything given in the call still wins.
       let base = w.ooo.plan;
       if (typeof args.template === 'string' && args.template.trim()) {
-        const t = findTemplate(w.ooo.templates || [], args.template);
-        if (!t) throw new Error(`There is no template called "${args.template.trim()}". The person's templates: ${(w.ooo.templates || []).map((x) => x.name).join(', ') || 'none yet'}.`);
+        const all = oooTemplatesFor(w.ooo.templates || []);
+        const t = findTemplate(all, args.template);
+        if (!t) throw new Error(`There is no template called "${args.template.trim()}". The templates: ${all.map((x) => x.name).join(', ')}.`);
         base = applyTemplate(base, t, { now: w.now });
         if (!args.from && t.days) args.from = base.firstDay;
         if (!args.back && t.days) args.back = base.backOn;
