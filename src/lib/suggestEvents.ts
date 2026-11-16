@@ -11,6 +11,8 @@ export interface Suggestion {
   /** The words it found, as written. */
   phrase: string;
   meetingUrl?: string;
+  /** Already in your calendar at that time: the card says so (and can add the meeting link) instead of offering it again. */
+  existing?: CalendarEvent;
 }
 
 /** Senders that are machines, not people: newsletters, receipts, notifications. */
@@ -29,7 +31,11 @@ export function ownWords(text: string): string {
   return out.join('\n').slice(0, 5000);
 }
 
-const cleanSubject = (s: string) => s.replace(/^((re|fwd?|fw|aw)\s*:\s*)+/i, '').trim();
+const SMALL = new Set(['with', 'from', 'about', 'this', 'that', 'your', 'tonight', 'today', 'tomorrow', 'meeting', 'call', 'chat', 'catch', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'january', 'february', 'march', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december']);
+/** The words that say what something is: four letters or more, not days, months or "meeting". */
+const wordsOf = (s: string) => (s.toLowerCase().match(/[a-z]{4,}/g) || []).filter((w) => !SMALL.has(w));
+
+const cleanSubject = (s: string) =>s.replace(/^((re|fwd?|fw|aw)\s*:\s*)+/i, '').trim();
 
 /**
  * The event an email suggests, or undefined when it isn't fairly sure. It needs a definite day and a time, in the
@@ -40,7 +46,12 @@ export function suggestEvent(m: Pick<Message, 'from' | 'subject' | 'date' | 'lis
   // The subject counts too: "Five a side on Thursday?" with "7pm kick off" in the email.
   const own = ownWords(bodyText);
   if (!own.trim()) return undefined;
-  const text = `${cleanSubject(m.subject)}\n${own}`;
+  // The email on its own first: a subject like "Quiz night" can run into the first line ("night Monday 16th…")
+  // and hide its time. Then with the subject in front, for a day in the subject and a time in the email.
+  return findIn(m, own, now, calendar) || findIn(m, `${cleanSubject(m.subject)}\n${own}`, now, calendar);
+}
+
+function findIn(m: Pick<Message, 'subject' | 'date'>, text: string, now: number, calendar: CalendarEvent[]): Suggestion | undefined {
   const results = en.GB.parse(text, new Date(m.date || now), { forwardDate: true });
   const hasDay = (c: (typeof results)[number]['start']) => c.isCertain('day') || c.isCertain('weekday');
   for (const [i, r] of results.entries()) {
@@ -66,10 +77,14 @@ export function suggestEvent(m: Pick<Message, 'from' | 'subject' | 'date' | 'lis
     if (phrase.length < 6) continue;
     if (start <= now || start <= (m.date || 0) || start > now + 270 * 86400000) continue;
     end = end && end > start ? end : start + 60 * 60000;
-    // Already in the calendar at that time: nothing to suggest.
-    if (calendar.some((e) => Math.abs(e.start - start) < 5 * 60000)) return undefined;
     const title = cleanSubject(m.subject).replace(/[?!.]+$/, '') || 'Event';
-    return { title, start, end, phrase, meetingUrl: findMeetingUrl(text) };
+    const meetingUrl = findMeetingUrl(text);
+    // Already in the calendar: at that time and plainly the same thing (a word of its title in the subject, or the
+    // same link). Then the card says so rather than offer it twice. Something else at that time doesn't count.
+    const words = new Set(wordsOf(m.subject));
+    const existing = calendar.find((e) => !e.allDay && !e.cancelled && Math.abs(e.start - start) < 5 * 60000
+      && ((meetingUrl && e.meetingUrl === meetingUrl) || wordsOf(e.title).some((w) => words.has(w))));
+    return { title, start, end, phrase, meetingUrl, ...(existing ? { existing } : {}) };
   }
   return undefined;
 }

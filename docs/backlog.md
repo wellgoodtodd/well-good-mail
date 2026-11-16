@@ -10,6 +10,7 @@ From Todd's beta 4 testing:
 
 - Refresh (F5, the button, the tray) also checks calendars and the settings file shared with the phone; mail checks read that file at most once a minute (`refreshAll` in `mail/sync.ts`), so a nickname changed on the phone shows within about a minute.
 - AI Drafts card: a file dropped or pasted on it is attached there and listed, with × to remove it and Undo (`setDraftFiles`). It no longer opens the full editor.
+- Suggested events: an email about something already in your calendar (same time, a word of its title in the subject, or the same link) shows "Already in your calendar", with Add the meeting link when the email has a Meet, Zoom or Teams link your event lacks. Before, it said nothing. Something else at that time no longer hides the suggestion. The email is read on its own before the subject is put in front (`suggestEvents.ts`).
 - For the phone chat: a tappable "From email" link on tasks; List view shows the account alone when it has one task list; the nickname label sits under the keyboard.
 
 ## 0.7.4 beta 4 (built 16 Nov 2026)

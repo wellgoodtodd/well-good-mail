@@ -29,10 +29,23 @@ describe('suggested events', () => {
     expect(ownWords('Sounds good.\n\nOn Mon, 9 Nov 2026 at 10:00, Sam wrote:\n> Friday 13 November at 7pm?')).toBe('Sounds good.\n');
     expect(suggestEvent(from('sam@example.com'), 'Sounds good.\n> Friday 13 November at 7pm?', NOW)).toBeUndefined();
   });
-  it('skips what is already in the calendar', () => {
+  it('points to what is already in the calendar, with the link the email has', () => {
     const start = new Date(2026, 10, 16, 19, 30).getTime();
     const cal = [{ id: 'e', accountId: 'a', calendarName: 'c', title: 'Quiz', start, end: start + 3600000, allDay: false, reminderMinutes: [] }];
-    expect(suggestEvent(from('sam@example.com'), 'Monday 16th November at 7.30pm', NOW, cal)).toBeUndefined();
+    const s = suggestEvent(from('sam@example.com'), 'Monday 16th November at 7.30pm', NOW, cal);
+    expect(s?.existing?.id).toBe('e');
+    // An agenda email: the date with a superscript "th", a second time line, and a Meet link.
+    const agenda = ['Folks,', 'Agenda for Board meeting, Monday 16th  November at 7.30pm online', '', 'Board Meeting',
+      'Monday, November 16 · 7:15 – 9:15pm', 'Video call link: https://meet.google.com/abc-defg-hij', 'Apologies', 'Minutes'].join('\n');
+    const a = suggestEvent(from('sam@example.com'), agenda, NOW, cal);
+    expect(a?.existing?.id).toBe('e');
+    expect(a?.meetingUrl).toBe('https://meet.google.com/abc-defg-hij');
+    expect(suggestEvent(from('sam@example.com'), agenda, NOW)?.existing).toBeUndefined();
+    // Something else at that time isn't the same event: it's still suggested.
+    const other = [{ ...cal[0], title: 'Bins out' }];
+    const o = suggestEvent(from('sam@example.com'), 'Monday 16th November at 7.30pm', NOW, other);
+    expect(o?.title).toBe('Quiz night');
+    expect(o?.existing).toBeUndefined();
   });
 });
 

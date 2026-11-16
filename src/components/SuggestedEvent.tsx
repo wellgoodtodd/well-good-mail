@@ -5,13 +5,13 @@ import { plainError } from '../lib/plainErrors';
 import { Icon } from './Icon';
 import { Dialog, useMenu } from './ui';
 import { create } from 'zustand';
-import { addInviteToCalendar, updateAddedEvent, canAddToCalendar, toast, useMail } from '../lib/mail';
+import { addInviteToCalendar, updateAddedEvent, canAddToCalendar, editEvent, toast, useMail } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { visibleText } from '../lib/cleanText';
 import { suggestEvent, whenWords, type Suggestion } from '../lib/suggestEvents';
 import type { Invite } from '../lib/invites';
 import { placeFromTitle } from '../lib/places';
-import type { Message } from '../lib/types';
+import type { CalendarEvent, Message } from '../lib/types';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
@@ -36,7 +36,9 @@ export function SuggestedEvent({ message }: { message: Message }) {
   if (added) {
     return <section className="invite-card suggest-card" aria-label="Suggested event"><span className="inv-ok"><Icon name="check" size={14} /> Added to your calendar</span>{lastAdded.current && <button className="btn small" onClick={() => useEventEdit.setState({ editing: lastAdded.current })}>Edit</button>}</section>;
   }
-  if (!found || hidden.includes(message.id) || muted.includes(sender) || !canAddToCalendar(message.id)) return null;
+  if (!found || hidden.includes(message.id) || muted.includes(sender)) return null;
+  if (found.existing) return <AlreadyInCalendar event={found.existing} meetingUrl={found.meetingUrl} onHide={() => useSettings.getState().set({ suggestHidden: [...hidden, message.id].slice(-300) }, { quiet: true })} />;
+  if (!canAddToCalendar(message.id)) return null;
 
   const hide = () => useSettings.getState().set({ suggestHidden: [...hidden, message.id].slice(-300) }, { quiet: true });
   const add = async (s: Suggestion) => {
@@ -109,6 +111,46 @@ export function SuggestedEvent({ message }: { message: Message }) {
             <label><span>To</span><input type="time" value={hm(edit.end)} onChange={(e) => setEdit({ ...edit, end: at(ymd(edit.start), e.target.value) })} /></label>
           </div>
         </Dialog>
+      )}
+    </section>
+  );
+}
+
+/** The email's date and time are already in your calendar. If the email has a video link the event lacks, offer to add it. */
+function AlreadyInCalendar({ event, meetingUrl, onHide }: { event: CalendarEvent; meetingUrl?: string; onHide: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [linked, setLinked] = useState(false);
+  const acc = useMail((s) => s.accounts.find((a) => a.id === event.accountId));
+  const canLink = Boolean(meetingUrl && !event.meetingUrl && event.canEdit && !linked);
+  const addLink = async () => {
+    if (!meetingUrl) return;
+    setBusy(true);
+    try {
+      // The link goes in the place, where Google and Outlook show it as a link and the app shows Join.
+      await editEvent(event, { location: event.location ? `${event.location} · ${meetingUrl}` : meetingUrl });
+      setLinked(true);
+      toast({ text: `Meeting link added to "${event.title.trim()}"` });
+    } catch (e) {
+      toast({ text: `Couldn't add the link. ${plainError(e).text}`, ttl: 9000 });
+    }
+    setBusy(false);
+  };
+  return (
+    <section className="invite-card suggest-card" aria-label="Already in your calendar">
+      <div className="inv-top">
+        <div className="inv-main">
+          <div className="inv-small suggest-kicker"><Icon name="check" size={13} /> Already in your calendar{acc ? ` (${acc.label || acc.email})` : ''}</div>
+          <div className="inv-title">{event.title.trim() || 'Event'}</div>
+          <div className="inv-line"><Icon name="clock" size={14} /> {whenWords(event)}</div>
+          {canLink && <div className="inv-line"><Icon name="link" size={14} /> The email has a meeting link your event doesn't</div>}
+          {linked && <div className="inv-line"><Icon name="check" size={14} /> Meeting link added</div>}
+        </div>
+      </div>
+      {canLink && (
+        <div className="inv-actions">
+          <button className="btn primary" disabled={busy} onClick={() => void addLink()}>Add the meeting link</button>
+          <button className="btn" onClick={onHide}>Not now</button>
+        </div>
       )}
     </section>
   );
