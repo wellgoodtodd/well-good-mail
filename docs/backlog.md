@@ -4,6 +4,14 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.4 beta 3 (built 16 Nov 2026)
+
+Test list: `testing-0.7.4-beta3.md`. The fixes from testing beta 2, plus:
+
+- Send to › Well Good Mail (`src-tauri/src/sendto.rs`, shortcut made by the installer hook): a new email with the chosen files attached.
+- Settings sync reads account nicknames and colours changed on the phone back in (`looksFromPhone`), shows "Last saved to Google Drive" in Settings › General, and says once if saving fails. Todd's cause: Keep my settings the same was off.
+- Next, for beta 4: suggested tasks ("could you… by Friday").
+
 ## Noted in 0.7.4 beta 2 testing (Todd, 16 Nov 2026)
 
 - **iCloud calendars: make and change events.** They are read over CalDAV but the app can't write to them, so they aren't offered in New event. Needs CalDAV PUT and DELETE of .ics events (`src/lib/dav.ts`, `providers/imap.ts`).
