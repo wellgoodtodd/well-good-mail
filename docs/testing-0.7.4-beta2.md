@@ -80,50 +80,50 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 
 #### Sidebar and menus
 - [x] Drag the footer cards to reorder; the order stays after a restart.
-- [ ] **☰ menu:** Scheduled, Calendar, Tasks, Invitations in the same order, then Out of Office, Settings (now with Send To) and Help & Feedback.
+- [x] **☰ menu:** Scheduled, Calendar, Tasks, Invitations in the same order, then Out of Office, Settings (now with Send To) and Help & Feedback.
 - [x] **Favourites show once:** Important and Flagged only in Favourites. Remove from Favourites puts one back in its place.
 - [x] **Right-click an account** in the sidebar: Leave out of All Inboxes / Show in All Inboxes.
 
 #### Fixes
 - [x] **AI drafts:** no squashed second signature; "On ... wrote:" sits with the earlier emails. Send one and check the signature is there once.
-- [ ] **Drop a file on an AI draft:** it opens in the full editor with the file attached.
-- [ ] **AI Connection › All switches** shows Allow when everything is as high as it goes (Out of Office stays at Ask on purpose).
+- [x] **Drop a file on an AI draft:** it opens in the full editor with the file attached.
+- [x] **AI Connection › All switches** shows Allow when everything is as high as it goes (Out of Office stays at Ask on purpose).
 
 ### From 0.7.3 beta 8
 
-- [ ] **Video call line** in the event pop-up, under Location: "+ Add Google Meet" in grey when there's no call; "Google Meet · Join · Settings ↗" when there is. The big Join button only shows on the day of the event.
-- [ ] **Location** has a map pin instead of the folder (pop-up and invitation cards).
-- [ ] **Make a task from an email** with no date in it starts on today at the next hour, like New task.
-- [ ] **Alerts & Notifications** in cards: New mail, How alerts appear, New mail per account, Calendar and tasks, Video meetings, Alerts from hidden calendars, Quiet hours. Change alerts (from the Alerts button) still lands on Calendar and tasks.
+- [x] **Video call line** in the event pop-up, under Location: "+ Add Google Meet" in grey when there's no call; "Google Meet · Join · Settings ↗" when there is. The big Join button only shows on the day of the event.
+- [x] **Location** has a map pin instead of the folder (pop-up and invitation cards).
+- [x] **Make a task from an email** with no date in it starts on today at the next hour, like New task.
+- [x] **Alerts & Notifications** in cards: New mail, How alerts appear, New mail per account, Calendar and tasks, Video meetings, Alerts from hidden calendars, Quiet hours. Change alerts (from the Alerts button) still lands on Calendar and tasks.
 
 ### From 0.7.3 beta 7
 
 - [ ] **Pause for 1 hour** really quietens alerts (new mail, events, tasks) for the hour.
-- [ ] **Month view** has no Tasks panel, and days still say "✓ 2 tasks".
-- [ ] **Move from the quick edit card** to a calendar in another account. With guests, a call or a repeat it says what happens first.
+- [x] **Month view** has no Tasks panel, and days still say "✓ 2 tasks".
+- [x] **Move from the quick edit card** to a calendar in another account. With guests, a call or a repeat it says what happens first.
 - [ ] **Right-click a list:** Rename (check it's renamed on your phone), Set as default, Change defaults…, Hide completed, Delete list… A slow second click renames; ☆ sets the default.
-- [ ] **Right-click an account** in Tasks: New list, Show lists / Hide lists, Account settings….
-- [ ] **List picker** reads "My Tasks · WGM" with account dots.
+- [x] **Right-click an account** in Tasks: New list, Show lists / Hide lists, Account settings….
+- [x] **List picker** reads "My Tasks · WGM" with account dots.
 - [ ] **Phone changes come through by themselves:** tick one off on your phone; within about a minute it's done here.
 - [ ] **Connected AI apps** show their logos; Test and ⋯ still work. **Add tasks** says "Into: ..." and can be changed there.
-- [ ] **Font and size** boxes with arrows; bold, italic and lists show a soft blue box when on.
-- [ ] **Attachments as cards**, two to a row, with thumbnails and a total. Forwarded attachments show too.
-- [ ] **Send later** beside the Send in the pop-out writing window.
+- [x] **Font and size** boxes with arrows; bold, italic and lists show a soft blue box when on.
+- [x] **Attachments as cards**, two to a row, with thumbnails and a total. Forwarded attachments show too.
+- [x] **Send later** beside the Send in the pop-out writing window.
 
 ### From 0.7.3 beta 6
 
-- [ ] **A time on a Google task** shows as "Due 14:00" at the top of its notes on your phone, and at 14:00 in the app.
+- [x] **A time on a Google task** shows as "Due 14:00" at the top of its notes on your phone, and at 14:00 in the app.
 - [ ] **Make a task from an email** with "by Friday" in its opening words gets that due date.
-- [ ] **A slow account doesn't hold up the rest** (once Outlook is back): Google calendars show as soon as they answer.
+- [x] **A slow account doesn't hold up the rest** (once Outlook is back): Google calendars show as soon as they answer.
 - [ ] **Location:** clicking an empty Location shows nothing until you type; then places you've used and contacts' addresses.
-- [ ] **Location from the title:** "Lunch with Sam at Five Guys tomorrow 1pm" fills Location with "Five Guys".
+- [x] **Location from the title:** "Lunch with Sam at Five Guys tomorrow 1pm" fills Location with "Five Guys".
 
 ### From 0.7.3 beta 5
 
 - [ ] **Microsoft retry:** once Outlook is working again, a refresh with a passing Outlook hiccup shows no error.
-- [ ] **Out of Office for WGM Microsoft** can be checked and switched on once Outlook is working again.
+- [x] **Out of Office for WGM Microsoft** can be checked and switched on once Outlook is working again.
 - [ ] **Contacts' addresses** show in Location suggestions with the contact's name in grey.
-- [ ] **Different message for each account:** pick a template on one tab, switch tabs: the picker shows that tab's own template.
+- [x] **Different message for each account:** pick a template on one tab, switch tabs: the picker shows that tab's own template.
 
 ### From 0.7.3 beta 4 and earlier
 
@@ -220,6 +220,11 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] **Date words in the New task title** ("tomorrow at 2 pm") weren't read. Fixed for beta 3: When fills in as you type, and the words come out of the title.
 - [ ] **Forward opened inline.** Replies and forwards follow one setting, now called "Open replies and forwards in their own window" (Settings › Writing). It's on for new installs; tick it on yours.
 - [ ] AI drafts with no signature: that account had none set. Not a bug.
+- [ ] **+ Add Google Meet** in the quick edit card still said "+ Add Google Meet" until a refresh. For beta 3: it says "Google Meet · Setting it up…" and checks every few seconds until the Join link is there.
+- [ ] **Week view:** clicking the picked day again didn't put it away, as it does in Month. Fixed for beta 3.
+- [ ] **Moved an event with a guest to another account, then renamed it:** it showed as two events on two calendars, and Invitations said one clashed with the other. To look into: was one of your own addresses a guest on it?
+- [ ] **Nicknames and colours on the phone:** still not coming through on beta 2. The fix (sent once at start) is in beta 3.
+- [ ] Later: tidy up Alerts & Notifications. The card titles help for now.
 
 ## If something goes wrong
 

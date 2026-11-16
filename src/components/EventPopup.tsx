@@ -63,7 +63,17 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
   const videoName = accKind === 'microsoft' ? 'Teams meeting' : accKind === 'gmail' || accKind === 'demo' ? 'Google Meet' : '';
   const [addingCall, setAddingCall] = useState(false);
   const onTheDay = event.end > Date.now() && event.start < new Date().setHours(24, 0, 0, 0);
-  const addCall = async () => { setAddingCall(true); try { await changeEvent(event, { video: true }); } finally { setAddingCall(false); } };
+  // Google makes the call a few seconds after it is asked for, so the pop-up says so and looks again every few
+  // seconds (for up to about half a minute) until the Join link is there.
+  const [callAsked, setCallAsked] = useState(false);
+  const addCall = async () => { setAddingCall(true); try { if (await changeEvent(event, { video: true })) setCallAsked(true); } finally { setAddingCall(false); } };
+  const waitingForCall = callAsked && !event.meetingUrl;
+  useEffect(() => {
+    if (!waitingForCall) return;
+    let tries = 0;
+    const t = setInterval(() => { tries += 1; void refreshEvents(); if (tries >= 10) { clearInterval(t); setCallAsked(false); } }, 3000);
+    return () => clearInterval(t);
+  }, [waitingForCall]);
   const qChanged = Object.keys(qPatch).length > 0;
   const qBad = qEnd <= qStart ? 'It ends before it starts.' : '';
   const [saving, setSaving] = useState(false);
@@ -124,6 +134,7 @@ export function EventPreview({ event: picked, onClose }: { event: CalendarEvent;
               <span className="ev-dot">·</span><button type="button" className="link-btn" onClick={() => void openExternal(event.meetingUrl!)}>Join</button>
               {event.htmlLink && editable && <><span className="ev-dot">·</span><button type="button" className="link-btn quiet" onClick={() => void openMeetingSettings(event.id, event.htmlLink)}>Settings ↗</button></>}
             </div>
+          : waitingForCall ? <div className="ev-line ev-call-line"><Icon name="link" size={15} /> <span>{videoName}</span><span className="ev-dot">·</span><span className="hint">Setting it up…</span></div>
           : editable && videoName && !qChanged && <div className="ev-line ev-call-line"><Icon name="link" size={15} /> <button type="button" className="link-btn quiet" disabled={addingCall} onClick={() => void addCall()}>{addingCall ? 'Adding…' : `+ Add ${videoName}`}</button></div>}
         {event.description && <p className="ev-notes">{event.description}</p>}
         {event.guests && event.guests.length > 0 && (

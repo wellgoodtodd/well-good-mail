@@ -456,7 +456,7 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
         <div className="tg-corner">{weekNumbers && mode === 'week' ? `W${isoWeek(days[0])}` : ''}</div>
         {days.map((d) => (
           <button key={d.toISOString()} className={`tg-day ${d.toDateString() === today ? 'today' : ''} ${mode === 'week' && picked === d.getTime() ? 'picked' : ''}`} aria-pressed={mode === 'week' ? picked === d.getTime() : undefined}
-            onClick={() => mode === 'week' && setAnchor(d)} onDoubleClick={() => mode === 'week' && openDay(d.getTime())} title={mode === 'week' ? 'Click to pick this day, double-click to open it' : undefined}>
+            onClick={() => { if (mode !== 'week') return; if (picked === d.getTime()) selectDay(undefined); else setAnchor(d); }} onDoubleClick={() => mode === 'week' && openDay(d.getTime())} title={mode === 'week' ? 'Click to pick this day (click again to put it away), double-click to open it' : undefined}>
             <span>{d.toLocaleDateString('en-GB', { weekday: 'short' })}</span> <b>{d.getDate()}</b>
           </button>
         ))}
