@@ -7,6 +7,7 @@
 mod crash;
 mod mailto;
 mod icsfile;
+mod sendto;
 mod dav;
 mod emoji;
 mod files;
@@ -182,6 +183,11 @@ pub fn run() {
             if let Some(link) = args.iter().find(|a| a.to_ascii_lowercase().starts_with("mailto:")) {
                 let _ = app.emit("open-mailto", link.clone());
             }
+            // Files from right-click › Send to › Well Good Mail: a new email with them attached.
+            if let Some(files) = sendto::files_in(&args) {
+                let _ = app.emit("open-files", files);
+                return;
+            }
             // A calendar file opened from Windows: show the event to add.
             if let Some(path) = icsfile::ics_in(&args) {
                 let _ = app.emit("open-ics", path);
@@ -251,6 +257,8 @@ pub fn run() {
             mailto::take_start_mailto,
             icsfile::take_start_ics,
             icsfile::read_ics,
+            sendto::take_start_files,
+            sendto::read_sent_file,
             mailto::register_mail_app,
             mailto::is_default_mail_app,
             crash::last_run_crashed,
@@ -263,6 +271,7 @@ pub fn run() {
             crash::start(app.handle());
             mailto::remember_start_link();
             icsfile::remember_start_file();
+            sendto::remember_start_files();
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;
             let refresh = MenuItem::with_id(app, "refresh", "Check for new mail", true, None::<&str>)?;
             let compose = MenuItem::with_id(app, "compose", "New email", true, None::<&str>)?;

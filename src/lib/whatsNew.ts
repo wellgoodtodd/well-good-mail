@@ -17,10 +17,13 @@ export const RELEASES: Release[] = [
     highlights: [
       'Open calendar files (.ics) in Well Good Mail: Open with › Well Good Mail shows the event, ready to add to the calendar you pick',
       'Alerts for tasks: a task with a time can have an Alert and a Second alert, and they show on your phone too',
+      'Email any file from Windows: right-click it, Show more options, Send to › Well Good Mail',
     ],
     more: [
       'Quick add understands "tonight", "Friday morning", "half 9", "quarter to 6", and "at 2" as the afternoon',
       'Tasks from AI apps get their time set properly, not written into the title',
+      'Unread emails inside a conversation show their own dot, and a right-click on a folded email gives its own menu',
+      'Replies and forwards open in their own window unless you change it in Settings › Writing',
       'Settings are shared with Well Good Calendar on your phone more often, with your account nicknames and colours',
     ],
   },

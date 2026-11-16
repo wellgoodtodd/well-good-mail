@@ -10,6 +10,10 @@ static START_FILE: Mutex<Option<String>> = Mutex::new(None);
 
 /// The .ics file among some start-up arguments, if there is one.
 pub fn ics_in(args: &[String]) -> Option<String> {
+    // A calendar file sent with Send to › Well Good Mail is attached to an email instead.
+    if args.iter().any(|a| a == "--attach") {
+        return None;
+    }
     args.iter().skip(1).find(|a| a.to_ascii_lowercase().ends_with(".ics")).cloned()
 }
 

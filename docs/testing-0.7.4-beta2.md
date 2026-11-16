@@ -142,6 +142,7 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] **Nicknames and colours on the phone:** still not coming through on beta 2. The fix (sent once at start) is in beta 3.
 - [ ] **Unread in a conversation:** the dot stayed on the whole conversation. For beta 3: opened out in the list, the dots sit on the emails that are unread; in the reading pane, a folded email that's unread has a dot; right-click a folded email for its own menu (Reply, Forward, Mark as unread for just that one, then the conversation's Archive, Move and so on). Mark as unread from an email's ⋯ menu now marks that email, not the newest.
 - [ ] **Phone app:** an event on two of your calendars shows only once there. For the Well Good Calendar chat.
+- [ ] **Share an invoice to Hubdoc:** the Windows Share panel only lists Store apps. For beta 3: right-click a file (or several), Show more options › Send to › Well Good Mail opens a new email with them attached. The shortcut is made when beta 3 installs.
 - [ ] Later: tidy up Alerts & Notifications. The card titles help for now.
 
 ## If something goes wrong

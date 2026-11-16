@@ -191,6 +191,44 @@ function useCalendarFiles() {
   }, [ready]);
 }
 
+/** The usual type for a file's ending, so the email says what each attachment is. */
+const MIME_BY_END: Record<string, string> = {
+  pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', heic: 'image/heic',
+  doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  csv: 'text/csv', txt: 'text/plain', zip: 'application/zip', ics: 'text/calendar', mp4: 'video/mp4', mov: 'video/quicktime', mp3: 'audio/mpeg',
+};
+const mimeForName = (name: string) => MIME_BY_END[name.split('.').pop()?.toLowerCase() || ''] || 'application/octet-stream';
+
+/** Files from right-click › Send to › Well Good Mail in Windows: a new email with them attached. */
+function useSentFiles() {
+  const ready = useMail((s) => s.accounts.length > 0);
+  useEffect(() => {
+    if (!isTauri() || isPopout() || !ready) return;
+    const open = async (paths: string[]) => {
+      const got: { id: string; filename: string; mimeType: string; size: number; dataB64: string }[] = [];
+      const missed: string[] = [];
+      for (const path of paths) {
+        try {
+          const f = await invoke<{ name: string; size: number; dataB64: string }>('read_sent_file', { path });
+          got.push({ id: Math.random().toString(36).slice(2), filename: f.name, mimeType: mimeForName(f.name), size: f.size, dataB64: f.dataB64 });
+        } catch (e) {
+          missed.push(e instanceof Error ? e.message : String(e));
+        }
+      }
+      if (missed.length) toast({ text: `Left out: ${missed.join('; ')}`, ttl: 8000 });
+      if (!got.length) return;
+      const subject = got.length === 1 ? got[0].filename.replace(/\.[^.]+$/, '') : '';
+      void startCompose('new', undefined, { extra: { attachments: got, subject } });
+    };
+    void invoke<string[] | null>('take_start_files').then((p) => { if (p?.length) void open(p); }).catch(() => undefined);
+    let stop: (() => void) | undefined;
+    void import('@tauri-apps/api/event').then(({ listen }) => listen<string[]>('open-files', (e) => void open(e.payload))).then((u) => { stop = u; });
+    return () => stop?.();
+  }, [ready]);
+}
+
 /** Appears once something has been saved from the app: recent saves with Open and Show in folder, like a browser. */
 /** A see-through layer under a small list: clicking it just closes the list, and never clicks what's underneath. */
 function ClickAway({ onClose }: { onClose: () => void }) {
@@ -806,6 +844,7 @@ export default function App() {
   useTheme();
   useMailtoLinks();
   useCalendarFiles();
+  useSentFiles();
   const popout = isPopout();
   useEffect(() => {
     initMail({ popout, route: popout ? location.hash.replace('#/popout/', '') : undefined });
