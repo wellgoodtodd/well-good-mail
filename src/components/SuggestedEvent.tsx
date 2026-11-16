@@ -1,6 +1,7 @@
 // A quiet card at the top of an email that mentions a future date and time: Add to calendar, Not now, or change
 // the details first. Nothing is added unless you click.
 import { useMemo, useRef, useState } from 'react';
+import { plainError } from '../lib/plainErrors';
 import { Icon } from './Icon';
 import { Dialog, useMenu } from './ui';
 import { create } from 'zustand';
@@ -70,7 +71,7 @@ export function SuggestedEvent({ message }: { message: Message }) {
         ttl: 12000,
       });
     } catch (e) {
-      toast({ text: `Couldn't add it: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
+      toast({ text: `Couldn't add it. ${plainError(e).text}`, ttl: 9000 });
     }
     setBusy(false);
   };

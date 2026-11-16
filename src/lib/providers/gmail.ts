@@ -627,21 +627,31 @@ export class GmailProvider implements MailProvider {
 
   async addInviteToCalendar(invite: Invite): Promise<void> {
     const when = (ms: number) => (invite.allDay ? { date: ymd(ms) } : { dateTime: new Date(ms).toISOString() });
+    const plain = {
+      iCalUID: invite.uid,
+      summary: invite.title,
+      location: invite.location,
+      description: invite.description,
+      start: when(invite.start),
+      end: when(invite.allDay ? Math.max(invite.end, invite.start + 86400000) : invite.end),
+    };
     try {
       await this.call('https://www.googleapis.com/calendar/v3/calendars/primary/events/import', {
         method: 'POST',
         body: JSON.stringify({
-          iCalUID: invite.uid,
-          summary: invite.title,
-          location: invite.location,
-          description: invite.description,
-          start: when(invite.start),
-          end: when(invite.allDay ? Math.max(invite.end, invite.start + 86400000) : invite.end),
+          ...plain,
           organizer: invite.organizer ? { email: invite.organizer.email, displayName: invite.organizer.name } : undefined,
           attendees: invite.attendees.map((a) => ({ email: a.email, displayName: a.name, responseStatus: a.email === this.account.email.toLowerCase() ? 'needsAction' : undefined })),
         }),
       });
-    } catch (e) { this.permissionOr(e); }
+    } catch (e) {
+      // Tickets and bookings often come as an invitation that doesn't list this account as organiser or guest, and
+      // Google won't import those. Add it as an ordinary event of your own instead, like opening the .ics file does.
+      if (!/participantIsNeitherOrganizerNorAttendee|NeitherOrganizerNorAttendee/i.test(String((e as Error)?.message || e))) this.permissionOr(e);
+      try {
+        await this.call('https://www.googleapis.com/calendar/v3/calendars/primary/events', { method: 'POST', body: JSON.stringify(plain) });
+      } catch (e2) { this.permissionOr(e2); }
+    }
   }
 
   private scopeOr(e: unknown, what: string): never {

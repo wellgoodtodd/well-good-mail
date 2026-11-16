@@ -56,7 +56,7 @@ export function WritingTab() {
         <Row label="Reply button does">
           <Radio name="defreply" value={s.defaultReply} onChange={(v) => s.set({ defaultReply: v })} options={[{ value: 'reply', label: 'Reply' }, { value: 'replyAll', label: 'Reply All' }]} />
         </Row>
-        <Check checked={s.popOutCompose} onChange={(v) => s.set({ popOutCompose: v })}>Always open replies in their own window</Check>
+        <Check checked={s.popOutCompose} onChange={(v) => s.set({ popOutCompose: v })}>Open replies and forwards in their own window</Check>
         <Check checked={s.spellCheck} onChange={(v) => s.set({ spellCheck: v })}>Underline spelling mistakes while I write</Check>
         <Row label="Spelling" htmlFor="spelllang">
           <select id="spelllang" value={s.spellLang} onChange={(e) => s.set({ spellLang: e.target.value as typeof s.spellLang })}>

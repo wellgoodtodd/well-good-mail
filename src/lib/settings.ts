@@ -298,7 +298,7 @@ export const defaultSettings: Settings = {
   undoSendSeconds: 20,
   closeUnsent: 'ask',
   defaultReply: 'reply',
-  popOutCompose: false,
+  popOutCompose: true,
 
   pollSeconds: 30,
   reminderMode: 'important',

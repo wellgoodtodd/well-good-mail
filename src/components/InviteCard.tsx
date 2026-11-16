@@ -1,6 +1,7 @@
 // At the top of an email that is a calendar invitation: when it is, who's invited, a Join button,
 // Accept / Maybe / Decline, and Add to calendar.
 import { noteSaved } from '../lib/saves';
+import { plainError } from '../lib/plainErrors';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { GuestList, JoinButton } from './calendarBits';
@@ -120,7 +121,7 @@ export function InviteCard({ message }: { message: Message }) {
       toast({ text: 'Added to your calendar', ttl: 3000 });
     } catch (e) {
       if (e instanceof CalendarPermissionError) { setWanted(undefined); setNeedsPermission(true); }
-      else toast({ text: `Couldn't add it: ${e instanceof Error ? e.message : e}`, ttl: 8000 });
+      else toast({ text: `Couldn't add it. ${plainError(e).text}`, ttl: 8000 });
     } finally { setBusy(false); }
   };
 

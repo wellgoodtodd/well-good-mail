@@ -599,6 +599,28 @@ function TaskEditor({ task, draft }: { task?: Task; draft?: EditorState['draft']
   const titleRef = useRef<HTMLInputElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   useEffect(() => { titleRef.current?.focus(); titleRef.current?.select(); }, []);
+  // A new task reads date and time words in its title ("Call Sam tomorrow at 2pm", "#work") into When and List, the
+  // way quick add does, until When is changed by hand. Removing the words puts When back as it started.
+  const whenTouched = useRef(Boolean(task));
+  const startWhen = useRef({ day, time });
+  const fromTitle = useRef(false);
+  const touchWhen = () => { whenTouched.current = true; };
+  const onTitle = (v: string) => {
+    setTitle(v);
+    if (whenTouched.current) return;
+    const w = readTaskWords(v);
+    if (w.due !== undefined) {
+      setDay(ymdOf(w.due));
+      setTime(w.hasTime ? hmOf(w.due) : startWhen.current.time);
+      fromTitle.current = true;
+    } else if (fromTitle.current) {
+      setDay(startWhen.current.day);
+      setTime(startWhen.current.time);
+      fromTitle.current = false;
+    }
+    const tagged = w.listTag ? lists.find((l) => l.name.toLowerCase().replace(/\s+/g, '') === w.listTag || l.name.toLowerCase().startsWith(w.listTag!)) : undefined;
+    if (tagged) setListId(tagged.id);
+  };
   // Lists can arrive after the pop-up opens (the first time Tasks is used).
   useEffect(() => { if (!listId && lists.length) setListId((draft?.mail && listForAccount(draft.mail.accountId)?.id) || defaultList()?.id || lists[0].id); }, [lists, listId, draft]);
   const mail = task?.mail || draft?.mail;
@@ -620,12 +642,16 @@ function TaskEditor({ task, draft }: { task?: Task; draft?: EditorState['draft']
     setDay(c.day);
     setTime(c.day ? c.time : '');
     setTyped(null);
+    touchWhen();
   };
   const save = () => {
     if (!title.trim()) return;
     const c = current();
     const due = c.day ? msAt(c.day, c.time || undefined) : null;
-    const base = { title: title.trim(), notes, due, hasTime: Boolean(c.day && c.time) };
+    // The date words and #list read from a new task's title come out of it.
+    const w = !task ? readTaskWords(title) : undefined;
+    const cleanTitle = w && (fromTitle.current || w.listTag) && w.title.trim() ? (fromTitle.current ? w.title : title.replace(/(^|\s)#[\p{L}\p{N}_-]+/u, '')).trim() : title.trim();
+    const base = { title: cleanTitle, notes, due, hasTime: Boolean(c.day && c.time) };
     // Alerts only mean something with a time, and Microsoft To Do keeps none.
     const chosen = base.hasTime && alertsHere ? alertsOf(alert1, alert2) : undefined;
     if (task) {
@@ -650,7 +676,7 @@ function TaskEditor({ task, draft }: { task?: Task; draft?: EditorState['draft']
       <div className="task-form" onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') save(); }}>
         <div className="row">
           {task ? <TaskRing task={task} /> : <span className="task-ring" aria-hidden />}
-          <input ref={titleRef} className="input grow title" value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Title" placeholder="What needs doing" />
+          <input ref={titleRef} className="input grow title" value={title} onChange={(e) => onTitle(e.target.value)} aria-label="Title" placeholder="What needs doing" />
         </div>
         {mail && (
           <div className="task-from">
@@ -673,16 +699,16 @@ function TaskEditor({ task, draft }: { task?: Task; draft?: EditorState['draft']
               }}
             />
             <button type="button" className="icon-btn day-pick" title="Pick from a calendar" aria-label="Pick from a calendar" onClick={() => { const p = picker.current; if (!p) return; try { p.showPicker(); } catch { p.focus(); } }}><Icon name="calendar" size={14} /></button>
-            <input ref={picker} type="date" className="day-native" tabIndex={-1} aria-hidden value={day} onChange={(e) => { setDay(e.target.value); if (!e.target.value) setTime(''); }} />
+            <input ref={picker} type="date" className="day-native" tabIndex={-1} aria-hidden value={day} onChange={(e) => { touchWhen(); setDay(e.target.value); if (!e.target.value) setTime(''); }} />
           </span>
-          <input type="time" className="input" value={time} disabled={!day && !reading} onChange={(e) => setTime(e.target.value)} aria-label="Due time" />
+          <input type="time" className="input" value={time} disabled={!day && !reading} onChange={(e) => { touchWhen(); setTime(e.target.value); }} aria-label="Due time" />
         </div>
         <div className="row task-when-sub">
           <span className="k" />
           <span className="hint">{typed !== null ? (typed.trim() ? (reading ? showing : 'Type a date, like 18 Nov, Wednesday or next Friday') : 'No date') : day && !time ? 'Add a time to be alerted then.' : ''}</span>
           <span className="grow" />
-          {day && time && <button type="button" className="link-btn" onClick={() => setTime('')}>Clear time</button>}
-          {day && <button type="button" className="link-btn" onClick={() => { setDay(''); setTime(''); setTyped(null); }}>Clear date and time</button>}
+          {day && time && <button type="button" className="link-btn" onClick={() => { touchWhen(); setTime(''); }}>Clear time</button>}
+          {day && <button type="button" className="link-btn" onClick={() => { touchWhen(); setDay(''); setTime(''); setTyped(null); }}>Clear date and time</button>}
         </div>
         {(time || (reading && reading.minutes !== undefined)) && alertsHere && <>
           <div className="row"><label className="k" htmlFor="task-alert">Alert</label>

@@ -24,39 +24,39 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 
 ## Keep an eye on (kept until seen)
 
-- [ ] **The update itself:** beta 1 moves to beta 2 from Settings › Updates, and What's New shows once.
-- [ ] **AI drafts from your EA** end at the sign-off with your signature once.
+- [x] **The update itself:** beta 1 moves to beta 2 from Settings › Updates, and What's New shows once.
+- [x] **AI drafts from your EA** end at the sign-off with your signature once.
 - [ ] **A Send To rule on its own:** the next SocialPilot invoice saves and forwards by itself, once, and shows in What's been sent.
 - [ ] **Find my invoices** reads properly, with Stripe and PayPal receipts listed by the company you paid.
-- [ ] **Show in folder** opens the file's own folder with the file selected.
+- [x] **Show in folder** opens the file's own folder with the file selected.
 
 ## Carried forward (not ticked yet)
 
 ### From 0.7.4 beta 1
 
-- [ ] **Open with › Well Good Mail:** right-click a downloaded .ics file, Open with, pick Well Good Mail. New event opens with the title, time, place and notes filled in.
-- [ ] **Add it:** pick a calendar and Add. Check it on your phone.
+- [x] **Open with › Well Good Mail:** right-click a downloaded .ics file, Open with, pick Well Good Mail. New event opens with the title, time, place and notes filled in.
+- [x] **Add it:** pick a calendar and Add. Check it on your phone.
 - [ ] **Always:** tick "Always use this app" once; after that a double-click on any .ics opens it here.
 - [ ] **A file with no event in it** gives a short message, nothing else.
 - [ ] **App closed or in the tray:** opening an .ics starts or brings up the app and shows the event.
 
 ### From 0.7.3 beta 12
 
-- [ ] **Save as...** on an attachment's right-click opens the Windows box to choose a folder and name.
+- [x] **Save as...** on an attachment's right-click opens the Windows box to choose a folder and name.
 
 ### From 0.7.3 beta 11
 
 - [ ] **New place** fits its dialog; nothing runs past the edge.
-- [ ] **Forward to** suggests your contacts after a short pause as you type (Hubdoc's address too, once you've emailed it); the chosen one shows as a chip and fills in the Name if it's blank.
-- [ ] **Rename the files** (under Save the files in a folder): Add to the start with YYMMDD_ saves Invoice.pdf as 261113_Invoice.pdf (the email's date). Try Add to the end, and Ask each time (it suggests a name; Cancel skips that file). Rules never ask.
-- [ ] **☰ menu:** small grey numbers beside Calendar, Tasks and Invitations (and Scheduled when something's waiting).
+- [x] **Forward to** suggests your contacts after a short pause as you type (Hubdoc's address too, once you've emailed it); the chosen one shows as a chip and fills in the Name if it's blank.
+- [x] **Rename the files** (under Save the files in a folder): Add to the start with YYMMDD_ saves Invoice.pdf as 261113_Invoice.pdf (the email's date). Try Add to the end, and Ask each time (it suggests a name; Cancel skips that file). Rules never ask.
+- [x] **☰ menu:** small grey numbers beside Calendar, Tasks and Invitations (and Scheduled when something's waiting).
 
 ### From 0.7.3 beta 10
 
-- [ ] **Usual width:** each card has its icon and name, no numbers. A red dot in the corner of Tasks when one is late, a blue one on Invitations when new ones are waiting.
+- [x] **Usual width:** each card has its icon and name, no numbers. A red dot in the corner of Tasks when one is late, a blue one on Invitations when new ones are waiting.
 - [ ] **Hover a card** for the numbers ("Tasks: 5 due today, 2 late").
-- [ ] **Drag the sidebar wider:** the numbers appear at the end of the cards (late tasks in red, new invitations in blue) in place of the dots.
-- [ ] **Drag it very narrow:** a row of icons, with the dot on the icon; Settings is just the cog, Help on the right.
+- [x] **Drag the sidebar wider:** the numbers appear at the end of the cards (late tasks in red, new invitations in blue) in place of the dots.
+- [x] **Drag it very narrow:** a row of icons, with the dot on the icon; Settings is just the cog, Help on the right.
 - [ ] Settings (cog and name) with its coral dot, and the ? for Help, underneath.
 
 ### From 0.7.3 beta 9
@@ -65,7 +65,7 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] **Make a place:** Settings › Send To › New place. Bookkeeping: forward to your Hubdoc address, and save the files in your invoices folder by Year › Month.
 - [ ] **Right-click an attachment:** Forward... opens the writing window with just that file. Send to › Bookkeeping forwards it (with Undo) and saves the file; check it arrives in Hubdoc and lands in the right month folder.
 - [ ] **"Always send ... there?"** after sending: Make a rule. The rule shows in Settings › Send To.
-- [ ] **New rule** in Settings › Send To, made by hand.
+- [x] **New rule** in Settings › Send To, made by hand.
 - [ ] **A rule at work:** the next invoice from that sender goes by itself (the app needs to be open, or opened later), once only. What's been sent lists it.
 - [ ] **Several at once:** search "invoice", select a few, right-click › Send to: it asks first, then each goes on its own.
 - [ ] **Find my invoices:** lists your subscription senders; tick one, Make 1 rule, and try "Also send the ones already here" on a short range.
@@ -79,13 +79,13 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 - [ ] The Gmail setup guide no longer opens by itself when your Google key is still saved.
 
 #### Sidebar and menus
-- [ ] Drag the footer cards to reorder; the order stays after a restart.
+- [x] Drag the footer cards to reorder; the order stays after a restart.
 - [ ] **☰ menu:** Scheduled, Calendar, Tasks, Invitations in the same order, then Out of Office, Settings (now with Send To) and Help & Feedback.
-- [ ] **Favourites show once:** Important and Flagged only in Favourites. Remove from Favourites puts one back in its place.
-- [ ] **Right-click an account** in the sidebar: Leave out of All Inboxes / Show in All Inboxes.
+- [x] **Favourites show once:** Important and Flagged only in Favourites. Remove from Favourites puts one back in its place.
+- [x] **Right-click an account** in the sidebar: Leave out of All Inboxes / Show in All Inboxes.
 
 #### Fixes
-- [ ] **AI drafts:** no squashed second signature; "On ... wrote:" sits with the earlier emails. Send one and check the signature is there once.
+- [x] **AI drafts:** no squashed second signature; "On ... wrote:" sits with the earlier emails. Send one and check the signature is there once.
 - [ ] **Drop a file on an AI draft:** it opens in the full editor with the file attached.
 - [ ] **AI Connection › All switches** shows Allow when everything is as high as it goes (Out of Office stays at Ask on purpose).
 
@@ -216,7 +216,10 @@ Beta 2 adds alerts on tasks, smarter quick add, and settings shared with the pho
 
 ## Found in beta 2
 
-(Your feedback goes here.)
+- [ ] **Add to calendar on an email's .ics card** failed with a Google error (participantIsNeitherOrganizerNorAttendee) on a ticket where you aren't listed as a guest. Fixed for beta 3: it's added as an ordinary event instead, and the error words are plain now.
+- [ ] **Date words in the New task title** ("tomorrow at 2 pm") weren't read. Fixed for beta 3: When fills in as you type, and the words come out of the title.
+- [ ] **Forward opened inline.** Replies and forwards follow one setting, now called "Open replies and forwards in their own window" (Settings › Writing). It's on for new installs; tick it on yours.
+- [ ] AI drafts with no signature: that account had none set. Not a bug.
 
 ## If something goes wrong
 

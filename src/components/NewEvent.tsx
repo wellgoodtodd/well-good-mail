@@ -2,6 +2,7 @@
 // options, started from the + New event button, the picked day, a double-click or right-click on the calendar, or
 // Ctrl+Alt+N. Changing: the same full form, from More options in an event's pop-up.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { plainError } from '../lib/plainErrors';
 import { create } from 'zustand';
 import { en } from 'chrono-node';
 import { Icon } from './Icon';
@@ -373,7 +374,7 @@ export function EventForm({ draft, event, onClose, expanded: startExpanded = fal
       }
     } catch (e) {
       setBusy(false);
-      toast({ text: `Couldn't add it: ${e instanceof Error ? e.message : e}`, ttl: 9000 });
+      toast({ text: `Couldn't add it. ${plainError(e).text}`, ttl: 9000 });
     }
   };
 
