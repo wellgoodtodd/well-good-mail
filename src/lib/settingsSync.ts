@@ -7,6 +7,8 @@ import { getGoogleAccessToken } from './auth/google';
 
 const FILE_NAME = 'well-good-mail-settings.json';
 const STAMP_KEY = 'wgm.settingsSync.stamp';
+/** The nicknames and colours last written to the file, so a computer that has never sent them sends them once. */
+const LOOKS_KEY = 'wgm.settingsSync.looks';
 
 /** Things that belong to one computer, not to you. */
 const PER_DEVICE = new Set(['whatsNewSeen', 'keysBackedUpAt', 'syncSettings', 'startWithWindows', 'closeQuits', 'autoUpdate', 'testVersionNotices', 'mcp', 'collapsed']);
@@ -50,22 +52,24 @@ async function findFile(account?: string): Promise<{ id: string; modifiedTime: s
 const stamp = () => Number(localStorage.getItem(STAMP_KEY) || 0);
 const setStamp = (iso: string) => { try { localStorage.setItem(STAMP_KEY, String(Date.parse(iso))); } catch { /* storage unavailable */ } };
 
-/** Fetches the shared settings if they're newer than what this computer last saw. */
-export async function pullSettings(): Promise<void> {
-  if (!settings().syncSettings || !driveAccount()) return;
+/** Fetches the shared settings if they're newer than what this computer last saw. True when this computer is up to date with the file. */
+export async function pullSettings(): Promise<boolean> {
+  if (!settings().syncSettings || !driveAccount()) return false;
   try {
     const f = await findFile();
-    if (!f) return void (await pushSettings());
+    if (!f) { await pushSettings(); return false; }
     fileId = f.id;
-    if (Date.parse(f.modifiedTime) <= stamp()) return;
+    if (Date.parse(f.modifiedTime) <= stamp()) return true;
     const remote = await drive<Record<string, unknown>>(`/files/${f.id}?alt=media`);
     applying = true;
     const patch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(remote)) if (!PER_DEVICE.has(k) && k in useSettings.getState()) patch[k] = v;
     useSettings.getState().set(patch, { quiet: true });
     setStamp(f.modifiedTime);
+    return true;
   } catch (e) {
     console.warn('Settings sync (pull) failed', e);
+    return false;
   } finally {
     applying = false;
   }
@@ -81,6 +85,7 @@ export async function pushSettings(): Promise<void> {
     }
     const saved = await drive<{ modifiedTime: string }>(`/files/${fileId}?uploadType=media&fields=modifiedTime`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(read()) }, true);
     setStamp(saved.modifiedTime);
+    try { localStorage.setItem(LOOKS_KEY, JSON.stringify(accountLooks())); } catch { /* storage unavailable */ }
   } catch (e) {
     console.warn('Settings sync (push) failed', e);
   }
@@ -88,7 +93,14 @@ export async function pushSettings(): Promise<void> {
 
 /** Starts watching: pull at start, every five minutes and on coming to the front; push a few seconds after any change. */
 export function startSettingsSync() {
-  setTimeout(pullSettings, 6000);
+  // Pull first, then send the nicknames and colours if this computer has not sent these ones yet (the file from
+  // before they were shared has none, and nothing else would send them until a setting changed).
+  setTimeout(() => void pullSettings().then((ok) => {
+    if (!ok) return;
+    let sent: string | null = null;
+    try { sent = localStorage.getItem(LOOKS_KEY); } catch { /* storage unavailable */ }
+    if (settings().syncSettings && sent !== JSON.stringify(accountLooks())) void pushSettings();
+  }), 6000);
   // Often enough that a group made on the phone (Well Good Calendar shares this file) turns up here soon.
   setInterval(pullSettings, 5 * 60 * 1000);
   let lastFocus = 0;
