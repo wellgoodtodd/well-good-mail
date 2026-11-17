@@ -1601,7 +1601,8 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .rem-row .title { overflow-wrap: anywhere; }
 
 /* Report a problem (0.7.2 beta 4) */
-.report-form { display: flex; flex-direction: column; gap: 8px; min-width: min(520px, 80vw); }
+.dialog:has(.report-form) { width: min(560px, 94vw); }
+.report-form { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .report-label { font-weight: 600; }
 .report-form textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-input); color: var(--text); font: inherit; padding: 8px 10px; resize: vertical; }
 .report-log { max-height: 220px; overflow: auto; background: var(--bg-subtle, var(--bg)); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font: 11.5px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }

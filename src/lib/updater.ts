@@ -25,7 +25,9 @@ export const useUpdatePending = () => useUpdates((s) => s.status === 'available'
 /** An update that has been downloaded and is waiting for the person to restart. */
 let waiting: { install: () => Promise<void>; version: string } | undefined;
 /** The newest version found, for "Download and restart" when nothing has been downloaded yet. */
-let found: { downloadAndInstall: () => Promise<void> } | undefined;
+let found: { download: () => Promise<void>; install: () => Promise<void> } | undefined;
+/** A look for updates gives up after this, so it can't stay on "Checking...". */
+const CHECK_TIMEOUT = 30000;
 
 // A new version installs by itself when the app has only just been opened. While the app is
 // already open and in use, it downloads quietly and waits for "Restart to update".
@@ -44,7 +46,7 @@ export async function checkForUpdates(opts: { userInitiated?: boolean; atStart?:
     const quiet = !opts.userInitiated && (current === 'available' || current === 'ready' || current === 'downloading');
     useUpdates.setState(quiet ? { currentVersion: await getVersion() } : { status: 'checking', currentVersion: await getVersion() });
     const { check } = await import('@tauri-apps/plugin-updater');
-    const update = await check();
+    const update = await check({ timeout: CHECK_TIMEOUT });
     if (!update) {
       if (!waiting) useUpdates.setState({ status: 'none', checkedAt: Date.now() });
       return;
@@ -56,7 +58,10 @@ export async function checkForUpdates(opts: { userInitiated?: boolean; atStart?:
     useUpdates.setState({ status: 'available', version: update.version, notes: update.body });
     if (opts.atStart && settings().autoUpdate) {
       useUpdates.setState({ status: 'downloading' });
-      await update.downloadAndInstall();
+      await update.download();
+      // Installing closes this copy of the app: mark it as a tidy quit straight before, so it isn't reported as a crash.
+      await cleanExit();
+      await update.install();
       useUpdates.setState({ status: 'ready' });
     } else if (!opts.userInitiated && settings().autoUpdate) {
       // Download quietly, install only when you choose Restart to update.
@@ -77,8 +82,9 @@ export async function installFoundUpdate() {
   if (!found) return;
   try {
     useUpdates.setState({ status: 'downloading' });
+    await found.download();
     await cleanExit();
-    await found.downloadAndInstall();
+    await found.install();
     const { relaunch } = await import('@tauri-apps/plugin-process');
     await relaunch();
   } catch (e) {
@@ -90,18 +96,19 @@ export async function installFoundUpdate() {
 const cleanExit = () => import('./platform').then(({ invoke, isTauri }) => (isTauri() ? invoke('clean_exit') : undefined)).catch(() => undefined);
 
 export async function restartToUpdate() {
-  await cleanExit();
   if (waiting) {
     // One last look, so a version released since the download is the one that gets installed.
     try {
       const { check } = await import('@tauri-apps/plugin-updater');
-      const latest = await check();
-      if (latest && latest.version !== waiting.version) await latest.downloadAndInstall();
-      else await waiting.install();
+      const latest = await check({ timeout: CHECK_TIMEOUT });
+      if (latest && latest.version !== waiting.version) { await latest.download(); await cleanExit(); await latest.install(); }
+      else { await cleanExit(); await waiting.install(); }
     } catch {
+      await cleanExit();
       await waiting.install();
     }
   }
+  await cleanExit();
   const { relaunch } = await import('@tauri-apps/plugin-process');
   await relaunch();
 }

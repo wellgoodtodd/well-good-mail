@@ -25,6 +25,11 @@ Beta 1 brings Backup & Sync (one Well Good Mail folder in Google Drive, automati
 ### Send To rule fix
 - [ ] **A rule made from a mail.com or email.com sender** matches only that address, not everyone. Existing rules still work as before.
 
+### Updates and the crash report
+- [ ] When the app updates itself, the next start doesn't say it closed unexpectedly.
+- [ ] "Checking for updates" gives up after 30 seconds instead of staying stuck.
+- [ ] The "closed unexpectedly" and Report a problem forms fit their card (the text box no longer pokes out).
+
 ## Still to try (carried forward)
 
 ### From 0.7.4 beta 6
