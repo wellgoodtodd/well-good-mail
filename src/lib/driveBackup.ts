@@ -169,8 +169,54 @@ export function restoreBackup(file: BackupFile): BackupAccount[] {
   return missing;
 }
 
+const OFFERED_KEY = 'wgm.setupFromDriveOffered';
+
+/** On a new computer: the newest backup in a Google account's Drive, if there is one. */
+export async function newestBackup(email: string): Promise<BackupListing | undefined> {
+  return (await listBackups(email).catch(() => []))[0];
+}
+
+/**
+ * A new computer (no accounts when the app opened): once the first Google account is added, look in its Drive for a
+ * backup and offer to set this computer up the same way. Offered once.
+ */
+export function offerSetupFromDrive(hadAccounts: boolean) {
+  try { if (hadAccounts || localStorage.getItem(OFFERED_KEY)) return; } catch { return; }
+  const stop = useMail.subscribe((s) => {
+    const google = s.accounts.find((a) => a.kind === 'gmail');
+    if (!google) return;
+    stop();
+    try { localStorage.setItem(OFFERED_KEY, '1'); } catch { /* storage unavailable */ }
+    // Give the sign-in a moment to settle before using Drive.
+    setTimeout(() => void newestBackup(google.email).then((b) => {
+      if (!b) return;
+      const when = new Date(b.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      toast({
+        text: `There's a backup in Google Drive from ${b.device || 'another computer'} (${when}). Set this computer up the same way?`,
+        ttl: 120000,
+        action: { label: 'Set up from backup', run: () => void setUpFrom(b.id, google.email) },
+      });
+    }), 4000);
+  });
+}
+
+async function setUpFrom(id: string, email: string) {
+  try {
+    const missing = restoreBackup(await readBackup(id, email)).filter((a) => a.email.toLowerCase() !== email.toLowerCase());
+    toast({
+      text: missing.length
+        ? `Settings, rules and signatures are back. Add your other accounts in Settings › Accounts: ${missing.map((a) => a.email).join(', ')}.`
+        : 'Settings, rules and signatures are back.',
+      ttl: missing.length ? 30000 : 6000,
+    });
+  } catch (e) { toast({ text: `Couldn't set up from the backup: ${e instanceof Error ? e.message : e}`, ttl: 9000 }); }
+}
+
 /** Checks a minute after starting, then every hour, and backs up when one is due. */
 export function startBackups() {
+  // Only once the saved accounts have loaded, so an existing computer isn't taken for a new one.
+  const whenReady = (s: ReturnType<typeof useMail.getState>) => { if (!s.ready) return false; offerSetupFromDrive(s.accounts.length > 0); return true; };
+  if (!whenReady(useMail.getState())) { const stop = useMail.subscribe((s) => { if (whenReady(s)) stop(); }); }
   const check = () => { const s = settings(); if (!s.demoMode && backupIsDue(s.backupEvery, s.backupLastAt, Date.now())) void backUpNow({ quiet: true }); };
   setTimeout(check, 60000);
   setInterval(check, 3600000);
