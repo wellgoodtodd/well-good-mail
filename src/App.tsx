@@ -45,6 +45,7 @@ import type { View } from './lib/types';
 import { checkReminderAlerts } from './lib/reminders';
 import { startSettingsSync } from './lib/settingsSync';
 import { startBackups } from './lib/driveBackup';
+import { startAccountsToAdd } from './lib/accountsToAdd';
 import { restoreOpenDrafts } from './lib/openDrafts';
 import { CommandPalette } from './components/CommandPalette';
 import { isPopout, isTauri, invoke, onTauriEvent, rememberPopoutSize, setAutostart, setCloseQuits } from './lib/platform';
@@ -613,6 +614,7 @@ function MainWindow() {
     setCloseQuits(useSettings.getState().closeQuits);
     startSettingsSync();
     startBackups();
+    startAccountsToAdd();
     startUpdateChecks();
     startMcpWatch();
     const restore = setTimeout(() => { restoreOpenDrafts().catch(() => {}); }, 3000);

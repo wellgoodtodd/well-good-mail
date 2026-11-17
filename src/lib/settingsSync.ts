@@ -1,6 +1,7 @@
 // Keeps settings the same on every computer, using one small file the app keeps in Google Drive.
 // Drive access is limited to files this app created, so nothing else in Drive is visible to it.
 import { create } from 'zustand';
+import { accountsFromOtherComputers } from './accountsToAdd';
 import { useSettings, settings } from './settings';
 import { useMail, toast, updateAccount } from './mail';
 import type { Account } from './types';
@@ -24,11 +25,12 @@ let failToldThisSession = false;
 /** Things that belong to one computer, not to you. */
 const PER_DEVICE = new Set(['whatsNewSeen', 'keysBackedUpAt', 'syncSettings', 'backupLastAt', 'deviceName', 'startWithWindows', 'closeQuits', 'autoUpdate', 'testVersionNotices', 'mcp', 'collapsed']);
 
-export interface Look { email: string; kind?: string; label?: string; colour?: string }
+export interface Look { email: string; kind?: string; label?: string; colour?: string; imap?: Account['imap'] }
 
 /** Each account's nickname and colour, shared with Well Good Calendar on the phone. The phone can change them too,
  * and changes it made are read back in pullSettings (see looksFromPhone). */
-const accountLooks = (): Look[] => useMail.getState().accounts.map((a) => ({ email: a.email, kind: a.kind, label: a.label, colour: a.colour }));
+// IMAP accounts also carry their server details (never a password), so another computer can offer to add them.
+const accountLooks = (): Look[] => useMail.getState().accounts.filter((a) => a.kind !== 'demo').map((a) => ({ email: a.email, kind: a.kind, label: a.label, colour: a.colour, ...(a.kind === 'imap' && a.imap ? { imap: a.imap } : {}) }));
 
 const readSent = (): Look[] => { try { return JSON.parse(localStorage.getItem(LOOKS_KEY) || '[]') as Look[]; } catch { return []; } };
 
@@ -132,6 +134,7 @@ export async function pullSettings(): Promise<boolean> {
     for (const [k, v] of Object.entries(remote)) if (!PER_DEVICE.has(k) && k in useSettings.getState()) patch[k] = v;
     useSettings.getState().set(patch, { quiet: true });
     takeLooksFromPhone(remote);
+    accountsFromOtherComputers(remote.accounts);
     setStamp(f.modifiedTime);
     return true;
   } catch (e) {

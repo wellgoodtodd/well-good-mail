@@ -19,6 +19,11 @@ Beta 1 brings Backup & Sync (one Well Good Mail folder in Google Drive, automati
 ### A new computer
 - [ ] **Set up from a backup:** on a fresh install, add your first Google account. A note offers the newest backup in Drive ("from Desk PC"). Set up from backup brings back settings, rules and signatures, and lists any other accounts to add in Settings › Accounts.
 
+- [ ] **Backup & Sync card** says which Google account's Drive holds everything, to sign in to first on a new computer.
+- [ ] **Accounts to add (laptop test):** set up from a backup, then Settings › Accounts lists your other accounts, each with Sign in (Google and Microsoft open their sign-in page with the address filled in; iCloud opens the guide with the address and server filled, asking only for the app password). Each comes off the list once added, with its nickname and colour.
+- [ ] **The other way:** add an account on the laptop. Next time the desktop opens (settings sync on), it says it was added on another computer, with Add. Not on this computer takes it off the list for good.
+- [ ] Removing an account on one computer doesn't make the other computer offer it back.
+
 ### Add to event
 - [ ] **Right-click an attachment › Add to event...:** events with the same people or subject come first under Suggested, then the next two weeks. Type to search for any event.
 - [ ] **Pick a Google event:** a note says "Added Agenda.pdf to Board meeting". In Google Calendar the file is on the event, it sits in Well Good Mail › Event files in Drive, and the notes have the From email link.

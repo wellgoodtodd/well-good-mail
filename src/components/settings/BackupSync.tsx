@@ -50,7 +50,7 @@ export function BackupSync() {
     if (!pick) return;
     try {
       const missing = restoreBackup(await readBackup(pick, email));
-      toast({ text: missing.length ? `Restored. Not on this computer yet: ${missing.map((a) => a.email).join(', ')}. Add them in Settings › Accounts.` : 'Restored from the backup', ttl: missing.length ? 12000 : 5000 });
+      toast({ text: missing.length ? `Restored. ${missing.length === 1 ? "One account isn't" : `${missing.length} accounts aren't`} on this computer yet: they're listed in Settings › Accounts to sign in to.` : 'Restored from the backup', ttl: missing.length ? 12000 : 5000 });
     } catch (e) { toast({ text: `Couldn't restore: ${e instanceof Error ? e.message : e}`, ttl: 9000 }); }
   };
 
@@ -71,6 +71,7 @@ export function BackupSync() {
     <section className="set-section">
       <h2>Backup &amp; Sync</h2>
       {!email && <p className="hint" style={{ margin: '0 0 6px' }}>Backup &amp; Sync uses Google Drive, so it needs a Google account in Settings › Accounts.</p>}
+      {email && <p className="backup-home" style={{ margin: '0 0 8px' }}>Kept in the Google Drive of <strong>{email}</strong>. Make a note of it: on a new computer, sign in to this account first and Well Good Mail offers to set itself up from here, then lists your other accounts to sign in to.</p>}
       <Check checked={s.syncSettings} onChange={turnSyncOn}>Keep my settings the same on every computer<span className="check-sub">Uses a small file in your Google Drive. Your keys and mail are never in it.</span></Check>
       {s.syncSettings && <p className="hint" style={{ margin: '2px 0 8px 28px' }}>{lastSaved ? `Last saved to Google Drive: ${when(lastSaved)}` : 'Not saved yet'}</p>}
       <Row label="Back up automatically" htmlFor="backup-every">

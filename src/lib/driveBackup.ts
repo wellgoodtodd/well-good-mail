@@ -4,10 +4,11 @@
 // as they are from settings sync, so a file in Drive can never widen what an AI may do.
 import { create } from 'zustand';
 import { useSettings, settings, type Settings } from './settings';
-import { useMail, toast, updateAccount } from './mail';
+import { useMail, toast, updateAccount, openScreen } from './mail';
 import type { Account } from './types';
 import { BACKUPS, EVENT_FILES, cleanFolderName, driveCall, folderId, moveInto } from './driveFolder';
 import { driveAccount, FILE_NAME as SETTINGS_FILE } from './settingsSync';
+import { wantAccounts } from './accountsToAdd';
 
 export const BACKUP_FORMAT = 'wgm-backup';
 const DAY = 86400000;
@@ -201,6 +202,8 @@ export function restoreBackup(file: BackupFile): BackupAccount[] {
     if (a.colour && a.colour !== acc.colour) patch.colour = a.colour;
     if (Object.keys(patch).length) updateAccount(acc.id, patch);
   }
+  // Listed in Settings › Accounts, each with a Sign in button, ticked off as they're added.
+  wantAccounts(missing, 'backup');
   return missing;
 }
 
@@ -240,9 +243,10 @@ async function setUpFrom(id: string, email: string) {
     const missing = restoreBackup(await readBackup(id, email)).filter((a) => a.email.toLowerCase() !== email.toLowerCase());
     toast({
       text: missing.length
-        ? `Settings, rules and signatures are back. Add your other accounts in Settings › Accounts: ${missing.map((a) => a.email).join(', ')}.`
+        ? `Settings, rules and signatures are back. ${missing.length === 1 ? 'One more account' : `${missing.length} more accounts`} to sign in to, listed in Settings › Accounts.`
         : 'Settings, rules and signatures are back.',
       ttl: missing.length ? 30000 : 6000,
+      ...(missing.length ? { action: { label: 'Show', run: () => openScreen('settings', 'accounts') } } : {}),
     });
   } catch (e) { toast({ text: `Couldn't set up from the backup: ${e instanceof Error ? e.message : e}`, ttl: 9000 }); }
 }

@@ -24,6 +24,7 @@ import { stateWords as oooStateWords, oooSupport, messageFor as messageForOoo, p
 import { AccountName, wantsSignIn, RANGE_OPTS, KeepMail } from './shared';
 import { Seg } from '../ui';
 import { SignatureEditor } from './SignaturesTab';
+import { useAccountsToAdd, signInTo, notOnThisComputer, type WantedAccount } from '../../lib/accountsToAdd';
 
 export type AcctSection = 'signature' | 'sending' | 'calendars' | 'alerts' | 'ai' | 'ooo' | 'mail';
 /** What was open on the Accounts page, so Back (or coming back to Settings) returns to the same account and panel. */
@@ -310,6 +311,36 @@ export function AccountSections({ a, sigLine, calLine }: { a: Account; sigLine: 
   );
 }
 
+const WANTED_KIND: Record<WantedAccount['kind'], string> = { gmail: 'Google', microsoft: 'Microsoft 365', imap: 'Email (IMAP)' };
+
+/** Accounts from a backup or another computer that aren't here yet: one Sign in each, ticked off as they're added. */
+function AccountsToAdd() {
+  const list = useAccountsToAdd((s) => s.list);
+  const busy = useAccountsToAdd((s) => s.busy);
+  if (!list.length) return null;
+  const fromBackup = list.some((a) => a.from === 'backup');
+  return (
+    <section className="set-section to-add">
+      <h2>Accounts to add</h2>
+      <p className="hint">{fromBackup ? 'From your backup. ' : 'Added on another computer. '}Sign in to each one to bring it here. Its nickname and colour come with it. iCloud and other email accounts ask for an app password.</p>
+      <ul className="to-add-list">
+        {list.map((a) => {
+          const k = `${a.kind}:${a.email}`;
+          const kind = a.kind === 'imap' ? IMAP_PRESETS.find((p) => p.host === a.imap?.host)?.name || WANTED_KIND.imap : WANTED_KIND[a.kind];
+          return (
+            <li key={k}>
+              <span className="dot" style={{ background: a.colour || 'var(--text-muted)' }} />
+              <span className="to-add-name"><strong>{a.label || a.email}</strong><span className="hint">{a.label ? `${a.email}, ` : ''}{kind}</span></span>
+              <button className="btn primary small" disabled={Boolean(busy)} onClick={() => void signInTo(a)}>{busy === k ? 'Signing in…' : 'Sign in'}</button>
+              <button className="btn small" onClick={() => notOnThisComputer(a)} title="Take it off this list. It won't be offered here again.">Not on this computer</button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 export function AccountsTab() {
   const accounts = useMail((s) => s.accounts);
   const demo = useSettings((s) => s.demoMode);
@@ -361,6 +392,7 @@ export function AccountsTab() {
   return (
     <>
       <h1>Accounts</h1>
+      <AccountsToAdd />
       {!accounts.some((a) => a.kind !== 'demo') && (
         <section className="set-section">
           <h2>Demo mode</h2>
