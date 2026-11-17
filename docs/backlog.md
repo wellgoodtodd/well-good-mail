@@ -4,7 +4,24 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## 0.7.5 beta 1 (planned, after 0.7.4 is live; Todd, 16 Nov 2026)
+## 0.7.5 beta 1 (built overnight 16 to 17 Nov 2026, not released yet)
+
+Test list: `testing-0.7.5-beta1.md`. Built:
+
+- Well Good Mail folder in Drive (`driveFolder.ts`): found by a hidden tag, so renaming or moving it in Drive is fine. Settings file moved in (same id, so the phone still finds it by name). Event files go to Event files.
+- Automatic backups (`driveBackup.ts`): every day, week or month, keeping 5 to 50 per computer, in Backups › (computer name). Settings, rules, signatures, templates and the account list; never the AI Connection, mail, passwords or keys. Restore is one Undo step.
+- Backup & Sync card in Settings › General (`BackupSync.tsx`). Turning sync on the first time turns on weekly backups.
+- New computer: after the first Google account is added, a note offers the newest backup.
+- Add to event… on attachments (`AddToEvent.tsx`, `eventPick.ts`).
+- Security review of 0.7.4 (private, `docs/security-review-2026-11-0.7.4.md`, not in the repository): no high or critical. Fixed: Send To rules for mail.com, news.com.au and similar no longer match a whole domain ending.
+
+Still to do, for Todd to decide:
+- Security review: Send To rules act on the From line, which can be faked. Proposed: only act when the email passes DMARC, and only save document files (not every attachment).
+- Security review: rules, forwarding addresses and save folders arrive on other computers through settings sync and run without asking. Proposed: keep save folders per computer, and ask once before a synced forwarding rule runs there.
+- Locked logins in the backup (password or passkey), and Add all signing in to each account in turn on a new computer.
+- Undo for Add to event (it needs the file taken off the event again).
+
+## 0.7.5 beta 1 plan (Todd, 16 Nov 2026)
 
 - **Automatic backups to Google Drive:** settings and rules, daily, weekly or monthly (the user picks), keeping older ones. Builds on `src/lib/backup.ts` and `settingsSync.ts`.
 - **A Well Good Mail folder in Drive:** today event files go loose into My Drive (`toDrive` in `gmail.ts`) and `well-good-mail-settings.json` sits in the root too. Put everything in one folder, e.g. "Well Good Mail" with Backups and Event files inside. Move the settings file across (still find the old one). The user can pick a different folder.
