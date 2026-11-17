@@ -13,6 +13,9 @@ Beta 1 brings Backup & Sync (one Well Good Mail folder in Google Drive, automati
 - [ ] **The folder:** Well Good Mail in My Drive holds the settings file (moved in from My Drive, and the phone still finds it), Backups and Event files. Rename it or move it in Drive: the app still uses it.
 - [ ] **Rename this computer:** the next backup goes into a folder with the new name.
 
+- [ ] **Everything in one folder:** about 90 seconds after the first start of beta 1, a new "Well Good Mail" folder appears in Drive with the settings file in it, and files you added to events earlier move into Event files. Your old folder is now "wellgoodmail-old"; the settings file leaves it, and your key doc stays there.
+- [ ] **Back up now** also does that tidy-up and says how many older files it moved.
+
 ### A new computer
 - [ ] **Set up from a backup:** on a fresh install, add your first Google account. A note offers the newest backup in Drive ("from Desk PC"). Set up from backup brings back settings, rules and signatures, and lists any other accounts to add in Settings › Accounts.
 

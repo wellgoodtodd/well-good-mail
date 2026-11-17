@@ -6,8 +6,8 @@ import { create } from 'zustand';
 import { useSettings, settings, type Settings } from './settings';
 import { useMail, toast, updateAccount } from './mail';
 import type { Account } from './types';
-import { BACKUPS, cleanFolderName, driveCall, folderId } from './driveFolder';
-import { driveAccount } from './settingsSync';
+import { BACKUPS, EVENT_FILES, cleanFolderName, driveCall, folderId, moveInto } from './driveFolder';
+import { driveAccount, FILE_NAME as SETTINGS_FILE } from './settingsSync';
 
 export const BACKUP_FORMAT = 'wgm-backup';
 const DAY = 86400000;
@@ -110,6 +110,39 @@ export async function listBackups(email = driveAccount()): Promise<BackupListing
   return r.files.map((f) => ({ id: f.id, name: f.name, device: f.appProperties?.device || '', createdAt: Number(f.appProperties?.at) || Date.parse(f.createdTime), size: f.size ? Number(f.size) : undefined }));
 }
 
+/** Where a file this app made belongs: the settings file at the top of the folder, files put on events in Event
+ * files. Backups (tagged) are already in place, and any other JSON is left alone. */
+export function homeFor(f: { name: string; appProperties?: Record<string, string> }): 'top' | 'events' | undefined {
+  if (f.appProperties?.wgm) return undefined;
+  if (f.name === SETTINGS_FILE) return 'top';
+  if (/\.json$/i.test(f.name)) return undefined;
+  return 'events';
+}
+
+/**
+ * Gathers what earlier versions left loose in Drive into the Well Good Mail folder: the settings file, and files
+ * added to calendar events. The app only sees files it made itself, so nothing else in Drive is touched. Returns how
+ * many it moved.
+ */
+export async function gatherIntoFolder(email = driveAccount()): Promise<number> {
+  if (!email) return 0;
+  const top = await folderId(email);
+  const events = await folderId(email, [EVENT_FILES]);
+  const q = encodeURIComponent(`mimeType != 'application/vnd.google-apps.folder' and trashed=false`);
+  const r = await driveCall<{ files: { id: string; name: string; parents?: string[]; appProperties?: Record<string, string> }[] }>(email, `/files?q=${q}&fields=files(id,name,parents,appProperties)&pageSize=1000`);
+  let moved = 0;
+  for (const f of r.files) {
+    const home = homeFor(f);
+    if (!home) continue;
+    const to = home === 'top' ? top : events;
+    if (f.parents?.includes(to)) continue;
+    try { await moveInto(email, f.id, to); moved++; } catch (e) { console.warn('Not moved into the Well Good Mail folder', f.name, e); }
+  }
+  return moved;
+}
+
+const GATHERED_KEY = 'wgm.driveGathered';
+
 /** Makes a backup now, into this computer's folder, then deletes the oldest past the number to keep. */
 export async function backUpNow(opts: { quiet?: boolean } = {}): Promise<boolean> {
   const email = driveAccount();
@@ -121,6 +154,8 @@ export async function backUpNow(opts: { quiet?: boolean } = {}): Promise<boolean
     const now = Date.now();
     const file = buildBackup(useSettings.getState() as unknown as Record<string, unknown>, useMail.getState().accounts, device, now, await version());
     const folder = await folderId(email, [BACKUPS, device]);
+    // Back up now also tidies older files into the folder, so everything is in one place.
+    const gathered = opts.quiet ? 0 : await gatherIntoFolder(email).catch(() => 0);
     const boundary = `wgm${now.toString(36)}`;
     const meta = { name: backupName(now), mimeType: 'application/json', parents: [folder], appProperties: { wgm: 'backup', device, at: String(now) } };
     const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(file)}\r\n--${boundary}--`;
@@ -129,7 +164,7 @@ export async function backUpNow(opts: { quiet?: boolean } = {}): Promise<boolean
     // Only this computer's own backups are trimmed; other computers look after theirs.
     const mine = (await listBackups(email)).filter((b) => b.device === device);
     for (const old of toPrune(mine, settings().backupKeep)) await driveCall(email, `/files/${old.id}`, { method: 'DELETE' }).catch(() => {});
-    if (!opts.quiet) toast({ text: 'Backed up to Google Drive' });
+    if (!opts.quiet) toast({ text: gathered ? `Backed up to Google Drive, and ${gathered} older file${gathered === 1 ? '' : 's'} moved into the Well Good Mail folder` : 'Backed up to Google Drive' });
     return true;
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
@@ -219,5 +254,11 @@ export function startBackups() {
   if (!whenReady(useMail.getState())) { const stop = useMail.subscribe((s) => { if (whenReady(s)) stop(); }); }
   const check = () => { const s = settings(); if (!s.demoMode && backupIsDue(s.backupEvery, s.backupLastAt, Date.now())) void backUpNow({ quiet: true }); };
   setTimeout(check, 60000);
+  // Once on each computer: gather files from older versions into the folder.
+  setTimeout(() => {
+    const email = driveAccount();
+    try { if (!email || settings().demoMode || localStorage.getItem(GATHERED_KEY) === email) return; } catch { return; }
+    void gatherIntoFolder(email).then(() => { try { localStorage.setItem(GATHERED_KEY, email); } catch { /* storage unavailable */ } }).catch((e) => console.warn('Gathering into the Drive folder failed', e));
+  }, 90000);
   setInterval(check, 3600000);
 }

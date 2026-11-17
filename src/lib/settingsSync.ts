@@ -8,7 +8,7 @@ import { httpFetch } from './platform';
 import { getGoogleAccessToken } from './auth/google';
 import { folderId, moveInto } from './driveFolder';
 
-const FILE_NAME = 'well-good-mail-settings.json';
+export const FILE_NAME = 'well-good-mail-settings.json';
 const STAMP_KEY = 'wgm.settingsSync.stamp';
 /** The nicknames and colours last written to the file, so a computer that has never sent them sends them once, and
  * a nickname or colour in the file that differs from it is known to be a change made on the phone. */

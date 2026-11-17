@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { backupIsDue, backupName, buildBackup, parseBackup, settingsPatch, toPrune, defaultDeviceName } from '../driveBackup';
+import { backupIsDue, backupName, buildBackup, parseBackup, settingsPatch, toPrune, defaultDeviceName, homeFor } from '../driveBackup';
 import { cleanFolderName, folderQuery, qName } from '../driveFolder';
 import type { Account } from '../types';
 
@@ -77,5 +77,12 @@ describe('names', () => {
     expect(qName("Todd's PC")).toBe("'Todd\\'s PC'");
     expect(folderQuery('Backups', 'abc')).toBe("name='Backups' and mimeType='application/vnd.google-apps.folder' and trashed=false and 'abc' in parents");
     expect(folderQuery('Well Good Mail')).toContain("appProperties has { key='wgm' and value='root' }");
+  });
+
+  it('knows where older files belong in the folder', () => {
+    expect(homeFor({ name: 'well-good-mail-settings.json' })).toBe('top');
+    expect(homeFor({ name: 'Agenda.pdf' })).toBe('events');
+    expect(homeFor({ name: 'Well Good Mail backup 2026-11-17 1200.json', appProperties: { wgm: 'backup' } })).toBeUndefined();
+    expect(homeFor({ name: 'other.json' })).toBeUndefined();
   });
 });
