@@ -32,6 +32,17 @@ describe('Send To', () => {
     expect(senderKey('invoice+statements+acct_1AB@stripe.com')).toBe('invoice+statements+acct_1ab@stripe.com');
   });
 
+  it('never makes a rule for a whole domain ending (mail.com, news.com.au)', () => {
+    expect(senderKey('someone@mail.com')).toBe('someone@mail.com');
+    expect(senderKey('someone@email.com')).toBe('someone@email.com');
+    expect(senderKey('desk@news.com.au')).toBe('news.com.au');
+    expect(senderKey('accounts@e.co.uk')).toBe('e.co.uk');
+    expect(senderKey('billing@mail.canva.co.uk')).toBe('canva.co.uk');
+    // A rule saved as just "com" by an older version matches nothing.
+    expect(ruleMatches(rule({ from: 'com' }), msg({ from: { email: 'billing@canva.com' } }))).toBe(false);
+    expect(ruleMatches(rule({ from: 'com.au' }), msg({ from: { email: 'x@shop.com.au' } }))).toBe(false);
+  });
+
   it('runs a rule only on the right sender, with a PDF when asked', () => {
     expect(ruleMatches(rule({}), msg({}))).toBe(true);
     expect(ruleMatches(rule({}), msg({ from: { email: 'billing@mail.canva.com' } }))).toBe(true);

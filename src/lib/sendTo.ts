@@ -121,7 +121,7 @@ export function invoiceAmount(text: string): string {
 
 
 /** Big free email services, where a rule matches the whole address rather than everyone at the domain. */
-const SHARED_DOMAINS = /^(gmail|googlemail|outlook|hotmail|live|msn|icloud|me|mac|aol|proton|protonmail|gmx|yahoo)\./i;
+const SHARED_DOMAINS = /^(gmail|googlemail|outlook|hotmail|live|msn|icloud|me|mac|aol|proton|protonmail|gmx|yahoo|zoho|yandex|fastmail|btinternet|virginmedia|talktalk|ymail|rocketmail|tutanota)\.|^(mail|email|sky)\.com$/i;
 
 /** Payment services that send receipts on behalf of many companies (Stripe, PayPal, Paddle and so on). */
 const PAYMENT_DOMAINS = /(^|\.)(stripe\.com|paypal\.com|paypal\.co\.uk|paddle\.com|paddle\.net|squareup\.com|square\.com|gocardless\.com|chargebee\.com|recurly\.com|fastspring\.com|gumroad\.com|lemonsqueezy\.com|shopify\.com|xero\.com|quickbooks\.com|intuit\.com|sumup\.com|zettle\.com)$/i;
@@ -132,7 +132,16 @@ export function senderKey(email: string): string {
   const domain = e.split('@')[1] || e;
   // Payment services send receipts for many different companies, each from its own address.
   if (SHARED_DOMAINS.test(domain) || PAYMENT_DOMAINS.test(domain)) return e;
-  return domain.replace(/^(mail|email|e|info|billing|invoice|invoices|receipts|no-?reply|news|updates)\./, '');
+  // Drop a sending prefix (mail.canva.com is canva.com), but never down to a bare ending like "com" or "com.au":
+  // a rule for mail.com would otherwise take mail from everyone at every .com address.
+  const shorter = domain.replace(/^(mail|email|e|info|billing|invoice|invoices|receipts|no-?reply|news|updates)\./, '');
+  return shorter !== domain && !isBareEnding(shorter) ? shorter : domain;
+}
+
+/** A domain ending no one sends from on its own: "com", "co.uk", "com.au". A rule for one would match far too much. */
+export function isBareEnding(domain: string): boolean {
+  const parts = domain.split('.').filter(Boolean);
+  return parts.length < 2 || (parts.length === 2 && /^(co|com|org|net|gov|ac|edu|ltd|plc|me|nhs|sch|mod|police)$/.test(parts[0]) && parts[1].length === 2);
 }
 
 /** A name for a sender: "Canva" from canva.com, or the person's name. */
@@ -153,6 +162,8 @@ export function ruleMatches(r: SendRule, m: Pick<Message, 'from' | 'subject' | '
   const want = r.from.trim().toLowerCase();
   if (!want) return false;
   const domain = from.split('@')[1] || '';
+  // A rule saved before the fix above may hold just "com": it matches nothing rather than everyone.
+  if (!want.includes('@') && isBareEnding(want)) return false;
   const fromOk = want.includes('@') ? from === want : domain === want || domain.endsWith(`.${want}`);
   if (!fromOk) return false;
   if (r.needsPdf && !hasPdf(m)) return false;
