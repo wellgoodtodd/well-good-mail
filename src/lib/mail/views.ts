@@ -5,6 +5,7 @@ import { putMessages } from './messages';
 import { type MailState, indexNow, providers, useMail } from './store';
 
 const get = useMail.getState;
+let searchSeq = 0;
 const set = useMail.setState;
 
 /** A place you can go back to: the screen, the mailbox and the email that was open. */
@@ -21,7 +22,13 @@ function remember(next: Partial<Place>) {
 }
 
 const placeNow = (): Place => { const s = get(); return { screen: s.screen, view: s.view, settingsTab: s.settingsTab, selectedKey: s.selectedKey }; };
-const goTo = (place: Place) => ({ screen: place.screen, view: place.view, settingsTab: place.settingsTab, selectedKey: place.selectedKey, selectedKeys: place.selectedKey ? [place.selectedKey] : [], inlineDraftId: undefined });
+// The search box follows the place: back to a search shows its words, back to a mailbox empties it. Without this, the
+// list could be a search with an empty box, and clearing the box did nothing.
+const goTo = (place: Place) => {
+  const searchQuery = place.view.mailbox.kind === 'search' ? place.view.mailbox.query : '';
+  searchSeq++;
+  return { screen: place.screen, view: place.view, settingsTab: place.settingsTab, selectedKey: place.selectedKey, selectedKeys: place.selectedKey ? [place.selectedKey] : [], inlineDraftId: undefined, searchQuery, remoteResults: [], searching: false };
+};
 
 /** Back to where you were: the screen, the mailbox and the email that was open. */
 export function goBack() {
@@ -65,7 +72,6 @@ export function openScreen(screen: MailState['screen'], settingsTab?: string) {
   set({ screen, ...(settingsTab ? { settingsTab } : {}) });
 }
 
-let searchSeq = 0;
 /** Searches the mailbox you are looking at, unless `everywhere` says to search all mail. */
 export async function runSearch(query: string, opts: { everywhere?: boolean } = {}) {
   const q = query.trim();

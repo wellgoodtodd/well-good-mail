@@ -44,16 +44,38 @@ const cleanSubject = (s: string) =>s.replace(/^((re|fwd?|fw|aw)\s*:\s*)+/i, '').
  * future (and after the email was sent), from a person, in the writer's own words.
  */
 export function suggestEvent(m: Pick<Message, 'from' | 'subject' | 'date' | 'listUnsubscribe'>, bodyText: string, now = Date.now(), calendar: CalendarEvent[] = []): Suggestion | undefined {
+  const found = findEvent(m, bodyText, now);
+  return found && withExisting(found, m.subject, calendar);
+}
+
+/** The event an email suggests, without looking in the calendar (the slow part, so it can be done once per email). */
+export function findEvent(m: Pick<Message, 'from' | 'subject' | 'date' | 'listUnsubscribe'>, bodyText: string, now = Date.now()): Suggestion | undefined {
   if (MACHINE.test(m.from.email) || m.listUnsubscribe) return undefined;
   // The subject counts too: "Five a side on Thursday?" with "7pm kick off" in the email.
   const own = ownWords(bodyText);
   if (!own.trim()) return undefined;
   // The email on its own first: a subject like "Quiz night" can run into the first line ("night Monday 16th…")
   // and hide its time. Then with the subject in front, for a day in the subject and a time in the email.
-  return findIn(m, own, now, calendar) || findIn(m, `${cleanSubject(m.subject)}\n${own}`, now, calendar);
+  return findIn(m, own, now) || findIn(m, `${cleanSubject(m.subject)}\n${own}`, now);
 }
 
-function findIn(m: Pick<Message, 'subject' | 'date'>, text: string, now: number, calendar: CalendarEvent[]): Suggestion | undefined {
+/**
+ * Already in the calendar: plainly the same thing (a word of its title in the subject, or the same link) on the same
+ * day within two hours, so a time that moved still finds it. The nearest wins. Something else at that time doesn't count.
+ */
+export function withExisting(found: Suggestion, subject: string, calendar: CalendarEvent[]): Suggestion {
+  const { start, meetingUrl } = found;
+  const words = new Set(wordsOf(subject));
+  const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
+  const existing = calendar
+    .filter((e) => !e.allDay && !e.cancelled && Math.abs(e.start - start) <= 2 * 3600000 && sameDay(e.start, start)
+      && ((meetingUrl && e.meetingUrl === meetingUrl) || wordsOf(e.title).some((w) => words.has(w))))
+    .sort((a, b) => Math.abs(a.start - start) - Math.abs(b.start - start))[0];
+  const { existing: _was, ...rest } = found;
+  return existing ? { ...rest, existing } : rest;
+}
+
+function findIn(m: Pick<Message, 'subject' | 'date'>, text: string, now: number): Suggestion | undefined {
   const results = en.GB.parse(text, new Date(m.date || now), { forwardDate: true });
   const hasDay = (c: (typeof results)[number]['start']) => c.isCertain('day') || c.isCertain('weekday');
   for (const [i, r] of results.entries()) {
@@ -83,16 +105,7 @@ function findIn(m: Pick<Message, 'subject' | 'date'>, text: string, now: number,
     end = endGiven ? end! : start + 60 * 60000;
     const title = cleanSubject(m.subject).replace(/[?!.]+$/, '') || 'Event';
     const meetingUrl = findMeetingUrl(text);
-    // Already in the calendar: plainly the same thing (a word of its title in the subject, or the same link) on the
-    // same day within two hours, so a time that moved still finds it. The nearest wins. Something else at that time
-    // doesn't count.
-    const words = new Set(wordsOf(m.subject));
-    const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
-    const existing = calendar
-      .filter((e) => !e.allDay && !e.cancelled && sameDay(e.start, start) && Math.abs(e.start - start) <= 2 * 3600000
-        && ((meetingUrl && e.meetingUrl === meetingUrl) || wordsOf(e.title).some((w) => words.has(w))))
-      .sort((a, b) => Math.abs(a.start - start) - Math.abs(b.start - start))[0];
-    return { title, start, end, phrase, meetingUrl, ...(endGiven ? { endGiven } : {}), ...(existing ? { existing } : {}) };
+    return { title, start, end, phrase, meetingUrl, ...(endGiven ? { endGiven } : {}) };
   }
   return undefined;
 }

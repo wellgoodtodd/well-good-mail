@@ -441,7 +441,11 @@ function SearchBox() {
   useEffect(() => setText(query), [query]);
   useEffect(() => {
     // Clearing the box goes straight back to the mailbox; typing waits a moment.
-    const t = setTimeout(() => { if (text !== useMail.getState().searchQuery) runSearch(text); }, text.trim() ? 350 : 0);
+    const t = setTimeout(() => {
+      const st = useMail.getState();
+      // An empty box always leaves a search showing, even if the two got out of step.
+      if (text !== st.searchQuery || (!text.trim() && st.view.mailbox.kind === 'search')) runSearch(text);
+    }, text.trim() ? 350 : 0);
     return () => clearTimeout(t);
   }, [text]);
   return (

@@ -7,8 +7,8 @@ import { Dialog, useMenu } from './ui';
 import { create } from 'zustand';
 import { addInviteToCalendar, attachEmailToEvent, emailFiles, emailNotes, updateAddedEvent, canAddToCalendar, canMoveAcross, editEvent, moveEventAcross, providerFor, writableCalendars, toast, useMail } from '../lib/mail';
 import { useSettings } from '../lib/settings';
-import { visibleText } from '../lib/cleanText';
-import { eventDifferences, suggestEvent, whenWords, type Suggestion } from '../lib/suggestEvents';
+import { useEmailSuggestions } from '../lib/emailSuggest';
+import { eventDifferences, withExisting, whenWords, type Suggestion } from '../lib/suggestEvents';
 import type { Invite } from '../lib/invites';
 import { placeFromTitle } from '../lib/places';
 import type { CalendarEvent, Message } from '../lib/types';
@@ -29,10 +29,9 @@ export function SuggestedEvent({ message }: { message: Message }) {
   const [edit, setEdit] = useState<Suggestion | null>(null);
   const menu = useMenu();
   const sender = message.from.email.toLowerCase();
-  const found = useMemo(() => {
-    if (!on || !message.bodyLoaded || message.isDraft) return undefined;
-    return suggestEvent(message, visibleText(message.bodyHtml, message.bodyText, 8000), Date.now(), events);
-  }, [on, message.id, message.bodyLoaded, events]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Read once per email, just after it shows; only the quick calendar check runs again when the calendar changes.
+  const read = useEmailSuggestions(message);
+  const found = useMemo(() => (on && read?.event ? withExisting(read.event, message.subject, events) : undefined), [on, read, message.subject, events]);
   if (added) {
     return <section className="invite-card suggest-card" aria-label="Suggested event"><span className="inv-ok"><Icon name="check" size={14} /> Added to your calendar</span>{lastAdded.current && <button className="btn small" onClick={() => useEventEdit.setState({ editing: lastAdded.current })}>Edit</button>}</section>;
   }

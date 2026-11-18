@@ -1,14 +1,13 @@
 // A quiet card at the top of an email that asks you for something by a day ("Could you send me the venue list by
 // Friday?"): Add task, Not now, or change it first. Nothing is added unless you click. An email that suggests an
 // event shows that card instead.
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from './Icon';
 import { useMenu } from './ui';
 import { useMail } from '../lib/mail';
 import { useSettings } from '../lib/settings';
-import { visibleText } from '../lib/cleanText';
-import { suggestEvent } from '../lib/suggestEvents';
-import { suggestTask, dueWords } from '../lib/suggestTasks';
+import { useEmailSuggestions } from '../lib/emailSuggest';
+import { dueWords } from '../lib/suggestTasks';
 import { addTask, defaultList, listForAccount, startTasks, threadTaskMark, useTasks } from '../lib/tasks';
 import type { Message, TaskMail } from '../lib/types';
 import { rfcIdOf } from '../lib/taskNotes';
@@ -19,20 +18,16 @@ export function SuggestedTask({ message }: { message: Message }) {
   const hidden = useSettings((s) => s.suggestHidden);
   const muted = useSettings((s) => s.suggestMuted);
   const accounts = useMail((s) => s.accounts);
-  const events = useMail((s) => s.events);
   const key = `${message.accountId}|${message.threadId}`;
   const hasTask = useTasks((st) => Boolean(threadTaskMark(st.tasks, key)));
   const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
   const menu = useMenu();
   const sender = message.from.email.toLowerCase();
-  const found = useMemo(() => {
-    if (!on || !message.bodyLoaded || message.isDraft) return undefined;
-    const text = visibleText(message.bodyHtml, message.bodyText, 8000);
-    // An event (a day and a time) is offered instead, when that card is on.
-    if (eventsOn && suggestEvent(message, text, Date.now(), events)) return undefined;
-    return suggestTask(message, text);
-  }, [on, eventsOn, message.id, message.bodyLoaded, events.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Read once per email (shared with the event card), just after it shows.
+  const read = useEmailSuggestions(message);
+  // An event (a day and a time) is offered instead, when that card is on.
+  const found = on && read && !(eventsOn && read.event) ? read.task : undefined;
   const hideKey = `task:${message.id}`;
   if (added) return <section className="invite-card suggest-card" aria-label="Suggested task"><span className="inv-ok"><Icon name="check" size={14} /> Added to Tasks</span></section>;
   if (!found || hasTask || hidden.includes(hideKey) || muted.includes(sender)) return null;
