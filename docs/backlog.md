@@ -4,6 +4,14 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.5 beta 2 (built 18 Nov 2026)
+
+Test list: `testing-0.7.5-beta2.md`. From Todd's first beta 1 feedback:
+
+- Opening emails was slow again: the suggested event and task cards each turned the email into text and ran the date reader, twice, even for newsletters, and again on every calendar refresh. Now read once per email and shared (`emailSuggest.ts`), machine senders and newsletters skipped first, done just after the email shows; only the quick calendar check (`withExisting`) reruns.
+- Search sometimes didn't clear: Back and Forward didn't keep the search box in step (`goTo` in `mail/views.ts`), so the list could be a search with an empty box. An empty box now always leaves a search.
+- Links while writing (`LinkCard.tsx`): click for a card (Open, Edit, Copy, Remove), Ctrl+click opens, right-click items. Edit link used to add a second link when the cursor was in one.
+
 ## 0.7.5 beta 1 (built overnight 16 to 17 Nov 2026, not released yet)
 
 Test list: `testing-0.7.5-beta1.md`. Built:
