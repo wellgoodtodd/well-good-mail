@@ -2,6 +2,7 @@
 // Search, sort and group chips at the top; tick drafts to move, schedule or delete them together; each card
 // opens into a small editor (From, To, Cc, Bcc, Subject and the message) that saves as you go.
 // Keyboard: up and down to move, Enter to open, E for the editor, X to tick, Delete to delete.
+import { LinkCard } from './LinkCard';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { sendLaterOptions, useMenu, type MenuItem } from './ui';
@@ -511,7 +512,7 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
         <FormatBar editor={editor} basic defaultFont={writing.font} defaultSize={writing.size}
           end={<SignaturePicker fromEmail={form.fromEmail} value={form.signatureOf} onChange={(v) => change({ signatureOf: v })} />} />
         <div className="ai-body" onClick={(e) => { if (e.target === e.currentTarget) editor?.commands.focus('end'); }}>
-          <div style={cssToStyle(writingStyle())}><EditorContent editor={editor} onContextMenu={(e) => { if (!editor) return; e.preventDefault(); const at = { x: e.clientX, y: e.clientY }; void editorMenuWithSpelling(editor, at.x, at.y).then((items) => editMenu.open(at, items)); }} /></div>{editMenu.node}
+          <div style={cssToStyle(writingStyle())}><LinkCard editor={editor} /><EditorContent editor={editor} onContextMenu={(e) => { if (!editor) return; e.preventDefault(); const at = { x: e.clientX, y: e.clientY }; void editorMenuWithSpelling(editor, at.x, at.y).then((items) => editMenu.open(at, items)); }} /></div>{editMenu.node}
           {signature && <div className="signature-preview" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signature) }} />}
         </div>
       </div>

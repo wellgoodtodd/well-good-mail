@@ -1,4 +1,5 @@
 // Writing an email: inline in the reading pane, or in its own window.
+import { LinkCard } from './LinkCard';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import DOMPurify from 'dompurify';
@@ -518,7 +519,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
 
       <div className="editor-wrap" onClick={(e) => { if (e.target === e.currentTarget) editor?.commands.focus('end'); }}>
         <div style={cssToStyle(writingCss)}>
-          <EditorContent editor={editor} onContextMenu={(e) => { if (!editor) return; e.preventDefault(); const at = { x: e.clientX, y: e.clientY }; void editorMenuWithSpelling(editor, at.x, at.y).then((items) => menu.open(at, items)); }} />
+          <LinkCard editor={editor} /><EditorContent editor={editor} onContextMenu={(e) => { if (!editor) return; e.preventDefault(); const at = { x: e.clientX, y: e.clientY }; void editorMenuWithSpelling(editor, at.x, at.y).then((items) => menu.open(at, items)); }} />
         </div>
         {s.signaturePlacement === 'above' && signature && <div className="signature-preview" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signature) }} />}
         {draft.driveLinks.length > 0 && (

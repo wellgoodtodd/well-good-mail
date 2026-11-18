@@ -1,4 +1,5 @@
 // Settings › Signatures.
+import { LinkCard } from '../LinkCard';
 import { useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { FormatBar } from '../FormatBar';
@@ -14,7 +15,7 @@ export function SignatureEditor({ email, initial, onChange }: { email: string; i
   return (
     <div className="sig-editor">
       <FormatBar editor={editor} defaultFont={font} defaultSize={size} />
-      <div className="editor-wrap"><EditorContent editor={editor} /></div>
+      <div className="editor-wrap"><EditorContent editor={editor} /><LinkCard editor={editor} /></div>
     </div>
   );
 }

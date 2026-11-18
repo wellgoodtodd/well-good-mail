@@ -1,4 +1,5 @@
 // Out of Office: the Settings page, the amber bar while you're away, the holiday suggestion and "While you were away".
+import { LinkCard } from './LinkCard';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import DOMPurify from 'dompurify';
@@ -41,7 +42,7 @@ export function MessageEditor({ html, onChange, label }: { html: string; onChang
       <FormatBar editor={editor} basic defaultFont={writing.font} defaultSize={writing.size}
         end={<OooInserts onInsert={insert} />} />
       <div className="ai-body ooo-body" onClick={(e) => { if (e.target === e.currentTarget) editor?.commands.focus('end'); }}>
-        <EditorContent editor={editor} />
+        <EditorContent editor={editor} /><LinkCard editor={editor} />
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { Icon, type IconName } from './Icon';
 import { changeIndent, setFontSize, FONT_CHOICES, SIZE_CHOICES } from './editorExtensions';
 import { escapeHtml, textToHtml } from '../lib/mime';
 import { askText } from '../lib/dialogs';
+import { copyLink, linkAt, openLink, removeLink } from './LinkCard';
 
 export async function promptLink(editor: Editor) {
   const prev = editor.getAttributes('link').href as string | undefined;
@@ -16,7 +17,10 @@ export async function promptLink(editor: Editor) {
     return;
   }
   const href = /^(https?:|mailto:)/i.test(url) ? url : `https://${url}`;
-  if (editor.state.selection.empty) {
+  if (prev && editor.isActive('link')) {
+    // Changing a link the cursor is in: the whole link, not a new one beside it.
+    editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+  } else if (editor.state.selection.empty) {
     editor.chain().focus().insertContent(`<a href="${escapeHtml(href)}">${escapeHtml(url)}</a> `).run();
   } else {
     editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
@@ -177,8 +181,21 @@ export function editorMenuItems(editor: Editor): MenuItem[] {
  * suggestions (click one to swap it in) and Add to dictionary, then the usual cut, copy and paste.
  */
 export async function editorMenuWithSpelling(editor: Editor, x: number, y: number): Promise<MenuItem[]> {
-  const rest = editorMenuItems(editor);
   const at = editor.view.posAtCoords({ left: x, top: y });
+  // On a link: Open, Copy and Remove first, and Edit link... works on that link.
+  const a = linkAt(editor, x, y);
+  if (a && at) {
+    if (editor.state.selection.empty) editor.commands.setTextSelection(at.pos);
+    const href = a.getAttribute('href') || '';
+    return [
+      { label: 'Open link in your browser', icon: 'link', kbd: 'Ctrl+click', onClick: () => openLink(href) },
+      { label: 'Copy link address', icon: 'file', onClick: () => copyLink(href) },
+      { label: 'Remove link', icon: 'eraser', onClick: () => removeLink(editor) },
+      { divider: true },
+      ...editorMenuItems(editor),
+    ];
+  }
+  const rest = editorMenuItems(editor);
   if (!at) return rest;
   const $p = editor.state.doc.resolve(at.pos);
   const text = $p.parent.textContent;
