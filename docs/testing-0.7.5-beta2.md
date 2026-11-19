@@ -19,6 +19,14 @@ Beta 2 is beta 1 plus three fixes from your testing: emails open faster, search 
 - [ ] **Edit link** changes that link instead of adding a second one next to it.
 - [ ] The same in AI Drafts, signatures and Out of Office.
 
+### Since beta 2 (in the next beta)
+- [ ] **Ctrl+K everywhere you write:** the AI Drafts card, signatures and Out of Office, as well as the full editor. Tab and Shift+Tab indent there too.
+- [ ] **Select some words, Ctrl+K:** the box has Text to show (your words) and Link. Type or paste the link, Enter: the words become the link.
+- [ ] **Select an address** (like example.com or sam@example.com), Ctrl+K: Link is filled in already.
+- [ ] **Nothing selected, a link on the clipboard:** Ctrl+K fills Link with it, and Text to show follows it tidily (example.com/page) until you type your own words.
+- [ ] **In a link, Ctrl+K:** Edit link, with its words and address. Change either; empty Link takes the link off and keeps the words.
+- [ ] Double-clicking a word and linking it keeps the space after it.
+
 ## Still to try (carried forward)
 
 ### From 0.7.5 beta 1

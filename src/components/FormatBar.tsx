@@ -4,27 +4,58 @@ import { useEffect, useReducer } from 'react';
 import type { Editor } from '@tiptap/core';
 import { Icon, type IconName } from './Icon';
 import { changeIndent, setFontSize, FONT_CHOICES, SIZE_CHOICES } from './editorExtensions';
-import { escapeHtml, textToHtml } from '../lib/mime';
-import { askText } from '../lib/dialogs';
+import { textToHtml } from '../lib/mime';
+import { askLink } from '../lib/dialogs';
+import { asHref, fullHref, linkLabel } from '../lib/linkText';
 import { copyLink, linkAt, openLink, removeLink } from './LinkCard';
 
+/** A web or email address on the clipboard, if there is one (given up after a moment, so the box never waits). */
+async function clipboardLink(): Promise<string | null> {
+  try {
+    const text = await Promise.race([navigator.clipboard.readText(), new Promise<string>((r) => setTimeout(() => r(''), 300))]);
+    return asHref(text || '');
+  } catch { return null; }
+}
+
+/** Ctrl+K: Text to show and Link, filled in from the link the cursor is in, the words selected or an address on the clipboard. */
 export async function promptLink(editor: Editor) {
   const prev = editor.getAttributes('link').href as string | undefined;
-  const url = await askText('Link address', prev || 'https://', 'Add link');
-  if (url === null) return;
-  if (!url || url === 'https://') {
-    editor.chain().focus().extendMarkRange('link').unsetLink().run();
+  const editing = Boolean(prev && editor.isActive('link'));
+  // The whole link when the cursor is in one, otherwise what's selected.
+  if (editing) editor.chain().extendMarkRange('link').run();
+  const sel = editor.state.selection;
+  let { from, to } = sel;
+  // Double-clicking a word also picks up the space after it: leave spaces out of the link.
+  const raw = sel.empty ? '' : editor.state.doc.textBetween(from, to, ' ');
+  from += raw.length - raw.trimStart().length;
+  to -= raw.length - raw.trimEnd().length;
+  const empty = to <= from;
+  if (empty) to = from;
+  const words = raw.trim();
+  const startHref = editing ? prev! : asHref(words) || (await clipboardLink()) || '';
+  const got = await askLink(editing ? 'Edit link' : 'Add link', words, startHref, editing ? 'Save' : 'Add link');
+  if (!got) { editor.commands.focus(); return; }
+  const chain = editor.chain().focus().setTextSelection({ from, to });
+  if (!got.href || got.href === 'https://') {
+    // An empty link takes the link off and keeps the words.
+    if (!empty) chain.unsetLink().run();
+    else editor.commands.focus();
     return;
   }
-  const href = /^(https?:|mailto:)/i.test(url) ? url : `https://${url}`;
-  if (prev && editor.isActive('link')) {
-    // Changing a link the cursor is in: the whole link, not a new one beside it.
-    editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
-  } else if (editor.state.selection.empty) {
-    editor.chain().focus().insertContent(`<a href="${escapeHtml(href)}">${escapeHtml(url)}</a> `).run();
-  } else {
-    editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+  const href = fullHref(got.href);
+  const text = got.text || linkLabel(href);
+  if (!empty && text === words) {
+    chain.setLink({ href }).run();
+    return;
   }
+  // New words: they take the place of the selection, keeping its bold, colour and so on.
+  const keep = (empty ? editor.state.selection.$from.marks() : editor.state.doc.nodeAt(from)?.marks || []).filter((m) => m.type.name !== 'link').map((m) => m.toJSON());
+  chain
+    .insertContentAt({ from, to }, [{ type: 'text', text, marks: [...keep, { type: 'link', attrs: { href } }] }])
+    .unsetMark('link')
+    .run();
+  // Typing carries on outside the link.
+  if (empty) editor.chain().insertContent(' ').run();
 }
 
 export async function pasteAsQuote(editor: Editor) {

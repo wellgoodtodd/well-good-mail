@@ -7,8 +7,8 @@ import { Icon } from './Icon';
 import { RecipientField } from './RecipientField';
 import { SendSplit } from './SendLaterPicker';
 import { SignaturePicker } from './SignaturePicker';
-import { FormatBar, promptLink, pasteAsQuote, editorMenuWithSpelling } from './FormatBar';
-import { editorExtensions, changeIndent } from './editorExtensions';
+import { FormatBar, pasteAsQuote, editorMenuWithSpelling } from './FormatBar';
+import { editorExtensions } from './editorExtensions';
 import { Dialog, fileSize, sendLaterOptions, useMenu, type MenuItem } from './ui';
 import { DraftFilesPreview, draftFile, openDraftFile, previewKind, type DraftFile } from './AttachmentPreview';
 import { base64ToBytes } from '../lib/mime';
@@ -160,19 +160,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
         if (others.length) addFiles(others);
         return true;
       },
-      handleKeyDown: (_view, event) => {
-        if (event.key === 'Tab' && editorRef.current) {
-          event.preventDefault();
-          changeIndent(editorRef.current, event.shiftKey ? -1 : 1);
-          return true;
-        }
-        if (event.key.toLowerCase() === 'k' && (event.ctrlKey || event.metaKey) && editorRef.current) {
-          event.preventDefault();
-          promptLink(editorRef.current);
-          return true;
-        }
-        return false;
-      },
+      // Ctrl+K, Tab and Shift+Tab come from editorExtensions, so every editor has them.
     },
     onUpdate: ({ editor: ed }) => update({ html: ed.getHTML() }),
   });

@@ -44,6 +44,19 @@ const Indent = Extension.create({
   },
 });
 
+/** The writing shortcuts every editor shares (email, AI Drafts, signatures, Out of Office): Ctrl+K for a link, Tab and Shift+Tab to indent. */
+const WritingKeys = Extension.create({
+  name: 'writingKeys',
+  addKeyboardShortcuts() {
+    return {
+      // Loaded when used, so this file stays free of the toolbar and its dialogs.
+      'Mod-k': () => { void import('./FormatBar').then((m) => m.promptLink(this.editor)); return true; },
+      Tab: () => { changeIndent(this.editor, 1); return true; },
+      'Shift-Tab': () => { changeIndent(this.editor, -1); return true; },
+    };
+  },
+});
+
 export function editorExtensions(placeholder = 'Write your email...') {
   return [
     // Tiptap 3's StarterKit brings Underline and Link itself. Its new list keys and trailing paragraph stay off, so the editor behaves as it did on Tiptap 2.
@@ -62,6 +75,7 @@ export function editorExtensions(placeholder = 'Write your email...') {
     Image.configure({ inline: true, allowBase64: true }),
     Placeholder.configure({ placeholder }),
     Indent,
+    WritingKeys,
   ];
 }
 

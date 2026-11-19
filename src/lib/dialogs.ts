@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 
 interface Pending {
-  kind: 'confirm' | 'text' | 'keep' | 'choice' | 'pick';
+  kind: 'confirm' | 'text' | 'keep' | 'choice' | 'pick' | 'link';
   /** For a pick: the tick boxes, and the button wording for what's ticked. */
   options?: PickOption[];
   pickLabel?: (ids: string[]) => string;
@@ -65,6 +65,13 @@ export function askPick(title: string, message: string | undefined, options: Pic
 export function askText(title: string, value = '', confirmLabel = 'OK'): Promise<string | null> {
   return new Promise((resolve) => {
     useDialogs.setState({ pending: { kind: 'text', title, value, confirmLabel, resolve: (v) => resolve(typeof v === 'string' ? v : null) } });
+  });
+}
+
+/** The Add link box: the words shown and where they go. Resolves to both, or null for Cancel. */
+export function askLink(title: string, text: string, href: string, confirmLabel = 'Add link'): Promise<{ text: string; href: string } | null> {
+  return new Promise((resolve) => {
+    useDialogs.setState({ pending: { kind: 'link', title, value: JSON.stringify({ text, href }), confirmLabel, resolve: (v) => resolve(typeof v === 'string' ? JSON.parse(v) as { text: string; href: string } : null) } });
   });
 }
 

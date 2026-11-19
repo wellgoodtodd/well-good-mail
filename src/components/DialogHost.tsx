@@ -1,6 +1,55 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from './ui';
 import { useDialogs, closeDialog } from '../lib/dialogs';
+import { asHref, linkLabel } from '../lib/linkText';
+
+const fieldStyle = { width: '100%', height: 32, border: '1px solid var(--border)', borderRadius: 7, padding: '0 8px', background: 'var(--bg-input)' } as const;
+const labelStyle = { display: 'block', fontSize: '0.88em', color: 'var(--text-muted)', marginBottom: 4 } as const;
+
+/** Add link: the words shown and the link. Each fills the other while it is empty, or while it still holds what was filled in for it. */
+function LinkDialog({ title, start, confirmLabel }: { title: string; start: string; confirmLabel: string }) {
+  const first = JSON.parse(start) as { text?: string; href?: string };
+  const [text, setText] = useState(first.text || '');
+  const [href, setHref] = useState(first.href || '');
+  // The words follow the link until you type your own.
+  const [textFollows, setTextFollows] = useState(!first.text);
+  const textRef = useRef<HTMLInputElement>(null);
+  const hrefRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    // Straight to whichever box still needs something: the link first.
+    const target = !first.href || first.href === 'https://' ? hrefRef.current : !first.text ? textRef.current : hrefRef.current;
+    setTimeout(() => target?.select(), 30);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const changeHref = (v: string) => {
+    setHref(v);
+    if (textFollows) setText(v && v !== 'https://' ? linkLabel(v) : '');
+  };
+  const changeText = (v: string) => {
+    setText(v);
+    setTextFollows(!v);
+    // Typing or pasting an address as the words fills the link too, while it is empty.
+    const h = asHref(v);
+    if (h && (!href || href === 'https://')) setHref(h);
+  };
+  const ok = () => closeDialog(JSON.stringify({ text: text.trim(), href: href.trim() }));
+  const enter = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); ok(); } };
+  return (
+    <Dialog
+      title={title}
+      onClose={() => closeDialog(null)}
+      actions={<>
+        <button className="btn" onClick={() => closeDialog(null)}>Cancel</button>
+        <button className="btn primary" onClick={ok}>{confirmLabel}</button>
+      </>}
+    >
+      <label htmlFor="link-text" style={labelStyle}>Text to show</label>
+      <input id="link-text" ref={textRef} value={text} placeholder="The words people click" onChange={(e) => changeText(e.target.value)} onKeyDown={enter} style={{ ...fieldStyle, marginBottom: 10 }} />
+      <label htmlFor="link-href" style={labelStyle}>Link</label>
+      <input id="link-href" ref={hrefRef} value={href} placeholder="A web or email address" onChange={(e) => changeHref(e.target.value)} onKeyDown={enter} style={fieldStyle} />
+      <p style={{ marginTop: 8, marginBottom: 0, fontSize: '0.88em', color: 'var(--text-muted)' }}>Leave Link empty to take the link off and keep the words.</p>
+    </Dialog>
+  );
+}
 
 export function DialogHost() {
   const pending = useDialogs((s) => s.pending);
@@ -67,6 +116,7 @@ export function DialogHost() {
       </Dialog>
     );
   }
+  if (pending.kind === 'link') return <LinkDialog key={pending.value} title={pending.title} start={pending.value || '{}'} confirmLabel={pending.confirmLabel} />;
   if (pending.kind === 'choice') {
     const list = pending.choices || [];
     const main = list.find((c) => c.primary) || list[list.length - 1];
