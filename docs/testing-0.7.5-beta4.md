@@ -25,6 +25,9 @@ Beta 4 is beta 3 plus fixes from your testing: search no longer leaves rows behi
 - [ ] **Settings › Contact Groups:** rename a group, add or take out people (someone not in contacts yet is added to contacts too), and Delete (people stay in contacts).
 - [ ] **Ask the AI:** in Claude, "add Sam to Trustees" or "take Bob out of Trustees". It asks first, then the change shows in Settings. The first time, the AI app may need reconnecting to see the new tools.
 
+### Menus
+- [ ] **One menu at a time:** right-click a name, then right-click the email's heading. Only the email's menu shows; the first one closes.
+
 ## Still to try (carried forward)
 
 ### From 0.7.5 beta 3

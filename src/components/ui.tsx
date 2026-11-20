@@ -146,10 +146,18 @@ export function Menu({ anchor, items, onClose, align = 'left' }: { anchor: DOMRe
   );
 }
 
+/** Closes whichever menu is open, so opening one menu always closes the last (only one shows at a time). */
+let closeOpenMenu: (() => void) | null = null;
+
 export function useMenu() {
   const [state, setState] = useState<{ anchor: DOMRect | { x: number; y: number }; items: MenuItem[]; align?: 'left' | 'right' } | null>(null);
-  const open = (anchor: DOMRect | { x: number; y: number }, items: MenuItem[], align?: 'left' | 'right') => setState({ anchor, items, align });
-  const node = state ? <Menu anchor={state.anchor} items={state.items} align={state.align} onClose={() => setState(null)} /> : null;
+  const close = () => { setState(null); if (closeOpenMenu === close) closeOpenMenu = null; };
+  const open = (anchor: DOMRect | { x: number; y: number }, items: MenuItem[], align?: 'left' | 'right') => {
+    if (closeOpenMenu && closeOpenMenu !== close) closeOpenMenu();
+    closeOpenMenu = close;
+    setState({ anchor, items, align });
+  };
+  const node = state ? <Menu anchor={state.anchor} items={state.items} align={state.align} onClose={close} /> : null;
   return { open, node };
 }
 
