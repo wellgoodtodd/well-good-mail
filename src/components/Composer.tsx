@@ -8,7 +8,7 @@ import { RecipientField } from './RecipientField';
 import { SendSplit } from './SendLaterPicker';
 import { SignaturePicker } from './SignaturePicker';
 import { FormatBar, pasteAsQuote, editorMenuWithSpelling } from './FormatBar';
-import { editorExtensions } from './editorExtensions';
+import { clickSpaceToWrite, editorExtensions } from './editorExtensions';
 import { Dialog, fileSize, sendLaterOptions, useMenu, type MenuItem } from './ui';
 import { DraftFilesPreview, draftFile, openDraftFile, previewKind, type DraftFile } from './AttachmentPreview';
 import { base64ToBytes } from '../lib/mime';
@@ -64,6 +64,12 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   const sentRef = useRef(false);
   const closingRef = useRef(false);
   draftRef.current = draft;
+  /**
+   * The draft as it was when this opened, if it was already a draft (an AI draft, or one saved before). Closing without
+   * saving puts it back like this instead of deleting it: it stays in Drafts until you send it or delete it.
+   */
+  const keptBefore = useRef<Draft | null | undefined>(undefined);
+  if (draft && keptBefore.current === undefined) keptBefore.current = draft.byAi || draft.serverDraftId || Date.now() - draft.updatedAt > 15000 ? draft : null;
 
   const source = draft?.sourceMessageId ? messages[draft.sourceMessageId] : undefined;
   const aliases = useMemo(() => allAliases(accounts), [accounts]);
@@ -277,8 +283,24 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
     await close();
   }, [keepDraft, close]);
 
-  const discard = useCallback(async () => {
+  /** Throws the email away. Closing without saving (`changesOnly`) keeps a draft that was already there, as it was. */
+  const discard = useCallback(async (opts: { changesOnly?: boolean } = {}) => {
     const d = draftRef.current;
+    const before = keptBefore.current;
+    if (opts.changesOnly && d && before && !d.scheduledAt) {
+      clearTimeout(serverSaveTimer.current);
+      clearTimeout(localSaveTimer.current);
+      const back = { ...before, serverDraftId: d.serverDraftId, serverAccountId: d.serverAccountId, serverDraftMessageId: d.serverDraftMessageId };
+      draftRef.current = back;
+      await store.putDraft(back);
+      // The server copy only needs putting back if it was saved with the changes.
+      if (d.serverDraftMessageId !== before.serverDraftMessageId) await Promise.race([saveToServer(back).catch(() => {}), new Promise((r) => setTimeout(r, 2500))]);
+      sentRef.current = true;
+      const text = d.html === before.html && d.subject === before.subject ? 'Still in your drafts' : "Changes thrown away. It's still in your drafts.";
+      if (isPopout()) broadcast({ type: 'toast', text }); else toast({ text });
+      await close();
+      return;
+    }
     sentRef.current = true;
     clearTimeout(serverSaveTimer.current);
     clearTimeout(localSaveTimer.current);
@@ -294,7 +316,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
       if (d.serverDraftId && d.serverAccountId) providerFor(d.serverAccountId)?.deleteDraft(d.serverDraftId);
     }
     await close();
-  }, [close]);
+  }, [close, saveToServer]);
 
   // The window's own close button (pop out windows). Sent or empty emails just close. Otherwise ask whether to keep it,
   // unless that has been decided in Settings.
@@ -314,7 +336,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
       }
       closingRef.current = true;
       if (choice === 'save') await keepDraft();
-      else await discard();
+      else await discard({ changesOnly: true });
       trackClosed(draftId);
       await closeThisWindow();
     })).then((f) => { off = f; }).catch(() => {});
@@ -505,7 +527,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
         }
       />
 
-      <div className="editor-wrap" onClick={(e) => { if (e.target === e.currentTarget) editor?.commands.focus('end'); }}>
+      <div className="editor-wrap" onClick={clickSpaceToWrite(editor)}>
         <div style={cssToStyle(writingCss)}>
           <LinkCard editor={editor} /><EditorContent editor={editor} onContextMenu={(e) => { if (!editor) return; e.preventDefault(); const at = { x: e.clientX, y: e.clientY }; void editorMenuWithSpelling(editor, at.x, at.y).then((items) => menu.open(at, items)); }} />
         </div>
@@ -566,7 +588,7 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
         </label>
         <span className="grow" />
         <span style={{ color: 'var(--text-faint)', fontSize: '0.86em' }}>{savedAt ? `Draft saved ${new Date(savedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}</span>
-        <button className="icon-btn" title="Discard draft" aria-label="Discard draft" onClick={discard}><Icon name="trash" /></button>
+        <button className="icon-btn" title="Discard draft" aria-label="Discard draft" onClick={() => void discard()}><Icon name="trash" /></button>
       </div>
 
       {bigFiles && (

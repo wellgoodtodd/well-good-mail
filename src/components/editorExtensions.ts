@@ -5,6 +5,8 @@ import { TextStyle, Color, FontFamily } from '@tiptap/extension-text-style';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Image } from '@tiptap/extension-image';
 import { Placeholder } from '@tiptap/extensions';
+import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state';
+import { find as findLinks } from 'linkifyjs';
 
 /** Font size as a text style (e.g. "14pt"). */
 const FontSize = Extension.create({
@@ -57,6 +59,56 @@ const WritingKeys = Extension.create({
   },
 });
 
+/**
+ * Web addresses already in the text become links: in an AI draft, a reply or forward, a saved draft or a signature.
+ * Typing or pasting one is handled by the Link extension itself. Returns null when there is nothing to link.
+ */
+export function linkifyState(state: EditorState): Transaction | null {
+  const link = state.schema.marks.link;
+  if (!link) return null;
+  const tr = state.tr;
+  state.doc.descendants((node, pos, parent) => {
+    if (!node.isText || !node.text || parent?.type.spec.code || node.marks.some((m) => m.type === link || m.type.spec.code)) return;
+    for (const hit of findLinks(node.text)) {
+      if (hit.type !== 'url' || !hit.isLink) continue;
+      tr.addMark(pos + hit.start, pos + hit.end, link.create({ href: hit.href }));
+    }
+  });
+  if (!tr.docChanged) return null;
+  // Not an edit of yours: it doesn't count as a change to the draft or go into Undo.
+  return tr.setMeta('addToHistory', false).setMeta('preventUpdate', true);
+}
+
+/** Runs linkifyState when the editor opens and whenever the app (not your typing) puts new text in it. */
+const LinkAddresses = Extension.create({
+  name: 'linkAddresses',
+  onCreate() {
+    const tr = linkifyState(this.editor.state);
+    if (tr) this.editor.view.dispatch(tr);
+  },
+  addProseMirrorPlugins() {
+    return [new Plugin({
+      key: new PluginKey('linkAddresses'),
+      appendTransaction: (trs, _old, state) => (trs.some((t) => t.docChanged && t.getMeta('preventUpdate') && !t.getMeta('linkAddresses')) ? linkifyState(state)?.setMeta('linkAddresses', true) ?? null : null),
+    })];
+  },
+});
+
+/**
+ * A click on the space around the text puts the cursor at the end. Not after a drag that selected text and let go
+ * outside the text (at the window's edge, say): that click lands on the space too, and would lose the selection.
+ */
+let pressedOn: EventTarget | null = null;
+if (typeof document !== 'undefined') document.addEventListener('mousedown', (e) => { pressedOn = e.target; }, true);
+
+export function clickSpaceToWrite(editor: Editor | null) {
+  return (e: { target: EventTarget; currentTarget: EventTarget }) => {
+    // Pressed and let go on the space itself, not a drag that started in the text.
+    if (e.target !== e.currentTarget || pressedOn !== e.currentTarget || !editor) return;
+    editor.commands.focus('end');
+  };
+}
+
 export function editorExtensions(placeholder = 'Write your email...') {
   return [
     // Tiptap 3's StarterKit brings Underline and Link itself. Its new list keys and trailing paragraph stay off, so the editor behaves as it did on Tiptap 2.
@@ -76,6 +128,7 @@ export function editorExtensions(placeholder = 'Write your email...') {
     Placeholder.configure({ placeholder }),
     Indent,
     WritingKeys,
+    LinkAddresses,
   ];
 }
 

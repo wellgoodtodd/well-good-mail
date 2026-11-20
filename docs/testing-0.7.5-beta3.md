@@ -23,6 +23,13 @@ Beta 3 is beta 2 plus two things: Ctrl+K and a proper link box everywhere you wr
 ### Search
 - [ ] **No leftover rows after a search:** search for someone with several emails in one conversation (like Elena), then clear it. The mailbox comes back clean, with no search rows stuck at the top, and clicking an email highlights only that one.
 
+### Writing
+- [ ] **Web addresses become links:** an AI draft (or a reply, forward or saved draft) with a web address in it shows it as a link straight away, without retyping it.
+- [ ] **Selecting to the edge:** drag to select some text and let go past the left edge of the writing space (or the window). The text stays selected, ready to copy.
+
+### Drafts
+- [ ] **Closing keeps the draft:** open a draft (an AI draft, or one you saved) in its own window and close it with Close without saving. It's still in Drafts, as it was before you opened it. A new email closed the same way is still thrown away.
+
 ## Still to try (carried forward)
 
 ### From 0.7.5 beta 2

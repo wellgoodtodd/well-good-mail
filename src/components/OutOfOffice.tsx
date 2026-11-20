@@ -5,7 +5,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import DOMPurify from 'dompurify';
 import { Icon } from './Icon';
 import { FormatBar } from './FormatBar';
-import { editorExtensions } from './editorExtensions';
+import { clickSpaceToWrite, editorExtensions } from './editorExtensions';
 import { Check, Dialog, Seg, SwitchLine } from './ui';
 import { useMail, providerFor, reconnectAccount, selectThread, setView, toast, openScreen } from '../lib/mail';
 import { threadKey } from '../lib/mailbox';
@@ -41,7 +41,7 @@ export function MessageEditor({ html, onChange, label }: { html: string; onChang
     <div className="ooo-editor">
       <FormatBar editor={editor} basic defaultFont={writing.font} defaultSize={writing.size}
         end={<OooInserts onInsert={insert} />} />
-      <div className="ai-body ooo-body" onClick={(e) => { if (e.target === e.currentTarget) editor?.commands.focus('end'); }}>
+      <div className="ai-body ooo-body" onClick={clickSpaceToWrite(editor)}>
         <EditorContent editor={editor} /><LinkCard editor={editor} />
       </div>
     </div>
