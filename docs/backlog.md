@@ -4,6 +4,17 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.5 beta 3 (built 20 Nov 2026)
+
+Test list: `testing-0.7.5-beta3.md`. From Todd's beta 2 feedback:
+
+- Ctrl+K in every editor (AI Drafts card, signatures, Out of Office): the keys moved from the composer into a shared Tiptap extension in `editorExtensions.ts`.
+- Link box (`askLink` in `dialogs.ts`, `LinkDialog` in `DialogHost.tsx`, `promptLink` in `FormatBar.tsx`, helpers in `linkText.ts`): Text to show and Link, filled from the selection, the link the cursor is in, or an address on the clipboard. Spaces at the ends of a selection stay outside the link.
+- Calendar in its own window (`calendarWindow.ts`): route `#/popout/calendar`, one window at a time (label `popout-calendar`). Events, the longer calendar copy and tasks are kept the same in both windows over the `wgm-calendar` BroadcastChannel; the main window still does the syncing and alerts. Emails open in pop outs, Settings and Help in the main window. Tested in the demo only.
+- README screenshots retaken (already on main).
+
+Before 0.7.5 goes live: the laptop setup test (A new computer, in the test list) and a round up of the rest.
+
 ## 0.7.5 beta 2 (built 18 Nov 2026)
 
 Test list: `testing-0.7.5-beta2.md`. From Todd's first beta 1 feedback:
