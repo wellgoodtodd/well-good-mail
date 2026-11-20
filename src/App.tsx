@@ -48,7 +48,8 @@ import { startBackups } from './lib/driveBackup';
 import { startAccountsToAdd } from './lib/accountsToAdd';
 import { restoreOpenDrafts } from './lib/openDrafts';
 import { CommandPalette } from './components/CommandPalette';
-import { isPopout, isTauri, invoke, onTauriEvent, rememberPopoutSize, setAutostart, setCloseQuits } from './lib/platform';
+import { focusThisWindow, isPopout, isTauri, invoke, onTauriEvent, rememberPopoutSize, setAutostart, setCloseQuits } from './lib/platform';
+import { keepToCalendar, startCalendarSync } from './lib/calendarWindow';
 import { loadGoogleKeys, useGoogleConfigured, useGoogleKeys, calendarEditAllowed } from './lib/auth/google';
 import { loadMicrosoftKeys } from './lib/auth/microsoft';
 import { startUpdateChecks, useUpdates, restartToUpdate, isBetaVersion } from './lib/updater';
@@ -611,7 +612,10 @@ function MainWindow() {
       if (ev.data?.type === 'outbox-changed') adoptOutboxItem(ev.data.id);
       if (ev.data?.type === 'messages-changed') reloadMessagesFromDb();
       if (ev.data?.type === 'toast' && typeof ev.data.text === 'string') toast({ text: ev.data.text });
+      // The Calendar window asking for Settings, Help and the like.
+      if (ev.data?.type === 'open-screen' && typeof ev.data.screen === 'string') { openScreen(ev.data.screen, ev.data.settingsTab); void focusThisWindow(); }
     };
+    startCalendarSync();
     loadGoogleKeys();
     loadMicrosoftKeys();
     setAutostart(useSettings.getState().startWithWindows).catch(() => {});
@@ -844,10 +848,28 @@ function PopoutWindow() {
   const [kind, ...rest] = route.split('/');
   const id = decodeURIComponent(rest.join('/'));
   useEffect(() => {
-    document.title = kind === 'compose' ? 'New email' : 'Email';
+    document.title = kind === 'compose' ? 'New email' : kind === 'calendar' ? 'Calendar' : 'Email';
     rememberPopoutSize(kind);
   }, [kind]);
+  const hasAccounts = useMail((s) => s.accounts.length > 0);
+  useEffect(() => {
+    if (!ready || kind !== 'calendar') return;
+    keepToCalendar();
+    startCalendarSync({ calendarWindow: true });
+  }, [ready, kind]);
   if (!ready) return null;
+  if (kind === 'calendar') {
+    return (
+      <div className="app calendar-window">
+        <div className="main"><Reminders /></div>
+        {hasAccounts && <NewEventHost />}
+        {hasAccounts && <TaskEditorHost />}
+        <EventEditDialog />
+        <DialogHost />
+        <Toasts />
+      </div>
+    );
+  }
   return (
     <div className="app">
       {kind === 'print' ? <PrintPreview threadKey={id} /> : kind === 'compose' ? <Composer draftId={id} variant="full" /> : <ReadingPane threadKeyOverride={id} standalone />}

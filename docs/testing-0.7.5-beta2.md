@@ -26,6 +26,10 @@ Beta 2 is beta 1 plus three fixes from your testing: emails open faster, search 
 - [ ] **Nothing selected, a link on the clipboard:** Ctrl+K fills Link with it, and Text to show follows it tidily (example.com/page) until you type your own words.
 - [ ] **In a link, Ctrl+K:** Edit link, with its words and address. Change either; empty Link takes the link off and keeps the words.
 - [ ] Double-clicking a word and linking it keeps the space after it.
+- [ ] **Calendar in its own window:** on Calendar & Reminders, the pop out button (beside Refresh) opens it in a window of its own, with List, Calendar and Tasks, ready for another screen. Pressing it again brings that window to the front instead of opening a second.
+- [ ] **Both windows stay in step:** add, move or delete an event (or tick a task) in one window and it shows in the other within a second.
+- [ ] **From the Calendar window:** opening an email opens it in a pop out, writing to guests opens the writing window, and Settings links open in the main window and bring it to the front.
+- [ ] The Calendar window remembers its size and which screen it was on.
 
 ## Still to try (carried forward)
 

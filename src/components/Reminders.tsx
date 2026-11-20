@@ -17,6 +17,8 @@ import { TasksView, newTask } from './Tasks';
 import { refreshTasks } from '../lib/tasks';
 import { SelectionBar, clearSelected, toggleSelected, useEventSelection } from './EventSelection';
 import { refreshCalendarCopy, startCalendarCopy } from '../lib/calendarCache';
+import { openCalendarWindow } from '../lib/calendarWindow';
+import { isPopout } from '../lib/platform';
 import type { CalendarEvent, ReminderItem } from '../lib/types';
 
 export function Reminders() {
@@ -81,6 +83,7 @@ export function Reminders() {
             <div className="rem-actions">
               {s.remindersView !== 'tasks' && <InvitationsButton />}
               <CalendarPicker />
+              {!isPopout() && <button className="icon-btn" title="Open the calendar in its own window" aria-label="Open the calendar in its own window" onClick={() => { void openCalendarWindow().then((ok) => { if (!ok) toast({ text: "Couldn't open a new window" }); }); }}><Icon name="popout" /></button>}
               <button className="icon-btn rem-refresh" disabled={refreshing} title={refreshing ? 'Refreshing the calendars' : 'Refresh the calendars'} aria-label={refreshing ? 'Refreshing the calendars' : 'Refresh the calendars'} onClick={refresh}><span style={{ display: 'inline-flex', animation: refreshing ? 'spin 1s linear infinite' : undefined }}><Icon name="refresh" /></span></button>
               {s.remindersView === 'list' && <button className="btn" disabled={!items.length} onClick={() => dismissReminders(items.map((i) => i.id))}>Dismiss all</button>}
               {s.remindersView === 'tasks'

@@ -182,7 +182,7 @@ export async function saveFilesToFolder(files: { filename: string; data: Uint8Ar
 
 /** Open a separate window (pop out) on a route like "compose/abc". */
 /** Returns false when the window couldn't open (the caller then shows it inline). */
-const POPOUT_DEFAULT = { compose: { width: 980, height: 680 }, thread: { width: 980, height: 720 } };
+const POPOUT_DEFAULT = { compose: { width: 980, height: 680 }, thread: { width: 980, height: 720 }, calendar: { width: 1240, height: 820 } };
 
 /** The size this kind of window was last left at, or a wider than tall default. */
 function popoutSize(kind: string, given?: { width: number; height: number }) {
@@ -233,12 +233,12 @@ async function popoutPosition(kind: string): Promise<{ x: number; y: number } | 
   }
 }
 
-export async function openPopout(route: string, title: string, given?: { width: number; height: number }): Promise<boolean> {
+export async function openPopout(route: string, title: string, given?: { width: number; height: number }, windowLabel?: string): Promise<boolean> {
   const size = popoutSize(route.split('/')[0], given);
   const url = `index.html#/popout/${route}`;
   if (isTauri()) {
     const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-    const label = 'popout-' + Math.random().toString(36).slice(2, 10);
+    const label = windowLabel || 'popout-' + Math.random().toString(36).slice(2, 10);
     const at = await popoutPosition(route.split('/')[0]);
     // dragDropEnabled off, like the main window: files dropped onto an email reach the page (to attach them)
     // instead of being taken by Windows first.
@@ -246,7 +246,7 @@ export async function openPopout(route: string, title: string, given?: { width: 
     return true;
   }
   try {
-    return Boolean(window.open(`${location.pathname}#/popout/${route}`, '_blank', `width=${size.width},height=${size.height}`));
+    return Boolean(window.open(`${location.pathname}#/popout/${route}`, windowLabel || '_blank', `width=${size.width},height=${size.height}`));
   } catch {
     return false;
   }
@@ -259,6 +259,18 @@ export async function flashTaskbar(): Promise<void> {
     const { getCurrentWindow, UserAttentionType } = await import('@tauri-apps/api/window');
     await getCurrentWindow().requestUserAttention(UserAttentionType.Informational);
   } catch { /* not allowed or not supported */ }
+}
+
+/** Brings this window to the front (from the tray or minimised too). */
+export async function focusThisWindow(): Promise<void> {
+  if (!isTauri()) { window.focus(); return; }
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const me = getCurrentWindow();
+    await me.unminimize();
+    await me.show();
+    await me.setFocus();
+  } catch { /* not allowed */ }
 }
 
 export async function closeThisWindow(): Promise<void> {
