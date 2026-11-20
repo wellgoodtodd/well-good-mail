@@ -1,6 +1,6 @@
 // A person's name or address, wherever it shows (an email's From, To and Cc, and the chips in a draft).
 // Click: a small card with Copy, Email and Search emails. Right-click: the full menu.
-import { addToContacts, contactAccounts } from '../lib/mail';
+import { addToContacts, addToGroup, contactAccounts, groupAccounts, groupLabel, newContactGroup, removeFromGroup, useMail } from '../lib/mail';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from './Icon';
 import { useMenu, avatarColour, initials, type MenuItem } from './ui';
@@ -17,8 +17,30 @@ const copy = (text: string, what: string) => {
 const firstLine = (el: HTMLElement) => el.getClientRects()[0] || el.getBoundingClientRect();
 const full = (a: Address) => (a.name ? `${a.name} <${a.email}>` : a.email);
 
+/**
+ * Contact groups for one person: tick a group to put them in or take them out, or make a new one. With `everyone`
+ * (the people on an email), also a new group from all of them.
+ */
+export function groupMenu(a: Address, everyone: Address[] = []): MenuItem[] {
+  if (!groupAccounts().length) return [];
+  const groups = useMail.getState().contactGroups;
+  const email = a.email.toLowerCase();
+  const others = everyone.filter((x, i, l) => l.findIndex((y) => y.email.toLowerCase() === x.email.toLowerCase()) === i);
+  return [{
+    label: 'Contact groups', icon: 'user', submenu: [
+      ...groups.map((g): MenuItem => {
+        const inIt = g.members.some((m) => m.email.toLowerCase() === email);
+        return { label: groupLabel(g, groups), icon: inIt ? 'check' : undefined, onClick: () => void (inIt ? removeFromGroup(g.id, [email]) : addToGroup(g.id, [a])) };
+      }),
+      ...(groups.length ? [{ divider: true as const }] : []),
+      { label: 'New group with them…', icon: 'plus', onClick: () => void newContactGroup([a]) },
+      ...(others.length > 1 ? [{ label: `New group from everyone on this email (${others.length})…`, icon: 'plus' as const, onClick: () => void newContactGroup(others) }] : []),
+    ],
+  }];
+}
+
 /** The right-click choices for one address. `extra` adds things like Remove in a draft. */
-export function personItems(a: Address, extra: MenuItem[] = []): MenuItem[] {
+export function personItems(a: Address, extra: MenuItem[] = [], everyone: Address[] = []): MenuItem[] {
   const who = a.name || a.email;
   return [
     { heading: who },
@@ -29,12 +51,13 @@ export function personItems(a: Address, extra: MenuItem[] = []): MenuItem[] {
     { label: 'Show emails with them', icon: 'search', onClick: () => void runSearch(a.email, { everywhere: true }) },
     { label: 'Make a Smart Mailbox for them', icon: 'filter', onClick: () => openSmartEditor({ ...newSmartMailbox(who), rules: [{ field: 'from', value: a.email }] }, '', true) },
     ...(contactAccounts().length ? [{ label: 'Add to contacts', icon: 'user' as const, onClick: () => void addToContacts(a) }] : []),
+    ...groupMenu(a, everyone),
     ...(extra.length ? [{ divider: true as const }, ...extra] : []),
   ];
 }
 
 /** A name you can click for a card, or right-click for the menu. */
-export function Person({ a, children, className }: { a: Address; children?: ReactNode; className?: string }) {
+export function Person({ a, children, className, everyone }: { a: Address; children?: ReactNode; className?: string; /** Everyone on the email, for "New group from everyone". */ everyone?: Address[] }) {
   const menu = useMenu();
   const [card, setCard] = useState<DOMRect | null>(null);
   return (
@@ -46,7 +69,7 @@ export function Person({ a, children, className }: { a: Address; children?: Reac
         title={full(a)}
         onClick={(e) => { e.stopPropagation(); setCard(firstLine(e.currentTarget as HTMLElement)); }}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setCard(firstLine(e.currentTarget as HTMLElement)); } }}
-        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); menu.open({ x: e.clientX, y: e.clientY }, personItems(a)); }}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); menu.open({ x: e.clientX, y: e.clientY }, personItems(a, [], everyone)); }}
       >
         {children ?? (a.name || a.email)}
       </span>

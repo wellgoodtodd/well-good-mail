@@ -11,6 +11,15 @@ export interface Address {
   address?: string;
 }
 
+/** A contact group: a Google Contacts label, like Trustees. Typing its name in To adds everyone in it. */
+export interface ContactGroup {
+  /** The label's id in Google ("contactGroups/abc123"). */
+  id: string;
+  accountId: string;
+  name: string;
+  members: Address[];
+}
+
 /** A "send as" address. Gmail aliases come in automatically. */
 export interface Alias {
   email: string;

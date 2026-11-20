@@ -7,7 +7,7 @@ import type { Folder, Message } from '../types';
 import { makeProvider, startDemo } from './accounts';
 import { keepDraftSource } from './bodies';
 import { lastEventsRefresh, refreshEvents } from './calendar';
-import { refreshAccountPhotos, refreshContacts } from './contacts';
+import { loadContactGroups, refreshAccountPhotos, refreshContactGroups, refreshContacts } from './contacts';
 import { eachStoredSlice, indexStoredMail, updateUnreadBadge } from './messages';
 import { notYetSent } from './outbox';
 import { providers, useMail } from './store';
@@ -58,6 +58,7 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   });
   for (const k of Object.keys(byAcc)) if (!live.has(k)) delete byAcc[k];
   set({ ready: true, accounts, folders: byAcc, messages: map, outbox, snoozes, followups, events, dismissed, contacts });
+  void loadContactGroups();
 
   if (opts.popout) {
     if (opts.route?.startsWith('compose/')) void keepDraftSource(decodeURIComponent(opts.route.slice('compose/'.length)));
@@ -95,6 +96,8 @@ export async function initMail(opts: { popout?: boolean; route?: string } = {}) 
   // Tasks load a little after the calendar, so tasks with a time can alert even before Tasks is opened.
   setTimeout(() => { if (get().accounts.length) void import('../tasks').then((t) => t.startTasks()); }, 6000);
   setTimeout(refreshAccountPhotos, 4000);
+  // Contact groups change in Google Contacts too (on the phone), so they're fetched each time the app opens.
+  setTimeout(() => void refreshContactGroups(), 5000);
   // Every few minutes, so a meeting added at the last minute still gets its notification and banner. Every minute
   // while Calendar & Reminders is open, and on coming back to the window, so changes made on a phone show soon.
   setInterval(() => { if (get().screen !== 'reminders' || Date.now() - lastEventsRefresh() > 170000) void refreshEvents(); }, 3 * 60 * 1000);

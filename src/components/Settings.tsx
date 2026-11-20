@@ -13,6 +13,7 @@ import { GeneralTab } from './settings/GeneralTab';
 import { AccountsTab } from './settings/AccountsTab';
 import { SignaturesTab } from './settings/SignaturesTab';
 import { GroupsTab } from './settings/GroupsTab';
+import { ContactGroupsTab } from './settings/ContactGroupsTab';
 import { AppearanceTab } from './settings/AppearanceTab';
 import { WritingTab, TemplatesTab } from './settings/WritingTab';
 import { NotificationsTab } from './settings/NotificationsTab';
@@ -31,6 +32,7 @@ const TABS = [
   ['signatures', 'Signatures & Addresses'],
   ['ooo', 'Out of Office'],
   ['groups', 'Inbox Groups'],
+  ['contactgroups', 'Contact Groups'],
   ['appearance', 'Appearance'],
   ['writing', 'Composing'],
   ['sendto', 'Send To'],
@@ -46,11 +48,11 @@ const TABS = [
 ] as const;
 
 /** The groups in the Settings list, by what you're doing (not A to Z), with a gap between each. */
-const TAB_GROUPS: string[][] = [['general'], ['accounts', 'signatures', 'ooo', 'groups'], ['appearance', 'writing', 'sendto', 'notifications', 'calendar', 'access'], ['privacy', 'offline', 'ai', 'shortcuts'], ['updates', 'diagnostics']];
+const TAB_GROUPS: string[][] = [['general'], ['accounts', 'signatures', 'ooo', 'groups', 'contactgroups'], ['appearance', 'writing', 'sendto', 'notifications', 'calendar', 'access'], ['privacy', 'offline', 'ai', 'shortcuts'], ['updates', 'diagnostics']];
 
 /** Each tab's icon and colour: a solid, slightly softened tile with a white line icon. */
 const TAB_ICONS: Record<string, [IconName, string]> = {
-  general: ['settings', '#7c7c86'], accounts: ['user', '#3b82f6'], signatures: ['pen', '#8b5cf6'], ooo: ['plane', '#f59e0b'], groups: ['layers', '#14b8a6'],
+  general: ['settings', '#7c7c86'], accounts: ['user', '#3b82f6'], signatures: ['pen', '#8b5cf6'], ooo: ['plane', '#f59e0b'], groups: ['layers', '#14b8a6'], contactgroups: ['user', '#6366f1'],
   appearance: ['contrast', '#ec4899'], writing: ['compose', '#0ea5e9'], sendto: ['send', '#06b6d4'], notifications: ['bell', '#ef4444'], calendar: ['calendar', '#e11d48'], access: ['accessibility', '#3b82f6'],
   privacy: ['shield', '#64748b'], offline: ['database', '#22c55e'], ai: ['sparkle', '#a855f7'], shortcuts: ['keyboard', '#a8a29e'], updates: ['refresh', '#f97316'], diagnostics: ['activity', '#84cc16'],
 };
@@ -63,7 +65,7 @@ const SETTINGS_INDEX: [string, string, string?][] = [
   ['Calendars to show', 'accounts', 'hide calendar'], ['Alerts for an account', 'accounts', 'notifications mute'], ['Keep mail from', 'accounts', 'how much mail offline retention storage'],
   ['Show in All Inboxes', 'accounts', 'combined unified'], ['Resync an account', 'accounts', 'refresh sync'],
   ['Signatures', 'signatures', 'signature sign off'], ['Addresses and default From', 'signatures', 'alias from default'],
-  ['Inbox Groups', 'groups', 'groups'], ['Theme, light and dark', 'appearance', 'dark mode light colours skin'], ['Accent colour', 'appearance', 'colour'],
+  ['Inbox Groups', 'groups', 'groups'], ['Contact Groups', 'contactgroups', 'contacts people email group list trustees board team labels'], ['Theme, light and dark', 'appearance', 'dark mode light colours skin'], ['Accent colour', 'appearance', 'colour'],
   ['Text size', 'access', 'bigger font zoom'], ['Interface font', 'appearance', 'font typeface'], ['Row spacing', 'access', 'density compact roomy'],
   ['Unread colour', 'appearance', 'unread'], ['Composing and writing font', 'writing', 'font compose'], ['Templates', 'writing', 'template canned'],
   ['Undo send', 'writing', 'undo send delay'], ['Spelling: UK, US, Canadian or Australian English', 'writing', 'spelling dictionary language american british us uk'], ['Out of Office', 'ooo', 'vacation holiday auto reply away'],
@@ -138,6 +140,7 @@ export function SettingsScreen() {
         {tab === 'accounts' && <AccountsTab />}
         {tab === 'signatures' && <SignaturesTab />}
         {tab === 'groups' && <GroupsTab />}
+        {tab === 'contactgroups' && <ContactGroupsTab />}
         {tab === 'appearance' && <AppearanceTab />}
         {tab === 'writing' && <><WritingTab /><TemplatesTab /></>}
         {tab === 'sendto' && <SendToTab />}

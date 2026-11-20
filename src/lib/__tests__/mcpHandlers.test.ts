@@ -281,3 +281,69 @@ describe('adding tasks', () => {
     expect(r).toContain('isError');
   });
 });
+
+describe('contact groups', () => {
+  const setup = (level: 'read' | 'write' = 'write', ask: boolean | string[] = true) => {
+    const { w, askFn } = world({ accounts: { a: level, b: 'off' } }, ask);
+    const calls: string[] = [];
+    w.contactGroups = {
+      list: [
+        { id: 'g1', accountId: 'a', name: 'Trustees', members: [{ email: 'ann@x.com', name: 'Ann Lee' }, { email: 'bob@x.com', name: 'Bob Ray' }] },
+        { id: 'g2', accountId: 'b', name: 'Hidden', members: [{ email: 'zed@x.com' }] },
+      ],
+      contacts: [{ email: 'cat@x.com', name: 'Cat Moss' }, { email: 'cal@x.com', name: 'Cal Moss' }],
+      accounts: ['a', 'b'],
+      make: vi.fn(async (acc, name, members) => { calls.push(`make ${acc} ${name} ${members.map((m: { email: string }) => m.email).join(',')}`); return true; }),
+      add: vi.fn(async (id, members) => { calls.push(`add ${id} ${members.map((m: { email: string }) => m.email).join(',')}`); }),
+      remove: vi.fn(async (id, emails) => { calls.push(`remove ${id} ${emails.join(',')}`); }),
+      rename: vi.fn(async (id, name) => { calls.push(`rename ${id} ${name}`); }),
+      remove_group: vi.fn(async (id) => { calls.push(`delete ${id}`); }),
+    };
+    return { w, askFn, calls };
+  };
+
+  it('lists only groups in shared accounts', async () => {
+    const { w } = setup();
+    const r = text(await handleRpc(w, call('list_contact_groups')));
+    expect(r).toContain('Trustees');
+    expect(r).toContain('Ann Lee');
+    expect(r).not.toContain('Hidden');
+  });
+
+  it('adds by name and takes out by name, asking first', async () => {
+    const { w, askFn, calls } = setup();
+    const r = text(await handleRpc(w, call('set_contact_group', { name: 'trustees', add: ['Cat Moss', 'New Person <new@x.com>'], remove: ['Bob'] })));
+    expect(calls).toEqual(['add g1 cat@x.com,new@x.com', 'remove g1 bob@x.com']);
+    expect(askFn.mock.calls[0][0].what).toContain('take out Bob Ray');
+    expect(r).not.toContain('isError');
+  });
+
+  it('says when a name matches more than one contact', async () => {
+    const { w, calls } = setup();
+    const r = text(await handleRpc(w, call('set_contact_group', { name: 'Trustees', add: ['Moss'] })));
+    expect(calls).toEqual([]);
+    expect(r).toContain('more than one contact');
+  });
+
+  it('makes a new group in a Read and write account', async () => {
+    const { w, calls } = setup();
+    await handleRpc(w, call('set_contact_group', { name: 'Board', add: ['ann@x.com'] }));
+    expect(calls).toEqual(['make a Board ann@x.com']);
+  });
+
+  it('leaves Read only accounts alone', async () => {
+    const { w, calls } = setup('read');
+    const r = text(await handleRpc(w, call('set_contact_group', { name: 'Trustees', remove: ['ann@x.com'] })));
+    expect(r).toContain('isError');
+    expect(calls).toEqual([]);
+  });
+
+  it('deletes a group only after a yes', async () => {
+    const no = setup('write', false);
+    await handleRpc(no.w, call('set_contact_group', { name: 'Trustees', delete: true }));
+    expect(no.calls).toEqual([]);
+    const yes = setup();
+    await handleRpc(yes.w, call('set_contact_group', { name: 'Trustees', delete: true }));
+    expect(yes.calls).toEqual(['delete g1']);
+  });
+});

@@ -4,6 +4,10 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## Since 0.7.5 beta 4 (for the next beta)
+
+- Contact Groups (Todd, 20 Nov): Google Contacts labels as email groups. `listContactGroups`, `saveContactGroup`, `deleteContactGroup` and `changeGroupMembers` on the provider (Gmail through the People API, with the `contacts` scope the app already asks for; demo keeps a Trustees group in memory). Store and actions in `mail/contacts.ts` (cached in IndexedDB kv `contactGroups`, fetched each time the app opens and with contacts). In To, Cc and Bcc a group is suggested first and adds its people as separate chips; a chip's right-click has Move to To, Cc or Bcc. Right-click a person › Contact groups (tick to take out, add, new group, new group from everyone on the email); right-click an email › New group from everyone on this email. Settings › Contact Groups to rename, delete and change people. AI connection: `list_contact_groups` and `set_contact_group` (new switch "Change contact groups", Ask by default). Not done: Microsoft (Outlook contact lists aren't in Graph; categories could stand in), and a pop out window only sees group changes from the main window after it reopens.
+
 ## 0.7.5 beta 4 (built 20 Nov 2026)
 
 Test list: `testing-0.7.5-beta4.md`. From Todd's beta 2 and 3 testing:

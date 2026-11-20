@@ -1,11 +1,13 @@
 // Demo mode: pretend accounts and emails so the whole app can be tried and
 // tested without signing in to anything. Nothing leaves the computer.
-import type { Task, TaskList, TaskPatch, Account, Address, Alias, CalendarEvent, ChangeOptions, EmailForEvent, EventCopy, EventPatch, Folder, GuestAnswer, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Task, TaskList, TaskPatch, Account, Address, ContactGroup, Alias, CalendarEvent, ChangeOptions, EmailForEvent, EventCopy, EventPatch, Folder, GuestAnswer, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Rsvp } from '../invites';
 import type { MailProvider, MessageBody, PutBack, SyncResult } from './provider';
 import type { AutoReply } from '../ooo';
 import { htmlToText } from '../mime';
 import { emailsInNotes } from '../google/calendarApi';
+
+let demoGroups: ContactGroup[] | undefined;
 
 const SYSTEM: Record<SystemFolder, string | null> = {
   inbox: 'INBOX', sent: 'SENT', drafts: 'DRAFT', junk: 'SPAM', bin: 'TRASH', flagged: 'STARRED', archive: null,
@@ -446,6 +448,33 @@ export class DemoProvider implements MailProvider {
     const seen = new Map<string, Address>();
     for (const m of getState().messages.values()) for (const a of [m.from, ...m.to, ...m.cc]) seen.set(a.email, a);
     return [...seen.values()];
+  }
+
+  /** Demo: contact groups kept in memory, starting with a Trustees group made from people in the demo mail. */
+  async listContactGroups(): Promise<ContactGroup[]> {
+    if (this.account.id !== 'demo-wgm') return [];
+    if (!demoGroups) {
+      const people = (await this.listContacts()).filter((a) => a.name && !a.email.endsWith('@wellgood.media')).slice(0, 4);
+      demoGroups = [{ id: 'contactGroups/demo1', accountId: this.account.id, name: 'Trustees', members: people }];
+    }
+    return demoGroups.map((g) => ({ ...g, members: [...g.members] }));
+  }
+  async saveContactGroup(g: { id?: string; name: string }): Promise<string> {
+    await this.listContactGroups();
+    if (g.id) { demoGroups = demoGroups!.map((x) => (x.id === g.id ? { ...x, name: g.name } : x)); return g.id; }
+    const id = `contactGroups/demo${Date.now().toString(36)}`;
+    demoGroups!.push({ id, accountId: this.account.id, name: g.name, members: [] });
+    return id;
+  }
+  async deleteContactGroup(id: string): Promise<void> { demoGroups = (demoGroups || []).filter((g) => g.id !== id); }
+  async changeGroupMembers(id: string, add: Address[], remove: string[]): Promise<void> {
+    const out = new Set(remove.map((e) => e.toLowerCase()));
+    demoGroups = (demoGroups || []).map((g) => {
+      if (g.id !== id) return g;
+      const kept = g.members.filter((m) => !out.has(m.email.toLowerCase()));
+      for (const a of add) if (!kept.some((m) => m.email.toLowerCase() === a.email.toLowerCase())) kept.push(a);
+      return { ...g, members: kept };
+    });
   }
 
   /** Demo: changes are only kept until the calendar refreshes. */

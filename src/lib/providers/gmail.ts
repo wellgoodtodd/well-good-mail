@@ -4,7 +4,7 @@ import { forgetGoogleAccessToken, getGoogleAccessToken } from '../auth/google';
 import { base64ToBytes, base64UrlEncode, buildRawMessage, decodeBody, decodeHeader, parseAddressList } from '../mime';
 import { httpFetch } from '../platform';
 import { EVENT_FILES, folderId } from '../driveFolder';
-import type { Account, Address, Alias, AttachmentMeta, EmailForEvent, Task, TaskList, TaskPatch, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, ContactGroup, Alias, AttachmentMeta, EmailForEvent, Task, TaskList, TaskPatch, CalendarEvent, EventGuest, EventCopy, EventPatch, ChangeOptions, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { AutoReply } from '../ooo';
 import { htmlToText, isWorkAccount, ymd } from '../ooo';
 import { CalendarPermissionError, NeedsPermissionError, TasksApiOffError, type MailProvider, type MessageBody, type PutBack, type SyncResult } from './provider';
@@ -502,6 +502,77 @@ export class GmailProvider implements MailProvider {
         method: 'POST',
         body: JSON.stringify({ ...(a.name ? { names: [{ unstructuredName: a.name }] } : {}), emailAddresses: [{ value: a.email }] }),
       }, 0, true);
+    } catch (e) { this.scopeOr(e, 'Contacts'); }
+  }
+
+  /** Each contact's id in Google, by address, so people can be put into and taken out of groups. Filled by listContactGroups. */
+  private personByEmail = new Map<string, string>();
+
+  async listContactGroups(): Promise<ContactGroup[]> {
+    const PEOPLE = 'https://people.googleapis.com/v1';
+    const r = await this.call<{ contactGroups?: { resourceName: string; name?: string; formattedName?: string; groupType?: string }[] }>(`${PEOPLE}/contactGroups?pageSize=1000`);
+    const groups = new Map<string, ContactGroup>();
+    for (const g of r.contactGroups || []) {
+      if (g.groupType === 'USER_CONTACT_GROUP') groups.set(g.resourceName, { id: g.resourceName, accountId: this.account.id, name: g.formattedName || g.name || 'Group', members: [] });
+    }
+    type P = { resourceName: string; names?: { displayName?: string }[]; emailAddresses?: { value: string }[]; memberships?: { contactGroupMembership?: { contactGroupResourceName?: string } }[] };
+    const byEmail = new Map<string, string>();
+    let token: string | undefined;
+    do {
+      const page: { connections?: P[]; nextPageToken?: string } = await this.call(`${PEOPLE}/people/me/connections?personFields=names,emailAddresses,memberships&pageSize=1000${token ? `&pageToken=${token}` : ''}`);
+      for (const p of page.connections || []) {
+        const email = p.emailAddresses?.[0]?.value?.toLowerCase();
+        if (!email) continue;
+        for (const e of p.emailAddresses || []) if (!byEmail.has(e.value.toLowerCase())) byEmail.set(e.value.toLowerCase(), p.resourceName);
+        for (const m of p.memberships || []) {
+          const g = groups.get(m.contactGroupMembership?.contactGroupResourceName || '');
+          // Gmail sends to a contact's first address, so the group does too.
+          if (g) g.members.push({ email, name: p.names?.[0]?.displayName });
+        }
+      }
+      token = page.nextPageToken;
+    } while (token);
+    this.personByEmail = byEmail;
+    return [...groups.values()];
+  }
+
+  async saveContactGroup(g: { id?: string; name: string }): Promise<string> {
+    const PEOPLE = 'https://people.googleapis.com/v1';
+    try {
+      if (!g.id) {
+        const made = await this.call<{ resourceName: string }>(`${PEOPLE}/contactGroups`, { method: 'POST', body: JSON.stringify({ contactGroup: { name: g.name } }) }, 0, true);
+        return made.resourceName;
+      }
+      const now = await this.call<{ etag: string }>(`${PEOPLE}/${g.id}`, {}, 0, true);
+      await this.call(`${PEOPLE}/${g.id}`, { method: 'PUT', body: JSON.stringify({ contactGroup: { name: g.name, etag: now.etag }, updateGroupFields: 'name' }) }, 0, true);
+      return g.id;
+    } catch (e) { this.scopeOr(e, 'Contacts'); }
+  }
+
+  async deleteContactGroup(id: string): Promise<void> {
+    try {
+      await this.call(`https://people.googleapis.com/v1/${id}?deleteContacts=false`, { method: 'DELETE' }, 0, true);
+    } catch (e) { this.scopeOr(e, 'Contacts'); }
+  }
+
+  async changeGroupMembers(id: string, add: Address[], remove: string[]): Promise<void> {
+    const PEOPLE = 'https://people.googleapis.com/v1';
+    try {
+      const toAdd: string[] = [];
+      for (const a of add) {
+        const known = this.personByEmail.get(a.email.toLowerCase());
+        if (known) { toAdd.push(known); continue; }
+        // Not a contact yet: make one, already in the group.
+        const made = await this.call<{ resourceName: string }>(`${PEOPLE}/people:createContact`, {
+          method: 'POST',
+          body: JSON.stringify({ ...(a.name ? { names: [{ unstructuredName: a.name }] } : {}), emailAddresses: [{ value: a.email }], memberships: [{ contactGroupMembership: { contactGroupResourceName: id } }] }),
+        }, 0, true);
+        this.personByEmail.set(a.email.toLowerCase(), made.resourceName);
+      }
+      const toRemove = remove.map((e) => this.personByEmail.get(e.toLowerCase())).filter(Boolean) as string[];
+      if (toAdd.length || toRemove.length) {
+        await this.call(`${PEOPLE}/${id}/members:modify`, { method: 'POST', body: JSON.stringify({ resourceNamesToAdd: toAdd, resourceNamesToRemove: toRemove }) }, 0, true);
+      }
     } catch (e) { this.scopeOr(e, 'Contacts'); }
   }
 

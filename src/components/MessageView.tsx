@@ -10,7 +10,7 @@ import { InviteCard } from './InviteCard';
 import { AttachmentPeek, AttachmentPreview, FileCard, previewKind } from './AttachmentPreview';
 import { avatarColour, fileSize, fullDate, initials, useMenu, type MenuItem } from './ui';
 import { renderEmail, plainTextOf } from '../lib/render';
-import { loadBody, refetchBody, looksGarbled, getAttachmentData, markRead, messagesInThread, useMail, unsubscribe, toggleVip, toast } from '../lib/mail';
+import { loadBody, refetchBody, looksGarbled, getAttachmentData, markRead, messagesInThread, useMail, unsubscribe, toggleVip, toast, groupAccounts, newContactGroup } from '../lib/mail';
 import { useSettings } from '../lib/settings';
 import { SuggestedEvent } from './SuggestedEvent';
 import { SuggestedTask } from './SuggestedTask';
@@ -255,6 +255,7 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
       : { label: 'Mark as unread', icon: 'mail', onClick: () => markRead([message.id], false, { exact: true }) },
     { label: 'Mark as unread from here', icon: 'mail', onClick: () => markRead(messagesInThread(threadKey(message)).filter((m) => m.date >= message.date).map((m) => m.id), false, { exact: true }) },
     ...(!message.isDraft ? [{ label: 'Make a task', icon: 'check' as const, onClick: () => void import('./Tasks').then((t) => t.makeTaskFromEmail(message)) }] : []),
+    ...(groupAccounts().length && message.to.length + message.cc.length > 0 ? [{ label: 'New group from everyone on this email…', icon: 'user' as const, onClick: () => void newContactGroup([message.from, ...message.to, ...message.cc]) }] : []),
     { divider: true },
     { label: vips.includes(sender) ? 'Remove from important senders' : 'Mark sender as important', icon: 'star', onClick: () => toggleVip(sender) },
     { label: trusted.includes(sender) ? 'Stop loading images from this sender' : 'Always load images from this sender', icon: 'imageOff', onClick: () => toggleIn('trustedSenders', sender) },
@@ -296,12 +297,12 @@ ${href}`, 'Open anyway').then((ok) => ok && open()) : open()) }, { label: 'Copy 
         <span className="avatar" style={{ background: avatarColour(sender) }}>{initials(name)}</span>
         <div className="msg-who" onClick={onToggle} title="Click to fold this message away">
           <div className="name">
-            {message.isDraft && <span className="draft-tag">Draft</span>}<Person a={message.from}>{name} <span className="addr">&lt;{message.from.email}&gt;</span></Person>
+            {message.isDraft && <span className="draft-tag">Draft</span>}<Person a={message.from} everyone={[message.from, ...message.to, ...message.cc]}>{name} <span className="addr">&lt;{message.from.email}&gt;</span></Person>
             {vips.includes(sender) && <span title="Important sender" style={{ color: '#f0a020', marginLeft: 6 }}><Icon name="star" size={12} /></span>}
           </div>
           <div className="to">
-            To: {message.to.length ? message.to.map((a, i) => <span key={a.email + i}>{i > 0 && ', '}<Person a={a} /></span>) : '(undisclosed)'}
-            {message.cc.length > 0 && <> · Cc: {message.cc.map((a, i) => <span key={a.email + i}>{i > 0 && ', '}<Person a={a} /></span>)}</>}
+            To: {message.to.length ? message.to.map((a, i) => <span key={a.email + i}>{i > 0 && ', '}<Person a={a} everyone={[message.from, ...message.to, ...message.cc]} /></span>) : '(undisclosed)'}
+            {message.cc.length > 0 && <> · Cc: {message.cc.map((a, i) => <span key={a.email + i}>{i > 0 && ', '}<Person a={a} everyone={[message.from, ...message.to, ...message.cc]} /></span>)}</>}
           </div>
         </div>
         <div className="msg-date">

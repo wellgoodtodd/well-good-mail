@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { store } from '../db';
 import type { MailProvider } from '../providers/provider';
 import { MessageIndex, type Counts } from '../messageIndex';
-import type { Account, Address, CalendarEvent, Folder, FollowUp, Message, OutboxItem, Snooze, View } from '../types';
+import type { Account, Address, CalendarEvent, ContactGroup, Folder, FollowUp, Message, OutboxItem, Snooze, View } from '../types';
 import type { Place } from './views';
 
 export const providers = new Map<string, MailProvider>();
@@ -58,6 +58,8 @@ export interface MailState {
   calendarNames: Record<string, string[]>;
   dismissed: Set<string>;
   contacts: Address[];
+  /** Contact groups (Google Contacts labels) from every account that has them. */
+  contactGroups: ContactGroup[];
   toasts: Toast[];
   /** The last 20 notes, for the Recent list in the toolbar (this session only). */
   notes: (Toast & { at: number; used?: boolean })[];
@@ -118,6 +120,7 @@ export const useMail = create<MailState>(() => ({
   calendarNames: {},
   dismissed: new Set(),
   contacts: [],
+  contactGroups: [],
   toasts: [],
   notes: [],
   notesUnseen: false,

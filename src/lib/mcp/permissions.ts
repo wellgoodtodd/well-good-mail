@@ -33,6 +33,7 @@ export const CAPABILITIES: Capability[] = [
   { id: 'organise.snooze', group: 'organise', label: 'Snooze and follow up', description: 'Snooze an email, or ask to be reminded if nobody replies.', fallback: 'ask', max: 'allow' },
   { id: 'organise.remind', group: 'organise', label: 'Make reminders', description: 'Add a reminder to your Reminders list.', fallback: 'ask', max: 'allow' },
   { id: 'organise.task', group: 'organise', label: 'Add tasks', description: 'Add a task to your Google Tasks or Microsoft To Do, in the list chosen in Settings › Calendar & Reminders › Tasks.', fallback: 'ask', max: 'allow' },
+  { id: 'contacts.groups', group: 'organise', label: 'Change contact groups', description: 'Make contact groups like Trustees, and add or take people out of them. They are kept in Google Contacts.', fallback: 'ask', max: 'allow' },
   { id: 'organise.bin', group: 'organise', label: 'Move to Bin', description: 'Put emails in the Bin, where you can still get them back.', fallback: 'off', max: 'allow' },
   // Calendar (answers other people)
   { id: 'calendar.reply', group: 'calendar', label: 'Answer invitations', description: 'Say Yes, No or Maybe. The organiser is told, so it always asks.', fallback: 'ask', max: 'ask' },

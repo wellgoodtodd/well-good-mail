@@ -201,6 +201,19 @@ async function answer(rid: number, conn: number, body: string) {
       turnOn: async (plan) => (await import('../oooStore')).turnOnOoo(plan),
       turnOff: async (ids) => (await import('../oooStore')).turnOffOoo(ids),
     },
+    contactGroups: await (async () => {
+      const c = await import('../mail/contacts');
+      return {
+        list: mail.contactGroups,
+        contacts: mail.contacts,
+        accounts: c.groupAccounts().map((a) => a.id),
+        make: async (accountId: string, name: string, members: { email: string; name?: string }[]) => Boolean(await c.newContactGroup(members, { name, accountId })),
+        add: (id: string, members: { email: string; name?: string }[]) => c.addToGroup(id, members, true),
+        remove: (id: string, emails: string[]) => c.removeFromGroup(id, emails, true),
+        rename: (id: string, name: string) => c.renameContactGroup(id, name),
+        remove_group: (id: string) => c.deleteContactGroup(id, false),
+      };
+    })(),
     calendarGroups: {
       list: settings().calendarGroups,
       current: settings().calendarGroup,

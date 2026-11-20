@@ -3,7 +3,7 @@
 import { decide, sharedAccounts, alwaysAsks, LEVEL_WORDS, RateLimit, type McpSettings } from './permissions';
 import { READY, TOOLS, logLine, toolByName, type ToolSpec } from './tools';
 import { cleanPreview, visibleText, stripFiller } from '../cleanText';
-import type { Account, CalendarEvent, Folder, FollowUp, Message } from '../types';
+import type { Account, Address, CalendarEvent, ContactGroup, Folder, FollowUp, Message } from '../types';
 import { BACK_TOKEN, TEMPLATES as BUILT_IN_OOO, oooSupport, stateWords, textToHtml, whenSentence, htmlToText, fillBackDate, windowOf, type AutoReply, type OooPlan } from '../ooo';
 import { applyTemplate, findTemplate, templateSummary, type OooTemplate } from '../oooTemplates';
 
@@ -71,6 +71,18 @@ export interface McpWorld {
     status: (ids: string[]) => Promise<Record<string, AutoReply | { error: string }>>;
     turnOn: (plan: OooPlan) => Promise<{ done: string[]; failed: string[] }>;
     turnOff: (ids: string[]) => Promise<{ done: string[]; failed: string[] }>;
+  };
+  /** Contact groups (Google Contacts labels), the contacts to find people in by name, and the changes. */
+  contactGroups?: {
+    list: ContactGroup[];
+    contacts: Address[];
+    /** Accounts that can keep groups. */
+    accounts: string[];
+    make: (accountId: string, name: string, members: Address[]) => Promise<boolean>;
+    add: (id: string, members: Address[]) => Promise<void>;
+    remove: (id: string, emails: string[]) => Promise<void>;
+    rename: (id: string, name: string) => Promise<void>;
+    remove_group: (id: string) => Promise<void>;
   };
   /** Calendar Groups: the groups, the calendars each account has, and saving the list. */
   calendarGroups?: { list: CalendarGroup[]; current: string; calendars: Record<string, string[]>; save: (list: CalendarGroup[]) => void };
@@ -148,6 +160,19 @@ const SCHEMAS: Record<string, object> = {
       list: { type: 'string', description: 'Optional list name from list_tasks. Leave out to use the list the person chose for AI apps.' },
     },
     required: ['title'],
+  },
+  list_contact_groups: { type: 'object', properties: {} },
+  set_contact_group: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'The group\'s name, like Trustees. A group with this name is changed; otherwise a new one is made.' },
+      account: { type: 'string', description: 'Optional account id (from list_accounts) for a new group. Leave out to use the first Google account set to Read and write.' },
+      add: { type: 'array', items: { type: 'string' }, description: 'People to add: email addresses like "Sam Smith <sam@example.com>", or names already in contacts. Someone not in contacts is added to contacts too.' },
+      remove: { type: 'array', items: { type: 'string' }, description: 'People to take out, by email address or by their name in the group. They stay in contacts.' },
+      rename: { type: 'string', description: 'Optional new name for the group.' },
+      delete: { type: 'boolean', description: 'True to delete the group. The people stay in contacts.' },
+    },
+    required: ['name'],
   },
   get_calendar_groups: { type: 'object', properties: {} },
   set_calendar_group: {
@@ -475,6 +500,77 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
           note: note(leftOut),
         },
         logText: logLine(tool, { verb: off ? 'turn off' : 'set' }),
+      };
+    }
+    case 'list_contact_groups': {
+      if (!w.contactGroups) throw new Error('Contact groups are not available here.');
+      await permitPlain(w, tool, 'see your contact groups');
+      return {
+        data: { groups: w.contactGroups.list.filter((g) => shared.includes(g.accountId)).map((g) => ({ name: g.name, account: g.accountId, accountName: accName(byId(g.accountId)), people: g.members.map(who) })) },
+        logText: 'Looked at contact groups',
+      };
+    }
+    case 'set_contact_group': {
+      if (!w.contactGroups) throw new Error('Contact groups are not available here.');
+      const cgs = w.contactGroups;
+      const name = typeof args.name === 'string' ? args.name.trim().slice(0, 60) : '';
+      if (!name) throw new Error('Give the group a name.');
+      const visible = cgs.list.filter((g) => shared.includes(g.accountId) && (!oneAccount || g.accountId === oneAccount));
+      const old = visible.find((g) => g.name.toLowerCase() === name.toLowerCase());
+      const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && Boolean(x.trim())).slice(0, 200) : []);
+      // Someone to add: an address, or a name that matches exactly one contact.
+      const notFound: string[] = [];
+      const toAdd: Address[] = [];
+      for (const s of strings(args.add)) {
+        const a = parseAddress(s);
+        if (a) { toAdd.push(a); continue; }
+        const q = s.trim().toLowerCase();
+        const hits = cgs.contacts.filter((c) => c.name?.toLowerCase() === q);
+        const near = hits.length ? hits : cgs.contacts.filter((c) => c.name?.toLowerCase().includes(q));
+        if (near.length === 1) toAdd.push({ email: near[0].email, name: near[0].name });
+        else notFound.push(near.length > 1 ? `${s} (more than one contact matches: give the address)` : s);
+      }
+      const toRemove: string[] = [];
+      for (const s of strings(args.remove)) {
+        const a = parseAddress(s);
+        const q = s.trim().toLowerCase();
+        const hits = old ? old.members.filter((m) => (a ? m.email.toLowerCase() === a.email : m.name?.toLowerCase().includes(q))) : [];
+        if (hits.length === 1) toRemove.push(hits[0].email); else notFound.push(hits.length > 1 ? `${s} (more than one person in the group matches: give the address)` : `${s} (not in the group)`);
+      }
+      const list = (xs: { email: string; name?: string }[]) => xs.map((x) => x.name || x.email).join(', ');
+      if (args.delete === true) {
+        if (!old) throw new Error(`There is no contact group called "${name}".`);
+        await permitAccounts(w, tool, [old.accountId], () => `delete the contact group "${old.name}" (the people stay in your contacts)`);
+        await cgs.remove_group(old.id);
+        return { data: { deleted: old.name }, logText: logLine(tool, { name: old.name }) };
+      }
+      if (!old) {
+        const writable = cgs.accounts.filter((id) => shared.includes(id) && w.settings.accounts[id] === 'write');
+        const acc = oneAccount ? writable.find((id) => id === oneAccount) : writable[0];
+        if (!acc) throw new Refused(oneAccount ? 'That account can\'t keep contact groups, or is not set to Read and write.' : 'No Google account set to Read and write can keep contact groups.');
+        const newName = typeof args.rename === 'string' && args.rename.trim() ? args.rename.trim().slice(0, 60) : name;
+        await permitAccounts(w, tool, [acc], () => `make the contact group "${newName}" in ${accName(byId(acc))}${toAdd.length ? ` with ${list(toAdd)}` : ''}`);
+        if (!(await cgs.make(acc, newName, toAdd))) throw new Error('The group could not be made. The account may need to sign in once more in Well Good Mail.');
+        return { data: { made: newName, people: toAdd.map(who), notFound: notFound.length ? notFound : undefined }, logText: logLine(tool, { name: newName }) };
+      }
+      const have = new Set(old.members.map((m) => m.email.toLowerCase()));
+      const adding = toAdd.filter((a) => !have.has(a.email));
+      const newName = typeof args.rename === 'string' && args.rename.trim() && args.rename.trim() !== old.name ? args.rename.trim().slice(0, 60) : undefined;
+      if (!adding.length && !toRemove.length && !newName) {
+        return { data: { group: old.name, unchanged: true, notFound: notFound.length ? notFound : undefined }, logText: logLine(tool, { name: old.name }) };
+      }
+      const parts = [
+        adding.length ? `add ${list(adding)}` : '',
+        toRemove.length ? `take out ${list(old.members.filter((m) => toRemove.includes(m.email)))}` : '',
+        newName ? `rename it ${newName}` : '',
+      ].filter(Boolean);
+      await permitAccounts(w, tool, [old.accountId], () => `change the contact group "${old.name}": ${parts.join(', ')}`);
+      if (adding.length) await cgs.add(old.id, adding);
+      if (toRemove.length) await cgs.remove(old.id, toRemove);
+      if (newName) await cgs.rename(old.id, newName);
+      return {
+        data: { group: newName || old.name, added: adding.length ? adding.map(who) : undefined, removed: toRemove.length ? toRemove : undefined, notFound: notFound.length ? notFound : undefined },
+        logText: logLine(tool, { name: newName || old.name }),
       };
     }
     case 'get_calendar_groups': {

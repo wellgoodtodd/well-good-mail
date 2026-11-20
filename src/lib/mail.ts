@@ -14,7 +14,7 @@ export { isSyncing, refreshAll, restartSync, syncAccount } from './mail/sync';
 export { addFollowup, applyLabel, archive, blockSender, idsForKeys, latestPerConversation, markRead, markSpam, markViewRead, moveToInbox, moveToLabel, restoreFromBin, selectedMessageIds, snooze, toggleFlag, toggleMute, toggleVip, trash, unblockSender, unsnooze, unsubscribe } from './mail/actions';
 export { addInviteToCalendar, attachEmailToEvent, emailFiles, emailNotes, answerEvent, answerInvite, applyPatch, calendarChoices, canAddToCalendar, canMoveAcross, createNewEvent, deleteEvent, deleteEventUndoable, dismissReminders, editEvent, eventCopy, eventsBetween, inviteStatus, lastEventsRefresh, moveEventAcross, recentlyDeletedEvent, refreshEvents, updateAddedEvent, writableCalendars } from './mail/calendar';
 export type { DeleteUndo } from './mail/calendar';
-export { addToContacts, contactAccounts, refreshAccountPhotos, refreshContacts } from './mail/contacts';
+export { addToContacts, contactAccounts, refreshAccountPhotos, refreshContacts, groupAccounts, refreshContactGroups, groupLabel, newContactGroup, addToGroup, removeFromGroup, renameContactGroup, deleteContactGroup } from './mail/contacts';
 export { adoptOutboxItem, announceQueued, cancelSend, editScheduled, flushOutbox, notYetSent, queueSend, registerSender, rescheduleSend, syncWakes, unschedule } from './mail/outbox';
 export { restartPolling, stopTimers, warmAfterStart } from './mail/timers';
 export { initMail } from './mail/start';

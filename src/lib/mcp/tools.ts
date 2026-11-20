@@ -38,6 +38,8 @@ export const TOOLS: ToolSpec[] = [
   { name: 'add_task', capability: 'organise.task', perAccount: false, description: 'Add a task for the person. It goes into the list they chose for AI apps unless you name another list (from list_tasks). A time goes in due, like "2026-11-20T15:00", never in the title; alerts sets when it reminds them. The person sees it and says yes first, unless they allowed this.', log: 'Added the task "{title}"' },
   { name: 'get_calendar_groups', capability: 'read.calendar', perAccount: false, description: 'The person\'s Calendar Groups (like Work and Personal), which one they are looking at, and every calendar that could go in one.', log: 'Looked at Calendar Groups' },
   { name: 'set_calendar_group', capability: 'calendar.groups', perAccount: false, description: 'Make, change or delete a Calendar Group: a named set of calendars from any account, shown together in Well Good Mail. It only changes what the person sees; calendars and events are not changed.', log: 'Set the Calendar Group "{name}"' },
+  { name: 'list_contact_groups', capability: 'read.contacts', perAccount: false, description: 'The person\'s contact groups (Google Contacts labels, like Trustees), with everyone in each.', log: 'Looked at contact groups' },
+  { name: 'set_contact_group', capability: 'contacts.groups', perAccount: true, description: 'Make a contact group, add or take people out of one, rename it or delete it. Groups are Google Contacts labels: typing the group\'s name in To in Well Good Mail adds everyone in it. Deleting a group keeps the people in contacts.', log: 'Changed the contact group "{name}"' },
   { name: 'send_email', capability: 'send.email', perAccount: true, description: 'Send an email. Well Good Mail always shows the person the recipients and the whole message and waits for their yes before anything leaves.', log: 'Asked to send "{subject}" to {to}' },
   { name: 'forward_email', capability: 'send.forward', perAccount: true, description: 'Forward an email to someone else. Always approved by the person first.', log: 'Asked to forward "{subject}" to {to}' },
 ];
@@ -45,7 +47,7 @@ export const TOOLS: ToolSpec[] = [
 export const toolByName = (name: string) => TOOLS.find((t) => t.name === name);
 
 /** The tools switched on so far. The first version can only look; the rest come in later betas. */
-export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'list_events', 'list_reminders', 'create_draft', 'file_drafts', 'get_out_of_office', 'set_out_of_office', 'get_calendar_groups', 'set_calendar_group', 'list_tasks', 'add_task']);
+export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'list_events', 'list_reminders', 'create_draft', 'file_drafts', 'get_out_of_office', 'set_out_of_office', 'get_calendar_groups', 'set_calendar_group', 'list_tasks', 'add_task', 'list_contact_groups', 'set_contact_group']);
 
 /** Fills the log line from the arguments, never printing more than a short piece of anything. */
 export function logLine(tool: ToolSpec, args: Record<string, unknown>): string {

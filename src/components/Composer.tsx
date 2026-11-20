@@ -207,6 +207,16 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
       const fresh = list.filter((a) => !existing.has(a.email.toLowerCase()));
       return { ...d, [field]: [...d[field], ...fresh], manualRecipients: [...d.manualRecipients, ...fresh.map((address) => ({ field, address }))], updatedAt: Date.now() };
     });
+  /** Moves someone between To, Cc and Bcc, keeping them as one you chose so switching Reply all leaves them there. */
+  const moveRecipient = (from: 'to' | 'cc' | 'bcc', to: 'to' | 'cc' | 'bcc', email: string) => {
+    if (to === 'cc') setShowCc(true);
+    if (to === 'bcc') setShowBcc(true);
+    update((d) => {
+      const a = d[from].find((x) => x.email === email);
+      if (!a) return d;
+      return { ...d, [from]: d[from].filter((x) => x.email !== email), [to]: [...d[to], a], manualRecipients: [...d.manualRecipients.filter((m) => m.address.email !== email), { field: to, address: a }], updatedAt: Date.now() };
+    });
+  };
   const removeRecipient = (field: 'to' | 'cc' | 'bcc', email: string) =>
     update((d) => ({ ...d, [field]: d[field].filter((a) => a.email !== email), manualRecipients: d.manualRecipients.filter((m) => m.address.email !== email), updatedAt: Date.now() }));
 
@@ -505,9 +515,9 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
           })}
         </span>
       </div>
-      <RecipientField label="To" value={draft.to} contacts={contacts} onAdd={(l) => addRecipients('to', l)} onRemove={(e) => removeRecipient('to', e)} autoFocus={draft.mode === 'new' || draft.mode === 'forward'} />
-      {showCc && <RecipientField label="Cc" value={draft.cc} contacts={contacts} onAdd={(l) => addRecipients('cc', l)} onRemove={(e) => removeRecipient('cc', e)} />}
-      {showBcc && <RecipientField label="Bcc" value={draft.bcc} contacts={contacts} onAdd={(l) => addRecipients('bcc', l)} onRemove={(e) => removeRecipient('bcc', e)} />}
+      <RecipientField label="To" value={draft.to} contacts={contacts} onAdd={(l) => addRecipients('to', l)} onRemove={(e) => removeRecipient('to', e)} onMove={(e, f) => moveRecipient('to', f, e)} everyone={[...draft.to, ...draft.cc, ...draft.bcc]} autoFocus={draft.mode === 'new' || draft.mode === 'forward'} />
+      {showCc && <RecipientField label="Cc" value={draft.cc} contacts={contacts} onAdd={(l) => addRecipients('cc', l)} onRemove={(e) => removeRecipient('cc', e)} onMove={(e, f) => moveRecipient('cc', f, e)} everyone={[...draft.to, ...draft.cc, ...draft.bcc]} />}
+      {showBcc && <RecipientField label="Bcc" value={draft.bcc} contacts={contacts} onAdd={(l) => addRecipients('bcc', l)} onRemove={(e) => removeRecipient('bcc', e)} onMove={(e, f) => moveRecipient('bcc', f, e)} everyone={[...draft.to, ...draft.cc, ...draft.bcc]} />}
       <div className="comp-field">
         <label htmlFor={`subj-${draft.id}`}>Subject</label>
         <input id={`subj-${draft.id}`} className="plain" value={draft.subject} onChange={(e) => update({ subject: e.target.value })} onKeyDown={(e) => { /* Tab goes straight to the message, past the formatting bar. */ if (e.key === 'Tab' && !e.shiftKey && editor) { e.preventDefault(); editor.commands.focus(); } }} spellCheck lang={s.spellLang || 'en-GB'} style={{ fontWeight: 600 }} />

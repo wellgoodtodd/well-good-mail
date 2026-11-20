@@ -468,6 +468,14 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
     change({ [k]: [...formRef.current[k], ...list.filter((a) => !have.has(a.email.toLowerCase()))] } as Partial<QuickForm>);
   };
   const drop = (k: 'to' | 'cc' | 'bcc', email: string) => change({ [k]: formRef.current[k].filter((a) => a.email !== email) } as Partial<QuickForm>);
+  const move = (from: 'to' | 'cc' | 'bcc', to: 'to' | 'cc' | 'bcc', email: string) => {
+    const a = formRef.current[from].find((x) => x.email === email);
+    if (!a) return;
+    if (to === 'cc') setShowCc(true);
+    if (to === 'bcc') setShowBcc(true);
+    change({ [from]: formRef.current[from].filter((x) => x.email !== email), [to]: [...formRef.current[to], a] } as Partial<QuickForm>);
+  };
+  const everyone = [...form.to, ...form.cc, ...form.bcc];
   const noOne = form.to.length + form.cc.length + form.bcc.length === 0;
   const fromHit = aliases.find((x) => x.account.id === form.fromAccountId && x.alias.email === form.fromEmail) || aliases.find((x) => x.alias.email === form.fromEmail);
 
@@ -500,9 +508,9 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
             })}
           </span>
         </div>
-        <RecipientField label="To" value={form.to} contacts={contacts} onAdd={(l) => add('to', l)} onRemove={(e) => drop('to', e)} />
-        {showCc && <RecipientField label="Cc" value={form.cc} contacts={contacts} onAdd={(l) => add('cc', l)} onRemove={(e) => drop('cc', e)} />}
-        {showBcc && <RecipientField label="Bcc" value={form.bcc} contacts={contacts} onAdd={(l) => add('bcc', l)} onRemove={(e) => drop('bcc', e)} />}
+        <RecipientField label="To" value={form.to} contacts={contacts} onAdd={(l) => add('to', l)} onRemove={(e) => drop('to', e)} onMove={(e, f) => move('to', f, e)} everyone={everyone} />
+        {showCc && <RecipientField label="Cc" value={form.cc} contacts={contacts} onAdd={(l) => add('cc', l)} onRemove={(e) => drop('cc', e)} onMove={(e, f) => move('cc', f, e)} everyone={everyone} />}
+        {showBcc && <RecipientField label="Bcc" value={form.bcc} contacts={contacts} onAdd={(l) => add('bcc', l)} onRemove={(e) => drop('bcc', e)} onMove={(e, f) => move('bcc', f, e)} everyone={everyone} />}
         <div className="comp-field">
           <label htmlFor={`aisubj-${d.id}`}>Subject</label>
           <input id={`aisubj-${d.id}`} className="plain ai-subject-input" value={form.subject} onChange={(e) => change({ subject: e.target.value })} onBlur={() => void flush()} onKeyDown={(e) => { if (e.key === 'Tab' && !e.shiftKey && editor) { e.preventDefault(); editor.commands.focus(); } }} placeholder="Subject" />

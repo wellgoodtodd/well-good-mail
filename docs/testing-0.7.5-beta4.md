@@ -14,6 +14,17 @@ Beta 4 is beta 3 plus fixes from your testing: search no longer leaves rows behi
 ### Drafts
 - [ ] **Closing keeps the draft:** open a draft (an AI draft, or one you saved) in its own window and close it with Close without saving. It's still in Drafts, as it was before you opened it. A new email closed the same way is still thrown away.
 
+## Since beta 4 (in the next beta)
+
+### Contact Groups
+- [ ] **Groups from Google Contacts:** any labels you already have in Google Contacts show in Settings › Contact Groups. If changing one asks you to sign in once more, do that.
+- [ ] **New group from an email:** right-click an email's heading › New group from everyone on this email, name it (like Trustees). It shows in Settings, and as a label in Google Contacts on the web and phone.
+- [ ] **Type the group's name** in To, Cc or Bcc: the group comes first in the suggestions, and choosing it adds everyone as their own name.
+- [ ] **Change who's on one email:** right-click a name › Move to Cc, Move to Bcc or Move to To, or Remove. The group itself doesn't change.
+- [ ] **Change the group:** right-click anyone's name (in an email or a draft) › Contact groups. A tick shows the groups they're in: click to take them out, or click another to add them (Undo in the note). Also New group with them.
+- [ ] **Settings › Contact Groups:** rename a group, add or take out people (someone not in contacts yet is added to contacts too), and Delete (people stay in contacts).
+- [ ] **Ask the AI:** in Claude, "add Sam to Trustees" or "take Bob out of Trustees". It asks first, then the change shows in Settings. The first time, the AI app may need reconnecting to see the new tools.
+
 ## Still to try (carried forward)
 
 ### From 0.7.5 beta 3

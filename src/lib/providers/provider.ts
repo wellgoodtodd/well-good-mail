@@ -1,5 +1,5 @@
 // The contract every mail service (Gmail, Microsoft 365, IMAP, demo) fulfils.
-import type { Account, Address, EmailForEvent, Task, TaskList, TaskPatch, Alias, CalendarEvent, EventCopy, EventPatch, ChangeOptions, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
+import type { Account, Address, ContactGroup, EmailForEvent, Task, TaskList, TaskPatch, Alias, CalendarEvent, EventCopy, EventPatch, ChangeOptions, EventGuest, Folder, Message, OutgoingMessage, SystemFolder } from '../types';
 import type { Invite, Rsvp } from '../invites';
 import type { AutoReply } from '../ooo';
 
@@ -53,6 +53,14 @@ export interface MailProvider {
   listContacts(): Promise<Address[]>;
   /** Adds someone to the account's own contacts (Google Contacts, Outlook People). */
   addContact?(a: Address): Promise<void>;
+  /** Contact groups (Google Contacts labels), each with the people in it. */
+  listContactGroups?(): Promise<ContactGroup[]>;
+  /** Makes a group, or renames one when the id is given. Returns the group's id. */
+  saveContactGroup?(g: { id?: string; name: string }): Promise<string>;
+  /** Deletes a group. The people stay in contacts. */
+  deleteContactGroup?(id: string): Promise<void>;
+  /** Adds and takes people out of a group. Someone not in contacts yet is added to contacts first. */
+  changeGroupMembers?(id: string, add: Address[], remove: string[]): Promise<void>;
   listEvents(fromMs: number, toMs: number): Promise<CalendarEvent[]>;
   /** Calendars in this account that events can be written to (known after listEvents). */
   writableCalendars?(): string[];
