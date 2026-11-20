@@ -29,7 +29,7 @@ Beta 2 is beta 1 plus three fixes from your testing: emails open faster, search 
 - [ ] **Calendar in its own window:** on Calendar & Reminders, the pop out button (beside Refresh) opens it in a window of its own, with List, Calendar and Tasks, ready for another screen. Pressing it again brings that window to the front instead of opening a second.
 - [ ] **Both windows stay in step:** add, move or delete an event (or tick a task) in one window and it shows in the other within a second.
 - [ ] **From the Calendar window:** opening an email opens it in a pop out, writing to guests opens the writing window, and Settings links open in the main window and bring it to the front.
-- [ ] The Calendar window remembers its size and which screen it was on.
+- [ ] The Calendar window opens at the size and on the screen you last left it.
 
 ## Still to try (carried forward)
 
