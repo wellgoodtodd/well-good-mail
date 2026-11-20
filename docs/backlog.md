@@ -4,6 +4,15 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.5 beta 4 (built 20 Nov 2026)
+
+Test list: `testing-0.7.5-beta4.md`. From Todd's beta 2 and 3 testing:
+
+- Search left rows behind: in a search, several emails from one conversation shared a React key (the conversation's), so clearing the search left stale rows at the top that highlighted with the clicked one. Rows in unthreaded lists are now keyed by email (`MessageList.tsx`).
+- Web addresses already in a draft become links when it opens or the app puts new text in it (`LinkAddresses` and `linkifyState` in `editorExtensions.ts`, using linkifyjs). Not an edit: no Undo step, no draft change.
+- A drag-select let go on the space around the text lost its selection (the click there put the cursor at the end). `clickSpaceToWrite` now only does that when the press started on the space too.
+- Closing a draft's window with Close without saving deleted the whole draft. A draft that was already there (AI draft, saved, or a server draft) now goes back as it was and stays in Drafts (`discard({ changesOnly })` in `Composer.tsx`). The trash button still deletes.
+
 ## 0.7.5 beta 3 (built 20 Nov 2026)
 
 Test list: `testing-0.7.5-beta3.md`. From Todd's beta 2 feedback:
