@@ -18,6 +18,11 @@ Beta 3 is beta 2 plus two things: Ctrl+K and a proper link box everywhere you wr
 - [ ] **From the Calendar window:** opening an email opens it in a pop out, writing to guests opens the writing window, and Settings links open in the main window and bring it to the front.
 - [ ] The Calendar window opens at the size and on the screen you last left it.
 
+## Since beta 3 (in the next beta)
+
+### Search
+- [ ] **No leftover rows after a search:** search for someone with several emails in one conversation (like Elena), then clear it. The mailbox comes back clean, with no search rows stuck at the top, and clicking an email highlights only that one.
+
 ## Still to try (carried forward)
 
 ### From 0.7.5 beta 2

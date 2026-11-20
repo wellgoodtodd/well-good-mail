@@ -204,7 +204,7 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
     const who = fromMe ? m.to[0] || m.from : m.from;
     return (
       <Row
-        key={key + (list === remote ? ':r' : '')}
+        key={list === remote ? `r:${m.id}` : unthreaded ? m.id : key}
         item={item}
         isRemote={list === remote}
         selected={selected}
@@ -274,7 +274,8 @@ export function MessageList({ style }: { style: React.CSSProperties }) {
         </div>
       )}
       <div className="rows" ref={listRef} onScroll={onListScroll} tabIndex={0} role="list" aria-label={title}>
-        {items.slice(0, limit).map((i) => { const k = threadKey(i.message); return <Fragment key={k}>{row(i, items)}{openRows.has(k) ? subRows(k) : null}</Fragment>; })}
+        {/* In a search (or with conversations off) one conversation can have several rows, so each row is keyed by its email. Keys that repeat leave old rows behind on screen. */}
+        {items.slice(0, limit).map((i) => { const k = threadKey(i.message); return <Fragment key={unthreaded ? i.message.id : k}>{row(i, items)}{openRows.has(k) ? subRows(k) : null}</Fragment>; })}
         {items.length > limit && <div ref={moreRef} className="empty" style={{ padding: 16 }}>Loading more...</div>}
         {view.mailbox.kind === 'search' && (searching || remote.length > 0) && (
           <>
