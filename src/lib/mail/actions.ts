@@ -301,14 +301,14 @@ export function toggleVip(email: string) {
 export async function unsubscribe(id: string) {
   const m = get().messages[id];
   if (!m?.listUnsubscribe) return;
-  const links = [...m.listUnsubscribe.matchAll(/<([^>]+)>/g)].map((x) => x[1]);
-  const https = links.find((l) => l.startsWith('https://'));
-  const mailto = links.find((l) => l.startsWith('mailto:'));
+  const { headerLinks, bodyUnsubscribeLink, pageIsBlank } = await import('../unsubscribe');
+  const { https, mailto } = headerLinks(m.listUnsubscribe);
+  const who = m.from.name || m.from.email;
   try {
     if (https && m.listUnsubscribePost) {
       const res = await httpFetch(https, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' });
       if (res.ok || res.status === 202) {
-        toast({ text: `Unsubscribed from ${m.from.name || m.from.email}` });
+        toast({ text: `Unsubscribed from ${who}` });
         return;
       }
     }
@@ -318,11 +318,24 @@ export async function unsubscribe(id: string) {
       const p = providers.get(m.accountId);
       if (acc && p) {
         await p.send({ from: { email: acc.email, name: acc.displayName }, to: [{ email: url.pathname }], cc: [], bcc: [], subject: url.searchParams.get('subject') || 'Unsubscribe', html: '<p>Unsubscribe</p>', text: 'Unsubscribe', attachments: [] });
-        toast({ text: `Unsubscribe request sent to ${m.from.name || m.from.email}` });
+        toast({ text: `Unsubscribe request sent to ${who}` });
         return;
       }
     }
-    if (https) await openExternal(https);
+    // The unsubscribe link in the email itself is made for people, so it opens a proper page.
+    const { loadBody } = await import('./bodies');
+    const inBody = bodyUnsubscribeLink((await loadBody(id))?.bodyHtml);
+    if (inBody) { await openExternal(inBody); return; }
+    if (https) {
+      // The header's link is often meant for mail apps: opened in a browser it can be a blank page even though it
+      // worked. Visit it here first, and only open the browser when the page has something to do or read.
+      const res = await httpFetch(https, { method: 'GET' });
+      if (res.ok && pageIsBlank(await res.text())) {
+        toast({ text: `Unsubscribed from ${who}` });
+        return;
+      }
+      await openExternal(https);
+    }
   } catch (e) {
     if (https) await openExternal(https);
     else errorToast(e, 'Unsubscribe failed');

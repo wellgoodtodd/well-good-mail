@@ -28,6 +28,9 @@ Beta 4 is beta 3 plus fixes from your testing: search no longer leaves rows behi
 ### Menus
 - [ ] **One menu at a time:** right-click a name, then right-click the email's heading. Only the email's menu shows; the first one closes.
 
+### Unsubscribe
+- [ ] **Unsubscribe without a blank page:** on a newsletter, press Unsubscribe. Most now just say "Unsubscribed from …" with nothing opening. If the sender needs you to confirm, their proper page opens (the link from the email itself when there is one), not a blank one.
+
 ## Still to try (carried forward)
 
 ### From 0.7.5 beta 3
