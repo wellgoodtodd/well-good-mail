@@ -814,8 +814,8 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
     try { localStorage.setItem(FOOTER_KEY, JSON.stringify(next)); } catch { /* kept for this session only */ }
   };
 
-  const cards: Record<FooterCard, { icon: IconName; name: string; count?: number; late?: boolean; isNew?: boolean; selected: boolean; title?: string; open: () => void }> = {
-    scheduled: { icon: 'clock', name: 'Scheduled', count: scheduledCount, selected: screen === 'scheduled', title: scheduledCount ? `Scheduled: ${scheduledCount} ${scheduledCount === 1 ? 'email' : 'emails'} waiting to send` : 'Scheduled: nothing waiting to send', open: () => openScreen(screen === 'scheduled' ? 'mail' : 'scheduled') },
+  const cards: Record<FooterCard, { icon: IconName; name: string; count?: number; late?: boolean; isNew?: boolean; /** Something is waiting in it (amber dot), like scheduled emails. */ waiting?: boolean; selected: boolean; title?: string; open: () => void }> = {
+    scheduled: { icon: 'clock', name: 'Scheduled', count: scheduledCount, waiting: scheduledCount > 0, selected: screen === 'scheduled', title: scheduledCount ? `Scheduled: ${scheduledCount} ${scheduledCount === 1 ? 'email' : 'emails'} waiting to send` : 'Scheduled: nothing waiting to send', open: () => openScreen(screen === 'scheduled' ? 'mail' : 'scheduled') },
     calendar: { icon: 'calendar', name: 'Calendar', count: reminderCount, selected: onCalendar, title: reminderCount ? `Calendar: ${reminderCount} coming up` : 'Calendar', open: () => {
       if (onCalendar) return openScreen('mail');
       if (onTasks) useSettings.getState().set({ remindersView: 'calendar' });
@@ -834,6 +834,7 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
       <div className="foot-cards">
         {order.map((k) => {
           const c = cards[k];
+          const dot = c.late ? 'late' : c.isNew ? 'new' : c.waiting ? 'waiting' : '';
           return (
             <button key={k} className={`foot-card${c.selected ? ' selected' : ''}${dragging === k ? ' lifted' : ''}${over === k && dragging && dragging !== k ? ' drop' : ''}`}
               title={c.title || c.name} aria-label={c.title || c.name} onClick={c.open}
@@ -842,11 +843,11 @@ export function SideFooter({ inSettings }: { inSettings?: boolean }) {
               onDragOver={(e) => { if (!dragging) return; e.preventDefault(); setOver(k); }}
               onDragLeave={() => setOver((o) => (o === k ? null : o))}
               onDrop={(e) => { e.preventDefault(); drop(k); setDragging(null); setOver(null); }}>
-              {/* A dot when something needs you: red for late tasks, blue for new invitations. It sits in the card's
+              {/* A dot when something needs you: red for late tasks, blue for new invitations, amber for emails waiting to send. It sits in the card's
                   corner, on the icon when the sidebar is very narrow, and gives way to the count when it's wide. */}
-              <span className="foot-ic"><Icon name={c.icon} size={16} />{(c.late || c.isNew) && <i className={`foot-dot ${c.late ? 'late' : 'new'}`} aria-hidden="true" />}</span>
+              <span className="foot-ic"><Icon name={c.icon} size={16} />{dot && <i className={`foot-dot ${dot}`} aria-hidden="true" />}</span>
               <span className="foot-name">{c.name}</span>
-              {(c.late || c.isNew) && <i className={`foot-cdot ${c.late ? 'late' : 'new'}`} aria-hidden="true" />}
+              {dot && <i className={`foot-cdot ${dot}`} aria-hidden="true" />}
               {c.count ? <span className={`foot-count${c.late ? ' late' : ''}${c.isNew ? ' new' : ''}`}>{c.count}</span> : null}
             </button>
           );

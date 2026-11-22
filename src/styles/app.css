@@ -1938,6 +1938,7 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .foot-cdot { position: absolute; top: 5px; right: 5px; }
 .foot-dot.late, .foot-cdot.late { background: var(--danger); }
 .foot-dot.new, .foot-cdot.new { background: var(--accent); }
+.foot-dot.waiting, .foot-cdot.waiting { background: var(--amber); }
 @container (min-width: 290px) { .foot-count { display: inline; } .foot-cdot { display: none; } .foot-card { padding: 9px 9px; } }
 .foot-count.late { color: var(--danger); }
 .foot-count.new { color: var(--text-muted); }
