@@ -97,6 +97,8 @@ export function FormatBar({ editor, extra, end, basic, defaultFont, defaultSize 
         <span className="sep" />
         {btn('list', 'Bulleted list', editor.isActive('bulletList'), () => editor.chain().focus().toggleBulletList().run())}
         {btn('listOrdered', 'Numbered list', editor.isActive('orderedList'), () => editor.chain().focus().toggleOrderedList().run())}
+        {btn('outdent', 'Decrease indent (Shift+Tab)', false, () => changeIndent(editor, -1))}
+        {btn('indent', 'Increase indent (Tab)', false, () => changeIndent(editor, 1))}
         {btn('link', 'Link (Ctrl+K)', editor.isActive('link'), () => promptLink(editor))}
         {btn('eraser', 'Clear formatting', false, () => editor.chain().focus().unsetAllMarks().clearNodes().run())}
         {end && <><span className="fmt-grow" />{end}</>}

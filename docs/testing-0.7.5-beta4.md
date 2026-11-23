@@ -28,6 +28,9 @@ Beta 4 is beta 3 plus fixes from your testing: search no longer leaves rows behi
 ### Menus
 - [ ] **One menu at a time:** right-click a name, then right-click the email's heading. Only the email's menu shows; the first one closes.
 
+### AI Drafts
+- [ ] **Indent in quick edits:** open a draft on its card (and the Out of Office message). The formatting bar has Decrease indent and Increase indent after the lists, and they move the line in and out like Tab and Shift+Tab.
+
 ### Sidebar
 - [ ] **Scheduled dot:** schedule an email, then make the sidebar narrow. The Scheduled card shows an amber dot (the number shows instead when the sidebar is wide).
 
