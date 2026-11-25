@@ -4,6 +4,15 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## Next beta (after 0.7.5 beta 6)
+
+From Todd, 25 Nov: save attachments straight to disk for AI apps (podcast recordings are around 28 MB, too big for the Gmail connector).
+
+- AI Connection: new `download_attachment` tool and **Save attachments** switch (`files.save`, group read so it works on Read only accounts, Ask by default). It saves only inside folders listed under the switch in Settings, AI Connection (`mcp.saveFolders`), because Well Good Mail cannot see which folders a Claude session has. Never saves programs or scripts, refuses over 2 GB, refuses "." and "..", never overwrites (the Send To saver: "name (2).m4a"), marks the file as from the internet and never opens it. Returns path, size, subject and date.
+- `get_message` and `get_thread` list attachments as number, filename, size in MB and type (pictures inside the text left out). `search_mail` takes `list_attachments` and `attachment_type` ("audio", "pdf", "m4a"...).
+- Not tried end to end yet: the well-good-mail connection was down in the session that built it.
+- Later idea: a rule like "emails from these senders, save audio attachments into this folder", so the file is waiting before the edit starts.
+
 ## 0.7.5 beta 6 (built 25 Nov 2026)
 
 Test list: `testing-0.7.5-beta6.md`. From Todd, 25 Nov:

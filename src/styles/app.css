@@ -1860,6 +1860,11 @@ button.ai-file:hover { color: var(--text); border-color: var(--border-strong, va
 .ai-flag { border: 0; background: transparent; padding: 0; font: inherit; font-size: 0.8em; color: #8f5400; cursor: pointer; white-space: nowrap; }
 [data-theme='dark'] .ai-flag { color: #fbc35a; }
 .ai-flag:hover { text-decoration: underline; }
+/* Folders an AI may save attachments into, under the Save attachments switch. */
+.ai-folders { margin: 0 0 8px 22px; padding: 2px 0; }
+.ai-folder-row { display: flex; align-items: center; gap: 10px; padding: 4px 8px; min-height: 28px; }
+.ai-folder-row .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-folder-row small.grow { white-space: normal; color: var(--text-muted); font-size: 0.85em; }
 .ai-per { margin: 0 0 8px 22px; padding: 2px 0; }
 .ai-per-row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-top: 1px dashed var(--border); border-radius: 6px; min-height: 30px; }
 .ai-per-row:first-child { border-top: 0; }

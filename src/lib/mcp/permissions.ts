@@ -24,6 +24,8 @@ export const CAPABILITIES: Capability[] = [
   { id: 'read.search', group: 'read', label: 'Search your mail', description: 'Search by word, sender or date. Results show sender, subject and a short preview.', fallback: 'allow', max: 'allow' },
   { id: 'read.messages', group: 'read', label: 'Read emails', description: 'Open the full text of an email or conversation.', fallback: 'ask', max: 'allow' },
   { id: 'read.attachments', group: 'read', label: 'Read attachments', description: 'Open the contents of attached files, not just their names.', fallback: 'off', max: 'allow' },
+  // A copy saved to this computer changes nothing in the mailbox, so it counts as looking and works on Read only accounts.
+  { id: 'files.save', group: 'read', label: 'Save attachments', description: 'Save a copy of an attached file into one of the folders listed below. Never opened or run, and nothing is overwritten.', fallback: 'ask', max: 'allow' },
   { id: 'read.calendar', group: 'read', label: 'See your calendar and reminders', description: 'Events, invitations, reminders and follow ups.', fallback: 'allow', max: 'allow' },
   { id: 'read.contacts', group: 'read', label: 'See your contacts', description: 'Names, addresses and companies from your address books.', fallback: 'ask', max: 'allow' },
   // Tidying (stays on your computer, and each can be undone)
@@ -76,6 +78,8 @@ export interface McpSettings {
   expiresAt?: number;
   /** Most actions per minute, whatever the switches say. */
   maxPerMinute: number;
+  /** Folders an AI may save attachments into (and folders inside them). Empty: it can't save anywhere. */
+  saveFolders: string[];
 }
 
 /** Accounts the AI may see at all. */
@@ -88,6 +92,7 @@ export const defaultMcp = (): McpSettings => ({
   overrides: {},
   idleMinutes: 60,
   maxPerMinute: 30,
+  saveFolders: [],
 });
 
 /** Choices for idle pausing, in minutes (0 is never). */
@@ -142,6 +147,7 @@ export function tidy(s: Partial<McpSettings> | undefined): McpSettings {
     noPauseUntil: typeof s?.noPauseUntil === 'number' ? s.noPauseUntil : undefined,
     expiresAt: typeof s?.expiresAt === 'number' ? s.expiresAt : undefined,
     maxPerMinute: Math.min(120, Math.max(1, Math.round(s?.maxPerMinute ?? base.maxPerMinute))),
+    saveFolders: [...new Set((Array.isArray(s?.saveFolders) ? s.saveFolders : []).filter((f): f is string => typeof f === 'string' && f.trim().length > 0).map((f) => f.trim()))],
   };
 }
 

@@ -20,6 +20,7 @@ export const TOOLS: ToolSpec[] = [
   { name: 'get_message', capability: 'read.messages', perAccount: true, description: 'The full text of one email.' + UNTRUSTED, log: 'Read the email "{subject}"' },
   { name: 'get_thread', capability: 'read.messages', perAccount: true, description: 'Every email in a conversation.' + UNTRUSTED, log: 'Read the conversation "{subject}"' },
   { name: 'get_attachment_text', capability: 'read.attachments', perAccount: true, description: 'The readable text of an attached file.' + UNTRUSTED, log: 'Read the attachment "{filename}"' },
+  { name: 'download_attachment', capability: 'files.save', perAccount: true, description: 'Save one attachment from an email straight to a folder on this computer, so large files (audio, video) never pass through the chat. Pick it by number or filename from get_message. save_to must be a full folder path inside a folder the person has connected to your session, and inside one of the folders they allowed in Well Good Mail. Missing folders inside it are made. Nothing is overwritten: a name already there gets a number added. The file is never opened or run. Returns the saved path, size, subject and date.' + UNTRUSTED, log: 'Saved the attachment "{filename}"' },
   { name: 'list_events', capability: 'read.calendar', perAccount: true, description: 'Calendar events between two dates, with video meeting links.', log: 'Looked at the calendar' },
   { name: 'list_reminders', capability: 'read.calendar', perAccount: false, description: 'Reminders and follow ups that are waiting.', log: 'Looked at reminders' },
   { name: 'find_contact', capability: 'read.contacts', perAccount: true, description: 'Look up a person in the address books.', log: 'Looked up the contact "{query}"' },
@@ -47,7 +48,7 @@ export const TOOLS: ToolSpec[] = [
 export const toolByName = (name: string) => TOOLS.find((t) => t.name === name);
 
 /** The tools switched on so far. The first version can only look; the rest come in later betas. */
-export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'list_events', 'list_reminders', 'create_draft', 'file_drafts', 'get_out_of_office', 'set_out_of_office', 'get_calendar_groups', 'set_calendar_group', 'list_tasks', 'add_task', 'list_contact_groups', 'set_contact_group']);
+export const READY = new Set(['list_accounts', 'search_mail', 'get_message', 'get_thread', 'download_attachment', 'list_events', 'list_reminders', 'create_draft', 'file_drafts', 'get_out_of_office', 'set_out_of_office', 'get_calendar_groups', 'set_calendar_group', 'list_tasks', 'add_task', 'list_contact_groups', 'set_contact_group']);
 
 /** Fills the log line from the arguments, never printing more than a short piece of anything. */
 export function logLine(tool: ToolSpec, args: Record<string, unknown>): string {

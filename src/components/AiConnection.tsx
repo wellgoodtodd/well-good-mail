@@ -298,6 +298,11 @@ export function AiConnectionTab() {
   useSettings((s) => s.calendarGroups);
   useEffect(() => { if (mcp.enabled) startTasks(); }, [mcp.enabled]);
   const save = (patch: Partial<typeof mcp>) => set({ mcp: tidy({ ...mcp, ...patch }) });
+  const addSaveFolder = async () => {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const dir = await open({ directory: true, title: 'Choose a folder AI apps may save attachments into' });
+    if (typeof dir === 'string' && !mcp.saveFolders.includes(dir)) save({ saveFolders: [...mcp.saveFolders, dir] });
+  };
   const ordered = [...accounts].filter((a) => a.kind !== 'demo').sort((a, b) => a.order - b.order);
   const levels = ordered.map((a) => mcp.accounts[a.id] ?? 'off');
   const allLevel = levels.length && levels.every((l) => l === levels[0]) ? levels[0] : undefined;
@@ -447,6 +452,21 @@ export function AiConnectionTab() {
                     {different.length > 0 && <button className="ai-flag" title={different.map((a) => `${a.label || a.email}: ${MODE_WORDS[effectiveMode(mcp, c.id, a.id)]}`).join(', ')} onClick={() => { if (!open) fold(); }}>▲ {different.length} {different.length === 1 ? 'account' : 'accounts'} set differently</button>}
                   </div>
                 </div>
+                {c.id === 'files.save' && (
+                  <div className="ai-folders">
+                    {mcp.saveFolders.map((f) => (
+                      <div key={f} className="ai-folder-row">
+                        <Icon name="folder" size={14} />
+                        <span className="grow" title={f}>{f}</span>
+                        <button className="icon-btn" aria-label={`Remove ${f}`} title="Remove" onClick={() => save({ saveFolders: mcp.saveFolders.filter((x) => x !== f) })}><Icon name="close" size={13} /></button>
+                      </div>
+                    ))}
+                    <div className="ai-folder-row">
+                      <small className="grow">{mcp.saveFolders.length ? 'Folders inside these count too, and are made when needed.' : 'No folder yet, so nothing can be saved. Add the folders an AI may save into.'}</small>
+                      <button className="btn small" disabled={!isTauri()} onClick={() => void addSaveFolder()}>Add folder</button>
+                    </div>
+                  </div>
+                )}
                 {open && (
                   <div className="ai-per">
                     {ordered.map((a) => {

@@ -186,6 +186,16 @@ async function answer(rid: number, conn: number, body: string) {
     loadBody,
     ask: (req) => askPerson(app, req),
     granted: (capability, accountId) => (grants.get(`${capability}|${accountId ?? '*'}`) || 0) > Date.now(),
+    saveAttachment: isTauri() ? async ({ messageId, attachmentId, folder, subfolder, name }) => {
+      const { getAttachmentData } = await import('../mail');
+      const { bytesToBase64 } = await import('../mime');
+      const data = await getAttachmentData(messageId, attachmentId);
+      // The same save the app uses for Send To: makes missing folders, never overwrites, marks it as from the internet.
+      const path = await invoke<string>('save_into_subfolder', { folder, subfolder, name, data: bytesToBase64(data) }).catch((e) => {
+        throw new Error(String(e).includes("isn't there") ? `The allowed folder ${folder} isn't there any more. The person can change it in Well Good Mail, Settings › AI Connection.` : String(e));
+      });
+      return { path, bytes: data.length };
+    } : undefined,
     makeDraft: (input) => makeDraft(input.writer || app, input),
     fileDrafts: (accountId, ids, group, writer) => fileServerDrafts(accountId, ids, group, writer || app),
     openDraft: (id) => void openDraft(id),
