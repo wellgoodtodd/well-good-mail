@@ -30,10 +30,14 @@ async function storedBody(id: string): Promise<Body | undefined> {
  * The result is not put in the store (it would hold the body again); the body stays in the small recent cache.
  */
 export async function loadBody(id: string): Promise<Message | undefined> {
-  // Already fetched in the background and waiting to be saved: save it now and use it.
-  if (warmBuffer.some((u) => u.id === id)) flushWarm();
   const m = get().messages[id];
   if (!m) return m;
+  // Already fetched and waiting to be saved with the next batch: use it as it is (saving now would redraw the app).
+  const waiting = warmBuffer.find((u) => u.id === id);
+  if (waiting) {
+    rememberBody(id, bodyOf(waiting));
+    return { ...m, bodyHtml: waiting.bodyHtml, bodyText: waiting.bodyText, attachments: waiting.attachments, hasAttachments: waiting.hasAttachments, bodyLoaded: true };
+  }
   if (m.bodyLoaded) {
     const saved = await storedBody(id);
     if (saved) {
@@ -48,7 +52,9 @@ export async function loadBody(id: string): Promise<Message | undefined> {
     const body = await p.getBody(m);
     const updated = withFetchedBody(get().messages[id] || m, body);
     rememberBody(id, bodyOf(updated));
-    putMessages([updated]);
+    // Saved with the next batch, not now: every save copies and sorts the whole mail list, and opening a new email
+    // already does that once for the read mark. Two at once made clicking through new mail feel slow.
+    holdForSaving(updated);
     return updated;
   } catch (e) {
     errorToast(e, 'Couldn\'t load email');
@@ -97,9 +103,18 @@ function flushWarm() {
   putMessages(batch);
 }
 
+const waitingToSave = (id: string) => warmBuffer.some((u) => u.id === id);
+
+/** Adds a fetched body to the next batch to save (in a couple of seconds, or at once with 25 waiting). */
+function holdForSaving(updated: Message) {
+  warmBuffer = [...warmBuffer.filter((u) => u.id !== updated.id), updated];
+  if (warmBuffer.length >= 25) flushWarm();
+  else if (!warmFlushTimer) warmFlushTimer = setTimeout(flushWarm, 2500);
+}
+
 /** Loads these emails' bodies in the background. With first, they jump the queue (the pointer is on them). */
 export function warmBodies(ids: string[], opts: { first?: boolean } = {}) {
-  const todo = ids.filter((id) => { const m = get().messages[id]; return m && !m.bodyLoaded && !m.isDraft && !warmQueue.includes(id); });
+  const todo = ids.filter((id) => { const m = get().messages[id]; return m && !m.bodyLoaded && !m.isDraft && !warmQueue.includes(id) && !waitingToSave(id); });
   if (!todo.length) return;
   if (opts.first) { warmQueue.unshift(...todo); todo.forEach((id) => warmUrgent.add(id)); } else warmQueue.push(...todo);
   if (warmQueue.length > 200) warmQueue.length = 200;
@@ -114,16 +129,13 @@ async function runWarm() {
       const urgent = warmUrgent.delete(id);
       const m = get().messages[id];
       const p = m && providers.get(m.accountId);
-      if (!m || m.bodyLoaded || !p) continue;
+      if (!m || m.bodyLoaded || !p || waitingToSave(id)) continue;
       try {
         const body = await p.getBody(m);
         const updated = withFetchedBody(get().messages[id] || m, body);
-        if (urgent) { warmBuffer.push(updated); flushWarm(); } // About to be opened: save now.
-        else {
-          warmBuffer.push(updated);
-          if (warmBuffer.length >= 25) flushWarm();
-          else if (!warmFlushTimer) warmFlushTimer = setTimeout(flushWarm, 2500);
-        }
+        // About to be opened: keep it in memory so it opens at once; it is saved with the batch like the rest.
+        if (urgent) rememberBody(id, bodyOf(updated));
+        holdForSaving(updated);
       } catch { /* it loads when opened instead */ }
       // Gentle in the background; quick for what the pointer is on.
       await new Promise((r) => setTimeout(r, urgent ? 0 : 250));

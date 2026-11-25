@@ -13,6 +13,12 @@ From Todd, 25 Nov: save attachments straight to disk for AI apps (podcast record
 - Not tried end to end yet: the well-good-mail connection was down in the session that built it.
 - Later idea: a rule like "emails from these senders, save audio attachments into this folder", so the file is waiting before the edit starts.
 
+From Todd, 25 Nov: clicking through new messages felt slow again (0.7.5 beta 6).
+
+- Cause: opening an email not downloaded yet saved its body with `putMessages` straight away, and the read mark saved again a moment later. Each save copies the whole mail list and redraws the list, sidebar counts and reading pane. Hovering a row did the same (`warmBodies` with `first` saved at once). Measured in the demo with 20,000 emails: each save is about 90 to 100 ms, so two per click.
+- Fix (`mail/bodies.ts`): a body fetched on open or hover goes to memory and joins the background batch (`holdForSaving`, saved within 2.5 seconds or at 25), so a click costs one save (the read mark). `loadBody` reads a body waiting in the batch without saving it, and the background fetcher skips it. `useWithBody` in `MessageView.tsx` shows the attachments from the download until the saved copy has them.
+- Still there: the read mark itself is one full save (about 100 ms at 20,000 emails), and clearing `lookKeys` redraws the list once more. A next step would be keeping the list and counts up to date for just the emails that changed.
+
 ## 0.7.5 beta 6 (built 25 Nov 2026)
 
 Test list: `testing-0.7.5-beta6.md`. From Todd, 25 Nov:

@@ -144,3 +144,27 @@ describe('Switching Reply to Forward without the body in memory', () => {
     expect(back.quotedHtml).toBe(reply.quotedHtml);
   });
 });
+
+describe('Opening an email that is not downloaded yet', () => {
+  it('shows it at once but saves it with the next batch, so the mail list is not redrawn on the click', async () => {
+    const { providers } = await import('../mail/store');
+    const att = [{ id: 'a', filename: 'x.pdf', mimeType: 'application/pdf', size: 3, inline: false }];
+    let fetches = 0;
+    providers.set('acc', { systemFolderId: () => undefined, getBody: async () => { fetches++; return { html: '<p>New</p>', attachments: att }; } } as never);
+    await importMessages([msg(7)]);
+    const before = useMail.getState().messages;
+    const opened = await loadBody('acc|7');
+    expect(opened?.bodyHtml).toBe('<p>New</p>');
+    expect(opened?.attachments).toEqual(att);
+    expect(useMail.getState().messages).toBe(before);
+    // Opened again before the save: no second download.
+    expect((await loadBody('acc|7'))?.bodyHtml).toBe('<p>New</p>');
+    expect(fetches).toBe(1);
+    await new Promise((r) => setTimeout(r, 2700));
+    const saved = useMail.getState().messages['acc|7'];
+    expect(saved.bodyLoaded).toBe(true);
+    expect(saved.hasAttachments).toBe(true);
+    expect(saved.bodyHtml).toBeUndefined();
+    providers.delete('acc');
+  });
+});

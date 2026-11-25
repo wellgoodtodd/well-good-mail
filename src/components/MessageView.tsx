@@ -59,7 +59,8 @@ function noteFor(text: string, a: Message['attachments'][number]): string | unde
  * is open (from memory if it was opened lately, else the database, else the account). bodyLoaded says the body is in hand.
  */
 function useWithBody(listed: Message, expanded: boolean): Message {
-  const [got, setGot] = useState<{ id: string; body: Body } | undefined>(() => {
+  // attachments: from the download, while the store's copy (saved a moment later) doesn't have them yet.
+  const [got, setGot] = useState<{ id: string; body: Body; attachments?: Message['attachments'] } | undefined>(() => {
     const body = carriesBody(listed) ? bodyOf(listed) : peekBody(listed.id);
     return body ? { id: listed.id, body } : undefined;
   });
@@ -74,13 +75,14 @@ function useWithBody(listed: Message, expanded: boolean): Message {
     let live = true;
     loadBody(listed.id).then((full) => {
       if (!live || !full) return;
-      setGot((was) => (was && was.id === full.id && was.body.html === full.bodyHtml && was.body.text === full.bodyText ? was : { id: full.id, body: bodyOf(full) }));
+      setGot((was) => (was && was.id === full.id && was.body.html === full.bodyHtml && was.body.text === full.bodyText && was.attachments === full.attachments ? was : { id: full.id, body: bodyOf(full), attachments: full.attachments }));
     });
     return () => { live = false; };
   }, [expanded, listed]);
   return useMemo(() => {
     const body = got?.id === listed.id ? got.body : undefined;
-    return body ? { ...listed, bodyHtml: body.html, bodyText: body.text, bodyLoaded: true } : { ...listed, bodyLoaded: false };
+    const fetched = !listed.bodyLoaded && got?.id === listed.id ? got.attachments : undefined;
+    return body ? { ...listed, ...(fetched ? { attachments: fetched, hasAttachments: fetched.some((a) => !a.inline) } : {}), bodyHtml: body.html, bodyText: body.text, bodyLoaded: true } : { ...listed, bodyLoaded: false };
   }, [listed, got]);
 }
 
