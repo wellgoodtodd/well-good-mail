@@ -11,7 +11,7 @@ import { warmBodies } from './bodies';
 import { refreshEvents } from './calendar';
 import { looksLikeInvitation } from '../invites';
 import { patchMessages, putMessages, removeMessages } from './messages';
-import { providers, saveAccount, useMail } from './store';
+import { providers, saveAccount, toast, useMail } from './store';
 import { selectThread, setView } from './views';
 
 const get = useMail.getState;
@@ -57,6 +57,10 @@ export async function syncAccount(id: string, opts: { full?: boolean; quiet?: bo
       // Clear any old error straight away so the accounts list shows this attempt, not the last one.
       account = { ...account, status: 'syncing', error: undefined, syncDone: 0 };
       saveAccount(account);
+      if (!opts.quiet && account.kind !== 'demo' && !isPopout()) {
+        const who = account.kind === 'gmail' ? 'Google limits' : account.kind === 'microsoft' ? 'Microsoft limits' : 'Mail servers limit';
+        toast({ text: `Fetching all of ${account.label || account.email}'s mail. ${who} how fast this can go, so a big mailbox can take a while, sometimes a few hours. Your newest emails come first, and you can keep using the app meanwhile.`, ttl: 15000 });
+      }
       const [folders, aliases] = await Promise.all([provider.listFolders(), provider.listAliases()]);
       set({ folders: { ...get().folders, [id]: folders } });
       store.putFolders(id, folders);

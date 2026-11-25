@@ -21,7 +21,7 @@ export function DiagnosticsTab() {
   const report = () => [
     `Well Good Mail ${u.currentVersion || ''}`,
     `Emails stored: ${Object.keys(messages).length}`,
-    ...rows.map((r) => `${r.a.email}: ${r.a.status}${r.a.error ? ` (${r.a.error})` : ''}, ${r.n} emails, last checked ${r.last}, request spacing ${r.pace?.gapMs ?? 'n/a'} ms${r.waitS ? `, paused ${r.waitS}s by Google` : ''}`),
+    ...rows.map((r) => `${r.a.email}: ${r.a.status}${r.a.error ? ` (${r.a.error})` : ''}, ${r.n} emails, last checked ${r.last}, speed ${r.pace ? `${r.pace.unitsPerMinute} units a minute` : 'n/a'}${r.waitS ? `, paused ${r.waitS}s by Google` : ''}`),
   ].join('\n');
   void tick;
   return (
@@ -38,7 +38,7 @@ export function DiagnosticsTab() {
           <Row label="Status"><span>{r.a.status === 'needs-signin' ? <span className="status-bad">Needs signing in again</span> : r.a.status === 'error' ? <span className="status-bad">{r.a.error || 'Problem syncing'}</span> : r.a.status === 'syncing' ? `Syncing${r.a.syncDone ? `: ${r.a.syncDone.toLocaleString('en-GB')} emails so far` : '...'}` : <span className="status-ok">Connected</span>}</span></Row>
           <Row label="Emails stored"><span>{r.n.toLocaleString('en-GB')}</span></Row>
           <Row label="Last checked"><span>{r.last}</span></Row>
-          <Row label="Request spacing"><span>{r.pace ? `${r.pace.gapMs} ms${r.pace.gapMs > 200 ? ' (slowed down)' : ''}` : 'not used yet'}{r.waitS ? `. Paused by Google for ${r.waitS} s` : ''}</span></Row>
+          <Row label="Speed"><span>{r.pace ? `${r.pace.unitsPerMinute.toLocaleString('en-GB')} of Google's 6,000 units a minute${r.pace.unitsPerMinute < 3000 ? ' (slowed down)' : ''}` : 'not used yet'}{r.waitS ? `. Paused by Google for ${r.waitS} s` : ''}</span></Row>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
             <button className="btn" onClick={() => syncAccount(r.a.id)}>Check this account now</button>
             {wantsSignIn(r.a) && <button className="btn primary" onClick={() => reconnectAccount(r.a.id)}>Sign in again</button>}

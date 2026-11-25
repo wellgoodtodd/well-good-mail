@@ -13,61 +13,14 @@ import { cleanPreview } from '../cleanText';
 import * as gcal from '../google/calendarApi';
 import { answered, guestsOf } from '../google/calendarApi';
 import * as gtasks from '../google/tasksApi';
+import { allClear, backOff, gmailCost, throttle } from './gmailPace';
 
 const API = 'https://gmail.googleapis.com/gmail/v1/users/me';
 /** Mail newer than this many days is downloaded with full bodies for offline search. */
 const FULL_BODY_DAYS = 45;
 const CONCURRENCY = 4;
-/** This project's limit is 6,000 quota units a minute per user and a message fetch costs 5. One request every 80 ms is about 3,750 units a minute. */
-const MIN_GAP_MS = 80;
-const MAX_GAP_MS = 1500;
-
-interface Pace { next: number; hold: number; gap: number; calm: number }
-const paces = new Map<string, Pace>();
-
-/** How hard the app is currently pacing an account's requests, for the Diagnostics page. */
-export function paceInfo(key: string): { gapMs: number; pausedUntil: number } | undefined {
-  const p = paces.get(key);
-  return p ? { gapMs: Math.round(p.gap), pausedUntil: p.hold > Date.now() ? p.hold : 0 } : undefined;
-}
-
-function paceFor(key: string): Pace {
-  let p = paces.get(key);
-  if (!p) paces.set(key, (p = { next: 0, hold: 0, gap: MIN_GAP_MS, calm: 0 }));
-  return p;
-}
-
-/** Spaces requests for one account evenly, and holds them all while a quota pause is running. */
-async function throttle(key: string, urgent = false) {
-  const p = paceFor(key);
-  const now = Date.now();
-  // Something the person just clicked on skips the background queue, but still waits out a quota pause.
-  if (urgent) {
-    if (p.hold > now) await new Promise((r) => setTimeout(r, p.hold - now));
-    return;
-  }
-  const slot = Math.max(now, p.next);
-  p.next = slot + p.gap;
-  if (slot > now) await new Promise((r) => setTimeout(r, slot - now));
-}
-
-/** Gmail said we were too fast: hold this account for a while and make the spacing wider. */
-function backOff(key: string, pauseMs: number) {
-  const p = paceFor(key);
-  p.next = Math.max(p.next, Date.now() + pauseMs);
-  p.hold = Math.max(p.hold, Date.now() + pauseMs);
-  p.gap = Math.min(MAX_GAP_MS, p.gap * 2);
-  p.calm = 0;
-}
-
-/** A clean run of requests lets the spacing tighten again, back towards the minimum. */
-function allClear(key: string) {
-  const p = paceFor(key);
-  if (p.gap > MIN_GAP_MS && ++p.calm >= 150) {
-    p.gap = Math.max(MIN_GAP_MS, Math.round(p.gap * 0.7));
-    p.calm = 0;
-  }
-}
+// Requests are paced by their quota cost, per account: see gmailPace.ts.
+export { paceInfo } from './gmailPace';
 
 const SYSTEM: Record<SystemFolder, string | null> = {
   inbox: 'INBOX',
@@ -214,7 +167,7 @@ export class GmailProvider implements MailProvider {
   }
 
   private async call<T>(url: string, init: RequestInit = {}, retry = 0, urgent = false): Promise<T> {
-    await throttle(this.account.email, urgent);
+    await throttle(this.account.email, gmailCost(url, init.method), urgent);
     const token = await getGoogleAccessToken(this.account.email);
     const res = await httpFetch(url.startsWith('http') ? url : API + url, {
       ...init,
