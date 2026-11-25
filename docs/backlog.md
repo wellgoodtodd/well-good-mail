@@ -4,6 +4,12 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## 0.7.5 beta 6 (built 25 Nov 2026)
+
+Test list: `testing-0.7.5-beta6.md`. From Todd, 25 Nov:
+
+- Overdue tasks fold into one red row at the top of Tasks (open or folded kept in settings `collapsed["tasks:late"]`), with Mark all done (`setAllDone` in `lib/tasks.ts`, one Undo step). The calendar strip and Coming Up Today show one "N overdue" that opens it (`openOverdue`). The phone app has the same ("N late", `setAllDone` in `web/src/lib/store.ts`, `openLate` in `web/src/ui.ts`), deployed 25 Nov from the web-calendar branch.
+
 ## 0.7.5 beta 5 (built 25 Nov 2026)
 
 Test list: `testing-0.7.5-beta5.md`. From Todd's beta 4 testing:
