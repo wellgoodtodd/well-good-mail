@@ -45,7 +45,7 @@ const writeLocal = (k: string, v: string) => { try { localStorage.setItem(k, v);
 
 const day = (t: number) => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 const dayTime = (t: number) => new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-const writerText = (d: Draft) => (d.byAi === OUTSIDE_WRITER ? 'Made in Gmail' : `Written by ${d.byAi}`);
+const writerText = (d: Draft) => (d.byAi === OUTSIDE_WRITER ? 'Made in Gmail' : `Started with ${d.byAi}`);
 
 /**
  * Names for addresses, from your contacts and then your mail. Each address is looked up once and remembered;
