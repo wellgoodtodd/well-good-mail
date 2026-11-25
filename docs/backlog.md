@@ -4,7 +4,9 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## Next beta (after 0.7.5 beta 6)
+## 0.7.5 beta 7 (built 25 Nov 2026)
+
+Test list: `testing-0.7.5-beta7.md`.
 
 From Todd, 25 Nov: save attachments straight to disk for AI apps (podcast recordings are around 28 MB, too big for the Gmail connector).
 
