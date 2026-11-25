@@ -30,10 +30,18 @@ export function useTasksBetween(from: number, to: number, overdue = false): Task
 }
 
 /** The task rows. `showDay` adds the day under each one (for Later). */
-export function TaskLines({ tasks, showDay, limit = 8 }: { tasks: Task[]; showDay?: boolean; limit?: number }) {
+export function TaskLines({ tasks: all, showDay, limit = 8, onOverdue }: { tasks: Task[]; showDay?: boolean; limit?: number; onOverdue?: () => void }) {
   const today = startOfToday();
+  // With onOverdue, tasks from earlier days fold into one red row that opens them in Tasks.
+  const late = onOverdue ? all.filter((t) => !t.done && isOverdue(t) && t.due! < today) : [];
+  const tasks = late.length ? all.filter((t) => !late.includes(t)) : all;
   return (
     <>
+      {late.length > 0 && (
+        <div className="cu-task cu-late" onClick={onOverdue} role="button" tabIndex={0} onKeyDown={(k) => { if (k.key === 'Enter') onOverdue!(); }}>
+          {late.length} overdue <span aria-hidden>›</span>
+        </div>
+      )}
       {tasks.slice(0, limit).map((t) => {
         const day = t.due !== undefined ? new Date(t.due).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
         const late = isOverdue(t) && t.due! < today;

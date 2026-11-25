@@ -11,7 +11,7 @@ import { useSettings } from '../lib/settings';
 import { reconnectAccount } from '../lib/mail';
 import { askConfirm, askText } from '../lib/dialogs';
 import {
-  useTasks, addTask, changeTask, deleteTask, moveTask, newList, setDone, refreshTasks, startTasks, defaultList, listForAccount,
+  useTasks, addTask, changeTask, deleteTask, moveTask, newList, setDone, setAllDone, refreshTasks, startTasks, defaultList, listForAccount,
   listsInGroup, tasksInGroup, dueText, isOverdue, doneToday, startOfToday, renameList, deleteList, setDefaultList, groupName,
   useTaskPrefs, moveSmart, toggleHideDone, accountOrder, accountOrderAfterDrop, todayCount, emailTasks, nextRoundHour, readDay,
   type SmartPlace, SMART_PLACES,
@@ -141,6 +141,7 @@ export function TasksView() {
   const [, tick] = useState(0);
   useEffect(() => { const t = () => tick((n) => n + 1); window.addEventListener('wgm-minute', t); return () => window.removeEventListener('wgm-minute', t); }, []);
   const [showOld, setShowOld] = useState(false);
+  const lateOpen = s.collapsed['tasks:late'] === false;
   const [renaming, setRenaming] = useState<string | null>(null);
   const [drop, setDrop] = useState<{ id: string; after: boolean } | null>(null);
 
@@ -298,7 +299,18 @@ export function TasksView() {
         <QuickAdd list={target} lists={lists} />
         {shown.length === 0 && !older.length ? (
           <div className="tasks-empty"><Icon name="check" size={24} /><div>{place === 'today' ? 'Nothing due today' : 'No tasks here'}</div></div>
-        ) : sections.filter((x) => x.items.length).map((x) => (
+        ) : sections.filter((x) => x.items.length).map((x) => x.late ? (
+          // Overdue folds into one red row, so today's tasks come first; open it to tidy up.
+          <section key={x.key} className="tasks-late">
+            <div className="tasks-late-head">
+              <button className="tasks-fold late" onClick={() => s.set({ collapsed: { ...useSettings.getState().collapsed, 'tasks:late': lateOpen } })} aria-expanded={lateOpen}>
+                <Icon name={lateOpen ? 'chevronDown' : 'chevronRight'} size={14} /> {x.items.length} overdue
+              </button>
+              {lateOpen && <button className="btn small" onClick={() => setAllDone(x.items)}>Mark all done</button>}
+            </div>
+            {lateOpen && x.items.map((t) => <TaskRow key={t.id} task={t} showList={!lists.some((l) => l.id === place)} showAccount={smart} />)}
+          </section>
+        ) : (
           <section key={x.key}>
             <div className={`tasks-gh${x.late ? ' late' : ''}`}>{x.label} <span className="n">{x.items.filter((t) => !t.done).length || ''}</span></div>
             {x.items.map((t) => <TaskRow key={t.id} task={t} showList={!lists.some((l) => l.id === place)} showAccount={smart} />)}

@@ -15,7 +15,7 @@ import { SelectionBar, clearSelected, selectionMenuItems, setSelected, toggleSel
 import { changeEvent } from '../lib/eventFlows';
 import '../styles/calendar.css';
 import { CalendarTask, useCalendarTasks } from './Tasks';
-import { isOverdue } from '../lib/tasks';
+import { isOverdue, openOverdue } from '../lib/tasks';
 import { useCalendarBusy } from '../lib/mail/calendar';
 
 const DAY_MS = 86400000;
@@ -483,11 +483,16 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
         <div className="tg-allday tg-tasks" style={{ gridTemplateColumns: cols }}>
           <div className="tg-corner small">tasks</div>
           {days.map((d) => {
-            const list = stripFor(d.getTime());
+            const all = stripFor(d.getTime());
+            // Tasks from earlier days fold into one red chip, so today's own tasks show.
+            const late = all.filter((t) => t.due! < todayMs);
+            const list = all.filter((t) => t.due! >= todayMs);
+            const room = late.length ? 1 : 2;
             return (
               <div key={d.toISOString()} className="tg-allday-cell">
-                {list.slice(0, 2).map((t) => <CalendarTask key={t.id} task={t} className="cal-task-chip" />)}
-                {list.length > 2 && <button className="cal-task-more" onClick={() => useSettings.getState().set({ remindersView: 'tasks', tasksPlace: 'today' })}>+{list.length - 2} more</button>}
+                {late.length > 0 && <button className="cal-task-more late" title="Open the overdue tasks" onClick={openOverdue}>{late.length} overdue</button>}
+                {list.slice(0, room).map((t) => <CalendarTask key={t.id} task={t} className="cal-task-chip" />)}
+                {list.length > room && <button className="cal-task-more" onClick={() => useSettings.getState().set({ remindersView: 'tasks', tasksPlace: 'today' })}>+{list.length - room} more</button>}
               </div>
             );
           })}

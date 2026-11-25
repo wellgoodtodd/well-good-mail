@@ -288,6 +288,23 @@ export function setDone(task: Task, done: boolean) {
   if (done) toast({ text: `Done: ${task.title}`, ttl: 6000, undo: () => { void undoEntry(step); } });
 }
 
+/** Tasks › Today with the Overdue row open (from the "overdue" chips in the calendar and Coming Up). */
+export function openOverdue() {
+  const s = useSettings.getState();
+  s.set({ remindersView: 'tasks', tasksPlace: 'today', collapsed: { ...s.collapsed, 'tasks:late': false } });
+}
+
+/** Ticks off several tasks at once (Mark all done on Overdue), as one step with one Undo. */
+export function setAllDone(tasks: Task[]) {
+  const list = tasks.filter((t) => !t.done);
+  if (!list.length) return;
+  const now = (t: Task) => get().tasks.find((x) => x.id === t.id) || t;
+  for (const t of list) void changeTask(t, { done: true });
+  const label = list.length === 1 ? list[0].title : `${list.length} tasks`;
+  const step = record(`Tick off ${label}`, () => { for (const t of list) void changeTask(now(t), { done: false }, { quiet: true }); }, () => { for (const t of list) void changeTask(now(t), { done: true }, { quiet: true }); });
+  toast({ text: `Done: ${label}`, ttl: 8000, undo: () => { void undoEntry(step); } });
+}
+
 export async function deleteTask(task: Task, opts: { quiet?: boolean } = {}): Promise<void> {
   const prov = providers.get(task.accountId);
   if (!prov?.deleteTask) return;

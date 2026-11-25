@@ -11,6 +11,7 @@ import { upcoming, alertMute } from '../lib/reminders';
 import { meetingsSoon, dedupeEvents, visibleEvents, inGroupView, meetingPhase, meetingPhaseText, type CalendarGroup } from '../lib/meetings';
 import type { CalendarEvent } from '../lib/types';
 import { TaskLines, useTasksBetween } from './TaskBlocks';
+import { openOverdue } from '../lib/tasks';
 import { AccountDots, JoinButton, Switch, dayText, timeText, useMinute, useCalendarFilter } from './calendarBits';
 import { CalendarGroupsDialog, pickGroup } from './CalendarGroups';
 import { startNewEvent } from './NewEvent';
@@ -324,7 +325,7 @@ export function ComingUpBlocks({ onPick, showPicked, limit = 10 }: { onPick: (e:
       {showPicked && picked !== undefined && <PickedBlock day={picked} onPick={onPick} />}
       <Block title="Today" aside={<span className="cu-aside">{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</span>}
         events={today.map((e) => <EventLine key={e.id} e={e} onPick={onPick} join={joinToday(e)} when={e.allDay || e.end - e.start >= 86400000 ? 'All day' : `${timeText(e.start)} to ${timeText(e.end)}`} />)}
-        tasks={<TaskLines tasks={todayTasks} />} taskCount={todayTasks.length} empty="Nothing else today." />
+        tasks={<TaskLines tasks={todayTasks} onOverdue={() => { openScreen('reminders'); openOverdue(); }} />} taskCount={todayTasks.length} empty="Nothing else today." />
       <Block title="Later" aside={<span className="cu-aside">Next 7 days</span>}
         events={later.map((e) => <EventLine key={e.id} e={e} onPick={onPick} join={false} when={`${dayText(e.start)}${e.allDay ? '' : `, ${timeText(e.start)}`}`} />)}
         tasks={<TaskLines tasks={laterTasks} showDay />} taskCount={laterTasks.length} empty="Nothing in the next week." />

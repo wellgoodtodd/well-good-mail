@@ -154,3 +154,11 @@
 .side-footer .side-item .count { min-width: 2.2ch; text-align: right; margin-left: auto; }
 .side-footer .side-badge { flex: none; font-size: 0.72em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--accent); }
 .task-when-sub .link-btn, .email-tasks-links .link-btn { color: var(--accent); font-weight: 500; }
+
+/* Overdue folded into one row at the top, with Mark all done when it's open. */
+.tasks-late-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; border-top: 1px solid var(--border); margin-top: 6px; padding-right: 14px; }
+.tasks-late-head .tasks-fold { border-top: 0; margin-top: 0; flex: 1 0 auto; width: auto; white-space: nowrap; }
+.tasks-late-head .btn { white-space: nowrap; margin: 0 0 6px 14px; }
+.tasks-fold.late { color: var(--danger); font-weight: 600; }
+.cal-task-more.late { color: var(--danger); font-weight: 600; }
+.cu-task.cu-late { color: var(--danger); font-weight: 600; cursor: pointer; }
