@@ -4,6 +4,10 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## Next beta (not built yet)
+
+- AI Drafts: right-click a draft for Mark as unread (or press U). The dot then stays until you mark it read, even after you leave AI Drafts. The same menu has Open in editor, Send now, Send later, Move to group and Delete, and acts on all the ticked drafts when you right-click one of them. Tried in the demo only.
+
 ## 0.7.5 beta 7 (built 25 Nov 2026)
 
 Test list: `testing-0.7.5-beta7.md`.

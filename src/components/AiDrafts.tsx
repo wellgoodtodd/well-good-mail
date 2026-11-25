@@ -1,7 +1,7 @@
 // AI Drafts: every draft an AI app (or Gmail itself) wrote, in one place, to work through and send.
 // Search, sort and group chips at the top; tick drafts to move, schedule or delete them together; each card
 // opens into a small editor (From, To, Cc, Bcc, Subject and the message) that saves as you go.
-// Keyboard: up and down to move, Enter to open, E for the editor, X to tick, Delete to delete.
+// Keyboard: up and down to move, Enter to open, E for the editor, X to tick, U for unread, Delete to delete.
 import { LinkCard } from './LinkCard';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
@@ -40,6 +40,7 @@ const SORTS: { key: SortKey; label: string }[] = [
 ];
 const SORT_KEY = 'wgm-aidrafts-sort';
 const SEEN_KEY = 'wgm-aidrafts-seen';
+const KEPT_KEY = 'wgm-aidrafts-unread';
 const readLocal = (k: string) => { try { return localStorage.getItem(k) || ''; } catch { return ''; } };
 const writeLocal = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* fine */ } };
 
@@ -113,6 +114,18 @@ export function AiDrafts() {
   const [viewing, setViewing] = useState<string | null>(null);
   // Drafts that arrived since you last looked get a dot; "last looked" moves on when you leave.
   const [seenBefore] = useState(() => Number(readLocal(SEEN_KEY)) || 0);
+  // "Mark as unread" keeps the dot until you mark it read; "Mark as read" takes it off now.
+  const [keptNew, setKeptNew] = useState<Set<string>>(() => { try { return new Set(JSON.parse(readLocal(KEPT_KEY) || '[]') as string[]); } catch { return new Set(); } });
+  const [readNow, setReadNow] = useState<Set<string>>(new Set());
+  const isNew = (d: Draft) => !readNow.has(d.id) && (keptNew.has(d.id) || (seenBefore > 0 && d.updatedAt > seenBefore));
+  const markNew = (ids: string[], unread: boolean) => {
+    const live = new Set(list.map((d) => d.id));
+    const kept = new Set([...keptNew].filter((id) => live.has(id)));
+    const done = new Set(readNow);
+    for (const id of ids) { if (unread) { kept.add(id); done.delete(id); } else { kept.delete(id); done.add(id); } }
+    setKeptNew(kept); setReadNow(done);
+    writeLocal(KEPT_KEY, JSON.stringify([...kept]));
+  };
   const rows = useRef(new Map<string, HTMLDivElement>());
   // While a draft is open, the list keeps its order, so saving it doesn't move it to the top under your cursor.
   const order = useRef<string[]>([]);
@@ -208,11 +221,37 @@ export function AiDrafts() {
 
   const groupMenu = (anchor: DOMRect | { x: number; y: number }, ids: string[], current?: string) => menu.open(anchor, [
     { heading: ids.length > 1 ? `Move ${ids.length} drafts to` : 'Move to group' },
+    ...groupChoices(ids, current),
+  ]);
+  const groupChoices = (ids: string[], current?: string): MenuItem[] => [
     ...groups.map((g) => ({ label: g.name, icon: 'tag' as const, active: ids.length === 1 && g.id === current, onClick: () => { ids.forEach((id) => void setDraftGroup(id, g.id)); clearTicks(); } })),
     { label: 'No Group', icon: 'close', active: ids.length === 1 && (!current || !known.has(current)), onClick: () => { ids.forEach((id) => void setDraftGroup(id, undefined)); clearTicks(); } },
     { divider: true },
     { label: 'New group...', icon: 'plus', onClick: async () => { const g = await newGroup(); if (g) { ids.forEach((id) => void setDraftGroup(id, g)); clearTicks(); } } },
-  ]);
+  ];
+
+  // Right-click a card: acts on the ticked drafts when it is one of them, otherwise on that draft alone.
+  const rowMenu = (e: React.MouseEvent, d: Draft) => {
+    e.preventDefault();
+    const ids = picked.has(d.id) && ticked.length ? ticked : [d.id];
+    const ds = shown.filter((x) => ids.includes(x.id));
+    const one = ids.length === 1;
+    const allNew = ds.every(isNew);
+    menu.open({ x: e.clientX, y: e.clientY }, [
+      allNew
+        ? { label: 'Mark as read', icon: 'mailOpen', kbd: 'U', onClick: () => markNew(ids, false) }
+        : { label: 'Mark as unread', icon: 'mail', kbd: 'U', onClick: () => markNew(ids, true) },
+      { divider: true },
+      ...(one ? [
+        { label: 'Open in editor', icon: 'compose' as const, kbd: 'E', onClick: () => toEditor(d.id) },
+        { label: 'Send now', icon: 'send' as const, onClick: () => sendNow(d) },
+      ] : []),
+      { label: 'Send later', icon: 'clock', submenu: laterItems(ids).slice(1), disabled: ds.some((x) => !canSend(x)) },
+      { label: one ? 'Move to group' : `Move ${ids.length} drafts to group`, icon: 'tag', submenu: groupChoices(ids, one ? d.group : undefined) },
+      { divider: true },
+      { label: one ? 'Delete draft' : `Delete ${ids.length} drafts`, icon: 'trash', kbd: 'Del', onClick: () => void remove(ids) },
+    ]);
+  };
 
   const chip = (value: string, label: string, n: number, id?: string) => (
     <button key={value} className={`ai-chip ${filter === value ? 'on' : ''}`} aria-pressed={filter === value} onClick={() => { setDraftFilter(value); clearTicks(); }}
@@ -234,6 +273,7 @@ export function AiDrafts() {
     else if (e.key === 'Enter') { e.preventDefault(); setOpenId(openId === d.id ? null : d.id); }
     else if (e.key === 'e' || e.key === 'E') { e.preventDefault(); toEditor(d.id); }
     else if (e.key === 'x' || e.key === 'X') { e.preventDefault(); toggle(d.id); }
+    else if (e.key === 'u' || e.key === 'U') { e.preventDefault(); const ids = picked.has(d.id) && ticked.length ? ticked : [d.id]; markNew(ids, !shown.filter((x) => ids.includes(x.id)).every(isNew)); }
     else if (e.key === 'Delete') { e.preventDefault(); void remove(ticked.length ? ticked : [d.id]); }
   };
 
@@ -325,7 +365,7 @@ export function AiDrafts() {
             {shown.map((d) => {
               const acc = draftAccount(d, accounts);
               const open = openId === d.id;
-              const isNew = seenBefore > 0 && d.updatedAt > seenBefore;
+              const fresh = isNew(d);
               return (
                 // One card per draft. The account's colour runs down its left edge.
                 <div key={d.id} className={`ai-draft-wrap ${open ? 'open' : ''} ${picked.has(d.id) ? 'picked' : ''}`} style={{ borderLeftColor: acc?.colour || 'var(--border)' }}>
@@ -338,6 +378,7 @@ export function AiDrafts() {
                     title={open ? 'Close' : `${acc?.label || d.fromEmail} · ${writerText(d)}`}
                     onClick={() => setOpenId(open ? null : d.id)}
                     onKeyDown={(e) => onRowKey(e, d)}
+                    onContextMenu={(e) => rowMenu(e, d)}
                   >
                     {pickZone(d)}
                     {open ? (
@@ -350,7 +391,7 @@ export function AiDrafts() {
                       </>
                     ) : (
                       <>
-                        <div className="ai-who">{isNew && <i className="ai-new-dot" title="New since you last looked" />}<span>{whoFor(d)}</span></div>
+                        <div className="ai-who">{fresh && <i className="ai-new-dot" title={keptNew.has(d.id) ? 'Marked as unread' : 'New since you last looked'} />}<span>{whoFor(d)}</span></div>
                         <time>{day(d.updatedAt)}</time>
                         <div className="ai-subj">{d.subject || '(no subject)'}</div>
                         <div className="ai-row-acts" onClick={(e) => e.stopPropagation()}>
@@ -369,7 +410,7 @@ export function AiDrafts() {
             })}
           </div>
         )}
-        {list.length > 0 && <p className="ai-keys">Keys: up and down to move, Enter to open, E for the editor, X to tick, Delete to delete.</p>}
+        {list.length > 0 && <p className="ai-keys">Keys: up and down to move, Enter to open, E for the editor, X to tick, U for unread, Delete to delete.</p>}
       </div>
 
       {pickTime && <SendLaterPicker onClose={() => setPickTime(null)} onPick={(at) => { const ids = pickTime; setPickTime(null); void sendLater(ids, at); }} />}
