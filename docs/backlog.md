@@ -4,7 +4,9 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## Next beta (not built yet)
+## 0.7.5 beta 8 (built 25 Nov 2026)
+
+Test list: `testing-0.7.5-beta8.md`.
 
 - AI Drafts: right-click a draft for Mark as unread (or press U). The dot then stays until you mark it read, even after you leave AI Drafts. The same menu has Open in editor, Send now, Send later, Move to group and Delete, and acts on all the ticked drafts when you right-click one of them. Tried in the demo only.
 - Gentler Gmail sync (for Google's Standard tier limits from Feb and Apr 2027): requests are paced by their quota cost (an email fetch 5 units, checking for changes 2, sending 100) at two thirds of the 6,000 a minute limit, so two computers fit. When Google says too fast, the speed halves once and the account remembers a ceiling just under it, kept between runs, so a big first sync settles instead of hitting the limit over and over. Diagnostics shows the speed in units a minute. A notice says a full sync can take a while because of Google's limits. Not tried on a real account yet.
