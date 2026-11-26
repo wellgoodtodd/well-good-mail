@@ -403,6 +403,13 @@ export class GmailProvider implements MailProvider {
     return made.id;
   }
 
+  async ensureLabel(name: string): Promise<string> {
+    // Parents first, so "Hub/1234" sits under "Hub" in Gmail.
+    const parts = name.split('/');
+    for (let i = 1; i < parts.length; i++) await this.labelId(parts.slice(0, i).join('/'));
+    return this.labelId(name);
+  }
+
   async labelByName(messageId: string, names: string[]) {
     // Parents first, so "AI Drafts/Clients" sits under "AI Drafts" in Gmail.
     const ids: string[] = [];

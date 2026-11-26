@@ -12,7 +12,7 @@ import { AlertsButton } from './AlertsButton';
 import { EventPreview } from './EventPopup';
 import { InvitationsButton } from './Invitations';
 import { JoinButton } from './calendarBits';
-import { MonthView, TimeGridView, CalendarModes } from './CalendarViews';
+import { MonthView, TimeGridView, CalendarModes, useCalDay } from './CalendarViews';
 import { TasksView, newTask } from './Tasks';
 import { refreshTasks } from '../lib/tasks';
 import { SelectionBar, clearSelected, toggleSelected, useEventSelection } from './EventSelection';
@@ -38,6 +38,13 @@ export function Reminders() {
   // The List view follows the Calendar Group you're looking at, like the calendar.
   const items = useMemo(() => dueReminders(inGroupView(events, s), followups, dismissed, Date.now(), mute), [events, followups, dismissed, tick, s.hiddenCalendars, s.hiddenCalendarsAlerts, s.calendarGroups, s.calendarGroup]); // eslint-disable-line react-hooks/exhaustive-deps
   const [preview, setPreview] = useState<CalendarEvent | null>(null);
+  // An event asked for by a link (wellgoodmail://calendar/event/...): its card opens once it's here.
+  const openEventId = useCalDay((c) => c.openEventId);
+  useEffect(() => {
+    if (!openEventId) return;
+    const ev = events.find((e) => e.id === openEventId);
+    if (ev) { setPreview(ev); useCalDay.setState({ openEventId: undefined }); }
+  }, [openEventId, events]);
   // Ticked rows in the List view: the same picking as in the calendar.
   const picked = useEventSelection((x) => x.ids);
   useEffect(() => () => clearSelected(), []);

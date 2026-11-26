@@ -6,6 +6,7 @@
 
 mod crash;
 mod mailto;
+mod applink;
 mod icsfile;
 mod sendto;
 mod dav;
@@ -188,6 +189,11 @@ pub fn run() {
                 let _ = app.emit("open-files", files);
                 return;
             }
+            // A wellgoodmail: link (the hub's "Open in Well Good Mail"): open that email or calendar day.
+            if let Some(link) = applink::link_in(&args) {
+                let _ = app.emit("open-applink", link);
+                return;
+            }
             // A calendar file opened from Windows: show the event to add.
             if let Some(path) = icsfile::ics_in(&args) {
                 let _ = app.emit("open-ics", path);
@@ -255,6 +261,7 @@ pub fn run() {
             files::open_saved,
             crash::clean_exit,
             mailto::take_start_mailto,
+            applink::take_start_applink,
             icsfile::take_start_ics,
             icsfile::read_ics,
             sendto::take_start_files,
@@ -270,6 +277,8 @@ pub fn run() {
         .setup(|app| {
             crash::start(app.handle());
             mailto::remember_start_link();
+            applink::remember_start_link();
+            applink::register();
             icsfile::remember_start_file();
             sendto::remember_start_files();
             let open = MenuItem::with_id(app, "open", "Open Well Good Mail", true, None::<&str>)?;

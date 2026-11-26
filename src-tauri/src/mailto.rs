@@ -28,7 +28,7 @@ pub fn take_start_mailto() -> Option<String> {
 }
 
 #[cfg(windows)]
-fn reg(args: &[&str]) -> Result<String, String> {
+pub(crate) fn reg(args: &[&str]) -> Result<String, String> {
     use std::os::windows::process::CommandExt;
     let out = Command::new("reg").args(args).creation_flags(0x0800_0000).output().map_err(|e| e.to_string())?;
     if out.status.success() {
@@ -38,7 +38,7 @@ fn reg(args: &[&str]) -> Result<String, String> {
     }
 }
 #[cfg(not(windows))]
-fn reg(_args: &[&str]) -> Result<String, String> {
+pub(crate) fn reg(_args: &[&str]) -> Result<String, String> {
     Err("Only on Windows".into())
 }
 

@@ -4,6 +4,13 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
+## Next beta (not built yet)
+
+From the hub (26 Nov): the hub now signs in to Google itself, and these let the two work together.
+
+- Hub projects: right-click a conversation › Hub project › tick a project, or New project... (job number and name). It's a Gmail label under "Hub/" (like "Hub/1234 Smith wedding"), made with its parent, so Gmail, the phone and the hub all see it. Google accounts only. Tried in the demo.
+- Links from other apps (registered for this Windows user at every start, no admin): `wellgoodmail://thread/<account email>/<Gmail thread id>` opens that conversation (or offers Gmail on the web when it isn't on this computer); `wellgoodmail://calendar/<YYYY-MM-DD>` opens the calendar on that day; `wellgoodmail://calendar/event/<Google event id>` opens the event's card. Right-click › More › Copy Well Good Mail link copies one. The opening is tried in the demo; the Windows part needs the built app.
+
 ## 0.7.5 beta 8 (built 25 Nov 2026)
 
 Test list: `testing-0.7.5-beta8.md`.

@@ -11,6 +11,8 @@ import { bindingsFor, isSingleKey, type ShortcutAction } from './shortcuts';
 import { openExternal } from './platform';
 import { printThread, savePdfThread } from './print';
 import { sendToItems } from '../components/SendTo';
+import { hubLabels, hubName, newHubProject, setHubProject } from './hubProjects';
+import { threadLink } from './appLinks';
 
 /** The shortcut to show next to a menu item (first one with a modifier or a named key). */
 export function kbd(action: ShortcutAction): string | undefined {
@@ -83,6 +85,22 @@ export function messageMenu(keys: string[]): MenuItem[] {
     return inThread.filter((m) => m.attachments.length || m.hasAttachments).sort((a, b) => b.date - a.date)[0] || inThread.sort((a, b) => b.date - a.date)[0];
   }).filter(Boolean)));
   items.push({ label: 'Snooze', icon: 'clock', submenu: snoozeOptions().slice(0, 4).map((o) => ({ label: o.label, icon: 'clock' as const, onClick: () => snooze(ids, o.at) })) });
+  // Hub projects: Gmail labels under "Hub/", which the hub reads too. A tick shows the ones the emails are in.
+  if (sameAccount && p?.ensureLabel) {
+    const hub = hubLabels(latest.accountId);
+    items.push({
+      label: 'Hub project',
+      icon: 'tag',
+      submenu: [
+        ...hub.map((l) => {
+          const has = msgs.every((m) => m.labels.includes(l.id));
+          return { label: hubName(l), icon: (has ? 'check' : 'tag') as 'check' | 'tag', active: has, onClick: () => void setHubProject(ids, latest.accountId, l, has) };
+        }),
+        ...(hub.length ? [{ divider: true }] : []),
+        { label: 'New project...', icon: 'plus', onClick: () => void newHubProject(ids, latest.accountId) },
+      ],
+    });
+  }
   if (labels.length) {
     items.push(
       { label: 'Move to', icon: 'folder', submenu: labels.map((l) => ({ label: l.name, icon: 'folder' as const, onClick: () => moveToLabel(ids, latest.accountId, l.id) })) },
@@ -103,6 +121,7 @@ export function messageMenu(keys: string[]): MenuItem[] {
       { label: `Find emails from ${senderName}`, icon: 'search', onClick: () => runSearch(`from:${sender}`, { everywhere: true }) },
       { label: 'Copy sender address', icon: 'user', onClick: () => copy(sender, 'Address') },
       { label: 'Copy subject', icon: 'file', onClick: () => copy(latest.subject, 'Subject') },
+      ...(account ? [{ label: 'Copy Well Good Mail link', icon: 'link' as const, onClick: () => copy(threadLink(account.email, latest.threadId), 'Link') }] : []),
     ];
     if (account?.kind === 'gmail') {
       more.push({ label: 'Open in Gmail on the web', icon: 'link', onClick: () => openExternal(`https://mail.google.com/mail/u/${encodeURIComponent(account.email)}/#all/${latest.threadId}`) });

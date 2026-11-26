@@ -29,9 +29,11 @@ const midnight = (ms: number) => { const d = new Date(ms); d.setHours(0, 0, 0, 0
  * The day you picked, shared by Day, Week and Month (and shown in the side panel), so switching view stays on it.
  * Undefined until you pick one: the views then start at today.
  */
-export const useCalDay = create<{ day?: number }>(() => ({}));
+export const useCalDay = create<{ day?: number; jump?: number; openEventId?: string }>(() => ({}));
 export const selectDay = (ms: number | undefined) => useCalDay.setState({ day: ms === undefined ? undefined : midnight(ms) });
 export const selectedOrToday = () => useCalDay.getState().day ?? midnight(Date.now());
+/** Moves whichever view is showing to this day (from a link), and optionally opens one of its events. */
+export const goToDay = (ms: number, openEventId?: string) => useCalDay.setState({ day: midnight(ms), jump: Date.now(), openEventId });
 /** Opens a day on its own, in Day view. */
 export const openDay = (ms: number) => { selectDay(ms); useSettings.getState().set({ calendarMode: 'day' }); };
 
@@ -206,6 +208,8 @@ export function TimeGridView({ mode, onPick, modes }: { mode: 'day' | 'week'; on
   const selected = useEventSelection((s) => s.ids);
   const menu = useMenu();
   const [anchor, setAnchorNow] = useState(() => new Date(selectedOrToday()));
+  const jump = useCalDay((c) => c.jump);
+  useEffect(() => { if (jump) setAnchorNow(new Date(selectedOrToday())); }, [jump]);
   // Moving in Day or Week moves the picked day with it, so Month and the side panel follow.
   const setAnchor = (d: Date) => { setAnchorNow(d); selectDay(d.getTime()); };
   const days = useMemo(() => {
@@ -577,6 +581,8 @@ export function MonthView({ onPick, modes }: { onPick: (e: CalendarEvent) => voi
   const selected = useEventSelection((s) => s.ids);
   const menu = useMenu();
   const [month, setMonthNow] = useState(() => { const d = new Date(selectedOrToday()); d.setDate(1); return d; });
+  const jump = useCalDay((c) => c.jump);
+  useEffect(() => { if (jump) { const d = new Date(selectedOrToday()); d.setDate(1); setMonthNow(d); } }, [jump]);
   // Moving month keeps the picked day on the same date in the new month (or its last day).
   const setMonth = (d: Date) => {
     setMonthNow(d);

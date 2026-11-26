@@ -340,6 +340,14 @@ export class DemoProvider implements MailProvider {
     return [...getState().messages.values()].filter((m) => m.accountId === this.account.id);
   }
 
+  /** Labels made with ensureLabel, kept for the session. */
+  private madeLabels: string[] = [];
+  async ensureLabel(name: string): Promise<string> {
+    const parts = name.split('/');
+    for (let i = 1; i <= parts.length; i++) { const n = parts.slice(0, i).join('/'); if (!this.madeLabels.includes(n)) this.madeLabels.push(n); }
+    return `Label_${name}`;
+  }
+
   async listFolders(): Promise<Folder[]> {
     const base: Folder[] = [
       { id: 'INBOX', accountId: this.account.id, name: 'Inbox', system: 'inbox', unread: 0, depth: 0 },
@@ -349,6 +357,7 @@ export class DemoProvider implements MailProvider {
       { id: 'TRASH', accountId: this.account.id, name: 'Bin', system: 'bin', unread: 0, depth: 0 },
       { id: 'STARRED', accountId: this.account.id, name: 'Flagged', system: 'flagged', unread: 0, depth: 0 },
     ];
+    for (const name of this.madeLabels) base.push({ id: `Label_${name}`, accountId: this.account.id, name, unread: 0, depth: name.split('/').length - 1 });
     if (this.account.id === 'demo-wgm') {
       base.push(
         { id: 'Label_clients', accountId: this.account.id, name: 'Clients', unread: 0, depth: 0, colour: '#3B82F6' },

@@ -42,6 +42,8 @@ export interface MailProvider {
   saveDraft(msg: OutgoingMessage, serverDraftId?: string): Promise<{ draftId: string; messageId?: string }>;
   /** Gmail only: puts labels (made if missing, by name like "AI Drafts/Clients") on a saved draft's message. */
   labelByName?(messageId: string, names: string[]): Promise<void>;
+  /** Gmail only: the id of the label with this name ("Hub/1234 Smith wedding"), made (with its parents) if missing. */
+  ensureLabel?(name: string): Promise<string>;
   /** Gmail only: every draft on the server, by draft id and the id of its current message. */
   listDrafts?(): Promise<{ draftId: string; messageId: string }[]>;
   /** Gmail only: a message's label names (as written in Gmail) and its date. */

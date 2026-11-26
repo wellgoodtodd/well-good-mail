@@ -173,6 +173,19 @@ function useMailtoLinks() {
   }, [ready]);
 }
 
+/** wellgoodmail: links from other apps (the hub's "Open in Well Good Mail"): that email, day or event. */
+function useAppLinks() {
+  const ready = useMail((s) => s.accounts.length > 0);
+  useEffect(() => {
+    if (!isTauri() || isPopout() || !ready) return;
+    const open = (link: string) => void import('./lib/appLinks').then((a) => a.openAppLink(link));
+    void invoke<string | null>('take_start_applink').then((l) => { if (l) open(l); }).catch(() => undefined);
+    let stop: (() => void) | undefined;
+    void import('@tauri-apps/api/event').then(({ listen }) => listen<string>('open-applink', (e) => open(e.payload))).then((u) => { stop = u; });
+    return () => stop?.();
+  }, [ready]);
+}
+
 /** Calendar files (.ics) opened from Windows (Open with › Well Good Mail): the event, in the New event form. */
 function useCalendarFiles() {
   const ready = useMail((s) => s.accounts.length > 0);
@@ -884,6 +897,7 @@ export default function App() {
   useTheme();
   useMailtoLinks();
   useCalendarFiles();
+  useAppLinks();
   useSentFiles();
   const popout = isPopout();
   useEffect(() => {
