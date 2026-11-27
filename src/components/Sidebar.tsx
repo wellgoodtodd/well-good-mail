@@ -697,14 +697,22 @@ s.groups.length > 0 && (
         const filter = draftFilter;
         const go = (f: string) => { setDraftFilter(f); openScreen('aidrafts'); };
         const on = (f: string) => screen === 'aidrafts' && filter === f;
+        // The groups fold away under All AI Drafts (like the accounts under All Inboxes), closed unless you open them or
+        // are looking at one. Most of the time you click All AI Drafts and read everything, so they start closed.
+        const groupsOpen = collapsed['aidrafts-groups'] === false || (screen === 'aidrafts' && filter !== 'all');
+        const toggleGroups = () => setCollapsed('aidrafts-groups', groupsOpen);
         return (
           <Section id="sec:aidrafts" title="AI Drafts">
             <div className="side-row">
-              <button className={`side-item ${on('all') ? 'selected' : ''}`} onClick={() => go('all')} title="Drafts written by AI apps">
-                <Icon name="sparkle" /><span className="name">All AI Drafts</span>{n.all ? <span className="count">{n.all}</span> : null}
+              <button className={`side-item ${on('all') ? 'selected' : ''}`} onClick={() => go('all')} title="Drafts written by AI apps"
+                onContextMenu={(e) => { e.preventDefault(); menu.open({ x: e.clientX, y: e.clientY }, [{ label: groupsOpen ? 'Hide the groups' : 'Show the groups', icon: 'tag', onClick: toggleGroups }, { label: 'New group...', icon: 'plus', onClick: () => void newGroup() }]); }}>
+                <span className="twisty" onClick={(e) => { e.stopPropagation(); toggleGroups(); }} role="button" aria-label={groupsOpen ? 'Hide the groups' : 'Show the groups'} aria-expanded={groupsOpen}>
+                  <Icon name={groupsOpen ? 'chevronDown' : 'chevronRight'} size={13} />
+                </span>
+                <Icon name="sparkle" /><span className="name">All AI Drafts</span>{n.all && !groupsOpen ? <span className="count">{n.all}</span> : null}
               </button>
             </div>
-            {groups.map((g) => (
+            {groupsOpen && groups.map((g) => (
               <div className="side-row" key={g.id}>
                 <button className={`side-item child ${on(g.id) ? 'selected' : ''}`} onClick={() => go(g.id)}
                   onContextMenu={(e) => { e.preventDefault(); menu.open({ x: e.clientX, y: e.clientY }, groupItems(g.id, g.name)); }}>
@@ -712,16 +720,18 @@ s.groups.length > 0 && (
                 </button>
               </div>
             ))}
-            {n.none > 0 && (
+            {groupsOpen && n.none > 0 && (
               <div className="side-row">
                 <button className={`side-item child ${on('none') ? 'selected' : ''}`} onClick={() => go('none')}>
                   <Icon name="file" /><span className="name">No Group</span><span className="count">{n.none}</span>
                 </button>
               </div>
             )}
-            <div className="side-row">
-              <button className="side-item child dim" onClick={() => void newGroup()}><Icon name="plus" /><span className="name">New group</span></button>
-            </div>
+            {groupsOpen && (
+              <div className="side-row">
+                <button className="side-item child dim" onClick={() => void newGroup()}><Icon name="plus" /><span className="name">New group</span></button>
+              </div>
+            )}
           </Section>
         );
       })()
