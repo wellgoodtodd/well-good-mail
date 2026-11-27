@@ -4,7 +4,9 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## Next beta (not built yet)
+## 0.7.5 beta 10 (built 27 Nov 2026)
+
+Test list: `testing-0.7.5-beta10.md`.
 
 From Todd, 27 Nov (mock-up: `mockups/earlier-emails-and-ooo-remote.html`):
 
