@@ -4,7 +4,9 @@ Things noted but not built yet. Newest first. Nothing here is promised for a dat
 
 Finished work is in docs/history.md (newest first). This file keeps what is still open, plus the latest beta.
 
-## Next beta (not built yet)
+## 0.7.5 beta 11 (built 27 Nov 2026)
+
+Test list: `testing-0.7.5-beta11.md`.
 
 - AI Drafts sidebar: the All row under the heading can be renamed on its own too (right-click it › Rename..., Reset name). It says "All AI Drafts", or just "All" once the heading above is renamed, until you give it a name. Tried in the demo.
 
