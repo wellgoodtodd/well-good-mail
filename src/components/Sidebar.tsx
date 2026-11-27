@@ -238,6 +238,35 @@ function useLabelName(id: string, fallback: string) {
 }
 const SideCtx = createContext<SideCtxValue>(null as unknown as SideCtxValue);
 
+/**
+ * The top row under AI Drafts: everything in one list, with an arrow that shows the groups. It says "All AI Drafts", or
+ * just "All" once the heading above has been renamed, and can be renamed itself (right-click, Rename...).
+ */
+function AllDraftsRow({ selected, groupsOpen, onToggle, count, sectionRenamed, onGo, openMenu }: { selected: boolean; groupsOpen: boolean; onToggle: () => void; count: number; sectionRenamed: boolean; onGo: () => void; openMenu: SideCtxValue['openMenu'] }) {
+  const label = useLabelName('aidrafts-all', sectionRenamed ? 'All' : 'All AI Drafts');
+  if (label.editing) return <div className="side-row"><div className="side-item child"><NameEdit value={label.name} onSave={label.save} onCancel={() => label.setEditing(false)} /></div></div>;
+  return (
+    <div className="side-row">
+      <button className={`side-item ${selected ? 'selected' : ''}`} onClick={onGo} title="Drafts written by AI apps"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          openMenu({ x: e.clientX, y: e.clientY }, [
+            { label: 'Rename...', icon: 'compose', onClick: () => label.setEditing(true) },
+            ...(label.name !== (sectionRenamed ? 'All' : 'All AI Drafts') ? [{ label: 'Reset name', icon: 'undo' as const, onClick: () => label.save('') }] : []),
+            { divider: true },
+            { label: groupsOpen ? 'Hide the groups' : 'Show the groups', icon: 'tag', onClick: onToggle },
+            { label: 'New group...', icon: 'plus', onClick: () => void newGroup() },
+          ]);
+        }}>
+        <span className="twisty" onClick={(e) => { e.stopPropagation(); onToggle(); }} role="button" aria-label={groupsOpen ? 'Hide the groups' : 'Show the groups'} aria-expanded={groupsOpen}>
+          <Icon name={groupsOpen ? 'chevronDown' : 'chevronRight'} size={13} />
+        </span>
+        <Icon name="sparkle" /><span className="name">{label.name}</span>{count ? <span className="count">{count}</span> : null}
+      </button>
+    </div>
+  );
+}
+
 /** accountRow: 'inbox' is an account listed under All Inboxes (picture, email chip when there is room); 'head' is an account in the Accounts list (just the colour dot). */
 function Item({ d, level = 0, twisty, onTwisty, inFavourites = false, favIndex, dim = false, showContext = false, accountRow, chip = false, folderId }: {
     d: Desc; level?: number; twisty?: 'open' | 'closed'; onTwisty?: () => void; inFavourites?: boolean; favIndex?: number; dim?: boolean; showContext?: boolean; accountRow?: 'inbox' | 'head'; chip?: false | 'under' | 'beside'; folderId?: string;
@@ -704,15 +733,7 @@ s.groups.length > 0 && (
         const toggleGroups = () => setCollapsed('aidrafts-groups', groupsOpen);
         return (
           <Section id="sec:aidrafts" title="AI Drafts">
-            <div className="side-row">
-              <button className={`side-item ${on('all') ? 'selected' : ''}`} onClick={() => go('all')} title="Drafts written by AI apps"
-                onContextMenu={(e) => { e.preventDefault(); menu.open({ x: e.clientX, y: e.clientY }, [{ label: groupsOpen ? 'Hide the groups' : 'Show the groups', icon: 'tag', onClick: toggleGroups }, { label: 'New group...', icon: 'plus', onClick: () => void newGroup() }]); }}>
-                <span className="twisty" onClick={(e) => { e.stopPropagation(); toggleGroups(); }} role="button" aria-label={groupsOpen ? 'Hide the groups' : 'Show the groups'} aria-expanded={groupsOpen}>
-                  <Icon name={groupsOpen ? 'chevronDown' : 'chevronRight'} size={13} />
-                </span>
-                <Icon name="sparkle" /><span className="name">{aiName === AI_DRAFTS_NAME ? 'All AI Drafts' : 'All'}</span>{n.all && !groupsOpen ? <span className="count">{n.all}</span> : null}
-              </button>
-            </div>
+            <AllDraftsRow selected={on('all')} groupsOpen={groupsOpen} onToggle={toggleGroups} count={n.all && !groupsOpen ? n.all : 0} sectionRenamed={aiName !== AI_DRAFTS_NAME} onGo={() => go('all')} openMenu={menu.open} />
             {groupsOpen && groups.map((g) => (
               <div className="side-row" key={g.id}>
                 <button className={`side-item child ${on(g.id) ? 'selected' : ''}`} onClick={() => go(g.id)}
