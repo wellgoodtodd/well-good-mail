@@ -210,6 +210,7 @@ async function answer(rid: number, conn: number, body: string) {
       },
       turnOn: async (plan) => (await import('../oooStore')).turnOnOoo(plan),
       turnOff: async (ids) => (await import('../oooStore')).turnOffOoo(ids),
+      announce: (text, turnOff) => toast({ text, ttl: 20000, ...(turnOff ? { action: { label: 'Turn off', run: turnOff } } : {}) }),
     },
     contactGroups: await (async () => {
       const c = await import('../mail/contacts');

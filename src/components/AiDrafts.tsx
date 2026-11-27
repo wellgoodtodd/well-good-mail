@@ -3,6 +3,7 @@
 // opens into a small editor (From, To, Cc, Bcc, Subject and the message) that saves as you go.
 // Keyboard: up and down to move, Enter to open, E for the editor, X to tick, U for unread, Delete to delete.
 import { LinkCard } from './LinkCard';
+import { ReplyingTo, useReplyThread } from './ReplyingTo';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { sendLaterOptions, useMenu, type MenuItem } from './ui';
@@ -443,6 +444,7 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
   // A draft brought in before beta 9 may still hold its signature, which the box below shows anyway.
   const parts = useMemo(() => splitQuote(stripOwnSignature(d.html, draftSignature(d, composeContext()))), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [showQuote, setShowQuote] = useState(false);
+  const replyThread = useReplyThread(d);
   const [form, setForm] = useState<QuickForm>(() => ({ fromAccountId: d.fromAccountId || acc?.id, fromEmail: d.fromEmail, to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, html: parts.own, signatureOf: d.signatureOf }));
   const writing = { font: useSettings((s) => s.writingFont), size: useSettings((s) => s.writingSize) };
   const editor = useEditor({
@@ -557,6 +559,7 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
           <input id={`aisubj-${d.id}`} className="plain ai-subject-input" value={form.subject} onChange={(e) => change({ subject: e.target.value })} onBlur={() => void flush()} onKeyDown={(e) => { if (e.key === 'Tab' && !e.shiftKey && editor) { e.preventDefault(); editor.commands.focus(); } }} placeholder="Subject" />
         </div>
       </div>
+      <ReplyingTo draft={d} />
       <div className="ai-editor">
         <FormatBar editor={editor} basic defaultFont={writing.font} defaultSize={writing.size}
           end={<SignaturePicker fromEmail={form.fromEmail} value={form.signatureOf} onChange={(v) => change({ signatureOf: v })} />} />
@@ -565,7 +568,7 @@ function DraftDetail({ d, acc, onDelete, onClose, sendAt }: {
           {signature && <div className="signature-preview" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signature) }} />}
         </div>
       </div>
-      {parts.quote && (
+      {parts.quote && !replyThread && (
         <div className="ai-quote">
           <button className="btn ghost" onClick={() => setShowQuote(!showQuote)}><Icon name={showQuote ? 'chevronDown' : 'chevronRight'} size={12} /> {showQuote ? 'Hide the earlier emails' : 'Show the earlier emails'}</button>
           {showQuote && <div className="ai-quote-text">{htmlToText(parts.quote)}</div>}

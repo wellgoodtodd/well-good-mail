@@ -89,6 +89,47 @@ describe('AI apps setting Out of Office', () => {
     expect(turnOn).not.toHaveBeenCalled();
     expect(r).toContain('said no');
   });
+  describe('from a chat, within the limits the person set', () => {
+    const limits = (o: Partial<{ who: 'contacts' | 'everyone'; maxDays: number; message: 'ai' | 'templates' }> = {}) => ({ on: true, who: 'contacts' as const, maxDays: 3, message: 'ai' as const, ...o });
+    const remoteWorld = (o?: Parameters<typeof limits>[0]) => { const x = world('write'); x.w.settings = { ...x.w.settings, oooRemote: limits(o) }; return x; };
+    const announce = () => vi.fn();
+    it('goes ahead with no question, contacts only, and tells the person with a way to turn it off', async () => {
+      const x = remoteWorld();
+      const say = announce();
+      (x.w.ooo as { announce?: typeof say }).announce = say;
+      const r = JSON.stringify(await handleRpc(x.w, call({ accounts: ['a'], from: '2026-11-16', back: '2026-11-18', message: 'Out today. Back [back date].' })));
+      expect(x.ask).not.toHaveBeenCalled();
+      expect(x.turnOn).toHaveBeenCalledWith(expect.objectContaining({ accounts: ['a'], audience: 'contacts' }));
+      expect(say).toHaveBeenCalledTimes(1);
+      expect(say.mock.calls[0][0]).toContain('set by the AI');
+      expect(typeof say.mock.calls[0][1]).toBe('function');
+      expect(r).not.toContain('error');
+    });
+    it('refuses a wider audience, a longer time, no back date, and new words when only templates are allowed', async () => {
+      const x = remoteWorld();
+      for (const args of [
+        { accounts: ['a'], from: '2026-11-16', back: '2026-11-18', who: 'everyone' },
+        { accounts: ['a'], from: '2026-11-16', back: '2026-11-26' },
+        { accounts: ['a'], from: '2026-11-16' },
+      ]) {
+        const r = JSON.stringify(await handleRpc(x.w, call(args)));
+        expect(r).toContain("person's limits");
+      }
+      const t = remoteWorld({ message: 'templates' });
+      expect(JSON.stringify(await handleRpc(t.w, call({ accounts: ['a'], from: '2026-11-16', back: '2026-11-18', message: 'Hi' })))).toContain('saved templates');
+      expect(x.turnOn).not.toHaveBeenCalled();
+      expect(t.turnOn).not.toHaveBeenCalled();
+      expect(x.ask).not.toHaveBeenCalled();
+    });
+    it('still respects the switch being off, and still allows turning it off', async () => {
+      const x = remoteWorld();
+      x.w.settings = { ...x.w.settings, modes: { ...x.w.settings.modes, 'settings.ooo': 'off' } };
+      expect(JSON.stringify(await handleRpc(x.w, call({ accounts: ['a'], from: '2026-11-16', back: '2026-11-18' })))).toContain('switched off');
+      const y = remoteWorld({ maxDays: 1 });
+      await handleRpc(y.w, call({ accounts: ['a'], on: false }));
+      expect(y.ask).not.toHaveBeenCalled();
+    });
+  });
   it('refuses accounts that are Read only', async () => {
     const { w, ask } = world('read');
     const r = JSON.stringify(await handleRpc(w, call({ accounts: ['a'] })));

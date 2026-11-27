@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Earlier emails and remote Out of Office · mock-up v0.1</title>
+<style>
+:root{--card:#26262b;--text:#ececef;--muted:#9c9ca5;--accent:#3b82f6;--line:#3a3a41}
+*{box-sizing:border-box}
+html{scrollbar-width:thin;scrollbar-color:#4a4a52 transparent}
+body{margin:0;background:#111113;color:var(--text);font:14px/1.5 Inter,'Segoe UI',system-ui,sans-serif;padding:16px}
+.w{max-width:980px;margin:0 auto;display:grid;gap:40px}
+h1{font-size:19px;margin:4px 0 0}
+h2{font-size:15px;margin:0 0 4px}
+.lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.opt{display:inline-block;font-size:11px;font-weight:700;background:#2b3a5a;color:#9fc0ff;border-radius:5px;padding:1px 8px;margin-right:6px}
+.rec{background:#1f3a2e;color:#7fe0b4}
+.why{color:var(--muted);font-size:13px;margin:8px 0 0;max-width:760px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:start}
+.app{background:#1b1b1e;border:1px solid #33333a;border-radius:12px;padding:14px}
+.card{background:var(--card);border:1px solid #44444b;border-radius:11px;padding:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #44444b;border-radius:7px;padding:4px 11px;background:#2f2f35;font-size:12.5px;white-space:nowrap}
+.ghost{background:transparent}
+.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #4a4a52;border-radius:999px;padding:2px 11px;font-size:12.5px;background:#2b2b31;line-height:1.5}
+.sub{font-weight:600;margin:0 0 8px}
+.me{border:1px solid #4a4a52;border-radius:8px;padding:9px 11px;background:#1d1d20;margin:10px 0}
+.msg{border:1px solid #3a3a41;border-radius:9px;background:#222226;margin:8px 0;overflow:hidden}
+.mh{display:flex;gap:10px;align-items:center;padding:8px 11px}
+.av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+.mh .n{font-weight:600;font-size:13px;white-space:nowrap}
+.mh .d{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+.mh .s{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mb{padding:2px 12px 12px 49px;font-size:13.5px}
+.mb p{margin:0 0 8px}
+.mb blockquote{margin:6px 0;padding-left:10px;border-left:3px solid #4a4a52;color:var(--muted)}
+.open .mh{background:#26262c}
+.row{display:flex;gap:10px;align-items:baseline;padding:7px 4px;border-bottom:1px solid #303036;font-size:13px}
+.row:last-child{border:0}
+.row b{width:92px;flex:none;font-weight:600}
+.row i{font-style:normal;color:var(--muted);width:56px;flex:none;font-size:12px}
+.row span{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.side{display:grid;grid-template-columns:1fr 1.15fr;gap:12px}
+@media(max-width:640px){.side{grid-template-columns:1fr}}
+.fold{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px dashed #55555e;border-radius:9px;padding:8px 11px;color:var(--muted);font-size:13px}
+.sig{color:var(--muted);font-size:13px;border-left:3px solid #55555e;padding-left:10px;margin:10px 0}
+.tg{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #303036}
+.tg:last-child{border:0}
+.sw{width:38px;height:22px;border-radius:999px;background:#3a3a41;position:relative;flex:none;margin-top:2px}
+.sw.on{background:var(--accent)}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.sw.on::after{left:19px}
+.tg small{display:block;color:var(--muted);font-size:12.5px}
+.sel{border:1px solid #4a4a52;border-radius:7px;padding:3px 10px;background:#1d1d20;display:inline-block;font-size:12.5px}
+.chat{display:grid;gap:10px;max-width:620px}
+.b{border-radius:12px;padding:9px 13px;max-width:88%;font-size:13.5px}
+.b.u{background:#2b3a5a;justify-self:end}
+.b.a{background:#26262b;border:1px solid #3a3a41}
+.b.a b{display:block;margin-bottom:2px}
+.tip{background:#2a2a22;border:1px solid #5a5430;border-radius:9px;padding:8px 12px;color:#e8d7b5;font-size:13px;max-width:760px}
+.toast{display:inline-flex;gap:14px;align-items:center;background:#2c2c32;border:1px solid #4a4a52;border-radius:9px;padding:8px 12px;font-size:13px}
+.toast a{color:#8fb3ff;font-weight:600}
+</style></head><body><div class="w">
+
+<div><h1>Earlier emails, and Out of Office from your phone</h1>
+<p class="why" style="margin-top:4px">Mock-up v0.1 · dark first. Nothing here is built. Names and emails are made up.</p></div>
+
+<!-- ============ 1 ============ -->
+<section>
+<div class="lbl">1 · AI Drafts: seeing what you're replying to</div>
+<p class="why" style="margin:0 0 14px">Today "Show the earlier emails" shows one block of plain text, and only when the draft happens to contain a quote. Three ways to do it better. All of them work for every reply, even when the draft has no quote, because the app already has the conversation on your computer.</p>
+
+<div class="cols">
+
+<div>
+<p><span class="opt rec">A · My pick</span>Cards, like the reading pane</p>
+<div class="app">
+<div class="card">
+<p class="sub">Re: Venue booking for the spring event</p>
+<span class="chip">↩ Replying to Maria Hale · 25 Nov &nbsp;▾</span>
+<div class="msg open">
+<div class="mh"><span class="av" style="background:#6d4aff">MH</span><span class="n">Maria Hale</span><span class="d">25 Nov, 15:49</span></div>
+<div class="mb"><p>Hi Alex, we can do the 14th or the 21st. Could you let us know which suits, and whether you need the sound desk?</p><blockquote>Thanks Maria, that's great news…</blockquote></div>
+</div>
+<div class="msg"><div class="mh"><span class="av" style="background:#0e8f6a">AM</span><span class="n">Alex Morgan</span><span class="s">Thanks Maria, that's great news, please send over the…</span><span class="d">24 Nov</span></div></div>
+<div class="msg"><div class="mh"><span class="av" style="background:#6d4aff">MH</span><span class="n">Maria Hale</span><span class="s">Hi Alex, the hall is free in the spring, would you like…</span><span class="d">21 Nov</span></div></div>
+<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><span class="btn ghost">Show 4 more</span><span class="btn ghost">⧉ Open the conversation in a window</span></div>
+<div class="me" style="margin-top:12px">Hi Maria, the 21st works well. Yes please to the sound desk…</div>
+</div>
+</div>
+<p class="why">Newest first, newest open. Each email is a folded card like the main viewer, with real paragraphs, quotes and links. Click one to open it. Opening one closes the others. Long threads show the first few, then "Show N more".</p>
+</div>
+
+<div>
+<p><span class="opt">B</span>A simple list</p>
+<div class="app">
+<div class="card">
+<p class="sub">Re: Venue booking for the spring event</p>
+<span class="chip">↩ Replying to Maria Hale · 25 Nov &nbsp;▾</span>
+<div style="margin-top:10px">
+<div class="row"><b>Maria Hale</b><i>25 Nov</i><span>Hi Alex, we can do the 14th or the 21st. Could you…</span></div>
+<div class="row"><b>Alex Morgan</b><i>24 Nov</i><span>Thanks Maria, that's great news, please send…</span></div>
+<div class="row"><b>Maria Hale</b><i>21 Nov</i><span>Hi Alex, the hall is free in the spring, would you…</span></div>
+<div class="row"><b>Alex Morgan</b><i>20 Nov</i><span>Hello, we're looking for a hall for around 80 people…</span></div>
+</div>
+<div class="me">Hi Maria, the 21st works well. Yes please to the sound desk…</div>
+</div>
+</div>
+<p class="why">Compact, like the mail list. Click a row and the email opens in a window of its own (the one the main app already has). Quick to scan, but you leave the card to read anything.</p>
+</div>
+
+<div>
+<p><span class="opt">C</span>Side by side</p>
+<div class="app">
+<div class="side">
+<div class="card" style="padding:10px">
+<p class="sub" style="font-size:13px">Re: Venue booking…</p>
+<span class="chip">↩ Replying to Maria Hale ▾</span>
+<div class="me" style="font-size:12.5px">Hi Maria, the 21st works well. Yes please to the sound desk…</div>
+<span class="btn">Send now</span>
+</div>
+<div class="card" style="padding:10px;background:#222226">
+<div class="mh" style="padding:0 0 6px"><span class="av" style="background:#6d4aff">MH</span><span class="n">Maria Hale</span><span class="d">25 Nov</span></div>
+<div style="font-size:12.5px">Hi Alex, we can do the 14th or the 21st. Could you let us know which suits…</div>
+<div class="row" style="margin-top:8px"><b style="width:70px">Alex</b><i>24 Nov</i><span>Thanks Maria…</span></div>
+<div class="row"><b style="width:70px">Maria</b><i>21 Nov</i><span>Hi Alex…</span></div>
+</div>
+</div>
+</div>
+<p class="why">The conversation opens in a panel beside the card, so you read and write at once. Best on a wide screen, but it squeezes the card.</p>
+</div>
+
+</div>
+<p class="tip" style="margin-top:16px"><b>Also:</b> the "Replying to" pill would always show on a reply, so it can't seem to disappear. On a draft that isn't a reply it isn't there at all.</p>
+</section>
+
+<!-- ============ 2 ============ -->
+<section>
+<div class="lbl">2 · Reopening a saved draft in the main editor</div>
+<p class="why" style="margin:0 0 14px">Today the whole thread sits inside the editor as ordinary text, and your signature ends up below all of it. The setting "Place the signature above the quoted email" can't help, because the editor doesn't know which part is the quote.</p>
+<div class="cols">
+<div>
+<p><span class="opt">Now</span></p>
+<div class="app"><div class="card">
+<div class="me" style="margin:0 0 8px">Hi Maria, the 21st works well…</div>
+<div style="color:var(--muted);font-size:13px;border-left:3px solid #4a4a52;padding-left:10px">On 25 Nov, Maria Hale wrote:<br>Hi Alex, we can do the 14th…<br>On 24 Nov, Alex Morgan wrote:<br>Thanks Maria…<br>On 21 Nov… <br>On 20 Nov… <br>(…another 40 lines of thread…)</div>
+<div class="sig">Alex Morgan · Studio ← your signature, miles down</div>
+</div></div>
+</div>
+<div>
+<p><span class="opt rec">After</span>Like a fresh reply</p>
+<div class="app"><div class="card">
+<div class="me" style="margin:0 0 8px">Hi Maria, the 21st works well…</div>
+<div class="sig" style="margin-top:0">Alex Morgan · Studio ← where your setting puts it</div>
+<div class="fold">Earlier emails (7) · <span class="btn">Show</span><span class="btn">Keep only the latest</span><span class="btn ghost">Remove</span></div>
+</div></div>
+<p class="why">Your words and signature stay at the top. The thread is folded underneath and tidy to read when opened. <b>Keep only the latest</b> trims the long tail; <b>Remove</b> sends the reply on its own. Nothing is lost until you press send.</p>
+</div>
+</div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section>
+<div class="lbl">3 · Out of Office when you're away from your computer</div>
+<p class="why" style="margin:0 0 14px">Yesterday Claude asked, but the question only appears in the app on your desktop, so it waited. Out of Office reaches other people, so it's set to <b>always ask</b>, with Allow greyed out. The idea: a second choice, off by default, where <b>you decide the rules once</b>, and Claude can switch it on within them from anywhere.</p>
+<div class="cols">
+<div>
+<p><span class="opt">Settings</span>AI Connection › Set Out of Office</p>
+<div class="app"><div class="card">
+<div class="tg"><span class="sw"></span><div><b>Ask me in the app each time</b><small>How it works now. Needs you at the computer.</small></div></div>
+<div class="tg"><span class="sw on"></span><div><b>Let Claude set it, within these limits</b><small>It can turn Out of Office on from a chat. It can't go beyond what's below.</small></div></div>
+<div style="padding:4px 0 2px 50px;display:grid;gap:10px;font-size:13px">
+<div>Who gets the reply: <span class="sel">Contacts only ▾</span><small style="display:block;color:var(--muted);font-size:12.5px">Claude can't make it wider than this.</small></div>
+<div>Longest it can be on: <span class="sel">3 days ▾</span><small style="display:block;color:var(--muted);font-size:12.5px">It always needs a back date inside this.</small></div>
+<div>Message: <span class="sel">Claude writes it, shows me first ▾</span><small style="display:block;color:var(--muted);font-size:12.5px">Or: only my saved templates.</small></div>
+<div>Accounts: the ones set to <b>Read and write</b> above.</div>
+</div>
+</div></div>
+</div>
+<div>
+<p><span class="opt rec">In a chat</span>from your phone</p>
+<div class="chat">
+<div class="b u">Set out of office on WGM today, back tomorrow</div>
+<div class="b a"><b>Claude</b>Here's what I'll set. Say yes to go ahead.<br><br>WGM · today to the 27th · contacts only<br>"Hi, thanks for your email. I'm out of the office today and back tomorrow, 27 Nov. I'll reply then."</div>
+<div class="b u">Yes</div>
+<div class="b a"><b>Claude</b>Done. It's on for WGM until the start of 27 Nov.</div>
+</div>
+<p style="margin-top:14px"><span class="toast">Out of Office set by Claude for WGM until 27 Nov · Contacts only <a>Turn off</a></span></p>
+<p class="why">When you're back at the computer there's a note with Turn off, and it's in the AI log (Recent) too. Claude is told to show you the accounts, dates, who and the whole message and wait for your yes before it sets anything. The app itself holds the limits, so a mistake or a trick in an email can't send it to everyone or turn it on for a month.</p>
+</div>
+</div>
+<p class="tip" style="margin-top:16px"><b>Not on your phone:</b> Well Good Mail is only the Windows app, so this is the way to reach it from a chat. As far as I know the Gmail phone app can't set Out of Office at all, so the web or this is the way.</p>
+</section>
+
+</div></body></html>

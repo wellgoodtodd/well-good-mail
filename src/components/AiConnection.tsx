@@ -9,7 +9,7 @@ import { useSettings } from '../lib/settings';
 import { useTasks, startTasks, defaultList } from '../lib/tasks';
 import type { Account, TaskList } from '../lib/types';
 import { invoke, isTauri } from '../lib/platform';
-import { CAPABILITIES, IDLE_CHOICES, NEVER, LEVEL_WORDS, effectiveMode, tidy, type AccountLevel, type McpSettings, type Mode } from '../lib/mcp/permissions';
+import { CAPABILITIES, IDLE_CHOICES, OOO_DAYS, NEVER, LEVEL_WORDS, effectiveMode, tidy, type AccountLevel, type McpSettings, type Mode } from '../lib/mcp/permissions';
 import { READY, TOOLS } from '../lib/mcp/tools';
 import { setupText, pauseMcp, resumeMcp } from '../lib/mcp/server';
 import { useActivity, clearActivity } from '../lib/mcp/activity';
@@ -390,7 +390,7 @@ export function AiConnectionTab() {
 
       <section className="set-section">
         <h2>Accounts</h2>
-        <p className="hint">Off: the AI can't see the account. Read only: it can search and read, and changes nothing. Read and write: it can do what the switches below allow; anything that reaches other people always asks you first. New accounts start Off.</p>
+        <p className="hint">Off: the AI can't see the account. Read only: it can search and read, and changes nothing. Read and write: it can do what the switches below allow; anything that reaches other people asks you first (Out of Office can instead be allowed from a chat, within limits you set). New accounts start Off.</p>
         {ordered.length === 0 && <p className="hint">Add an account first.</p>}
         {ordered.length > 1 && (
           <div className="ai-row ai-all">
@@ -465,6 +465,36 @@ export function AiConnectionTab() {
                       <small className="grow">{mcp.saveFolders.length ? 'Folders inside these count too, and are made when needed.' : 'No folder yet, so nothing can be saved. Add the folders an AI may save into.'}</small>
                       <button className="btn small" disabled={!isTauri()} onClick={() => void addSaveFolder()}>Add folder</button>
                     </div>
+                  </div>
+                )}
+                {c.id === 'settings.ooo' && (
+                  <div className="ai-ooo">
+                    <label className="ai-ooo-switch">
+                      <input type="checkbox" checked={mcp.oooRemote.on} onChange={(e) => save({ oooRemote: { ...mcp.oooRemote, on: e.target.checked } })} />
+                      <span className="grow"><b>Let an AI set it from a chat, within these limits</b><small>No question in this app, so it works when you're away from the computer. The AI shows you everything in the chat and waits for your yes. Anything outside the limits is refused.</small></span>
+                    </label>
+                    {mcp.oooRemote.on && (
+                      <div className="ai-ooo-limits">
+                        <label>Who gets the reply
+                          <select value={mcp.oooRemote.who} onChange={(e) => save({ oooRemote: { ...mcp.oooRemote, who: e.target.value as 'contacts' | 'everyone' } })}>
+                            <option value="contacts">My contacts only</option>
+                            <option value="everyone">Everyone who emails me</option>
+                          </select>
+                        </label>
+                        <label>Longest it can be on
+                          <select value={mcp.oooRemote.maxDays} onChange={(e) => save({ oooRemote: { ...mcp.oooRemote, maxDays: Number(e.target.value) } })}>
+                            {OOO_DAYS.map((n) => <option key={n} value={n}>{n} day{n === 1 ? '' : 's'}</option>)}
+                          </select>
+                        </label>
+                        <label>The message
+                          <select value={mcp.oooRemote.message} onChange={(e) => save({ oooRemote: { ...mcp.oooRemote, message: e.target.value as 'ai' | 'templates' } })}>
+                            <option value="ai">The AI can write it</option>
+                            <option value="templates">Only my templates and default message</option>
+                          </select>
+                        </label>
+                        <small>It always needs a back date inside the longest time, and only works on accounts set to Read and write. When it sets one you get a note here with Turn off, and it's in the activity list.</small>
+                      </div>
+                    )}
                   </div>
                 )}
                 {open && (

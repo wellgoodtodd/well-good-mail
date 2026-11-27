@@ -16,7 +16,7 @@ import { getAttachmentData } from '../lib/mail';
 import { store } from '../lib/db';
 import { useMail, queueSend, providerFor, toast, broadcast, unschedule } from '../lib/mail';
 import { useSettings } from '../lib/settings';
-import { allAliases, findAlias, switchMode, draftSignature, draftToOutgoing, draftIsEmpty, pickFromForMessage, ATTACHMENT_LIMIT_BYTES, encodedSize } from '../lib/compose';
+import { allAliases, findAlias, switchMode, draftSignature, draftToOutgoing, draftIsEmpty, pickFromForMessage, pullOutQuote, quoteStats, latestOnly, ATTACHMENT_LIMIT_BYTES, encodedSize } from '../lib/compose';
 import { labelAiDraft } from '../lib/mcp/aiDrafts';
 import { composeContext, writingStyle } from '../lib/composeActions';
 import { closeThisWindow, invoke, isPopout, isTauri, openPopout } from '../lib/platform';
@@ -46,6 +46,8 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   }, [draftId]);
 
   const [draft, setDraft] = useState<Draft | null>(null);
+  // The quoted emails fold away when there are several or they are long; the person can open them either way.
+  const [quoteOpen, setQuoteOpen] = useState<boolean | undefined>(undefined);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
@@ -72,12 +74,17 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
   if (draft && keptBefore.current === undefined) keptBefore.current = draft.byAi || draft.serverDraftId || Date.now() - draft.updatedAt > 15000 ? draft : null;
 
   const source = draft?.sourceMessageId ? messages[draft.sourceMessageId] : undefined;
+  const quote = useMemo(() => quoteStats(draft?.quotedHtml || ''), [draft?.quotedHtml]);
+  const quoteShown = quoteOpen ?? !quote.long;
   const aliases = useMemo(() => allAliases(accounts), [accounts]);
 
   // ---------- load & save ----------
   useEffect(() => {
-    store.getDraft(draftId).then((d) => {
-      if (!d) return;
+    store.getDraft(draftId).then((got) => {
+      if (!got) return;
+      // A reopened draft holds its thread inside the body: pull it out so it folds, and the signature setting works.
+      const d = pullOutQuote(got);
+      if (d !== got) { draftRef.current = d; void store.putDraft(d); }
       setDraft(d);
       setShowCc(d.cc.length > 0);
       setShowBcc(d.bcc.length > 0);
@@ -549,10 +556,15 @@ export function Composer({ draftId, variant }: { draftId: string; variant: 'inli
         )}
         {draft.quotedHtml && (
           <div className="quote-toggle">
-            <button className="btn ghost" onClick={() => update({ includeQuote: !draft.includeQuote })}>
-              {draft.includeQuote ? (draft.mode === 'forward' ? 'Forwarded email included' : 'Quoted email included') : 'Quoted email removed'} · {draft.includeQuote ? 'Remove' : 'Include'}
-            </button>
-            {draft.includeQuote && <div className="quoted" dangerouslySetInnerHTML={{ __html: sanitizeQuote(draft.quotedHtml) }} />}
+            <div className="quote-bar">
+              <span className="quote-title">{!draft.includeQuote ? 'Quoted email removed' : draft.mode === 'forward' ? 'Forwarded email included' : quote.emails > 1 ? `Earlier emails (${quote.emails})` : 'Quoted email included'}</span>
+              {draft.includeQuote && <button className="btn ghost" aria-expanded={quoteShown} onClick={() => setQuoteOpen(!quoteShown)}>{quoteShown ? 'Hide' : 'Show'}</button>}
+              {draft.includeQuote && quote.emails > 1 && draft.mode !== 'forward' && (
+                <button className="btn ghost" title="Keep the email you're replying to and drop the earlier ones under it" onClick={() => { const before = draft.quotedHtml; update({ quotedHtml: latestOnly(before) }); toast({ text: 'Kept only the latest email in the quote', ttl: 6000, undo: () => update({ quotedHtml: before }) }); }}>Keep only the latest</button>
+              )}
+              <button className="btn ghost" onClick={() => update({ includeQuote: !draft.includeQuote })}>{draft.includeQuote ? 'Remove' : 'Include'}</button>
+            </div>
+            {draft.includeQuote && quoteShown && <div className="quoted" dangerouslySetInnerHTML={{ __html: sanitizeQuote(draft.quotedHtml) }} />}
           </div>
         )}
         {s.signaturePlacement === 'below' && signature && <div className="signature-preview" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(signature) }} />}

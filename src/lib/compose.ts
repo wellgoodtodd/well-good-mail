@@ -171,6 +171,41 @@ export function switchMode(draft: Draft, mode: ComposeMode, source: Message | un
   };
 }
 
+/**
+ * A draft brought back from the server holds the quoted emails inside its body, so in the editor the whole thread sat
+ * under your words and the signature came after all of it. This moves a quote that is clearly marked (Gmail's own
+ * gmail_quote, or our wgm-quote and wgm-forward) out into the draft's quote, which is folded, can be trimmed or
+ * removed, and goes where the signature setting says. A blockquote you typed yourself is never taken for one.
+ */
+export function pullOutQuote(d: Draft): Draft {
+  if (d.quotedHtml || !d.html || typeof DOMParser === 'undefined') return d;
+  if (!/class="[^"]*(gmail_quote|wgm-quote|wgm-forward)/i.test(d.html)) return d;
+  const doc = new DOMParser().parseFromString(`<body>${d.html}</body>`, 'text/html');
+  const mark = doc.body.querySelector('div.gmail_quote, div.wgm-quote, div.wgm-forward');
+  if (!mark) return d;
+  const holder = doc.createElement('div');
+  for (let n: Node | null = mark; n; ) { const next: Node | null = n.nextSibling; holder.appendChild(n); n = next; }
+  return { ...d, html: doc.body.innerHTML, quotedHtml: holder.innerHTML, includeQuote: true };
+}
+
+/** How many emails a quote holds (the one replied to, then each earlier one nested in it), and whether it is long. */
+export function quoteStats(quotedHtml: string): { emails: number; long: boolean } {
+  if (!quotedHtml || typeof DOMParser === 'undefined') return { emails: quotedHtml ? 1 : 0, long: false };
+  const doc = new DOMParser().parseFromString(`<body>${quotedHtml}</body>`, 'text/html');
+  const emails = Math.max(1, doc.querySelectorAll('blockquote').length);
+  return { emails, long: emails > 1 || (doc.body.textContent || '').length > 900 };
+}
+
+/** The quote cut down to the email replied to: the earlier emails nested inside it, and their "wrote:" lines, go. */
+export function latestOnly(quotedHtml: string): string {
+  if (typeof DOMParser === 'undefined') return quotedHtml;
+  const doc = new DOMParser().parseFromString(`<body>${quotedHtml}</body>`, 'text/html');
+  const top = doc.body.querySelector('blockquote');
+  if (!top) return quotedHtml;
+  top.querySelectorAll('div.gmail_quote, div.wgm-quote, blockquote').forEach((el) => el.remove());
+  return doc.body.innerHTML;
+}
+
 /** The signature a draft gets: its own choice, or the From address's. */
 export function draftSignature(draft: Pick<Draft, 'fromEmail' | 'signatureOf'>, ctx: ComposeContext): string {
   if (draft.signatureOf === '') return '';

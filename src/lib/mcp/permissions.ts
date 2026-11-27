@@ -43,7 +43,7 @@ export const CAPABILITIES: Capability[] = [
   { id: 'calendar.groups', group: 'calendar', label: 'Set up Calendar Groups', description: 'Make and change groups like Work and Personal. Only changes what you see, never your calendars or events.', fallback: 'off', max: 'allow' },
   // Anything that reaches other people
   { id: 'send.email', group: 'send', label: 'Send email', description: 'Send a reply or new email. The app shows who it goes to and the whole message, and waits for you every time.', fallback: 'off', max: 'ask' },
-  { id: 'settings.ooo', group: 'send', label: 'Set Out of Office', description: 'Turn auto-replies on or off, with dates and a message. People who email you get the reply, so it always asks and shows you the whole thing.', fallback: 'ask', max: 'ask' },
+  { id: 'settings.ooo', group: 'send', label: 'Set Out of Office', description: 'Turn auto-replies on or off, with dates and a message. People who email you get the reply, so it asks and shows you the whole thing. Allow stays greyed out: you can instead set limits below, so an AI can set it from a chat when you are away from the computer.', fallback: 'ask', max: 'ask' },
   { id: 'send.forward', group: 'send', label: 'Forward to someone else', description: 'Pass an email on. It always asks, and it always shows the recipient.', fallback: 'off', max: 'ask' },
 ];
 
@@ -80,6 +80,38 @@ export interface McpSettings {
   maxPerMinute: number;
   /** Folders an AI may save attachments into (and folders inside them). Empty: it can't save anywhere. */
   saveFolders: string[];
+  /** Out of Office from a chat without the question in the app, within limits the person sets here. Off by default. */
+  oooRemote: OooRemote;
+}
+
+/** Limits for an AI turning Out of Office on without asking in the app (the person says yes in the chat instead). */
+export interface OooRemote {
+  on: boolean;
+  /** Who can get the reply. The AI can't make it wider than this. */
+  who: 'contacts' | 'everyone';
+  /** The longest it can be on, in days. It always needs a back date inside this. */
+  maxDays: number;
+  /** 'ai': the AI can write the message. 'templates': only the person's saved templates and default message. */
+  message: 'ai' | 'templates';
+}
+
+export const OOO_DAYS = [1, 2, 3, 5, 7, 14];
+export const defaultOooRemote = (): OooRemote => ({ on: false, who: 'contacts', maxDays: 3, message: 'ai' });
+
+/**
+ * What stops an AI setting Out of Office without asking: undefined when it is inside the limits, else the reason in
+ * words the AI can pass on. Turning it off is always allowed.
+ */
+export function oooRemoteRefusal(r: OooRemote, c: { off: boolean; audience: 'all' | 'contacts' | 'org'; ownWords: boolean; start?: number; end?: number; now: number }): string | undefined {
+  if (c.off) return undefined;
+  const set = 'Tell the person, or they can set it in Well Good Mail (Settings › AI Connection has these limits).';
+  if (r.who === 'contacts' && c.audience !== 'contacts') return `The person's limits only let an AI send Out of Office to their contacts. ${set}`;
+  if (r.message === 'templates' && c.ownWords) return `The person's limits only let an AI use their saved templates or their default message, not new words. Leave message and subject out, or name a template. ${set}`;
+  if (!c.end) return `The person's limits need a back date, so Out of Office can't stay on with no end. Add one. ${set}`;
+  const from = c.start && c.start > c.now ? c.start : c.now;
+  const days = (c.end - from) / 86400000;
+  if (days > r.maxDays) return `The person's limits allow Out of Office for up to ${r.maxDays} day${r.maxDays === 1 ? '' : 's'}, and this is about ${Math.ceil(days)}. ${set}`;
+  return undefined;
 }
 
 /** Accounts the AI may see at all. */
@@ -93,6 +125,7 @@ export const defaultMcp = (): McpSettings => ({
   idleMinutes: 60,
   maxPerMinute: 30,
   saveFolders: [],
+  oooRemote: defaultOooRemote(),
 });
 
 /** Choices for idle pausing, in minutes (0 is never). */
@@ -147,6 +180,12 @@ export function tidy(s: Partial<McpSettings> | undefined): McpSettings {
     noPauseUntil: typeof s?.noPauseUntil === 'number' ? s.noPauseUntil : undefined,
     expiresAt: typeof s?.expiresAt === 'number' ? s.expiresAt : undefined,
     maxPerMinute: Math.min(120, Math.max(1, Math.round(s?.maxPerMinute ?? base.maxPerMinute))),
+    oooRemote: {
+      on: Boolean(s?.oooRemote?.on),
+      who: s?.oooRemote?.who === 'everyone' ? 'everyone' : 'contacts',
+      maxDays: OOO_DAYS.includes(Number(s?.oooRemote?.maxDays)) ? Number(s?.oooRemote?.maxDays) : 3,
+      message: s?.oooRemote?.message === 'templates' ? 'templates' : 'ai',
+    },
     saveFolders: [...new Set((Array.isArray(s?.saveFolders) ? s.saveFolders : []).filter((f): f is string => typeof f === 'string' && f.trim().length > 0).map((f) => f.trim()))],
   };
 }

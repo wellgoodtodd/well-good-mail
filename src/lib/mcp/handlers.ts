@@ -1,6 +1,6 @@
 // What each tool actually does, and the MCP conversation around it. Every call goes through decide() first, works
 // only on accounts the person shared, and is written to the activity log. Pure enough to test without the app.
-import { decide, sharedAccounts, alwaysAsks, LEVEL_WORDS, RateLimit, type McpSettings } from './permissions';
+import { decide, sharedAccounts, alwaysAsks, LEVEL_WORDS, RateLimit, oooRemoteRefusal, type McpSettings } from './permissions';
 import { READY, TOOLS, logLine, toolByName, type ToolSpec } from './tools';
 import { cleanPreview, visibleText, stripFiller } from '../cleanText';
 import type { Account, Address, CalendarEvent, ContactGroup, Folder, FollowUp, Message } from '../types';
@@ -76,6 +76,8 @@ export interface McpWorld {
     status: (ids: string[]) => Promise<Record<string, AutoReply | { error: string }>>;
     turnOn: (plan: OooPlan) => Promise<{ done: string[]; failed: string[] }>;
     turnOff: (ids: string[]) => Promise<{ done: string[]; failed: string[] }>;
+    /** Tells the person in the app what was set without asking (with a way to turn it off again). */
+    announce?: (text: string, turnOff?: () => void) => void;
   };
   /** Contact groups (Google Contacts labels), the contacts to find people in by name, and the changes. */
   contactGroups?: {
@@ -614,6 +616,7 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
       const back = typeof args.back === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.back.trim()) ? args.back.trim() : undefined;
       if ((args.from && !from) || (args.back && !back)) throw new Error('Write dates as YYYY-MM-DD, like 2026-12-21.');
       const todayYmd = new Date(w.now).toISOString().slice(0, 10);
+      const remote = w.settings.oooRemote;
       const plan: OooPlan = {
         ...base,
         accounts: usable,
@@ -621,7 +624,8 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
         firstDay: from || todayYmd,
         backOn: back || base.backOn,
         useTimes: args.template ? base.useTimes : false,
-        audience: args.who === 'contacts' ? 'contacts' : args.who === 'organisation' ? 'org' : args.who === 'everyone' ? 'all' : base.audience,
+        // With the limits on and set to contacts, an AI that doesn't say who gets the contacts-only reply, whatever the page says.
+        audience: args.who === 'contacts' ? 'contacts' : args.who === 'organisation' ? 'org' : args.who === 'everyone' ? 'all' : remote.on && remote.who === 'contacts' ? 'contacts' : base.audience,
         own: typeof args.message === 'string' && args.message.trim() ? {} : base.own,
         message: typeof args.message === 'string' && args.message.trim()
           ? { subject: typeof args.subject === 'string' ? args.subject.trim().slice(0, 150) : base.message.subject, html: textToHtml(String(args.message).slice(0, 4000)) }
@@ -643,9 +647,24 @@ async function runTool(w: McpWorld, tool: ToolSpec, args: Record<string, unknown
         text: off ? '' : htmlToText(fillBackDate(msg.html, end)).slice(0, 3000),
       };
       const what = (names: string[]) => (off ? `turn off Out of Office for ${listNames(names)}` : `${plan.mode === 'dates' && from && from > todayYmd ? 'schedule' : 'turn on'} Out of Office for ${listNames(names)}`);
-      const { ids: allowed, leftOut } = await permitAccounts(w, tool, usable, what, undefined, preview);
+      // From a chat with no one at the computer: inside the limits the person set, it goes ahead without the question in the
+      // app (the AI has shown them everything and had their yes). Outside them it is refused, never quietly changed.
+      let allowed: string[];
+      let leftOut: string[] = [];
+      const ownWords = Boolean((typeof args.message === 'string' && args.message.trim()) || (typeof args.subject === 'string' && args.subject.trim()));
+      if (remote.on) {
+        const why = oooRemoteRefusal(remote, { off, audience: plan.audience, ownWords, start: windowOf(plan, w.now).start, end, now: w.now });
+        if (why) throw new Refused(why);
+        const barred = usable.filter((id) => decide(w.settings, tool.capability, id, w.now).verdict === 'deny');
+        allowed = usable.filter((id) => !barred.includes(id));
+        if (!allowed.length) throw new Refused('"Set Out of Office" is switched off for those accounts in Settings › AI Connection.');
+        leftOut = barred.map((id) => accName(byId(id)));
+      } else {
+        ({ ids: allowed, leftOut } = await permitAccounts(w, tool, usable, what, undefined, preview));
+      }
       const r = off ? await w.ooo.turnOff(allowed) : await w.ooo.turnOn({ ...plan, accounts: allowed });
       const doneNames = r.done.map((id) => accName(byId(id)));
+      if (remote.on && r.done.length) w.ooo.announce?.(`Out of Office ${off ? 'turned off' : 'set'} by the AI for ${listNames(doneNames)}${off ? '' : ` · ${preview.when.replace(/\.$/, '')} · ${preview.who}`}`, off ? undefined : () => void w.ooo?.turnOff(r.done));
       return {
         data: {
           done: doneNames,
