@@ -25,7 +25,7 @@ import { DraftFilesPreview, draftFile, openDraftFile } from './AttachmentPreview
 import { allAliases, draftSignature, stripOwnSignature } from '../lib/compose';
 import { askConfirm, askText } from '../lib/dialogs';
 import { undoSteps, record, undoEntry } from '../lib/history';
-import { useAiDrafts, saveDraftEverywhere, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, quickSave, quickSend, setDraftFiles, splitQuote, OUTSIDE_WRITER } from '../lib/mcp/aiDrafts';
+import { useAiDrafts, saveDraftEverywhere, refreshAiDrafts, syncDraftsSoon, setDraftFilter, setDraftGroup, addGroup, renameGroup, deleteGroup, groupCounts, groupColour, nextGroupColour, htmlToText, quickSave, quickSend, setDraftFiles, splitQuote, OUTSIDE_WRITER, useAiDraftsName } from '../lib/mcp/aiDrafts';
 import type { Account, Address, Draft, Message } from '../lib/types';
 
 /** One line of plain text for the preview, without a closing sign-off like "All the best," (it says nothing about the email). */
@@ -101,6 +101,7 @@ export function groupItems(id: string, name: string): MenuItem[] {
 }
 
 export function AiDrafts() {
+  const name = useAiDraftsName();
   const list = useAiDrafts((s) => s.list);
   const filter = useAiDrafts((s) => s.filter);
   const groups = useSettings((s) => s.draftGroups) || [];
@@ -297,7 +298,7 @@ export function AiDrafts() {
   return (
     <div className="screen ai-drafts" role="main">
       <div className="ai-drafts-inner">
-        <h1>AI Drafts</h1>
+        <h1>{name}</h1>
         <p className="lead">Drafts written by an AI app or made in Gmail. Nothing here has been sent. Open one to check it, change it and send it yourself.</p>
 
         {scheduled.length > 0 && (
@@ -334,7 +335,7 @@ export function AiDrafts() {
               <div className="ai-drafts-tools">
                 <div className="ai-drafts-search">
                   <Icon name="search" size={15} />
-                  <input type="search" placeholder="Search AI Drafts" aria-label="Search AI Drafts" value={query} onChange={(e) => setQuery(e.target.value)} />
+                  <input type="search" placeholder={`Search ${name}`} aria-label={`Search ${name}`} value={query} onChange={(e) => setQuery(e.target.value)} />
                 </div>
                 <button className="btn ghost ai-sort" aria-label={`Sort: ${sortLabel}`} onClick={(e) => menu.open((e.currentTarget as HTMLElement).getBoundingClientRect(), [
                   { heading: 'Sort' },

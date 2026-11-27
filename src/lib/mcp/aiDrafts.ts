@@ -394,3 +394,10 @@ export async function fileServerDrafts(accountId: string, ids: string[], groupNa
   await refreshAiDrafts();
   return { filed: n, missing };
 }
+
+/**
+ * What the person calls this place. They can rename the AI Drafts heading in the sidebar (right-click it, Rename...); only
+ * the words shown change. The Gmail labels ("AI Drafts", "AI Writer/...") and how drafts are found stay as they are.
+ */
+export const AI_DRAFTS_NAME = 'AI Drafts';
+export const useAiDraftsName = () => useSettings((st) => st.sidebarNames['sec:aidrafts']) || AI_DRAFTS_NAME;

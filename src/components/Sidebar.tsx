@@ -15,7 +15,7 @@ import { addAccountItems } from '../lib/accountMenu';
 import { askText, askConfirm } from '../lib/dialogs';
 import { dueReminders, alertMute } from '../lib/reminders';
 import { inGroupView } from '../lib/meetings';
-import { useAiDrafts, groupCounts, setDraftFilter, groupColour } from '../lib/mcp/aiDrafts';
+import { useAiDrafts, groupCounts, setDraftFilter, groupColour, useAiDraftsName, AI_DRAFTS_NAME } from '../lib/mcp/aiDrafts';
 import { groupItems, newGroup } from './AiDrafts';
 import { openSmartEditor, smartItems } from './SmartMailboxEditor';
 import { matchSmart } from '../lib/smartMailboxes';
@@ -468,6 +468,7 @@ export function Sidebar({ width }: { width: number }) {
   const [picker, setPicker] = useState<{ accountId: string; anchor: { x: number; y: number } } | null>(null);
   const pickColour = (accountId: string, anchor: { x: number; y: number }) => setPicker({ accountId, anchor });
   const aiDrafts = useAiDrafts((s) => s.list);
+  const aiName = useAiDraftsName();
   const draftFilter = useAiDrafts((s) => s.filter);
   const allMessages = useDeferredValue(useMail((st) => st.messages));
   const [showHiddenSmart, setShowHiddenSmart] = useState(false);
@@ -709,7 +710,7 @@ s.groups.length > 0 && (
                 <span className="twisty" onClick={(e) => { e.stopPropagation(); toggleGroups(); }} role="button" aria-label={groupsOpen ? 'Hide the groups' : 'Show the groups'} aria-expanded={groupsOpen}>
                   <Icon name={groupsOpen ? 'chevronDown' : 'chevronRight'} size={13} />
                 </span>
-                <Icon name="sparkle" /><span className="name">All AI Drafts</span>{n.all && !groupsOpen ? <span className="count">{n.all}</span> : null}
+                <Icon name="sparkle" /><span className="name">{aiName === AI_DRAFTS_NAME ? 'All AI Drafts' : 'All'}</span>{n.all && !groupsOpen ? <span className="count">{n.all}</span> : null}
               </button>
             </div>
             {groupsOpen && groups.map((g) => (
